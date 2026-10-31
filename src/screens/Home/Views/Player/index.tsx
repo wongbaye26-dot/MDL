@@ -557,8 +557,14 @@ export default () => {
               )
             : (
               <View style={styles.lyricArea} onLayout={e => { lyricAreaH.current = e.nativeEvent.layout.height }}>
-                <RNImage source={FADE_TOP} resizeMode='stretch' style={styles.lyricFadeTop} />
-                <RNImage source={FADE_BOTTOM} resizeMode='stretch' style={styles.lyricFadeBottom} />
+                {/* 注意：Image 只写 left/right 会按图片自身像素宽渲染（21px），
+                    必须外包一层 View 由 View 吃布局 */}
+                <View pointerEvents='none' style={styles.lyricFadeTop}>
+                  <RNImage source={FADE_TOP} resizeMode='stretch' style={styles.bgImg} />
+                </View>
+                <View pointerEvents='none' style={styles.lyricFadeBottom}>
+                  <RNImage source={FADE_BOTTOM} resizeMode='stretch' style={styles.bgImg} />
+                </View>
                 {
                   lines.length
                     ? (
@@ -857,11 +863,17 @@ const styles = createStyle({
     aspectRatio: 7,
     marginTop: 2,
     overflow: 'hidden',
-    opacity: 0.24,
+    opacity: 0.18,
   },
   reflectionImg: {
+    // 按封面原尺寸铺（宽 100% + 正方形），再垂直翻转：
+    // 这样条带里露出的是封面「最底部那一条」的镜像，才是真正的倒影；
+    // 直接 height:100% 会把整张图压扁进条带，看起来像一条色块
+    position: 'absolute',
+    left: 0,
+    top: 0,
     width: '100%',
-    height: '100%',
+    aspectRatio: 1,
     transform: [{ scaleY: -1 }],
   },
   // 四边柔化：上下强、左右弱
@@ -869,31 +881,31 @@ const styles = createStyle({
     position: 'absolute',
     left: 0,
     right: 0,
-    height: '11%',
+    height: '7%',
     overflow: 'hidden',
   },
   edgeTop: {
     top: 0,
-    opacity: 0.85,
+    opacity: 0.68,
   },
   edgeBottom: {
     bottom: 0,
-    opacity: 0.85,
+    opacity: 0.68,
   },
   edgeStripV: {
     position: 'absolute',
     top: 0,
     bottom: 0,
-    width: '7%',
+    width: '5%',
     overflow: 'hidden',
   },
   edgeLeft: {
     left: 0,
-    opacity: 0.5,
+    opacity: 0.34,
   },
   edgeRight: {
     right: 0,
-    opacity: 0.5,
+    opacity: 0.34,
   },
   edgeImgH: {
     position: 'absolute',
@@ -934,7 +946,7 @@ const styles = createStyle({
     left: 0,
     right: 0,
     top: 0,
-    height: 90,
+    height: 70,
     zIndex: 2,
   },
   lyricFadeBottom: {
@@ -942,7 +954,7 @@ const styles = createStyle({
     left: 0,
     right: 0,
     bottom: 0,
-    height: 120,
+    height: 90,
     zIndex: 2,
     transform: [{ scaleY: -1 }],
   },
