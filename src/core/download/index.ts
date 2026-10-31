@@ -89,12 +89,30 @@ export const init = async() => {
 }
 
 /** 边听边存：播放的在线歌曲自动加入下载队列 */
-const handleAutoSave = (playMusicInfo: LX.Player.PlayMusicInfo) => {
+const handleAutoSave = async(playMusicInfo: LX.Player.PlayMusicInfo) => {
   if (!settingState.setting['download.autoSaveWhilePlaying']) return
   const musicInfo = playMusicInfo.musicInfo
   // 本地歌曲、下载任务不需要再存
   if ('metadata' in musicInfo) return
   if (musicInfo.source == null) return
+
+  // 去重：检查下载列表中是否已有该歌曲（任意音质）
+  const musicId = musicInfo.id
+  const exists = downloadState.list.some(task =>
+    task.metadata.musicInfo.id === musicId
+  )
+  if (exists) return
+
+  // 去重：检查本地音乐中是否已有该歌曲文件
+  try {
+    const { getLocalMusicList } = await import('@/core/localMusic')
+    const localList = await getLocalMusicList()
+    const localExists = localList.some(item =>
+      item.name === musicInfo.name && item.singer === musicInfo.singer
+    )
+    if (localExists) return
+  } catch {}
+
   addTasks([musicInfo as LX.Music.MusicInfoOnline], { listId: playMusicInfo.listId })
 }
 

@@ -98,6 +98,24 @@ const getMusicPlayUrl = async(musicInfo: LX.Music.MusicInfo | LX.Download.ListIt
   setStatusText(global.i18n.t('player__getting_url'))
   addLoadTimeout()
 
+  // 本地优先播放：如果是在线歌曲，先检查本地是否已有相同歌曲的文件
+  if (!('progress' in musicInfo) && musicInfo.source !== 'local' && !isRefresh) {
+    try {
+      const { getLocalMusicList } = await import('@/core/localMusic')
+      const localList = await getLocalMusicList()
+      const localMatch = localList.find(item =>
+        item.name === musicInfo.name && item.singer === musicInfo.singer
+      )
+      if (localMatch && localMatch.meta.filePath) {
+        const RNFS = await import('react-native-fs')
+        const exists = await RNFS.exists(localMatch.meta.filePath)
+        if (exists) {
+          return localMatch.meta.filePath
+        }
+      }
+    } catch {}
+  }
+
   // const type = getPlayType(settingState.setting['player.isPlayHighQuality'], musicInfo)
   let toggleMusicInfo = ('progress' in musicInfo ? musicInfo.metadata.musicInfo : musicInfo).meta.toggleMusicInfo
 

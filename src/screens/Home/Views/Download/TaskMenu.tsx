@@ -1,7 +1,7 @@
 import { forwardRef, useImperativeHandle, useRef, useState } from 'react'
 import Menu, { type Menus, type MenuType, type Position } from '@/components/common/Menu'
 
-export type TaskMenuAction = 'start' | 'pause' | 'retry' | 'remove' | 'removeWithFile'
+export type TaskMenuAction = 'start' | 'pause' | 'retry' | 'remove' | 'removeWithFile' | 'play' | 'collect'
 
 export interface TaskMenuType {
   show: (task: LX.Download.ListItem, position: Position) => void
@@ -46,7 +46,11 @@ export default forwardRef<TaskMenuType, TaskMenuProps>(({ onAction }, ref) => {
 
 const buildMenus = (task: LX.Download.ListItem): Menus => {
   const menus: Array<{ action: string, label: string, disabled?: boolean }> = []
-  if (!task.isComplate) {
+  if (task.isComplate) {
+    menus.push({ action: 'play', label: '播放' })
+    menus.push({ action: 'retry', label: '重新下载' })
+    menus.push({ action: 'collect', label: '加入收藏' })
+  } else {
     if (task.status === 'run') {
       menus.push({ action: 'pause', label: '暂停下载' })
     } else if (task.status === 'error') {
@@ -54,8 +58,6 @@ const buildMenus = (task: LX.Download.ListItem): Menus => {
     } else {
       menus.push({ action: 'start', label: '开始下载' })
     }
-  } else {
-    menus.push({ action: 'retry', label: '重新下载' })
   }
   menus.push({ action: 'remove', label: '从列表移除（保留文件）' })
   menus.push({ action: 'removeWithFile', label: '删除任务和文件' })

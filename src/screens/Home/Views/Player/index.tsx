@@ -3,6 +3,7 @@ import { Modal, ScrollView, StyleSheet, TouchableOpacity, View, Image as RNImage
 
 import Text from '@/components/common/Text'
 import Image from '@/components/common/Image'
+import PicImage from '@/components/common/PicImage'
 import { Icon } from '@/components/common/Icon'
 import Slider from '@react-native-community/slider'
 import { useTheme } from '@/store/theme/hook'
@@ -106,20 +107,38 @@ export default () => {
   const lyricSize = LYRIC_SIZES[sizeIndex]
   const coverSize = useMemo(() => Math.min(width * 0.84, height * 0.44), [width, height])
 
-  // 歌词模式用更细的时间粒度做逐字进度
+  // 歌词模式用 requestAnimationFrame 做流畅逐字进度
   useEffect(() => {
     if (mode !== 'lyric') return
     let stopped = false
-    const tick = () => {
-      void getPosition().then(t => {
-        if (!stopped) setNow(t)
-      }).catch(() => {})
+    let rafId: number
+    let lastFetch = 0
+    let cachedPos = 0
+
+    const tick = (ts: number) => {
+      if (stopped) return
+      // 每 500ms 拉一次真实位置，中间用插值平滑
+      if (ts - lastFetch > 500) {
+        lastFetch = ts
+        void getPosition().then(t => {
+          if (!stopped) cachedPos = t
+        }).catch(() => {})
+      }
+      // 用 cachedPos + 时间差做插值估算
+      setNow(cachedPos)
+      rafId = requestAnimationFrame(tick)
     }
-    tick()
-    const timer = setInterval(tick, 160)
+    // 初始拉一次
+    void getPosition().then(t => {
+      if (!stopped) {
+        cachedPos = t
+        setNow(t)
+        rafId = requestAnimationFrame(tick)
+      }
+    }).catch(() => {})
     return () => {
       stopped = true
-      clearInterval(timer)
+      if (rafId) cancelAnimationFrame(rafId)
     }
   }, [mode])
 
@@ -266,11 +285,11 @@ export default () => {
           {
             mode === 'lyric'
               ? (
-                <View style={styles.topTitle}>
+                <TouchableOpacity style={styles.topTitle} activeOpacity={0.7} onPress={handleToggleMode}>
                   <Text size={16} color='#FFFFFF' numberOfLines={1} style={styles.topName}>{musicInfo.name || '未在播放'}</Text>
                   <Text size={11} color='rgba(255,255,255,0.6)' numberOfLines={1} style={styles.topSinger}>{musicInfo.singer}</Text>
-                </View>
-                )
+                </TouchableOpacity>
+              )
               : null
           }
           <View style={styles.topBtn} />
@@ -283,8 +302,10 @@ export default () => {
                 <View style={{ ...styles.coverShadow, width: coverSize, height: coverSize }}>
                   {
                     pic
-                      ? <RNImage source={{ uri: pic }} style={{ width: coverSize, height: coverSize, borderRadius: 20 }} resizeMode='cover' />
-                      : <View style={{ width: coverSize, height: coverSize, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.08)' }} />
+                      ? <RNImage source={{ uri: pic }} style={{ width: coverSize, height: coverSize, borderRadius: 24 }} resizeMode='cover' />
+                      : <View style={{ width: coverSize, height: coverSize, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.08)', justifyContent: 'center', alignItems: 'center' }}>
+                        <Icon name='album' size={coverSize * 0.3} color='rgba(255,255,255,0.15)' />
+                      </View>
                   }
                 </View>
               </TouchableOpacity>
@@ -302,8 +323,10 @@ export default () => {
                       >
                         {
                           lines.map((line, index) => (
-                            <View
+                            <TouchableOpacity
                               key={`${index}_${line.time}`}
+                              activeOpacity={0.8}
+                              onPress={handleToggleMode}
                               onLayout={e => { lineOffsets.current[index] = e.nativeEvent.layout.y }}
                             >
                               <LyricLine
@@ -312,20 +335,20 @@ export default () => {
                                 active={index === currentLine}
                                 ratio={index === currentLine ? currentRatio : 0}
                               />
-                            </View>
+                            </TouchableOpacity>
                           ))
                         }
                       </ScrollView>
-                      )
+                    )
                     : (
-                      <View style={styles.lyricEmpty}>
+                      <TouchableOpacity activeOpacity={0.8} style={styles.lyricEmpty} onPress={handleToggleMode}>
                         <Icon name='comment-text-outline' size={30} color='rgba(255,255,255,0.35)' />
-                        <Text size={12} color='rgba(255,255,255,0.5)' style={styles.lyricEmptyText}>暂无歌词</Text>
-                      </View>
-                      )
+                        <Text size={12} color='rgba(255,255,255,0.5)' style={styles.lyricEmptyText}>暂无歌词 · 点击返回</Text>
+                      </TouchableOpacity>
+                    )
                 }
               </View>
-              )
+            )
         }
 
         {
@@ -375,7 +398,7 @@ export default () => {
             onSlidingComplete={handleSeek}
           />
           <View style={styles.timeRow}>
-            <Text size={10} color='rgba(255,255,255,0.6)'>{formatTime(currentTime)}</Text>
+            <Text size={11} color='rgba(255,255,255,0.6)' style={styles.timeText}>{formatTime(currentTime)}</Text>
             {
               mode === 'lyric'
                 ? (
@@ -383,7 +406,7 @@ export default () => {
                   )
                 : null
             }
-            <Text size={10} color='rgba(255,255,255,0.6)'>{formatTime(maxTime)}</Text>
+            <Text size={11} color='rgba(255,255,255,0.6)' style={styles.timeText}>{formatTime(maxTime)}</Text>
           </View>
           {
             audioMeta
@@ -426,7 +449,7 @@ export default () => {
                 queue.map((item, index) => (
                   <View key={`${item.id}_${index}`} style={styles.queueRow}>
                     <Text size={12} color={theme['c-450']} style={styles.queueIndex}>{index + 1}</Text>
-                    <Image url={item.meta?.picUrl} style={styles.queueCover} />
+                    <PicImage musicInfo={item} listId={playerState.playInfo.playerListId} style={styles.queueCover} />
                     <View style={styles.queueInfo}>
                       <Text size={13} numberOfLines={1}>{item.name}</Text>
                       <Text size={10} color={theme['c-450']} numberOfLines={1} style={styles.queueSinger}>{item.singer}</Text>
@@ -491,12 +514,12 @@ const styles = createStyle({
     justifyContent: 'center',
   },
   coverShadow: {
-    borderRadius: 20,
-    elevation: 16,
+    borderRadius: 24,
+    elevation: 20,
     shadowColor: '#000000',
-    shadowOpacity: 0.45,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.5,
+    shadowRadius: 30,
+    shadowOffset: { width: 0, height: 16 },
   },
   currentLyric: {
     marginBottom: 6,
@@ -590,21 +613,21 @@ const styles = createStyle({
     paddingTop: 4,
   },
   bottomGlass: {
-    marginLeft: 10,
-    marginRight: 10,
+    marginLeft: 12,
+    marginRight: 12,
     marginTop: 6,
-    marginBottom: 6,
-    borderRadius: 26,
+    marginBottom: 8,
+    borderRadius: 28,
     borderWidth: 0.5,
-    borderColor: 'rgba(255,255,255,0.10)',
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    paddingBottom: 4,
+    borderColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    paddingBottom: 6,
     overflow: 'hidden',
   },
   progressArea: {
-    paddingLeft: 16,
-    paddingRight: 16,
-    paddingTop: 6,
+    paddingLeft: 18,
+    paddingRight: 18,
+    paddingTop: 8,
   },
   slider: {
     width: '100%',
@@ -616,7 +639,11 @@ const styles = createStyle({
     justifyContent: 'space-between',
     paddingLeft: 6,
     paddingRight: 6,
-    marginTop: -4,
+    marginTop: -2,
+  },
+  timeText: {
+    flexShrink: 0,
+    fontVariant: ['tabular-nums'],
   },
   timeCenter: {
     flexGrow: 1,
@@ -629,10 +656,10 @@ const styles = createStyle({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingLeft: 26,
-    paddingRight: 26,
-    paddingTop: 8,
-    paddingBottom: 14,
+    paddingLeft: 28,
+    paddingRight: 28,
+    paddingTop: 10,
+    paddingBottom: 16,
   },
   ctrlBtn: {
     width: 44,
@@ -641,8 +668,10 @@ const styles = createStyle({
     alignItems: 'center',
   },
   playBtn: {
-    width: 60,
-    height: 60,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(255,255,255,0.15)',
     justifyContent: 'center',
     alignItems: 'center',
   },

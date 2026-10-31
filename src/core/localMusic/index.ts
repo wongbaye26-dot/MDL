@@ -136,3 +136,42 @@ export const scanLocalMusic = async(onProgress?: (count: number) => void): Promi
 export const getTotalSize = (list: LX.Music.MusicInfoLocal[]) => {
   return list.reduce((total, item) => total + (item.meta.size ?? 0), 0)
 }
+
+/**
+ * 删除本地音乐文件并从列表移除
+ * @param item 本地音乐信息
+ * @param deleteFile 是否同时删除物理文件
+ */
+export const deleteLocalMusic = async(item: LX.Music.MusicInfoLocal, deleteFile: boolean): Promise<void> => {
+  const list = await getLocalMusicList()
+  const newList = list.filter(m => m.id !== item.id)
+  cachedList = newList
+  await saveData(STORAGE_KEY, newList)
+  if (deleteFile && item.meta.filePath) {
+    try {
+      const RNFS = await import('react-native-fs')
+      await RNFS.unlink(item.meta.filePath)
+    } catch {}
+  }
+}
+
+/**
+ * 更新本地音乐的元信息（名称、歌手、专辑）
+ * 仅更新缓存和持久化，不写入物理文件标签
+ */
+export const updateLocalMusicMeta = async(item: LX.Music.MusicInfoLocal, updates: {
+  name?: string
+  singer?: string
+  albumName?: string
+}): Promise<void> => {
+  const list = await getLocalMusicList()
+  const index = list.findIndex(m => m.id === item.id)
+  if (index < 0) return
+  const updated = { ...list[index] }
+  if (updates.name !== undefined) updated.name = updates.name
+  if (updates.singer !== undefined) updated.singer = updates.singer
+  if (updates.albumName !== undefined) updated.meta = { ...updated.meta, albumName: updates.albumName }
+  list[index] = updated
+  cachedList = list
+  await saveData(STORAGE_KEY, list)
+}

@@ -4,6 +4,7 @@ import { ScrollView, TouchableOpacity, View } from 'react-native'
 import Text from '@/components/common/Text'
 import { Icon } from '@/components/common/Icon'
 import Image from '@/components/common/Image'
+import PicImage from '@/components/common/PicImage'
 import DorpDownMenu from '@/components/common/DorpDownMenu'
 import { useTheme } from '@/store/theme/hook'
 import { useDownloadList } from '@/store/download'
@@ -70,7 +71,7 @@ const RecentRow = ({ musicInfo, onPlay, onMenu }: {
   return (
     <View style={styles.row}>
       <TouchableOpacity style={styles.rowMain} activeOpacity={0.7} onPress={onPlay}>
-        <Image url={musicInfo.meta?.picUrl} style={styles.rowCover} />
+        <PicImage musicInfo={musicInfo} style={styles.rowCover} />
         <View style={styles.rowInfo}>
           <Text size={14} numberOfLines={1}>{musicInfo.name}</Text>
           <Text size={11} color={theme['c-450']} numberOfLines={1} style={styles.rowSub}>{musicInfo.singer}</Text>
@@ -267,7 +268,7 @@ export default () => {
                       >
                         <View style={styles.rowMain}>
                           <View style={styles.downloadCoverWrap}>
-                            <Image url={task.metadata.musicInfo.meta?.picUrl} style={styles.rowCover} />
+                            <PicImage musicInfo={task} style={styles.rowCover} />
                             <View style={{
                               ...styles.downloadBadge,
                               backgroundColor: task.isComplate ? 'rgba(52, 211, 153, 0.92)' : 'rgba(168, 85, 247, 0.92)',

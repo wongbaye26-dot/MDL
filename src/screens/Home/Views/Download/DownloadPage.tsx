@@ -11,6 +11,8 @@ import { getLocalMusicList } from '@/core/localMusic'
 import { overwriteListMusics } from '@/core/list'
 import listAction from '@/store/list/action'
 import { playList } from '@/core/player/player'
+import { collectMusic } from '@/core/player/player'
+import { getListMusicSync } from '@/utils/listManage'
 import { LIST_IDS } from '@/config/constant'
 import Toolbar from './Toolbar'
 import TaskItem from './TaskItem'
@@ -84,8 +86,22 @@ export default () => {
         removeTask(task.id, true)
         toast('已删除任务')
         break
+      case 'play':
+        handleOpen(task)
+        break
+      case 'collect': {
+        const musicInfo = task.metadata.musicInfo
+        const loveList = getListMusicSync(LIST_IDS.LOVE)
+        if (loveList.some(m => m.id === musicInfo.id)) {
+          toast('已在收藏列表中')
+        } else {
+          void collectMusic()
+          toast('已收藏到「我的收藏」')
+        }
+        break
+      }
     }
-  }, [])
+  }, [handleOpen])
 
   const handleStartAll = useCallback(() => {
     startAll()

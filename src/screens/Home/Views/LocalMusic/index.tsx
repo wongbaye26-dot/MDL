@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { FlatList, TouchableOpacity, View } from 'react-native'
+import { FlatList, TouchableOpacity, View, Modal, TextInput, StyleSheet } from 'react-native'
 
 import Text from '@/components/common/Text'
 import Image from '@/components/common/Image'
@@ -8,13 +8,14 @@ import DorpDownMenu from '@/components/common/DorpDownMenu'
 import { useTheme } from '@/store/theme/hook'
 import { createStyle, toast } from '@/utils/tools'
 import { formatSize } from '@/core/download/utils'
-import { getLocalMusicList, scanLocalMusic, getTotalSize } from '@/core/localMusic'
+import { getLocalMusicList, scanLocalMusic, getTotalSize, deleteLocalMusic, updateLocalMusicMeta } from '@/core/localMusic'
 import { readPic } from '@/utils/localMediaMetadata'
 import { overwriteListMusics } from '@/core/list'
 import listAction from '@/store/list/action'
 import { playList } from '@/core/player/player'
 import { addTempPlayList } from '@/core/player/tempPlayList'
 import { LIST_IDS } from '@/config/constant'
+import RNFS from 'react-native-fs'
 
 const LOCAL_LIST_ID = 'local_music'
 
@@ -122,6 +123,28 @@ export default () => {
     toast('已加入稍后播放')
   }, [])
 
+  const handleDelete = useCallback(async(item: LX.Music.MusicInfoLocal, deleteFile: boolean) => {
+    await deleteLocalMusic(item, deleteFile)
+    const newList = await getLocalMusicList()
+    setList(newList)
+    toast(deleteFile ? '已删除文件和记录' : '已从列表移除')
+  }, [])
+
+  const [editingItem, setEditingItem] = useState<LX.Music.MusicInfoLocal | null>(null)
+
+  const handleEdit = useCallback((item: LX.Music.MusicInfoLocal) => {
+    setEditingItem(item)
+  }, [])
+
+  const handleSaveEdit = useCallback(async(name: string, singer: string, albumName: string) => {
+    if (!editingItem) return
+    await updateLocalMusicMeta(editingItem, { name, singer, albumName })
+    const newList = await getLocalMusicList()
+    setList(newList)
+    setEditingItem(null)
+    toast('已更新音乐信息')
+  }, [editingItem])
+
   const renderItem = useCallback(({ item, index }: { item: LX.Music.MusicInfoLocal, index: number }) => (
     <LocalRow
       item={item}
@@ -129,10 +152,13 @@ export default () => {
       onPress={() => { void handlePlay(index) }}
       onMenu={action => {
         if (action === 'play') void handlePlay(index)
-        else handlePlayLater(item)
+        else if (action === 'playLater') handlePlayLater(item)
+        else if (action === 'delete') void handleDelete(item, false)
+        else if (action === 'deleteFile') void handleDelete(item, true)
+        else if (action === 'edit') handleEdit(item)
       }}
     />
-  ), [handlePlay, handlePlayLater])
+  ), [handlePlay, handlePlayLater, handleDelete, handleEdit])
 
   return (
     <View style={styles.container}>
@@ -181,6 +207,12 @@ export default () => {
           </View>
         )}
       />
+
+      <EditMusicModal
+        item={editingItem}
+        onClose={() => { setEditingItem(null) }}
+        onSave={handleSaveEdit}
+      />
     </View>
   )
 }
@@ -195,6 +227,9 @@ const LocalRow = ({ item, index, onPress, onMenu }: {
   const menus = useMemo(() => [
     { action: 'play', label: '播放' },
     { action: 'playLater', label: '稍后播放' },
+    { action: 'edit', label: '编辑信息' },
+    { action: 'delete', label: '从列表移除' },
+    { action: 'deleteFile', label: '删除文件' },
   ], [])
 
   const meta = useMemo(() => {
@@ -223,6 +258,119 @@ const LocalRow = ({ item, index, onPress, onMenu }: {
     </View>
   )
 }
+
+const EditMusicModal = ({ item, onClose, onSave }: {
+  item: LX.Music.MusicInfoLocal | null
+  onClose: () => void
+  onSave: (name: string, singer: string, albumName: string) => void
+}) => {
+  const theme = useTheme()
+  const [name, setName] = useState('')
+  const [singer, setSinger] = useState('')
+  const [albumName, setAlbumName] = useState('')
+
+  useEffect(() => {
+    if (item) {
+      setName(item.name || '')
+      setSinger(item.singer || '')
+      setAlbumName(item.meta.albumName || '')
+    }
+  }, [item])
+
+  if (!item) return null
+
+  return (
+    <Modal visible transparent animationType='slide' onRequestClose={onClose}>
+      <TouchableOpacity style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' }} activeOpacity={1} onPress={onClose}>
+        <View style={{ ...editStyles.sheet, backgroundColor: theme['c-content-background'] }} onStartShouldSetResponder={() => true}>
+          <Text size={15} style={editStyles.title}>编辑音乐信息</Text>
+          <View style={editStyles.field}>
+            <Text size={12} color={theme['c-450']} style={editStyles.label}>歌名</Text>
+            <TextInput
+              style={{ ...editStyles.input, backgroundColor: theme['c-primary-alpha-900'], color: theme['c-font'] }}
+              value={name}
+              onChangeText={setName}
+              placeholder='输入歌名'
+              placeholderTextColor={theme['c-350']}
+            />
+          </View>
+          <View style={editStyles.field}>
+            <Text size={12} color={theme['c-450']} style={editStyles.label}>歌手</Text>
+            <TextInput
+              style={{ ...editStyles.input, backgroundColor: theme['c-primary-alpha-900'], color: theme['c-font'] }}
+              value={singer}
+              onChangeText={setSinger}
+              placeholder='输入歌手'
+              placeholderTextColor={theme['c-350']}
+            />
+          </View>
+          <View style={editStyles.field}>
+            <Text size={12} color={theme['c-450']} style={editStyles.label}>专辑</Text>
+            <TextInput
+              style={{ ...editStyles.input, backgroundColor: theme['c-primary-alpha-900'], color: theme['c-font'] }}
+              value={albumName}
+              onChangeText={setAlbumName}
+              placeholder='输入专辑名'
+              placeholderTextColor={theme['c-350']}
+            />
+          </View>
+          <View style={editStyles.btnRow}>
+            <TouchableOpacity style={editStyles.btn} onPress={onClose}>
+              <Text size={14} color={theme['c-450']}>取消</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={{ ...editStyles.btn, ...editStyles.saveBtn }} onPress={() => { onSave(name, singer, albumName) }}>
+              <Text size={14} color='#FFFFFF'>保存</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </TouchableOpacity>
+    </Modal>
+  )
+}
+
+const editStyles = StyleSheet.create({
+  sheet: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingLeft: 20,
+    paddingRight: 20,
+    paddingTop: 20,
+    paddingBottom: 30,
+  },
+  title: {
+    fontWeight: '700',
+    marginBottom: 18,
+  },
+  field: {
+    marginBottom: 14,
+  },
+  label: {
+    marginBottom: 6,
+  },
+  input: {
+    height: 42,
+    borderRadius: 10,
+    paddingLeft: 12,
+    paddingRight: 12,
+    fontSize: 14,
+  },
+  btnRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 8,
+  },
+  btn: {
+    paddingLeft: 18,
+    paddingRight: 18,
+    paddingTop: 10,
+    paddingBottom: 10,
+    borderRadius: 10,
+  },
+  saveBtn: {
+    backgroundColor: '#6C5CE7',
+    marginLeft: 10,
+  },
+})
 
 const styles = createStyle({
   container: {

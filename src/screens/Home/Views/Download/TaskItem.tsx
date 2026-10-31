@@ -1,7 +1,7 @@
 import { memo, useRef } from 'react'
 import { View, TouchableOpacity, StyleSheet } from 'react-native'
 import Text from '@/components/common/Text'
-import Image from '@/components/common/Image'
+import PicImage from '@/components/common/PicImage'
 import { Icon } from '@/components/common/Icon'
 import { useTheme } from '@/store/theme/hook'
 import { createStyle } from '@/utils/tools'
@@ -71,7 +71,7 @@ export default memo(({
         onPress={() => { onOpen(task) }}
         onLongPress={handleShowMenu}
       >
-        <Image url={musicInfo.meta?.picUrl} style={styles.cover} />
+        <PicImage musicInfo={task} style={styles.cover} />
         {
           !isCompleted
             ? (

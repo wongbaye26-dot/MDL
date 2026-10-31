@@ -28,25 +28,21 @@ const styles = createStyle({
   },
   menu: {
     position: 'absolute',
-    // borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'lightgray',
-    borderRadius: 2,
+    borderColor: 'rgba(128,128,128,0.15)',
+    borderRadius: 14,
     backgroundColor: 'white',
-    elevation: 3,
+    elevation: 8,
+    shadowColor: '#000000',
+    shadowOpacity: 0.18,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 4 },
+    overflow: 'hidden',
   },
   menuItem: {
-    paddingLeft: 10,
-    paddingRight: 10,
-    // height: menuItemHeight,
-    // width: menuItemWidth,
-    // alignItems: 'center',
+    paddingLeft: 16,
+    paddingRight: 16,
     justifyContent: 'center',
-    // backgroundColor: '#ccc',
   },
-  // menuText: {
-  //   // textAlign: 'center',
-  //   fontSize: 14,
-  // },
 })
 
 interface Props<M extends Menus = Menus> {
