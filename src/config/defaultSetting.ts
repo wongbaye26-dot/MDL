@@ -94,6 +94,8 @@ const defaultSetting: LX.AppSetting = {
   // 歌词显示
   'player.isWordByWordLyric': true,
   'player.isSingleLineLyric': false,
+  // 底部导航胶囊左右滑动切歌
+  'common.navSwipeSwitch': true,
 }
 
 

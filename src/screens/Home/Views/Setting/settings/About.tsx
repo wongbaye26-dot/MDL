@@ -44,7 +44,7 @@ export default memo(() => {
           <Text size={11} color={theme['c-450']} style={styles.brandDesc}>深夜下载 · 情绪收藏</Text>
         </View>
         <View style={{ ...styles.versionTag, backgroundColor: theme['c-primary-alpha-800'] }}>
-          <Text size={10} color={theme['c-primary-light-200']}>v{currentVer}</Text>
+          <Text size={10} color={theme['c-primary-light-200']} numberOfLines={1}>v{currentVer}</Text>
         </View>
       </View>
 
@@ -117,6 +117,8 @@ const styles = createStyle({
     marginTop: 4,
   },
   versionTag: {
+    flexShrink: 0,
+    alignSelf: 'center',
     paddingLeft: 9,
     paddingRight: 9,
     paddingTop: 4,

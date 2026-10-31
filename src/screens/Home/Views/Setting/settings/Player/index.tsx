@@ -15,6 +15,7 @@ import IsS2T from './IsS2T'
 import MaxCache from './MaxCache'
 import IsWordByWordLyric from './IsWordByWordLyric'
 import IsSingleLineLyric from './IsSingleLineLyric'
+import NavSwipeSwitch from './NavSwipeSwitch'
 
 export default memo(() => {
   return (
@@ -25,6 +26,7 @@ export default memo(() => {
         <IsHandleAudioFocus />
         <IsEnableAudioOffload />
         <PlayHighQuality />
+        <NavSwipeSwitch />
       </Section>
       <Section title='歌词'>
         <IsWordByWordLyric />

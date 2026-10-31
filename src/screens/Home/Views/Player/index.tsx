@@ -12,6 +12,7 @@ import {
 
 import Text from '@/components/common/Text'
 import PicImage from '@/components/common/PicImage'
+import MarqueeText from '@/components/common/MarqueeText'
 import { Icon } from '@/components/common/Icon'
 import Slider from '@react-native-community/slider'
 import { useTheme } from '@/store/theme/hook'
@@ -55,6 +56,8 @@ const LYRIC_SIZES = [15, 17, 19, 22]
  */
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const FADE_BOTTOM = require('@/resources/images/fade-bottom.png')
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const FADE_TOP = require('@/resources/images/fade-top.png')
 
 const formatTime = (time: number) => {
   if (!time || time < 0 || !Number.isFinite(time)) return '00:00'
@@ -74,7 +77,7 @@ const findLine = (lines: Line[], timeMs: number) => {
   return index
 }
 
-const LyricLine = memo(({ text, active, ratio, size, wordByWord, activeColor }: {
+const LyricLine = memo(({ text, active, ratio, size, wordByWord, activeColor, distance = 0 }: {
   text: string
   active: boolean
   ratio: number
@@ -82,13 +85,15 @@ const LyricLine = memo(({ text, active, ratio, size, wordByWord, activeColor }: 
   wordByWord: boolean
   /** 当前行高亮色（主题色） */
   activeColor: string
+  /** 距离当前行几行：越远越淡（模拟飞牛的景深效果） */
+  distance?: number
 }) => {
   if (!active) {
     return (
       <Text
         size={size}
-        color='rgba(255,255,255,0.45)'
-        style={{ ...styles.lyricLine, lineHeight: size * 1.5 }}
+        color='rgba(255,255,255,0.55)'
+        style={{ ...styles.lyricLine, lineHeight: size * 1.5, opacity: Math.max(0.14, 0.62 - distance * 0.11) }}
         numberOfLines={2}
       >{text || ' '}</Text>
     )
@@ -400,13 +405,23 @@ export default () => {
 
   const scrollRef = useRef<ScrollView>(null)
   const lineOffsets = useRef<number[]>([])
+  const lyricAreaH = useRef(0)
+  // 歌词换歌后行高/偏移会变，等内容布局完再对齐一次
+  const [contentTick, setContentTick] = useState(0)
+
+  useEffect(() => {
+    // 换歌：清掉上一首的行偏移，避免新歌词按旧坐标滚动（对不齐的根因）
+    lineOffsets.current = []
+  }, [lines])
 
   useEffect(() => {
     if (mode !== 'lyric' || currentLine < 0) return
     const offset = lineOffsets.current[currentLine]
     if (offset == null) return
-    scrollRef.current?.scrollTo({ y: Math.max(0, offset - height * 0.26), animated: true })
-  }, [currentLine, mode, height])
+    // 当前行垂直居中（飞牛也是居中高亮）
+    const areaH = lyricAreaH.current || height * 0.6
+    scrollRef.current?.scrollTo({ y: Math.max(0, offset - areaH / 2 + 22), animated: true })
+  }, [currentLine, mode, height, contentTick])
 
   const pic = musicInfo.pic
 
@@ -447,7 +462,7 @@ export default () => {
       <View pointerEvents='none' style={styles.bgBlur}>
         {
           pic
-            ? <RNImage source={{ uri: pic }} blurRadius={32} style={styles.bgImg} resizeMode='cover' />
+            ? <RNImage source={{ uri: pic }} blurRadius={mode === 'lyric' ? 46 : 32} style={styles.bgImg} resizeMode='cover' />
             : <View style={[styles.bgImg, { backgroundColor: '#17141C' }]} />
         }
       </View>
@@ -466,6 +481,16 @@ export default () => {
           >
             <Icon name='chevron-down' size={26} color='rgba(255,255,255,0.94)' />
           </TouchableOpacity>
+          {
+            mode === 'lyric'
+              ? (
+                <View style={styles.topTitle}>
+                  <Text size={15} color='rgba(255,255,255,0.95)' numberOfLines={1} style={styles.topTitleName}>{musicInfo.name || '未在播放'}</Text>
+                  <Text size={11} color='rgba(255,255,255,0.6)' numberOfLines={1} style={styles.topTitleSinger}>{musicInfo.singer}</Text>
+                </View>
+                )
+              : <View style={{ flex: 1 }} />
+          }
           {
             mode === 'lyric'
               ? (
@@ -491,6 +516,27 @@ export default () => {
                       ? <RNImage source={{ uri: pic }} resizeMode='contain' style={styles.coverImg} />
                       : <View style={styles.coverEmpty}><Icon name='album' size={64} color='rgba(255,255,255,0.14)' /></View>
                   }
+                  {/* 四边柔化：上下各一条模糊带（强），左右两条（弱） */}
+                  {
+                    pic
+                      ? (
+                        <>
+                          <View pointerEvents='none' style={[styles.edgeStrip, styles.edgeTop]}>
+                            <RNImage source={{ uri: pic }} blurRadius={26} resizeMode='contain' style={styles.edgeImgH} />
+                          </View>
+                          <View pointerEvents='none' style={[styles.edgeStrip, styles.edgeBottom]}>
+                            <RNImage source={{ uri: pic }} blurRadius={26} resizeMode='contain' style={[styles.edgeImgH, styles.edgeImgBottom]} />
+                          </View>
+                          <View pointerEvents='none' style={[styles.edgeStripV, styles.edgeLeft]}>
+                            <RNImage source={{ uri: pic }} blurRadius={22} resizeMode='contain' style={styles.edgeImgV} />
+                          </View>
+                          <View pointerEvents='none' style={[styles.edgeStripV, styles.edgeRight]}>
+                            <RNImage source={{ uri: pic }} blurRadius={22} resizeMode='contain' style={[styles.edgeImgV, styles.edgeImgRight]} />
+                          </View>
+                        </>
+                        )
+                      : null
+                  }
                 </Animated.View>
                 {/* 封面下方的倒影：垂直翻转 + 高斯模糊，向下淡出 */}
                 {
@@ -510,7 +556,9 @@ export default () => {
               </TouchableOpacity>
               )
             : (
-              <View style={styles.lyricArea}>
+              <View style={styles.lyricArea} onLayout={e => { lyricAreaH.current = e.nativeEvent.layout.height }}>
+                <RNImage source={FADE_TOP} resizeMode='stretch' style={styles.lyricFadeTop} />
+                <RNImage source={FADE_BOTTOM} resizeMode='stretch' style={styles.lyricFadeBottom} />
                 {
                   lines.length
                     ? (
@@ -534,6 +582,7 @@ export default () => {
                             contentContainerStyle={styles.lyricContent}
                             scrollEventThrottle={32}
                             onScroll={e => { lyricScrollY.current = e.nativeEvent.contentOffset.y }}
+                            onContentSizeChange={() => { setContentTick(v => v + 1) }}
                           >
                             {
                               lines.map((line, index) => (
@@ -550,6 +599,7 @@ export default () => {
                                     ratio={index === currentLine ? currentRatio : 0}
                                     wordByWord={isWordByWord}
                                     activeColor={theme['c-primary']}
+                                    distance={index === currentLine ? 0 : Math.abs(index - currentLine)}
                                   />
                                 </TouchableOpacity>
                               ))
@@ -584,7 +634,12 @@ export default () => {
         {/* 歌名 / 歌手 + 下载 / 收藏 / 更多 */}
         <View style={styles.infoBlock}>
           <TouchableOpacity style={styles.titleText} activeOpacity={0.75} onPress={handleToggleMode}>
-            <Text size={21} color='#FFFFFF' numberOfLines={1} style={styles.songName}>{musicInfo.name || '未在播放'}</Text>
+            <MarqueeText
+              text={musicInfo.name || '未在播放'}
+              size={21}
+              color='#FFFFFF'
+              style={styles.songName}
+            />
             <Text size={12} color='rgba(255,255,255,0.66)' numberOfLines={1} style={styles.songSinger}>{musicInfo.singer}</Text>
           </TouchableOpacity>
           {
@@ -739,6 +794,11 @@ const styles = createStyle({
     width: '100%',
     height: '100%',
   },
+  bgImgZoom: {
+    width: '100%',
+    height: '100%',
+    transform: [{ scale: 1.15 }],
+  },
   bgDim: {
     position: 'absolute',
     left: 0,
@@ -768,8 +828,20 @@ const styles = createStyle({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  coverStage: {
+  topTitle: {
     flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: 8,
+  },
+  topTitleName: {
+    fontWeight: '600',
+  },
+  topTitleSinger: {
+    marginTop: 2,
+  },
+  coverStage: {
+    // 固定占屏 52%：封面居中，歌词紧贴在封面下方
+    height: '52%',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -792,6 +864,59 @@ const styles = createStyle({
     height: '100%',
     transform: [{ scaleY: -1 }],
   },
+  // 四边柔化：上下强、左右弱
+  edgeStrip: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: '11%',
+    overflow: 'hidden',
+  },
+  edgeTop: {
+    top: 0,
+    opacity: 0.85,
+  },
+  edgeBottom: {
+    bottom: 0,
+    opacity: 0.85,
+  },
+  edgeStripV: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: '7%',
+    overflow: 'hidden',
+  },
+  edgeLeft: {
+    left: 0,
+    opacity: 0.5,
+  },
+  edgeRight: {
+    right: 0,
+    opacity: 0.5,
+  },
+  edgeImgH: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    width: '100%',
+    aspectRatio: 1,
+  },
+  edgeImgBottom: {
+    top: undefined,
+    bottom: 0,
+  },
+  edgeImgV: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    height: '100%',
+    aspectRatio: 1,
+  },
+  edgeImgRight: {
+    left: undefined,
+    right: 0,
+  },
   coverImg: {
     width: '100%',
     height: '100%',
@@ -803,6 +928,23 @@ const styles = createStyle({
   },
   lyricArea: {
     flex: 1,
+  },
+  lyricFadeTop: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    height: 90,
+    zIndex: 2,
+  },
+  lyricFadeBottom: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 120,
+    zIndex: 2,
+    transform: [{ scaleY: -1 }],
   },
   singleLineArea: {
     flex: 1,
@@ -833,11 +975,14 @@ const styles = createStyle({
     marginTop: 10,
   },
   lyricStrip: {
-    minHeight: 52,
-    justifyContent: 'center',
+    // flex:1 吸收封面区固定高度后剩下的空间，让歌词紧贴封面下方、
+    // 同时把信息区/进度/按键压到屏幕底部
+    flex: 1,
+    minHeight: 50,
+    justifyContent: 'flex-start',
     paddingLeft: 26,
     paddingRight: 26,
-    paddingTop: 4,
+    paddingTop: 6,
   },
   nowLyric: {
     lineHeight: 21,

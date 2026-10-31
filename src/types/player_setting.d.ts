@@ -13,6 +13,11 @@ declare global {
        * 歌词单行显示（只显示当前行）
        */
       'player.isSingleLineLyric': boolean
+
+      /**
+       * 底部导航胶囊左右滑动切歌
+       */
+      'common.navSwipeSwitch': boolean
     }
   }
 }

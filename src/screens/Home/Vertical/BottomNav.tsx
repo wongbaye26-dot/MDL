@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useRef } from 'react'
-import { Animated, Easing, View, TouchableOpacity } from 'react-native'
+import { Animated, Easing, PanResponder, View, TouchableOpacity } from 'react-native'
 
 import { Icon } from '@/components/common/Icon'
 import Image from '@/components/common/Image'
@@ -9,6 +9,8 @@ import { useNavActiveId } from '@/store/common/hook'
 import { usePlayerMusicInfo, useProgress, useIsPlay } from '@/store/player/hook'
 import { NAV_MENUS } from '@/config/constant'
 import { setNavActiveId } from '@/core/common'
+import { useSettingValue } from '@/store/setting/hook'
+import { playNext, playPrev } from '@/core/player/player'
 import { createStyle } from '@/utils/tools'
 
 const MENU_ICONS: Record<string, string> = {
@@ -154,15 +156,35 @@ export default memo(() => {
     if (activeId !== 'nav_player') setNavActiveId('nav_player')
   }
 
+  // 左右滑动切歌：只在明显横向拖动时接管，点按不受影响
+  const swipeEnabled = useSettingValue('common.navSwipeSwitch')
+  const panResponder = useMemo(() => PanResponder.create({
+    onMoveShouldSetPanResponder: (_, g) => (
+      Math.abs(g.dx) > 14 && Math.abs(g.dx) > Math.abs(g.dy) * 1.6
+    ),
+    onPanResponderRelease: (_, g) => {
+      if (!swipeEnabled) return
+      const passed = Math.abs(g.dx) > 46 || Math.abs(g.vx) > 0.45
+      if (!passed) return
+      if (g.dx < 0) {
+        void playNext()
+      } else {
+        void playPrev()
+      }
+    },
+  }), [swipeEnabled])
+
   // 胶囊外完全透明，只有胶囊本体是磨砂玻璃，内容从底下穿过去
   return (
     <View style={styles.wrap} pointerEvents='box-none'>
-      <View style={{
-        ...styles.bar,
-        backgroundColor: isDark ? 'rgba(26,20,36,0.42)' : 'rgba(255,255,255,0.40)',
-        borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.80)',
-        shadowColor: isDark ? '#000000' : '#6E6285',
-      }}>
+      <View
+        {...(swipeEnabled ? panResponder.panHandlers : null)}
+        style={{
+          ...styles.bar,
+          backgroundColor: isDark ? 'rgba(26,20,36,0.42)' : 'rgba(255,255,255,0.40)',
+          borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.80)',
+          shadowColor: isDark ? '#000000' : '#6E6285',
+        }}>
         {/* 真高斯模糊：把胶囊背后的列表内容抓成位图做一次模糊 */}
         <Glass
           blurRadius={20}
