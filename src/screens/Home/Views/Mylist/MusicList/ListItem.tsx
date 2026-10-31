@@ -3,6 +3,7 @@ import { View, TouchableOpacity } from 'react-native'
 import { LIST_ITEM_HEIGHT } from '@/config/constant'
 // import { BorderWidths } from '@/theme'
 import { Icon } from '@/components/common/Icon'
+import Image from '@/components/common/Image'
 import { createStyle, type RowInfo } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
 import { useAssertApiSupport } from '@/store/common/hook'
@@ -46,11 +47,7 @@ export default memo(({ item, index, activeIndex, onPress, onShowMenu, onLongPres
   return (
     <View style={{ ...styles.listItem, width: rowInfo.rowWidth, height: ITEM_HEIGHT, backgroundColor: isSelected ? theme['c-primary-background-hover'] : 'rgba(0,0,0,0)', opacity: isSupported ? 1 : 0.5 }}>
       <TouchableOpacity style={styles.listItemLeft} onPress={() => { onPress(item, index) }} onLongPress={() => { onLongPress(item, index) }}>
-        {
-          active
-            ? <Icon style={styles.sn} name="play-outline" size={13} color={theme['c-primary-font']} />
-            : <Text style={styles.sn} size={13} color={theme['c-300']}>{index + 1}</Text>
-        }
+        <Image url={item.meta.picUrl} style={styles.cover} />
         <View style={styles.itemInfo}>
           {/* <View style={styles.listItemTitle}> */}
           <Text color={active ? theme['c-primary-font'] : theme['c-font']} numberOfLines={1}>{item.name}</Text>
@@ -103,6 +100,13 @@ const styles = createStyle({
     flexShrink: 1,
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  cover: {
+    width: 42,
+    height: 42,
+    borderRadius: 10,
+    marginLeft: 12,
+    marginRight: 11,
   },
   sn: {
     width: 38,

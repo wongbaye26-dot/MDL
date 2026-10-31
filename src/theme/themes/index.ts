@@ -117,8 +117,9 @@ export const getTheme = async() => {
   //     : settingState.setting['theme.lightId']
   //   // : 'china_ink'
   //   : settingState.setting['theme.id']
-  let themeId = settingState.setting['common.isAutoTheme'] && shouldUseDarkColors
-    ? 'black'
+  // 跟随系统时在亮/暗主题之间切换，否则使用手动选择的主题
+  let themeId = settingState.setting['common.isAutoTheme']
+    ? (shouldUseDarkColors ? settingState.setting['theme.darkId'] : settingState.setting['theme.lightId'])
     : settingState.setting['theme.id']
   // themeId = 'naruto'
   // themeId = 'pink'
@@ -128,7 +129,7 @@ export const getTheme = async() => {
     userThemes = await getUserTheme()
     theme = userThemes.find(theme => theme.id == themeId)
     if (!theme) {
-      themeId = settingState.setting['theme.id'] == 'auto' && shouldUseDarkColors ? 'black' : 'green'
+      themeId = shouldUseDarkColors ? 'emo' : 'emo_light'
       theme = themes.find(theme => theme.id == themeId) as LX.Theme
     }
   }

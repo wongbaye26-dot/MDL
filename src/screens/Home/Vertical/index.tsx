@@ -1,11 +1,13 @@
 import Content from './Content'
-import PlayerBar from '@/components/player/PlayerBar'
+import MiniPlayer from './MiniPlayer'
+import BottomNav from './BottomNav'
 
 export default () => {
   return (
     <>
       <Content />
-      <PlayerBar isHome />
+      <MiniPlayer />
+      <BottomNav />
     </>
   )
 }

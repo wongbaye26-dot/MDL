@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import Search from '../Views/Search'
 import SongList from '../Views/SongList'
 import Mylist from '../Views/Mylist'
 import Download from '../Views/Download'
@@ -30,8 +29,7 @@ const Main = () => {
       case 'nav_love': return <Mylist />
       case 'nav_download': return <Download />
       case 'nav_setting': return <Setting />
-      case 'nav_search':
-      default: return <Search />
+      default: return <SongList />
     }
   }, [id])
 

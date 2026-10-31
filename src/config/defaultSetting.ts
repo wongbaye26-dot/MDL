@@ -1,6 +1,6 @@
 const defaultSetting: LX.AppSetting = {
   version: '2.1',
-  'common.isAutoTheme': false,
+  'common.isAutoTheme': true,
   'common.langId': null,
   'common.apiSource': '',
   'common.sourceNameType': 'alias',
@@ -81,7 +81,7 @@ const defaultSetting: LX.AppSetting = {
 
   // EMO 品牌默认主题
   'theme.id': 'emo',
-  'theme.lightId': 'emo',
+  'theme.lightId': 'emo_light',
   'theme.darkId': 'emo',
   'theme.hideBgDark': false,
   'theme.dynamicBg': false,

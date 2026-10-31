@@ -3,6 +3,7 @@ import { View, TouchableOpacity, Image, ImageBackground } from 'react-native'
 import Text from '@/components/common/Text'
 import { Icon } from '@/components/common/Icon'
 import { useTheme } from '@/store/theme/hook'
+import { useStatusbarHeight } from '@/store/common/hook'
 import { createStyle } from '@/utils/tools'
 import type { DownloadStats } from '@/store/download/hook'
 
@@ -21,9 +22,10 @@ export default memo(({
   onClearCompleted: () => void
 }) => {
   const theme = useTheme()
+  const statusBarHeight = useStatusbarHeight()
 
   return (
-    <ImageBackground source={emoHeaderBg} style={styles.header} imageStyle={styles.headerImage}>
+    <ImageBackground source={emoHeaderBg} style={{ ...styles.header, paddingTop: 18 + statusBarHeight }} imageStyle={styles.headerImage}>
       <View style={styles.topRow}>
         <Image source={emoLogo} style={styles.logo} />
         <View style={styles.titleBlock}>
@@ -67,7 +69,6 @@ export default memo(({
 
 const styles = createStyle({
   header: {
-    paddingTop: 18,
     paddingBottom: 16,
     paddingLeft: 16,
     paddingRight: 16,

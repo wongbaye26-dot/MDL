@@ -4,6 +4,7 @@ import { View, TouchableOpacity } from 'react-native'
 import Text from '@/components/common/Text'
 import Badge, { type BadgeType } from '@/components/common/Badge'
 import { Icon } from '@/components/common/Icon'
+import Image from '@/components/common/Image'
 import { useI18n } from '@/lang'
 import { useTheme } from '@/store/theme/hook'
 import { scaleSizeH } from '@/utils/pixelRatio'
@@ -61,7 +62,7 @@ export default memo(({ item, index, showSource, onPress, onLongPress, onShowMenu
   return (
     <View style={{ ...styles.listItem, width: rowInfo.rowWidth, height: ITEM_HEIGHT, backgroundColor: isSelected ? theme['c-primary-background-hover'] : 'rgba(0,0,0,0)' }}>
       <TouchableOpacity style={styles.listItemLeft} onPress={() => { onPress(item, index) }} onLongPress={() => { onLongPress(item, index) }}>
-        <Text style={styles.sn} size={13} color={theme['c-300']}>{index + 1}</Text>
+        <Image url={item.meta.picUrl} style={styles.cover} />
         <View style={styles.itemInfo}>
           <Text numberOfLines={1}>{item.name}</Text>
           <View style={styles.listItemSingle}>
@@ -114,6 +115,13 @@ const styles = createStyle({
     // backgroundColor: 'rgba(0,0,0,0.2)',
     paddingLeft: 3,
     paddingRight: 3,
+  },
+  cover: {
+    width: 42,
+    height: 42,
+    borderRadius: 10,
+    marginLeft: 12,
+    marginRight: 11,
   },
   itemInfo: {
     flexGrow: 1,

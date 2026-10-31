@@ -101,7 +101,6 @@ export const APP_PROVIDER_NAME = 'cn.toside.music.mobile.provider'
 
 
 export const NAV_MENUS = [
-  { id: 'nav_search', icon: 'search-2' },
   { id: 'nav_songlist', icon: 'album' },
   { id: 'nav_top', icon: 'leaderboard' },
   { id: 'nav_love', icon: 'love' },
@@ -150,7 +149,7 @@ export const DEFAULT_SETTING = {
   },
 
   viewPrevState: {
-    id: 'nav_search' as NAV_ID_Type,
+    id: 'nav_songlist' as NAV_ID_Type,
     // query: {},
   },
 }

@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>EMO音乐 · 界面重构方案 v2</title>
+<style>
+  :root{
+    --bg:#0B0B12; --bg2:#101019; --surface:#15151F; --surface2:#1B1B28;
+    --line:rgba(168,85,247,.16); --line2:rgba(168,85,247,.30);
+    --primary:#A855F7; --accent:#EC4899;
+    --t1:#F5F5FA; --t2:#A1A1B5; --t3:#6E6E85;
+    --ok:#34D399;
+    --grad:linear-gradient(135deg,#A78BFA,#8B5CF6 48%,#EC4899);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:radial-gradient(1100px 560px at 12% -8%,rgba(139,92,246,.20),transparent 60%),
+       radial-gradient(900px 520px at 96% 0%,rgba(236,72,153,.14),transparent 58%),var(--bg);
+    color:var(--t1);font-family:-apple-system,"PingFang SC","Helvetica Neue",Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;padding:48px 36px 72px;line-height:1.6}
+  .wrap{max-width:1240px;margin:0 auto}
+  .eyebrow{font-size:11px;letter-spacing:3px;color:var(--t3);text-transform:uppercase}
+  h1{font-size:40px;font-weight:800;letter-spacing:1px;margin-top:8px}
+  h2{font-size:20px;font-weight:700}
+  .sub{color:var(--t2);font-size:14px;margin-top:8px;max-width:720px}
+  .section{margin-top:52px}
+  .section-head{display:flex;align-items:baseline;gap:12px;margin-bottom:18px;
+    border-bottom:1px solid rgba(255,255,255,.06);padding-bottom:12px}
+  .section-head .idx{font-size:11px;color:var(--primary);font-weight:700;letter-spacing:2px}
+  .muted{color:var(--t3);font-size:12px}
+
+  .phones{display:grid;grid-template-columns:repeat(4,1fr);gap:20px}
+  .phone{background:var(--bg2);border:1px solid var(--line);border-radius:30px;padding:10px;
+    box-shadow:0 26px 70px rgba(0,0,0,.55)}
+  .screen{position:relative;height:640px;border-radius:22px;overflow:hidden;display:flex;flex-direction:column;
+    background:var(--bg);color:var(--t1)}
+  .screen.light{background:#F7F7FB;color:#16161D}
+  .statusbar{height:24px;display:flex;align-items:center;justify-content:space-between;
+    padding:0 14px;font-size:9.5px;color:var(--t3);flex:0 0 auto}
+  .screen.light .statusbar{color:#8A8A9E}
+  .appbar{height:46px;display:flex;align-items:center;justify-content:space-between;
+    padding:0 14px;flex:0 0 auto}
+  .appbar .title{font-size:19px;font-weight:800;letter-spacing:.5px}
+  .screen.light .appbar .title{color:#16161D}
+  .appbar .search{width:20px;height:20px;border-radius:6px;background:rgba(255,255,255,.10)}
+  .screen.light .appbar .search{background:rgba(0,0,0,.08)}
+
+  .body{flex:1;overflow:hidden;position:relative}
+
+  /* 列表行 */
+  .row{display:flex;align-items:center;gap:11px;padding:7px 14px}
+  .row .cover{width:42px;height:42px;border-radius:10px;flex:0 0 auto;
+    background:linear-gradient(135deg,#6D28D9,#DB2777)}
+  .row .cover.b{background:linear-gradient(135deg,#0F766E,#0EA5E9)}
+  .row .cover.c{background:linear-gradient(135deg,#B45309,#DC2626)}
+  .row .cover.d{background:linear-gradient(135deg,#1E3A8A,#7C3AED)}
+  .row .cover.e{background:linear-gradient(135deg,#4C1D95,#A21CAF)}
+  .row .info{flex:1;min-width:0}
+  .row .n{font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .row .s{font-size:10px;color:var(--t3);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .screen.light .row .s{color:#7A7A90}
+  .row .dur{font-size:10px;color:var(--t3);flex:0 0 auto}
+  .screen.light .row .dur{color:#9A9AAF}
+
+  /* 迷你播放器 + 底栏 */
+  .mini{margin:0 8px 6px;border-radius:16px;padding:7px 8px;display:flex;align-items:center;gap:10px;
+    background:rgba(168,85,247,.10);border:.5px solid rgba(168,85,247,.24);position:relative;overflow:hidden}
+  .screen.light .mini{background:#FFFFFF;border-color:rgba(0,0,0,.07);box-shadow:0 6px 18px rgba(0,0,0,.06)}
+  .mini .cover{width:36px;height:36px;border-radius:11px;background:linear-gradient(135deg,#6D28D9,#DB2777);flex:0 0 auto}
+  .mini .info{flex:1;min-width:0}
+  .mini .n{font-size:11.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mini .s{font-size:9.5px;color:var(--t3);margin-top:1px}
+  .mini .btn{width:26px;height:26px;display:flex;align-items:center;justify-content:center;color:var(--t1);font-size:12px}
+  .screen.light .mini .btn{color:#16161D}
+  .mini .bar{position:absolute;left:0;right:0;bottom:0;height:2px;background:rgba(168,85,247,.25)}
+  .mini .bar i{display:block;height:100%;width:38%;background:var(--primary)}
+
+  .tabbar{height:54px;display:flex;align-items:center;border-top:.5px solid rgba(255,255,255,.08);flex:0 0 auto}
+  .screen.light .tabbar{border-top-color:rgba(0,0,0,.07);background:#fff}
+  .tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+    font-size:9px;color:var(--t3)}
+  .tab .ic{width:19px;height:19px;border-radius:6px;background:currentColor;opacity:.55}
+  .tab.on{color:var(--primary)}
+  .tab.on .ic{opacity:1}
+  .tab .dot{width:3px;height:3px;border-radius:2px;background:var(--primary);margin-top:-1px}
+
+  /* 播放页 */
+  .pd{padding:0 18px;display:flex;flex-direction:column;height:100%}
+  .pd .top{display:flex;align-items:center;justify-content:space-between;height:42px}
+  .pd .art{width:100%;aspect-ratio:1/1;border-radius:20px;margin-top:6px;
+    background:linear-gradient(135deg,#4C1D95,#DB2777 70%,#F59E0B)}
+  .pd .prog{margin-top:18px;height:3px;border-radius:2px;background:rgba(255,255,255,.14);overflow:hidden}
+  .pd .prog i{display:block;height:100%;width:26%;border-radius:2px;background:var(--grad)}
+  .pd .times{display:flex;justify-content:space-between;font-size:10px;color:var(--t3);margin-top:6px}
+  .pd .meta{text-align:center;margin-top:14px}
+  .pd .meta .n{font-size:17px;font-weight:700}
+  .pd .meta .s{font-size:11px;color:var(--t3);margin-top:4px}
+  .pd .acts{display:flex;justify-content:space-between;padding:18px 4px 0;color:var(--t2);font-size:13px}
+  .pd .acts span{width:28px;text-align:center}
+  .pd .ctrl{display:flex;align-items:center;justify-content:center;gap:34px;margin-top:10px}
+  .pd .ctrl .s{width:30px;text-align:center;color:#E7E7F0;font-size:15px}
+  .pd .ctrl .p{width:60px;height:60px;border-radius:30px;background:#fff;
+    display:flex;align-items:center;justify-content:center;color:#0B0B12;font-size:18px}
+  .pd .vol{display:flex;align-items:center;gap:8px;margin-top:auto;padding-bottom:12px;color:var(--t3);font-size:10px}
+  .pd .vol .track{flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,.14);position:relative}
+  .pd .vol .track i{position:absolute;left:0;top:0;height:100%;width:62%;background:var(--primary);border-radius:2px}
+
+  /* 设置 */
+  .srow{display:flex;align-items:center;gap:13px;padding:12px 16px}
+  .srow .ico{width:34px;height:34px;border-radius:11px;background:rgba(168,85,247,.16);flex:0 0 auto;
+    display:flex;align-items:center;justify-content:center;font-size:13px;color:#D8B4FE}
+  .screen.light .srow .ico{background:rgba(124,58,237,.10);color:#6D28D9}
+  .srow .t{flex:1;min-width:0}
+  .srow .t b{font-size:13px;font-weight:600;display:block}
+  .srow .t span{font-size:10px;color:var(--t3);display:block;margin-top:2px}
+  .srow .arrow{color:var(--t3);font-size:11px}
+
+  .legend{display:flex;gap:18px;margin-top:14px;flex-wrap:wrap}
+  .legend div{font-size:11.5px;color:var(--t2)}
+  .legend b{color:var(--t1);font-weight:600}
+  .note{margin-top:26px;padding:16px 18px;border-radius:14px;background:var(--surface);
+    border:1px solid rgba(255,255,255,.06);font-size:12.5px;color:var(--t2)}
+  .note b{color:var(--t1)}
+  @media (max-width:1200px){.phones{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">UI Refactor · v2</div>
+  <h1>EMO音乐 · 界面重构</h1>
+  <p class="sub">底部五页签（歌单 / 排行榜 / 我的列表 / 下载 / 设置）＋ 页签上方的迷你播放器，播放页参考 Poweramp PROXIMAL：大封面、细进度、居中歌名、大圆形播放键、底部音量。搜索从底部页签移到页面右上角，点击展开全屏搜索。</p>
+
+  <div class="section">
+    <div class="section-head"><span class="idx">01</span><h2>核心界面</h2><span class="muted">暗色 / 亮色</span></div>
+    <div class="phones">
+
+      <!-- 歌单（暗） -->
+      <div class="phone">
+        <div class="screen">
+          <div class="statusbar"><span>9:41</span><span>5G · 82%</span></div>
+          <div class="appbar"><div class="title">歌单</div><div class="search"></div></div>
+          <div class="body">
+            <div class="row"><div class="cover"></div><div class="info"><div class="n">K歌之王</div><div class="s">陈奕迅 · 打得火热</div></div><div class="dur">3:42</div></div>
+            <div class="row"><div class="cover b"></div><div class="info"><div class="n">making love out of nothing at all</div><div class="s">Air Supply · 5:15</div></div><div class="dur">5:15</div></div>
+            <div class="row"><div class="cover c"></div><div class="info"><div class="n">一生所爱</div><div class="s">卢冠廷 · 4:14</div></div><div class="dur">4:14</div></div>
+            <div class="row"><div class="cover d"></div><div class="info"><div class="n">下一站天后</div><div class="s">Twins · 3:28</div></div><div class="dur">3:28</div></div>
+            <div class="row"><div class="cover e"></div><div class="info"><div class="n">下雨天</div><div class="s">南拳妈妈 · 4:13</div></div><div class="dur">4:13</div></div>
+            <div class="row"><div class="cover b"></div><div class="info"><div class="n">不可一世 (Live)</div><div class="s">谢霆锋 · 4:21</div></div><div class="dur">4:21</div></div>
+            <div class="row"><div class="cover"></div><div class="info"><div class="n">夜航西飞</div><div class="s">陈粒 · 3:56</div></div><div class="dur">3:56</div></div>
+            <div class="row"><div class="cover c"></div><div class="info"><div class="n">海阔天空</div><div class="s">Beyond · 5:26</div></div><div class="dur">5:26</div></div>
+          </div>
+          <div class="mini">
+            <div class="cover"></div>
+            <div class="info"><div class="n">下雨天</div><div class="s">南拳妈妈 · 优の良曲</div></div>
+            <div class="btn">❚❚</div><div class="btn">▶▶</div>
+            <div class="bar"><i></i></div>
+          </div>
+          <div class="tabbar">
+            <div class="tab on"><div class="ic"></div>歌单<div class="dot"></div></div>
+            <div class="tab"><div class="ic"></div>排行榜</div>
+            <div class="tab"><div class="ic"></div>我的</div>
+            <div class="tab"><div class="ic"></div>下载</div>
+            <div class="tab"><div class="ic"></div>设置</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 播放页 -->
+      <div class="phone">
+        <div class="screen">
+          <div class="statusbar"><span>9:41</span><span>5G · 82%</span></div>
+          <div class="pd">
+            <div class="top"><span style="font-size:16px;color:var(--t2)">⌄</span><span style="font-size:10px;color:var(--t3);letter-spacing:1px">正在播放</span><span style="font-size:13px;color:var(--t2)">⋯</span></div>
+            <div class="art"></div>
+            <div class="prog"><i></i></div>
+            <div class="times"><span>0:31</span><span>4:13</span></div>
+            <div class="meta">
+              <div class="n">下雨天</div>
+              <div class="s">南拳妈妈 · 优の良曲 南搞小孩</div>
+            </div>
+            <div class="acts"><span>⏱</span><span>♡</span><span>⊕</span><span>ⓘ</span><span>☰</span><span>⇄</span></div>
+            <div class="ctrl">
+              <div class="s">⏮</div>
+              <div class="p">▶</div>
+              <div class="s">⏭</div>
+            </div>
+            <div class="vol"><span>🔈</span><div class="track"><i></i></div><span>🔊</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 设置 -->
+      <div class="phone">
+        <div class="screen">
+          <div class="statusbar"><span>9:41</span><span>5G · 82%</span></div>
+          <div class="appbar"><div class="title">设置</div><div class="search"></div></div>
+          <div class="body">
+            <div class="srow"><div class="ico">⚙</div><div class="t"><b>基本设置</b><span>主题、语言、字体大小</span></div><div class="arrow">›</div></div>
+            <div class="srow"><div class="ico">▶</div><div class="t"><b>播放设置</b><span>播放音质、切歌方式、音频焦点</span></div><div class="arrow">›</div></div>
+            <div class="srow"><div class="ico">♪</div><div class="t"><b>桌面歌词</b><span>悬浮歌词的显示与样式</span></div><div class="arrow">›</div></div>
+            <div class="srow"><div class="ico">⌕</div><div class="t"><b>搜索设置</b><span>搜索来源与历史记录</span></div><div class="arrow">›</div></div>
+            <div class="srow"><div class="ico">≡</div><div class="t"><b>列表设置</b><span>列表显示与歌曲添加方式</span></div><div class="arrow">›</div></div>
+            <div class="srow"><div class="ico">⤓</div><div class="t"><b>下载设置</b><span>保存目录、音质、文件命名</span></div><div class="arrow">›</div></div>
+            <div class="srow"><div class="ico">⇄</div><div class="t"><b>数据同步</b><span>多设备同步服务器与数据</span></div><div class="arrow">›</div></div>
+            <div class="srow"><div class="ico">🗂</div><div class="t"><b>备份与恢复</b><span>备份、恢复与导入导出</span></div><div class="arrow">›</div></div>
+            <div class="srow"><div class="ico">⋯</div><div class="t"><b>其他</b><span>通知、存储权限与其它</span></div><div class="arrow">›</div></div>
+          </div>
+          <div class="mini">
+            <div class="cover"></div>
+            <div class="info"><div class="n">下雨天</div><div class="s">南拳妈妈 · 优の良曲</div></div>
+            <div class="btn">❚❚</div><div class="btn">▶▶</div>
+            <div class="bar"><i></i></div>
+          </div>
+          <div class="tabbar">
+            <div class="tab"><div class="ic"></div>歌单</div>
+            <div class="tab"><div class="ic"></div>排行榜</div>
+            <div class="tab"><div class="ic"></div>我的</div>
+            <div class="tab"><div class="ic"></div>下载</div>
+            <div class="tab on"><div class="ic"></div>设置<div class="dot"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 亮色 -->
+      <div class="phone">
+        <div class="screen light">
+          <div class="statusbar"><span>9:41</span><span>5G · 82%</span></div>
+          <div class="appbar"><div class="title">歌单</div><div class="search"></div></div>
+          <div class="body">
+            <div class="row"><div class="cover"></div><div class="info"><div class="n">K歌之王</div><div class="s">陈奕迅 · 打得火热</div></div><div class="dur">3:42</div></div>
+            <div class="row"><div class="cover b"></div><div class="info"><div class="n">making love out of nothing at all</div><div class="s">Air Supply · 5:15</div></div><div class="dur">5:15</div></div>
+            <div class="row"><div class="cover c"></div><div class="info"><div class="n">一生所爱</div><div class="s">卢冠廷 · 4:14</div></div><div class="dur">4:14</div></div>
+            <div class="row"><div class="cover d"></div><div class="info"><div class="n">下一站天后</div><div class="s">Twins · 3:28</div></div><div class="dur">3:28</div></div>
+            <div class="row"><div class="cover e"></div><div class="info"><div class="n">下雨天</div><div class="s">南拳妈妈 · 4:13</div></div><div class="dur">4:13</div></div>
+            <div class="row"><div class="cover b"></div><div class="info"><div class="n">不可一世 (Live)</div><div class="s">谢霆锋 · 4:21</div></div><div class="dur">4:21</div></div>
+          </div>
+          <div class="mini">
+            <div class="cover"></div>
+            <div class="info"><div class="n">下雨天</div><div class="s">南拳妈妈 · 优の良曲</div></div>
+            <div class="btn">❚❚</div><div class="btn">▶▶</div>
+            <div class="bar"><i></i></div>
+          </div>
+          <div class="tabbar">
+            <div class="tab on"><div class="ic"></div>歌单<div class="dot"></div></div>
+            <div class="tab"><div class="ic"></div>排行榜</div>
+            <div class="tab"><div class="ic"></div>我的</div>
+            <div class="tab"><div class="ic"></div>下载</div>
+            <div class="tab"><div class="ic"></div>设置</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="legend">
+      <div><b>底部页签</b> 5 项，选中态为主色 + 下方小圆点</div>
+      <div><b>迷你播放器</b> 悬浮卡片，点击进入播放页，底部细进度条</div>
+      <div><b>搜索</b> 页面右上角图标 → 全屏搜索浮层（不占页签位）</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-head"><span class="idx">02</span><h2>为什么搜索放在右上角</h2></div>
+    <div class="note">
+      Poweramp 把搜索放在底部页签，是因为它只有 4 个页签且有富余位置。本应用需要 <b>歌单 / 排行榜 / 我的列表 / 下载 / 设置</b> 五个入口，再加搜索会变成 6 个，图标会挤到 40px 以下，触控热区不足且识别成本高。<br><br>
+      因此搜索改为<b>每个页面右上角的搜索图标</b>，点击后从下方滑出<b>全屏搜索浮层</b>（含音源/类型切换 + 搜索历史 + 结果列表），关闭后回到原页面。这样既保留了“随手可搜”，又不牺牲页签的可点击面积。
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-head"><span class="idx">03</span><h2>播放页规格（PROXIMAL）</h2></div>
+    <div class="note">
+      <b>结构：</b>顶部「收起 + 正在播放 + 更多」→ 方形大封面（圆角 22，宽 84%）→ 3px 进度条 + 两端时间 → 居中歌名（19/700）与歌手（12）→ 6 个次级操作图标 → 播放控制（两侧 26px，中间 60px 圆形白底播放键）→ 底部音量滑块。<br><br>
+      <b>层级：</b>封面是视觉主体，控制区保持纯图标不加底色，避免与封面抢注意力；亮色主题下封面阴影减弱、播放键改为深色。
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-head"><span class="idx">04</span><h2>落地状态</h2></div>
+    <div class="note">
+      已实现：底部五页签、迷你播放器、右上角搜索浮层、播放页新布局（封面/歌名/音量）、设置改为分类列表 + 二级页、列表行加封面、亮/暗双主题（跟随系统）。<br>
+      待细化：歌单/排行榜的顶部筛选区、下载页在亮色下的渐变适配、播放页歌词页的排版。
+    </div>
+  </div>
+</div>
+</body>
+</html>
