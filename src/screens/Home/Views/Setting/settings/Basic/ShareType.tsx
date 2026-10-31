@@ -1,47 +1,24 @@
 import { memo, useMemo } from 'react'
 
-import { StyleSheet, View } from 'react-native'
+import { View } from 'react-native'
 
 import SubTitle from '../../components/SubTitle'
-import CheckBox from '@/components/common/CheckBox'
+import Chip from '@/components/common/Chip'
 import { useSettingValue } from '@/store/setting/hook'
 import { useI18n } from '@/lang'
 import { updateSetting } from '@/core/common'
+import { createStyle } from '@/utils/tools'
 
 type ShareType = LX.AppSetting['common.shareType']
 
-const setShareType = (type: ShareType) => {
-  updateSetting({ 'common.shareType': type })
-}
-
-
-const useActive = (type: ShareType) => {
-  const shareType = useSettingValue('common.shareType')
-  const isActive = useMemo(() => shareType == type, [shareType, type])
-  return isActive
-}
-
-const Item = ({ id, name }: {
-  id: ShareType
-  name: string
-}) => {
-  const isActive = useActive(id)
-  // const [toggleCheckBox, setToggleCheckBox] = useState(false)
-  return <CheckBox marginBottom={3} check={isActive} label={name} onChange={() => { setShareType(id) }} need />
-}
-
 export default memo(() => {
   const t = useI18n()
+  const shareType = useSettingValue('common.shareType')
+
   const list = useMemo(() => {
     return [
-      {
-        id: 'system',
-        name: t('setting_basic_share_type_system'),
-      },
-      {
-        id: 'clipboard',
-        name: t('setting_basic_share_type_clipboard'),
-      },
+      { id: 'system', name: t('setting_basic_share_type_system') },
+      { id: 'clipboard', name: t('setting_basic_share_type_clipboard') },
     ] as const
   }, [t])
 
@@ -49,16 +26,28 @@ export default memo(() => {
     <SubTitle title={t('setting_basic_share_type')}>
       <View style={styles.list}>
         {
-          list.map(({ id, name }) => <Item name={name} id={id} key={id} />)
+          list.map(({ id, name }) => (
+            <View key={id} style={styles.chipWrap}>
+              <Chip
+                soft
+                label={name}
+                active={shareType == id}
+                onPress={() => { updateSetting({ 'common.shareType': id as ShareType }) }}
+              />
+            </View>
+          ))
         }
       </View>
     </SubTitle>
   )
 })
 
-const styles = StyleSheet.create({
+const styles = createStyle({
   list: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+  },
+  chipWrap: {
+    marginBottom: 8,
   },
 })

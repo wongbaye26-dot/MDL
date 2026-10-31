@@ -32,6 +32,7 @@ const refreshingIds = new Set<string>()
 
 let inited = false
 let unsubscribeEvent: (() => void) | null = null
+let unsubscribeAutoSave: (() => void) | null = null
 let saveTimer: ReturnType<typeof setTimeout> | null = null
 let cachedSavePath: string | null = null
 
@@ -84,11 +85,32 @@ export const init = async() => {
   unsubscribeEvent = onDownloadEvent(handleNativeEvent)
   // 清掉可能残留的临时文件标记
   cachedSavePath = null
+  initAutoSave()
+}
+
+/** 边听边存：播放的在线歌曲自动加入下载队列 */
+const handleAutoSave = (playMusicInfo: LX.Player.PlayMusicInfo) => {
+  if (!settingState.setting['download.autoSaveWhilePlaying']) return
+  const musicInfo = playMusicInfo.musicInfo
+  // 本地歌曲、下载任务不需要再存
+  if ('metadata' in musicInfo) return
+  if (musicInfo.source == null) return
+  addTasks([musicInfo as LX.Music.MusicInfoOnline], { listId: playMusicInfo.listId })
+}
+
+export const initAutoSave = () => {
+  if (unsubscribeAutoSave) return
+  global.state_event.on('playMusicInfoChanged', handleAutoSave)
+  unsubscribeAutoSave = () => {
+    global.state_event.off('playMusicInfoChanged', handleAutoSave)
+  }
 }
 
 export const dispose = () => {
   unsubscribeEvent?.()
   unsubscribeEvent = null
+  unsubscribeAutoSave?.()
+  unsubscribeAutoSave = null
   try {
     nativePauseAll()
   } catch (err) {

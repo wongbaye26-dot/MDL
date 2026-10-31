@@ -324,7 +324,7 @@
   "setting_download_pic": "Download and embed cover",
   "setting_download_metadata": "Write music tags (title/artist/album)",
   "setting_download_tip": "Note: on Android 11+, writing to public folders may fail. Pick another folder above if needed.",
-  "setting_desc_basic": "Theme, language, font size",
+  "setting_desc_basic": "Language, font size and services",
   "setting_desc_player": "Quality, switching, audio focus",
   "setting_desc_lyric_desktop": "Floating lyric display and style",
   "setting_desc_search": "Sources and search history",

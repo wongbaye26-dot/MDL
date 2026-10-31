@@ -13,26 +13,30 @@ import IsShowLyricTranslation from './IsShowLyricTranslation'
 import IsShowLyricRoma from './IsShowLyricRoma'
 import IsS2T from './IsS2T'
 import MaxCache from './MaxCache'
-import { useI18n } from '@/lang'
-
 
 export default memo(() => {
-  const t = useI18n()
-
   return (
-    <Section title={t('setting_player')}>
-      <IsSavePlayTime />
-      <IsAutoCleanPlayedList />
-      <IsHandleAudioFocus />
-      <IsEnableAudioOffload />
-      <IsShowBluetoothLyric />
-      <IsShowBluetoothFullLyric />
-      <IsShowNotificationImage />
-      <IsShowLyricTranslation />
-      <IsShowLyricRoma />
-      <IsS2T />
-      <MaxCache />
-      <PlayHighQuality />
-    </Section>
+    <>
+      <Section title='播放'>
+        <IsSavePlayTime />
+        <IsAutoCleanPlayedList />
+        <IsHandleAudioFocus />
+        <IsEnableAudioOffload />
+        <PlayHighQuality />
+      </Section>
+      <Section title='歌词'>
+        <IsShowLyricTranslation />
+        <IsShowLyricRoma />
+        <IsS2T />
+        <IsShowBluetoothLyric />
+        <IsShowBluetoothFullLyric />
+      </Section>
+      <Section title='通知'>
+        <IsShowNotificationImage />
+      </Section>
+      <Section title='缓存'>
+        <MaxCache />
+      </Section>
+    </>
   )
 })

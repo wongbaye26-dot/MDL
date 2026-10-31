@@ -38,6 +38,11 @@ declare global {
        * 是否写入歌曲标签（歌名/歌手/专辑）
        */
       'download.isWriteMetadata': boolean
+
+      /**
+       * 边听边存：播放的在线歌曲自动保存到下载目录
+       */
+      'download.autoSaveWhilePlaying': boolean
     }
   }
 }

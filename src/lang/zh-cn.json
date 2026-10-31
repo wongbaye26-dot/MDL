@@ -324,7 +324,7 @@
   "setting_download_pic": "下载封面并写入歌曲",
   "setting_download_metadata": "写入歌曲标签（歌名/歌手/专辑）",
   "setting_download_tip": "提示：Android 11 及以上系统可能无法写入公共目录，可在上方选择其他目录。",
-  "setting_desc_basic": "主题、语言、字体大小",
+  "setting_desc_basic": "语言、字体大小与音源",
   "setting_desc_player": "播放音质、切歌方式、音频焦点",
   "setting_desc_lyric_desktop": "悬浮歌词的显示与样式",
   "setting_desc_search": "搜索来源与历史记录",

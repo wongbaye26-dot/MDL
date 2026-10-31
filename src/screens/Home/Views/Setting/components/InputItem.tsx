@@ -68,7 +68,7 @@ export default memo(({ value, label, onChanged, ...props }: InputItemProps) => {
         value={text}
         ref={inputRef}
         onChangeText={handleSetSelectMode}
-        style={{ ...styles.input, backgroundColor: theme['c-primary-input-background'] }}
+        style={{ ...styles.input, backgroundColor: theme['c-primary-alpha-800'], color: theme['c-font'] }}
         {...props}
         onBlur={saveValue}
        />
@@ -78,19 +78,21 @@ export default memo(({ value, label, onChanged, ...props }: InputItemProps) => {
 
 const styles = StyleSheet.create({
   container: {
-    paddingLeft: 25,
-    marginBottom: 15,
+    paddingLeft: 14,
+    paddingRight: 14,
+    paddingTop: 12,
+    paddingBottom: 12,
   },
   label: {
-    marginBottom: 2,
+    marginBottom: 8,
   },
   input: {
-    backgroundColor: 'rgba(0,0,0,0.2)',
     flexGrow: 1,
     flexShrink: 1,
-    borderRadius: 4,
-    // paddingTop: 3,
-    // paddingBottom: 3,
+    borderRadius: 10,
+    height: 36,
+    paddingLeft: 10,
+    paddingRight: 10,
     maxWidth: 300,
   },
 })

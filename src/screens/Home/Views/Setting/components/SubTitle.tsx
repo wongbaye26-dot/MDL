@@ -3,14 +3,17 @@ import { memo } from 'react'
 import { View } from 'react-native'
 import { createStyle } from '@/utils/tools'
 import Text from '@/components/common/Text'
+import { useTheme } from '@/store/theme/hook'
 
 export default memo(({ title, children }: {
   title: string
   children: React.ReactNode | React.ReactNode[]
 }) => {
+  const theme = useTheme()
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>{title}</Text>
+      <Text size={13} color={theme['c-450']} style={styles.title}>{title}</Text>
       {children}
     </View>
   )
@@ -19,12 +22,13 @@ export default memo(({ title, children }: {
 
 const styles = createStyle({
   container: {
-    paddingLeft: 25,
-    marginBottom: 18,
+    paddingLeft: 14,
+    paddingRight: 14,
+    paddingTop: 12,
+    paddingBottom: 14,
   },
   title: {
-    marginLeft: -10,
-    marginBottom: 10,
-    // lineHeight: 16,
+    marginBottom: 8,
+    fontWeight: '500',
   },
 })

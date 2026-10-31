@@ -76,6 +76,7 @@ const defaultSetting: LX.AppSetting = {
   'download.isDownloadLyric': true,
   'download.isDownloadPic': true,
   'download.isWriteMetadata': true,
+  'download.autoSaveWhilePlaying': false,
 
   'sync.enable': false,
 
