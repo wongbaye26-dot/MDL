@@ -22,15 +22,20 @@ import PageModal from '../../Vertical/PageModal'
 import SongList from '../SongList'
 import Leaderboard from '../Leaderboard'
 import Mylist from '../Mylist'
+import UserApiEditModal, { type UserApiEditModalType } from '../Setting/settings/Basic/UserApiEditModal'
 import BigCard from './BigCard'
 
 type ModalType = 'songlist' | 'leaderboard' | 'mylist' | null
 
 const CARDS = [
   { key: 'leaderboard', title: '排行榜', icon: 'leaderboard', color: '#8B5CF6' },
-  { key: 'mylist', title: '收藏', icon: 'love', color: '#EC4899' },
   { key: 'songlist', title: '歌单广场', icon: 'album', color: '#14B8A6' },
+  { key: 'mylist', title: '收藏', icon: 'love', color: '#EC4899' },
+  { key: 'download', title: '已下载', icon: 'download-2', color: '#F59E0B' },
+  { key: 'source', title: '音源管理', icon: 'share', color: '#3B82F6' },
 ] as const
+
+type CardKey = typeof CARDS[number]['key']
 
 /** 播放历史里可能混入下载任务，统一取出歌曲信息 */
 const toMusicInfo = (music: LX.Player.PlayMusic): LX.Music.MusicInfo => {
@@ -85,6 +90,7 @@ export default () => {
   const [recommend, setRecommend] = useState<ListInfoItem[]>([])
   const [playedList, setPlayedList] = useState<LX.Player.PlayMusicInfo[]>([])
   const downloadModalRef = useRef<DownloadQualityModalType>(null)
+  const userApiModalRef = useRef<UserApiEditModalType>(null)
 
   const recent = useMemo(() => [...downloadList]
     .sort((a, b) => {
@@ -107,6 +113,19 @@ export default () => {
     global.state_event.on('playMusicInfoChanged', handleUpdate)
     return () => {
       global.state_event.off('playMusicInfoChanged', handleUpdate)
+    }
+  }, [])
+
+  const handleCard = useCallback((key: CardKey) => {
+    switch (key) {
+      case 'download':
+        setNavActiveId('nav_download')
+        break
+      case 'source':
+        userApiModalRef.current?.show()
+        break
+      default:
+        setModal(key)
     }
   }, [])
 
@@ -151,7 +170,7 @@ export default () => {
                 title={card.title}
                 icon={card.icon}
                 color={card.color}
-                onPress={() => { setModal(card.key) }}
+                onPress={() => { handleCard(card.key) }}
               />
             ))
           }
@@ -265,6 +284,7 @@ export default () => {
               : null
       }
       <DownloadQualityModal ref={downloadModalRef} />
+      <UserApiEditModal ref={userApiModalRef} />
     </View>
   )
 }
