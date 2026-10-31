@@ -438,7 +438,6 @@ export default () => {
 
   // 封面进场：换歌时淡入 + 从 1.06 推近到 1
   const coverAnim = useRef(new Animated.Value(0)).current
-  const coverScale = coverAnim.interpolate({ inputRange: [0, 1], outputRange: [1.06, 1] })
   // 只在换歌时重放（切歌词页不重放），否则歌词态背景会一直是黑的
   useEffect(() => {
     coverAnim.setValue(0)
@@ -455,23 +454,76 @@ export default () => {
       style={{ ...styles.container, transform: [{ translateY: panY }] }}
       {...panResponder.panHandlers}
     >
-      {/*
-        背景：同一张封面放大 + 高斯模糊，铺满整屏。
-        blurRadius 用 RN 自带（RenderScript/RenderEffect），比叠加色块干净。
-      */}
+      {/* 背景：整屏模糊封面 */}
       <View pointerEvents='none' style={styles.bgBlur}>
         {
           pic
-            ? <RNImage source={{ uri: pic }} blurRadius={mode === 'lyric' ? 46 : 32} style={styles.bgImg} resizeMode='cover' />
+            ? <RNImage source={{ uri: pic }} blurRadius={mode === 'lyric' ? 46 : 30} style={styles.bgImg} resizeMode='cover' />
             : <View style={[styles.bgImg, { backgroundColor: '#17141C' }]} />
         }
       </View>
       <View pointerEvents='none' style={styles.bgDim} />
-      {/* 底部再压一层渐变，保证按键/时间在浅色封面上也看得清 */}
-      <View pointerEvents='none' style={styles.bottomFade}>
-        <RNImage source={FADE_BOTTOM} resizeMode='stretch' style={styles.bgImg} />
+
+      {/*
+        舞台：顶部倒影(10.9%) + 封面(51.5%) + 底部倒影(37.6%)，比例按飞牛实测。
+        倒影是封面的镜像 + 高斯模糊，一直铺到屏幕顶/底，所以看不到边框。
+      */}
+      <View pointerEvents='none' style={[styles.stage, mode === 'lyric' ? styles.stageHidden : null]}>
+        <View style={styles.refTop}>
+          {
+            pic
+              ? (
+                <View style={styles.refTopInner}>
+                  <RNImage source={{ uri: pic }} blurRadius={38} resizeMode='cover' style={styles.refImg} />
+                </View>
+                )
+              : null
+          }
+        </View>
+
+        <Animated.View style={{ ...styles.coverBox, opacity: coverAnim }}>
+          {
+            pic
+              ? <RNImage source={{ uri: pic }} resizeMode='contain' style={styles.coverImg} />
+              : <View style={styles.coverEmpty}><Icon name='album' size={64} color='rgba(255,255,255,0.14)' /></View>
+          }
+          {/* 封面上下边的柔化带（飞牛：上 20%、下 26%），左右弱化 5% */}
+          {
+            pic
+              ? (
+                <>
+                  <View style={[styles.edgeStrip, styles.edgeTop]}>
+                    <RNImage source={{ uri: pic }} blurRadius={26} resizeMode='contain' style={styles.edgeImgH} />
+                  </View>
+                  <View style={[styles.edgeStrip, styles.edgeBottom]}>
+                    <RNImage source={{ uri: pic }} blurRadius={26} resizeMode='contain' style={[styles.edgeImgH, styles.edgeImgBottom]} />
+                  </View>
+                  <View style={[styles.edgeStripV, styles.edgeLeft]}>
+                    <RNImage source={{ uri: pic }} blurRadius={22} resizeMode='contain' style={styles.edgeImgV} />
+                  </View>
+                  <View style={[styles.edgeStripV, styles.edgeRight]}>
+                    <RNImage source={{ uri: pic }} blurRadius={22} resizeMode='contain' style={[styles.edgeImgV, styles.edgeImgRight]} />
+                  </View>
+                </>
+                )
+              : null
+          }
+        </Animated.View>
+
+        <View style={styles.refBottom}>
+          {
+            pic
+              ? (
+                <View style={styles.refBottomInner}>
+                  <RNImage source={{ uri: pic }} blurRadius={38} resizeMode='cover' style={styles.refImg} />
+                </View>
+                )
+              : null
+          }
+        </View>
       </View>
 
+      {/* 内容层：间距按飞牛实测（标题 655、进度 723、按键 803、底部 32） */}
       <View style={{ flex: 1, paddingTop: statusBarHeight }}>
         <View style={styles.topBar}>
           <TouchableOpacity
@@ -491,74 +543,23 @@ export default () => {
                 )
               : <View style={{ flex: 1 }} />
           }
-          {
-            mode === 'lyric'
-              ? (
-                <TouchableOpacity style={styles.topBtn} onPress={handleSizeChange} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                  <Icon name='format-size' size={20} color='rgba(255,255,255,0.85)' />
-                </TouchableOpacity>
-                )
-              : <View style={styles.topBtn} />
-          }
+          <View style={styles.topBtn} />
         </View>
 
-        {/*
-          封面区：飞牛是「整宽 + contain」——竖版专辑图会在两侧留出模糊背景，
-          横版/方形图则上下留白，永远不会裁掉画面。点一下切歌词。
-        */}
         {
           mode === 'cover'
             ? (
-              <TouchableOpacity activeOpacity={1} style={styles.coverStage} onPress={handleToggleMode}>
-                <Animated.View style={{ ...styles.coverBox, opacity: coverAnim, transform: [{ scale: coverScale }] }}>
-                  {
-                    pic
-                      ? <RNImage source={{ uri: pic }} resizeMode='contain' style={styles.coverImg} />
-                      : <View style={styles.coverEmpty}><Icon name='album' size={64} color='rgba(255,255,255,0.14)' /></View>
-                  }
-                  {/* 四边柔化：上下各一条模糊带（强），左右两条（弱） */}
-                  {
-                    pic
-                      ? (
-                        <>
-                          <View pointerEvents='none' style={[styles.edgeStrip, styles.edgeTop]}>
-                            <RNImage source={{ uri: pic }} blurRadius={26} resizeMode='contain' style={styles.edgeImgH} />
-                          </View>
-                          <View pointerEvents='none' style={[styles.edgeStrip, styles.edgeBottom]}>
-                            <RNImage source={{ uri: pic }} blurRadius={26} resizeMode='contain' style={[styles.edgeImgH, styles.edgeImgBottom]} />
-                          </View>
-                          <View pointerEvents='none' style={[styles.edgeStripV, styles.edgeLeft]}>
-                            <RNImage source={{ uri: pic }} blurRadius={22} resizeMode='contain' style={styles.edgeImgV} />
-                          </View>
-                          <View pointerEvents='none' style={[styles.edgeStripV, styles.edgeRight]}>
-                            <RNImage source={{ uri: pic }} blurRadius={22} resizeMode='contain' style={[styles.edgeImgV, styles.edgeImgRight]} />
-                          </View>
-                        </>
-                        )
-                      : null
-                  }
-                </Animated.View>
-                {/* 封面下方的倒影：垂直翻转 + 高斯模糊，向下淡出 */}
-                {
-                  pic
-                    ? (
-                      <Animated.View style={{ ...styles.reflection, opacity: coverAnim }}>
-                        <RNImage
-                          source={{ uri: pic }}
-                          blurRadius={42}
-                          resizeMode='cover'
-                          style={styles.reflectionImg}
-                        />
-                      </Animated.View>
-                      )
-                    : null
-                }
-              </TouchableOpacity>
+              <>
+                <TouchableOpacity activeOpacity={1} style={styles.flexArea} onPress={handleToggleMode} />
+                <View style={styles.lyricStrip}>
+                  <Text size={17} color='rgba(255,255,255,0.9)' numberOfLines={2} style={styles.nowLyric}>
+                    {lrcPlay.text || ' '}
+                  </Text>
+                </View>
+              </>
               )
             : (
               <View style={styles.lyricArea} onLayout={e => { lyricAreaH.current = e.nativeEvent.layout.height }}>
-                {/* 注意：Image 只写 left/right 会按图片自身像素宽渲染（21px），
-                    必须外包一层 View 由 View 吃布局 */}
                 <View pointerEvents='none' style={styles.lyricFadeTop}>
                   <RNImage source={FADE_TOP} resizeMode='stretch' style={styles.bgImg} />
                 </View>
@@ -624,52 +625,59 @@ export default () => {
               )
         }
 
-        {/* 当前歌词行（封面态） */}
+        {/* 封面态：歌名/歌手 + 下载/收藏/更多；歌词态：字号/收藏/更多（飞牛底栏结构） */}
         {
           mode === 'cover'
             ? (
-              <View style={styles.lyricStrip}>
-                <Text size={17} color='rgba(255,255,255,0.88)' numberOfLines={2} style={styles.nowLyric}>
-                  {lrcPlay.text || ' '}
-                </Text>
+              <View style={styles.infoBlock}>
+                <TouchableOpacity style={styles.titleText} activeOpacity={0.75} onPress={handleToggleMode}>
+                  <MarqueeText
+                    text={musicInfo.name || '未在播放'}
+                    size={21}
+                    color='#FFFFFF'
+                    style={styles.songName}
+                  />
+                  <Text size={12} color='rgba(255,255,255,0.66)' numberOfLines={1} style={styles.songSinger}>{musicInfo.singer}</Text>
+                </TouchableOpacity>
+                {
+                  autoSaveEnabled
+                    ? null
+                    : (
+                      <TouchableOpacity style={styles.iconBtn} onPress={handleDownload} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                        <Icon name='download-2' size={21} color='rgba(255,255,255,0.92)' />
+                      </TouchableOpacity>
+                      )
+                }
+                <TouchableOpacity style={styles.iconBtn} onPress={handleToggleCollect} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                  <Icon
+                    name={collected ? 'love' : 'heart-outline'}
+                    size={23}
+                    color={collected ? '#FF3B5C' : 'rgba(255,255,255,0.92)'}
+                  />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.iconBtn} onPress={() => { setDetailVisible(true) }} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                  <Icon name='dots-vertical' size={20} color='rgba(255,255,255,0.92)' />
+                </TouchableOpacity>
               </View>
               )
-            : null
+            : (
+              <View style={styles.lyricTools}>
+                <TouchableOpacity style={styles.iconBtn} onPress={handleSizeChange} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                  <Icon name='format-size' size={20} color='rgba(255,255,255,0.85)' />
+                </TouchableOpacity>
+                <View style={styles.lyricToolsRight}>
+                  <TouchableOpacity style={styles.iconBtn} onPress={handleToggleCollect} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                    <Icon name={collected ? 'love' : 'heart-outline'} size={22} color={collected ? '#FF3B5C' : 'rgba(255,255,255,0.9)'} />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.iconBtn} onPress={() => { setDetailVisible(true) }} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                    <Icon name='dots-vertical' size={20} color='rgba(255,255,255,0.9)' />
+                  </TouchableOpacity>
+                </View>
+              </View>
+              )
         }
 
-        {/* 歌名 / 歌手 + 下载 / 收藏 / 更多 */}
-        <View style={styles.infoBlock}>
-          <TouchableOpacity style={styles.titleText} activeOpacity={0.75} onPress={handleToggleMode}>
-            <MarqueeText
-              text={musicInfo.name || '未在播放'}
-              size={21}
-              color='#FFFFFF'
-              style={styles.songName}
-            />
-            <Text size={12} color='rgba(255,255,255,0.66)' numberOfLines={1} style={styles.songSinger}>{musicInfo.singer}</Text>
-          </TouchableOpacity>
-          {
-            autoSaveEnabled
-              ? null
-              : (
-                <TouchableOpacity style={styles.iconBtn} onPress={handleDownload} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-                  <Icon name='download-2' size={21} color='rgba(255,255,255,0.92)' />
-                </TouchableOpacity>
-                )
-          }
-          <TouchableOpacity style={styles.iconBtn} onPress={handleToggleCollect} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-            <Icon
-              name={collected ? 'love' : 'heart-outline'}
-              size={23}
-              color={collected ? '#FF3B5C' : 'rgba(255,255,255,0.92)'}
-            />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.iconBtn} onPress={() => { setDetailVisible(true) }} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-            <Icon name='dots-vertical' size={20} color='rgba(255,255,255,0.92)' />
-          </TouchableOpacity>
-        </View>
-
-        {/* 进度条 + 时间（飞牛：条 6dp、时间在条下方两侧，中间是音频信息） */}
+        {/* 进度条 + 时间（飞牛：条 6dp，时间在条下两侧，中间音频信息） */}
         <View style={styles.progressBlock}>
           <Slider
             value={currentTime}
@@ -692,7 +700,7 @@ export default () => {
           </View>
         </View>
 
-        {/* 五个主控键：外侧 48dp、内侧 56dp，两端贴边 */}
+        {/* 五个主控键：两端贴边，外侧 48dp、内侧 56dp */}
         <View style={styles.controls}>
           <TouchableOpacity style={styles.ctrlBtn} onPress={handleCycleMode} activeOpacity={0.6}>
             <Icon name={MODE_ICON[playMode]} size={22} color='rgba(255,255,255,0.9)' />
@@ -785,9 +793,8 @@ const styles = createStyle({
     backgroundColor: '#0B0810',
   },
   /*
-    重要：Image 的绝对定位必须写死 width/height。
-    之前只写 left/right 时，RN 会用图片自身的像素宽（fade PNG 只有 8px）
-    渲染成 21px 宽的一条 —— 那就是用户一直看到的「左侧黑边」。
+    注意：绝对定位的 <Image> 只写 left/right 时，RN 会按图片自身像素宽渲染
+    （fade PNG 只有 8px → 21px 一条）。所有绝对定位的图片都外包一层 View。
   */
   bgBlur: {
     position: 'absolute',
@@ -800,11 +807,6 @@ const styles = createStyle({
     width: '100%',
     height: '100%',
   },
-  bgImgZoom: {
-    width: '100%',
-    height: '100%',
-    transform: [{ scale: 1.15 }],
-  },
   bgDim: {
     position: 'absolute',
     left: 0,
@@ -813,84 +815,80 @@ const styles = createStyle({
     bottom: 0,
     backgroundColor: 'rgba(12,10,18,0.18)',
   },
-  bottomFade: {
+
+  /* 舞台：顶部倒影 10.9% / 封面 51.5% / 底部倒影 37.6%（飞牛实测） */
+  stage: {
     position: 'absolute',
     left: 0,
+    right: 0,
+    top: 0,
     bottom: 0,
+  },
+  // 歌词页只留模糊背景，封面与倒影隐藏（和飞牛一致）
+  stageHidden: {
+    opacity: 0,
+  },
+  refTop: {
+    flex: 109,
+    overflow: 'hidden',
+  },
+  refTopInner: {
+    position: 'absolute',
+    left: '7%',
+    right: '7%',
+    bottom: 0,
+    // 与封面同宽同高（封面宽 86% → 高 = 宽 / 0.769）
+    aspectRatio: 0.769,
+    transform: [{ scaleY: -1 }],
+    opacity: 0.55,
+  },
+  refBottom: {
+    flex: 376,
+    overflow: 'hidden',
+  },
+  refBottomInner: {
+    position: 'absolute',
+    left: '7%',
+    right: '7%',
+    top: 0,
+    aspectRatio: 0.769,
+    transform: [{ scaleY: -1 }],
+    opacity: 0.55,
+  },
+  refImg: {
     width: '100%',
-    height: '46%',
-  },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingLeft: 8,
-    paddingRight: 8,
-    height: 48,
-  },
-  topBtn: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  topTitle: {
-    flex: 1,
-    alignItems: 'center',
-    paddingHorizontal: 8,
-  },
-  topTitleName: {
-    fontWeight: '600',
-  },
-  topTitleSinger: {
-    marginTop: 2,
-  },
-  coverStage: {
-    // 固定占屏 52%：封面居中，歌词紧贴在封面下方
-    height: '52%',
-    alignItems: 'center',
-    justifyContent: 'center',
+    height: '100%',
   },
   coverBox: {
-    // 飞牛：封面两边留空（约 7%），图片 contain 不裁切
     width: '86%',
-    aspectRatio: 1,
-    borderRadius: 4,
-    overflow: 'hidden',
+    height: '51.5%',
+    alignSelf: 'center',
   },
-  reflection: {
-    width: '86%',
-    aspectRatio: 7,
-    marginTop: 2,
-    overflow: 'hidden',
-    opacity: 0.18,
-  },
-  reflectionImg: {
-    // 按封面原尺寸铺（宽 100% + 正方形），再垂直翻转：
-    // 这样条带里露出的是封面「最底部那一条」的镜像，才是真正的倒影；
-    // 直接 height:100% 会把整张图压扁进条带，看起来像一条色块
-    position: 'absolute',
-    left: 0,
-    top: 0,
+  coverImg: {
     width: '100%',
-    aspectRatio: 1,
-    transform: [{ scaleY: -1 }],
+    height: '100%',
   },
-  // 四边柔化：上下强、左右弱
+  coverEmpty: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // 四边柔化：上下强（飞牛 20%/26%），左右弱
   edgeStrip: {
     position: 'absolute',
     left: 0,
     right: 0,
-    height: '7%',
+    height: '20%',
     overflow: 'hidden',
   },
   edgeTop: {
     top: 0,
-    opacity: 0.68,
+    opacity: 0.7,
   },
   edgeBottom: {
     bottom: 0,
-    opacity: 0.68,
+    height: '26%',
+    opacity: 0.7,
   },
   edgeStripV: {
     position: 'absolute',
@@ -912,7 +910,7 @@ const styles = createStyle({
     left: 0,
     top: 0,
     width: '100%',
-    aspectRatio: 1,
+    aspectRatio: 0.769,
   },
   edgeImgBottom: {
     top: undefined,
@@ -923,21 +921,42 @@ const styles = createStyle({
     left: 0,
     top: 0,
     height: '100%',
-    aspectRatio: 1,
+    aspectRatio: 0.769,
   },
   edgeImgRight: {
     left: undefined,
     right: 0,
   },
-  coverImg: {
-    width: '100%',
-    height: '100%',
+
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingLeft: 16,
+    paddingRight: 8,
+    height: 44,
   },
-  coverEmpty: {
+  topBtn: {
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  topTitle: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
+    paddingHorizontal: 8,
   },
+  topTitleName: {
+    fontWeight: '600',
+  },
+  topTitleSinger: {
+    marginTop: 2,
+  },
+  flexArea: {
+    flex: 1,
+  },
+
   lyricArea: {
     flex: 1,
   },
@@ -961,12 +980,12 @@ const styles = createStyle({
   singleLineArea: {
     flex: 1,
     justifyContent: 'center',
-    paddingLeft: 26,
-    paddingRight: 26,
+    paddingLeft: 24,
+    paddingRight: 24,
   },
   lyricContent: {
-    paddingLeft: 26,
-    paddingRight: 26,
+    paddingLeft: 24,
+    paddingRight: 24,
     paddingTop: 40,
     paddingBottom: 60,
   },
@@ -986,38 +1005,38 @@ const styles = createStyle({
   lyricEmptyText: {
     marginTop: 10,
   },
+
+  /* 封面态当前歌词：紧贴封面下方，占 44dp（飞牛 605..649） */
   lyricStrip: {
-    // flex:1 吸收封面区固定高度后剩下的空间，让歌词紧贴封面下方、
-    // 同时把信息区/进度/按键压到屏幕底部
-    flex: 1,
-    minHeight: 50,
-    justifyContent: 'flex-start',
-    paddingLeft: 26,
-    paddingRight: 26,
-    paddingTop: 6,
+    height: 44,
+    justifyContent: 'center',
+    paddingLeft: 24,
+    paddingRight: 24,
+    marginBottom: 6,
   },
   nowLyric: {
-    lineHeight: 21,
-    letterSpacing: 0.2,
+    lineHeight: 22,
   },
+
+  /* 信息区：655..699（标题 24 + 歌手 20） */
   infoBlock: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingLeft: 26,
-    paddingRight: 12,
-    paddingBottom: 10,
+    paddingLeft: 24,
+    paddingRight: 8,
+    height: 44,
   },
   titleText: {
     flexGrow: 1,
     flexShrink: 1,
-    paddingRight: 10,
+    paddingRight: 6,
   },
   songName: {
     fontWeight: '700',
-    letterSpacing: 0.3,
+    letterSpacing: 0.2,
   },
   songSinger: {
-    marginTop: 5,
+    marginTop: 2,
   },
   iconBtn: {
     width: 40,
@@ -1025,9 +1044,26 @@ const styles = createStyle({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  lyricTools: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingLeft: 16,
+    paddingRight: 8,
+    height: 44,
+  },
+  lyricToolsRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  /* 进度：723..771（条 6dp） */
   progressBlock: {
     paddingLeft: 24,
     paddingRight: 24,
+    height: 48,
+    justifyContent: 'center',
+    marginTop: 24,
   },
   slider: {
     width: '100%',
@@ -1051,13 +1087,15 @@ const styles = createStyle({
     paddingLeft: 10,
     paddingRight: 10,
   },
+
+  /* 控制：803..859（高 56），两端贴边 */
   controls: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     height: 56,
-    marginTop: 10,
-    marginBottom: 18,
+    marginTop: 32,
+    marginBottom: 32,
   },
   ctrlBtn: {
     width: 48,
@@ -1077,6 +1115,7 @@ const styles = createStyle({
     justifyContent: 'center',
     alignItems: 'center',
   },
+
   modalMask: {
     flex: 1,
     justifyContent: 'flex-end',
