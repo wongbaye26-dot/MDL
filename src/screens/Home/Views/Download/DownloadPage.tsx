@@ -102,8 +102,8 @@ export default () => {
     toast('已清空已完成任务')
   }, [])
 
-  const renderItem = useCallback(({ item }: { item: LX.Download.ListItem }) => (
-    <TaskItem task={item} onShowMenu={handleShowMenu} onToggle={handleToggle} onOpen={handleOpen} />
+  const renderItem = useCallback(({ item, index }: { item: LX.Download.ListItem, index: number }) => (
+    <TaskItem task={item} index={index} onShowMenu={handleShowMenu} onToggle={handleToggle} onOpen={handleOpen} />
   ), [handleShowMenu, handleToggle, handleOpen])
 
   const keyExtractor = useCallback((item: LX.Download.ListItem) => item.id, [])

@@ -1,5 +1,5 @@
 import { memo, useCallback, useMemo, useState } from 'react'
-import { View, ScrollView, TouchableOpacity, Modal } from 'react-native'
+import { View, ScrollView, TouchableOpacity, StyleSheet } from 'react-native'
 
 import Basic from '../settings/Basic'
 import Player from '../settings/Player'
@@ -15,6 +15,7 @@ import Text from '@/components/common/Text'
 import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
 import { useStatusbarHeight } from '@/store/common/hook'
+import SlideInView from '@/components/common/SlideInView'
 
 const MENU_META: Record<SettingScreenIds, { icon: string, descKey: string }> = {
   basic: { icon: 'setting', descKey: 'setting_desc_basic' },
@@ -92,8 +93,8 @@ export default () => {
       {
         activeId
           ? (
-              <Modal visible animationType='slide' statusBarTranslucent onRequestClose={() => { setActiveId(null) }}>
-                <View style={{ ...styles.modal, backgroundColor: theme['c-main-background'] }}>
+              <View style={[StyleSheet.absoluteFill, { zIndex: 200, elevation: 24 }]}>
+                <SlideInView style={{ ...styles.modal, backgroundColor: theme['c-main-background'] }}>
                   <View style={{ ...styles.modalHeader, height: 52 + statusBarHeight, paddingTop: statusBarHeight }}>
                     <TouchableOpacity style={styles.modalBack} onPress={() => { setActiveId(null) }}>
                       <Icon name='chevron-left-2' size={20} color={theme['c-font']} />
@@ -103,8 +104,8 @@ export default () => {
                   <ScrollView contentContainerStyle={styles.modalContent}>
                     {section}
                   </ScrollView>
-                </View>
-              </Modal>
+                </SlideInView>
+              </View>
             )
           : null
       }

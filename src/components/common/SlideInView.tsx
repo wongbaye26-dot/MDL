@@ -21,7 +21,7 @@ export default ({ children, style }: { children: React.ReactNode, style?: StyleP
         {
           opacity: anim,
           transform: [{
-            translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [64, 0] }),
+            translateX: anim.interpolate({ inputRange: [0, 1], outputRange: [-72, 0] }),
           }],
         },
       ]}

@@ -125,6 +125,7 @@ export default () => {
   const renderItem = useCallback(({ item, index }: { item: LX.Music.MusicInfoLocal, index: number }) => (
     <LocalRow
       item={item}
+      index={index}
       onPress={() => { void handlePlay(index) }}
       onMenu={action => {
         if (action === 'play') void handlePlay(index)
@@ -184,8 +185,9 @@ export default () => {
   )
 }
 
-const LocalRow = ({ item, onPress, onMenu }: {
+const LocalRow = ({ item, index, onPress, onMenu }: {
   item: LX.Music.MusicInfoLocal
+  index: number
   onPress: () => void
   onMenu: (action: string) => void
 }) => {
@@ -208,6 +210,7 @@ const LocalRow = ({ item, onPress, onMenu }: {
   return (
     <View style={styles.row}>
       <TouchableOpacity style={styles.rowMain} activeOpacity={0.7} onPress={onPress}>
+        <Text size={11} color={theme['c-350']} style={styles.index}>{index + 1}</Text>
         <Cover item={item} />
         <View style={styles.info}>
           <Text size={14} numberOfLines={1}>{item.name}</Text>
@@ -283,6 +286,11 @@ const styles = createStyle({
     paddingLeft: 16,
     paddingTop: 8,
     paddingBottom: 8,
+  },
+  index: {
+    width: 22,
+    textAlign: 'center',
+    fontWeight: '600',
   },
   cover: {
     width: 48,

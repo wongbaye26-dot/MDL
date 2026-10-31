@@ -173,7 +173,7 @@ export default () => {
             activeOpacity={0.8}
             onPress={() => { setSearchVisible(true) }}
           >
-            <Icon name='search-2' size={17} color={theme['c-font']} />
+            <Icon name='search-2' size={21} color={theme['c-font']} />
           </TouchableOpacity>
         </View>
 
@@ -266,15 +266,18 @@ export default () => {
                         onPress={() => { setNavActiveId('nav_download') }}
                       >
                         <View style={styles.rowMain}>
-                          <View style={{
-                            ...styles.downloadIcon,
-                            backgroundColor: task.isComplate ? 'rgba(52, 211, 153, 0.14)' : theme['c-primary-alpha-800'],
-                          }}>
-                            <Icon
-                              name={task.isComplate ? 'checkbox-marked' : 'download-2'}
-                              size={15}
-                              color={task.isComplate ? '#34D399' : theme['c-primary-light-200']}
-                            />
+                          <View style={styles.downloadCoverWrap}>
+                            <Image url={task.metadata.musicInfo.meta?.picUrl} style={styles.rowCover} />
+                            <View style={{
+                              ...styles.downloadBadge,
+                              backgroundColor: task.isComplate ? 'rgba(52, 211, 153, 0.92)' : 'rgba(168, 85, 247, 0.92)',
+                            }}>
+                              <Icon
+                                name={task.isComplate ? 'check' : 'download-2'}
+                                size={9}
+                                color='#FFFFFF'
+                              />
+                            </View>
                           </View>
                           <View style={styles.rowInfo}>
                             <Text size={13} numberOfLines={1}>{task.metadata.musicInfo.name}</Text>
@@ -332,9 +335,9 @@ const styles = createStyle({
     letterSpacing: 0.5,
   },
   searchBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -394,13 +397,21 @@ const styles = createStyle({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  downloadIcon: {
+  downloadCoverWrap: {
     width: 46,
     height: 46,
     borderRadius: 9,
+    marginRight: 12,
+  },
+  downloadBadge: {
+    position: 'absolute',
+    right: -3,
+    bottom: -3,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
   },
   recommendRow: {
     paddingLeft: 16,

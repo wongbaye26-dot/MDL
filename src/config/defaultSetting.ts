@@ -71,7 +71,7 @@ const defaultSetting: LX.AppSetting = {
   'download.fileName': '歌名 - 歌手',
   'download.savePath': '',
   'download.quality': '320k',
-  'download.maxDownloadNum': 3,
+  'download.maxDownloadNum': 5,
   'download.isUseOtherSource': true,
   'download.isDownloadLyric': true,
   'download.isDownloadPic': true,

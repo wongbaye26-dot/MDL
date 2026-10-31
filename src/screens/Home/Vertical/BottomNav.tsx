@@ -18,13 +18,11 @@ const MENU_ICONS: Record<string, string> = {
 }
 
 /** 专辑封面外的分段进度环 */
-const SEGMENTS = 44
-const ProgressRing = ({ progress, children }: { progress: number, children: React.ReactNode }) => {
-  const ratio = Math.max(0, Math.min(1, progress / 100))
+const SEGMENTS = 40
+const ProgressRing = ({ ratio, children }: { ratio: number, children: React.ReactNode }) => {
   const items = useMemo(() => Array.from({ length: SEGMENTS }, (_, i) => {
     const angle = (360 / SEGMENTS) * i
-    const active = i / SEGMENTS < ratio
-    return { key: i, angle, active }
+    return { key: i, angle, active: i / SEGMENTS < ratio }
   }), [ratio])
 
   return (
@@ -35,8 +33,8 @@ const ProgressRing = ({ progress, children }: { progress: number, children: Reac
             key={item.key}
             style={{
               ...styles.tick,
-              backgroundColor: item.active ? '#B478FF' : 'rgba(255,255,255,0.22)',
-              transform: [{ rotate: `${item.angle}deg` }, { translateY: -22 }],
+              backgroundColor: item.active ? '#C08BFF' : 'rgba(255,255,255,0.16)',
+              transform: [{ rotate: `${item.angle}deg` }, { translateY: -23 }],
             }}
           />
         ))
@@ -61,34 +59,26 @@ export default memo(() => {
     <View style={styles.wrap} pointerEvents='box-none'>
       <View style={{
         ...styles.bar,
-        backgroundColor: isDark ? 'rgba(28,22,38,0.66)' : 'rgba(255,255,255,0.68)',
-        borderColor: isDark ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.9)',
+        backgroundColor: isDark ? 'rgba(26,20,36,0.52)' : 'rgba(255,255,255,0.62)',
+        borderColor: isDark ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.85)',
         shadowColor: isDark ? '#000000' : '#7C6E92',
       }}>
-        <View
-          style={{ ...styles.specular, backgroundColor: isDark ? 'rgba(255,255,255,0.24)' : 'rgba(255,255,255,0.95)' }}
-          pointerEvents='none'
-        />
-        <View
-          style={{ ...styles.glow, backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.5)' }}
-          pointerEvents='none'
-        />
         {
           NAV_MENUS.map(menu => {
             const isActive = activeId === menu.id
-            const iconColor = isActive ? '#FFFFFF' : (isDark ? 'rgba(255,255,255,0.7)' : 'rgba(30,24,40,0.6)')
+            const iconColor = isActive ? '#FFFFFF' : (isDark ? 'rgba(255,255,255,0.62)' : 'rgba(30,24,40,0.55)')
 
             if (menu.id === 'nav_player') {
               return (
                 <TouchableOpacity key={menu.id} style={styles.item} activeOpacity={0.8} onPress={openPlayer}>
-                  <ProgressRing progress={isActive ? progress : progress}>
+                  <ProgressRing ratio={progress}>
                     <View style={styles.albumInner}>
                       {
                         musicInfo.pic
                           ? <Image url={musicInfo.pic} style={styles.album} />
                           : (
-                            <View style={{ ...styles.album, backgroundColor: 'rgba(255,255,255,0.14)' }}>
-                              <Icon name='music_time' size={14} color='rgba(255,255,255,0.8)' />
+                            <View style={{ ...styles.album, backgroundColor: 'rgba(255,255,255,0.12)' }}>
+                              <Icon name='music_time' size={14} color='rgba(255,255,255,0.75)' />
                             </View>
                           )
                       }
@@ -98,7 +88,6 @@ export default memo(() => {
               )
             }
 
-            const isSquare = menu.id !== 'nav_mine'
             return (
               <TouchableOpacity
                 key={menu.id}
@@ -107,15 +96,10 @@ export default memo(() => {
                 onPress={() => { if (!isActive) setNavActiveId(menu.id) }}
               >
                 <View style={{
-                  ...(isSquare ? styles.square : styles.circle),
-                  backgroundColor: isActive
-                    ? theme['c-primary']
-                    : (isSquare ? (isDark ? 'rgba(255,255,255,0.09)' : 'rgba(30,24,40,0.05)') : 'rgba(0,0,0,0)'),
-                  borderColor: isActive
-                    ? theme['c-primary']
-                    : (isSquare ? 'rgba(255,255,255,0.10)' : (isDark ? 'rgba(255,255,255,0.24)' : 'rgba(30,24,40,0.16)')),
+                  ...styles.iconWrap,
+                  backgroundColor: isActive ? theme['c-primary'] : 'rgba(0,0,0,0)',
                 }}>
-                  <Icon name={MENU_ICONS[menu.id] ?? menu.icon} size={isSquare ? 19 : 18} color={iconColor} />
+                  <Icon name={MENU_ICONS[menu.id] ?? menu.icon} size={22} color={iconColor} />
                 </View>
               </TouchableOpacity>
             )
@@ -129,40 +113,22 @@ export default memo(() => {
 const styles = createStyle({
   wrap: {
     alignItems: 'center',
-    paddingTop: 6,
-    paddingBottom: 12,
+    paddingTop: 8,
+    paddingBottom: 14,
   },
   bar: {
     flexDirection: 'row',
     alignItems: 'center',
-    width: '88%',
-    height: 64,
-    borderRadius: 32,
+    width: '64%',
+    height: 62,
+    borderRadius: 31,
     borderWidth: 0.5,
-    paddingLeft: 6,
-    paddingRight: 6,
-    elevation: 18,
-    shadowOpacity: 0.35,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 10 },
-    overflow: 'hidden',
-  },
-  specular: {
-    position: 'absolute',
-    top: 0,
-    left: 28,
-    right: 28,
-    height: 1,
-    borderRadius: 1,
-  },
-  glow: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 26,
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
+    paddingLeft: 8,
+    paddingRight: 8,
+    elevation: 16,
+    shadowOpacity: 0.32,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
   },
   item: {
     flex: 1,
@@ -170,19 +136,10 @@ const styles = createStyle({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  square: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    borderWidth: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  circle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 1.2,
+  iconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
   },
