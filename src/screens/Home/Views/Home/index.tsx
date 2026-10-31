@@ -161,6 +161,7 @@ export default () => {
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
+          style={styles.hScroll}
           contentContainerStyle={styles.cards}
         >
           {
@@ -207,6 +208,7 @@ export default () => {
                   <ScrollView
                     horizontal
                     showsHorizontalScrollIndicator={false}
+                    style={styles.hScroll}
                     contentContainerStyle={styles.recommendRow}
                   >
                     {
@@ -315,6 +317,10 @@ const styles = createStyle({
   cards: {
     paddingLeft: 16,
     paddingRight: 4,
+  },
+  hScroll: {
+    flexGrow: 0,
+    flexShrink: 0,
   },
   sectionHead: {
     flexDirection: 'row',

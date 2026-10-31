@@ -22,7 +22,7 @@ export default ({ name, meta, onPlayAll, onDownloadAll }: HeroProps) => {
       borderColor: theme['c-primary-alpha-700'],
     }}>
       <View style={styles.watermark} pointerEvents='none'>
-        <Icon name='leaderboard' size={92} color={theme['c-primary-alpha-800']} />
+        <Icon name='leaderboard' size={76} color={theme['c-primary-alpha-800']} />
       </View>
       <View style={styles.info}>
         <Text size={18} numberOfLines={1} style={styles.name}>{name || '加载中…'}</Text>
@@ -64,8 +64,9 @@ const styles = createStyle({
   },
   watermark: {
     position: 'absolute',
-    right: -14,
-    bottom: -18,
+    right: 6,
+    bottom: -10,
+    opacity: 0.7,
   },
   info: {
     flexGrow: 1,

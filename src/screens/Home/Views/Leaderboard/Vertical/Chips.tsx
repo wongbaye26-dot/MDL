@@ -16,6 +16,7 @@ export const SourceChips = ({ active, onChange }: {
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
+      style={styles.scroll}
       contentContainerStyle={styles.sourceRow}
     >
       {
@@ -44,6 +45,7 @@ export const BoardChips = ({ boards, activeId, onChange }: {
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
+      style={styles.scroll}
       contentContainerStyle={styles.boardRow}
     >
       {
@@ -64,6 +66,10 @@ export const BoardChips = ({ boards, activeId, onChange }: {
 }
 
 const styles = createStyle({
+  scroll: {
+    flexGrow: 0,
+    flexShrink: 0,
+  },
   sourceRow: {
     paddingLeft: 16,
     paddingRight: 16,

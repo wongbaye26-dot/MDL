@@ -154,6 +154,7 @@ export default () => {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        style={styles.hScroll}
         contentContainerStyle={styles.rowContent}
       >
         {
@@ -171,6 +172,7 @@ export default () => {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        style={styles.hScroll}
         contentContainerStyle={styles.rowContent}
       >
         <Chip
@@ -214,6 +216,10 @@ const styles = createStyle({
   sourceRow: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  hScroll: {
+    flexGrow: 0,
+    flexShrink: 0,
   },
   rowContent: {
     paddingLeft: 16,
