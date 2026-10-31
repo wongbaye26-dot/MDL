@@ -14,8 +14,9 @@ import Text from '@/components/common/Text'
 type FlatListType = FlatListProps<ListInfoItem>
 
 // const MAX_WIDTH = scaleSizeW(110)
-const MIN_WIDTH = scaleSizeW(110)
-const GAP = scaleSizeW(20)
+const MIN_WIDTH = scaleSizeW(96)
+const GAP = scaleSizeW(10)
+const PADDING = scaleSizeW(12)
 
 export interface ListProps {
   onRefresh: () => void
@@ -112,14 +113,12 @@ export default forwardRef<ListType, ListProps>(({ onRefresh, onLoadMore, onOpenD
   // console.log(Math.trunc(width * 0.125), itemWidth)
   // console.log(itemWidth, MIN_WIDTH, GAP, width)
   const rowInfo = useMemo(() => {
-    let w = width - GAP
-    let n = width / (MIN_WIDTH + GAP)
-    if (n > 10) n = 10
-    let computedItemWidth = Math.floor(w / n)
-    const num = Math.max(Math.floor(width / computedItemWidth), 2)
+    const available = width - PADDING * 2
+    let num = Math.floor((available + GAP) / (MIN_WIDTH + GAP))
+    num = Math.min(Math.max(num, 2), 6)
     return {
       num,
-      width: (width - GAP) / num,
+      width: (available - GAP * (num - 1)) / num,
     }
   }, [width])
   // console.log(rowNum)
@@ -207,8 +206,8 @@ const styles = createStyle({
   },
   list: {
     flex: 1,
-    paddingLeft: 10,
-    paddingRight: 10,
+    paddingLeft: 12,
+    paddingRight: 12,
   },
   footer: {
     textAlign: 'center',

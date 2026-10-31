@@ -1,6 +1,6 @@
 import { View } from 'react-native'
 
-import Button from '@/components/common/Button'
+import Chip from '@/components/common/Chip'
 import { type TagInfoItem } from '@/store/songlist/state'
 import { useTheme } from '@/store/theme/hook'
 import { createStyle } from '@/utils/tools'
@@ -19,28 +19,22 @@ export default ({ name, list, onTagChange, activeId }: TagGroupProps) => {
     <View>
       {
         name
-          ? <Text style={styles.tagTypeTitle} color={theme['c-font-label']}>{name}</Text>
+          ? <Text size={12} style={styles.tagTypeTitle} color={theme['c-450']}>{name}</Text>
           : null
       }
       <View style={styles.tagTypeList}>
-        {list.map(item => (
-          activeId == item.id
-            ? (
-                <View style={{ ...styles.tagButton, backgroundColor: theme['c-button-background'] }} key={item.id}>
-                  <Text style={styles.tagButtonText} color={theme['c-primary-font-active']}>{item.name}</Text>
-                </View>
-              )
-            : (
-                <Button
-                  style={{ ...styles.tagButton, backgroundColor: theme['c-button-background'] }}
-                  key={item.id}
-                  onPress={() => { onTagChange(item.name, item.id) }}
-                >
-                  <Text style={styles.tagButtonText} color={theme['c-font']} >{item.name}</Text>
-                </Button>
-              )
-
-        ))}
+        {
+          list.map(item => (
+            <View key={item.id} style={styles.chipWrap}>
+              <Chip
+                soft
+                label={item.name}
+                active={activeId === item.id}
+                onPress={() => { onTagChange(item.name, item.id) }}
+              />
+            </View>
+          ))
+        }
       </View>
     </View>
   )
@@ -48,24 +42,14 @@ export default ({ name, list, onTagChange, activeId }: TagGroupProps) => {
 
 const styles = createStyle({
   tagTypeTitle: {
-    marginTop: 15,
+    marginTop: 18,
     marginBottom: 10,
   },
   tagTypeList: {
     flexDirection: 'row',
     flexWrap: 'wrap',
   },
-  tagButton: {
-    // marginRight: 10,
-    borderRadius: 4,
-    marginRight: 10,
-    marginBottom: 10,
-  },
-  tagButtonText: {
-    fontSize: 13,
-    paddingLeft: 12,
-    paddingRight: 12,
-    paddingTop: 8,
-    paddingBottom: 8,
+  chipWrap: {
+    marginBottom: 8,
   },
 })

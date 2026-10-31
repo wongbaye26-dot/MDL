@@ -428,6 +428,8 @@
   "songlist_recommend": "推荐",
   "songlist_rise": "飙升",
   "songlist_tag_default": "默认",
+  "songlist_tag_all": "全部",
+  "songlist_tag_more": "全部分类",
   "songlist_tag_hot": "热门",
   "songlist_tags": "歌单类别",
   "source_alias_all": "聚合大会",

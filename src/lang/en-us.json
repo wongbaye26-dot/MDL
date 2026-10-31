@@ -428,6 +428,8 @@
   "songlist_recommend": "Recommend",
   "songlist_rise": "Rise",
   "songlist_tag_default": "Default",
+  "songlist_tag_all": "All",
+  "songlist_tag_more": "All categories",
   "songlist_tag_hot": "Top",
   "songlist_tags": "Playlist Category",
   "source_alias_all": "Aggregated",
