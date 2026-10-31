@@ -2,7 +2,7 @@ import { Navigation } from 'react-native-navigation'
 
 import commonState from '@/store/common/state'
 import { setWindowBackgroundColor } from '@/utils/nativeModules/utils'
-import { toHexColor } from '@/theme/solid'
+import { getSolidBackground, toHexColor } from '@/theme/solid'
 
 /**
  * 把主题色同步到原生层。
@@ -14,7 +14,8 @@ import { toHexColor } from '@/theme/solid'
  */
 export const syncNativeTheme = (theme: LX.ActiveTheme) => {
   const fallback = theme.isDark ? '#121214' : '#FFFFFF'
-  const color = toHexColor(theme['c-main-background'], fallback)
+  // 用不透明底色：窗口底色带透明度时，原生层会把下面的东西透出来
+  const color = toHexColor(getSolidBackground(theme), fallback)
 
   setWindowBackgroundColor(color)
 

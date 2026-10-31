@@ -83,3 +83,23 @@ export const toHexColor = (color: string, fallback = '#FFFFFF'): string => {
   const hex = (n: number) => clamp(Math.round(n), 0, 255).toString(16).padStart(2, '0')
   return `#${hex(parsed[0])}${hex(parsed[1])}${hex(parsed[2])}`.toUpperCase()
 }
+
+/**
+ * 取「不透明的页面底色」。
+ *
+ * 根页面可以半透明（让主题背景图透出来），但凡是盖在另一个页面之上的层
+ * （PageModal / 搜索页 / 设置子页）必须用这个不透明色，否则下层内容会透上来。
+ */
+const solidCache = new Map<string, string>()
+export const getSolidBackground = (theme: LX.ActiveTheme): string => {
+  const main = theme['c-main-background']
+  const content = theme['c-content-background'] ?? (theme.isDark ? '#121214' : '#FFFFFF')
+  if (getAlpha(main) >= 0.999) return main
+  const key = `${main}|${content}`
+  const cached = solidCache.get(key)
+  if (cached) return cached
+  const solid = flattenColor(main, content)
+  if (solidCache.size > 32) solidCache.clear()
+  solidCache.set(key, solid)
+  return solid
+}

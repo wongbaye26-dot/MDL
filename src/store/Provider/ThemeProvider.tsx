@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { Animated, Easing, StyleSheet, View } from 'react-native'
 
 import themeState, { ThemeContext } from '../theme/state'
+import { getSolidBackground } from '@/theme/solid'
 
 
 export default memo(({ children }: {
@@ -16,7 +17,7 @@ export default memo(({ children }: {
     setTheme(next)
     // 主题切换时盖一层「新主题底色」再淡出：
     // 重渲染那一瞬间哪怕原生层露了底，露出的也是主题色，不会再白屏/黑屏
-    setFadeColor(next['c-main-background'])
+    setFadeColor(getSolidBackground(next))
     fade.stopAnimation()
     fade.setValue(0.94)
     Animated.timing(fade, {

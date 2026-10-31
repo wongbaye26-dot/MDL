@@ -17,6 +17,7 @@ import { useI18n } from '@/lang'
 import { useStatusbarHeight } from '@/store/common/hook'
 import SlideInView from '@/components/common/SlideInView'
 import { NAV_BAR_SPACE } from '@/config/constant'
+import { getSolidBackground } from '@/theme/solid'
 
 const MENU_META: Record<SettingScreenIds, { icon: string, descKey: string }> = {
   basic: { icon: 'setting', descKey: 'setting_desc_basic' },
@@ -95,7 +96,7 @@ export default () => {
         activeId
           ? (
               <View style={[StyleSheet.absoluteFill, { zIndex: 200, elevation: 24 }]}>
-                <SlideInView style={{ ...styles.modal, backgroundColor: theme['c-main-background'] }}>
+                <SlideInView style={{ ...styles.modal, backgroundColor: getSolidBackground(theme) }}>
                   <View style={{ ...styles.modalHeader, height: 52 + statusBarHeight, paddingTop: statusBarHeight }}>
                     <TouchableOpacity style={styles.modalBack} onPress={() => { setActiveId(null) }}>
                       <Icon name='chevron-left-2' size={20} color={theme['c-font']} />

@@ -8,7 +8,6 @@ import { privateStorageDirectoryPath } from '@/utils/fs'
 import { type ImageSourcePropType } from 'react-native'
 import { generateThemeFromSeed } from './generate'
 import { getSystemAccentColor } from '@/utils/nativeModules/utils'
-import { flattenColor } from '@/theme/solid'
 
 export { generateThemeFromSeed, SEED_COLORS } from './generate'
 
@@ -73,18 +72,12 @@ export const buildActiveThemeColors = (theme: LX.Theme): LX.ActiveTheme => {
     theme.config.extInfo[k] = theme.config.themeColors[v.replace(varColorRxp, '$1') as ColorsKey]
   }
 
-  // 页面底色统一压成不透明，否则上层页面会透出下层内容（鬼影）；
-  // 主题没给 c-main-background 时退回内容底色，暗色主题才不会被迫变白
-  const contentBg = theme.config.themeColors['c-primary-light-1000'] ?? (theme.isDark ? '#121214' : '#FFFFFF')
-  const mainBg = theme.config.extInfo['c-main-background']
-
   return {
     id: theme.id,
     name: theme.name,
     isDark: theme.isDark,
     ...theme.config.themeColors,
     ...theme.config.extInfo,
-    'c-main-background': mainBg ? flattenColor(mainBg, contentBg) : contentBg,
     'c-font': theme.config.themeColors['c-850'],
     'c-font-label': theme.config.themeColors['c-450'],
     'c-primary-font': theme.config.themeColors['c-primary'],
