@@ -227,9 +227,9 @@ const defaultThemes = [
     isDark: true,
     config: {
       primary: 'rgb(168, 85, 247)',
-      font: 'rgb(245, 245, 250)',
+      font: 'rgb(238, 238, 242)',
       'c-app-background': 'rgba(0, 0, 0, 0)',
-      'c-main-background': 'rgba(11, 11, 18, 0.96)',
+      'c-main-background': 'rgba(18, 18, 20, 0.99)',
       'bg-image': '',
       'bg-image-position': 'center',
       'bg-image-size': 'cover',
@@ -245,9 +245,9 @@ const defaultThemes = [
     isDark: false,
     config: {
       primary: 'rgb(124, 58, 237)',
-      font: 'rgb(22, 22, 29)',
+      font: 'rgb(17, 17, 20)',
       'c-app-background': 'rgba(255, 255, 255, 0)',
-      'c-main-background': 'rgba(247, 247, 251, 0.98)',
+      'c-main-background': 'rgba(250, 250, 252, 0.99)',
       'bg-image': '',
       'bg-image-position': 'center',
       'bg-image-size': 'cover',

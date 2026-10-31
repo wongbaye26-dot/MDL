@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentRef } from 'react'
-import { View } from 'react-native'
+import { View, Animated } from 'react-native'
 import Home from '../Views/Home'
 import Download from '../Views/Download'
 import Mine from '../Views/Mine'
@@ -26,6 +26,12 @@ const PAGES = [
 const Page = ({ id, children }: { id: CommonState['navActiveId'], children: React.ReactNode }) => {
   const [visible, setVisible] = useState(commonState.navActiveId == id)
   const component = useMemo(() => children, [])
+  const opacity = useRef(new Animated.Value(1)).current
+  useEffect(() => {
+    if (!visible) return
+    opacity.setValue(0)
+    Animated.timing(opacity, { toValue: 1, duration: 200, useNativeDriver: true }).start()
+  }, [visible])
   useEffect(() => {
     let currentId: CommonState['navActiveId'] = commonState.navActiveId
     const handleNavIdUpdate = (_id: CommonState['navActiveId']) => {
@@ -56,7 +62,7 @@ const Page = ({ id, children }: { id: CommonState['navActiveId'], children: Reac
     }
   }, [])
 
-  return visible ? component : null
+  return visible ? <Animated.View style={{ flex: 1, opacity }}>{component}</Animated.View> : null
 }
 
 const getIndex = (id: CommonState['navActiveId']) => {
