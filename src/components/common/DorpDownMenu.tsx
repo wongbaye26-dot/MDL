@@ -25,10 +25,13 @@ export default <T extends Menus>({
 
   const showMenu = () => {
     buttonRef.current?.measure((fx, fy, width, height, px, py) => {
-      // console.log(fx, fy, width, height, px, py)
-      menuRef.current?.show({ x: Math.ceil(px), y: Math.ceil(py), w: Math.ceil(width), h: Math.ceil(height) }, {
-        width,
-        height,
+      // 只传按钮位置用于定位，菜单尺寸交给 Menu 用默认值，
+      // 否则菜单会被压成按钮那么小（34×34），文字全被截断
+      menuRef.current?.show({
+        x: Math.ceil(px),
+        y: Math.ceil(py),
+        w: Math.ceil(width),
+        h: Math.ceil(height),
       })
     })
   }

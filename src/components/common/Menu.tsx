@@ -9,8 +9,8 @@ import { useTheme } from '@/store/theme/hook'
 import Text from './Text'
 import { scaleSizeH, scaleSizeW } from '@/utils/pixelRatio'
 
-const menuItemHeight = scaleSizeH(40)
-const menuItemWidth = scaleSizeW(100)
+const menuItemHeight = scaleSizeH(42)
+const menuItemWidth = scaleSizeW(186)
 
 export interface Position { w: number, h: number, x: number, y: number, menuWidth?: number, menuHeight?: number }
 export interface MenuSize { width?: number, height?: number }
@@ -83,15 +83,18 @@ const Menu = ({
   }, [menuSize, width, height])
 
   const menuStyle = useMemo(() => {
-    let menuHeight = menus.length * menuItemStyle.height
+    const fullHeight = menus.length * menuItemStyle.height
     const topHeight = buttonPosition.y - 20
     const bottomHeight = windowSize.height - buttonPosition.y - buttonPosition.h - 20
-    if (menuHeight > topHeight && menuHeight > bottomHeight) menuHeight = Math.max(topHeight, bottomHeight)
+    // 空间不足时收缩到可用高度（内部可滚动），但不低于两行的高度，避免只剩一条
+    const available = Math.max(topHeight, bottomHeight)
+    const menuHeight = fullHeight > available
+      ? Math.max(available, menuItemStyle.height * 2)
+      : fullHeight
 
     const menuWidth = menuItemStyle.width
-    const bottomSpace = windowSize.height - buttonPosition.y - buttonPosition.h - 20
     const rightSpace = windowSize.width - buttonPosition.x - menuWidth
-    const showInBottom = bottomSpace >= menuHeight
+    const showInBottom = bottomHeight >= menuHeight
     const showInRight = rightSpace >= menuWidth
     const frameStyle: {
       height: number
@@ -101,13 +104,13 @@ const Menu = ({
       right?: number
     } = {
       height: menuHeight,
-      top: showInBottom ? buttonPosition.y + buttonPosition.h : buttonPosition.y - menuHeight,
+      top: showInBottom ? buttonPosition.y + buttonPosition.h : Math.max(10, buttonPosition.y - menuHeight),
       width: menuWidth,
     }
     if (showInRight) {
       frameStyle.left = buttonPosition.x
     } else {
-      frameStyle.right = windowSize.width - buttonPosition.x - buttonPosition.w
+      frameStyle.right = Math.max(6, windowSize.width - buttonPosition.x - buttonPosition.w)
     }
     return frameStyle
   }, [menus.length, menuItemStyle, buttonPosition, windowSize])
@@ -124,7 +127,7 @@ const Menu = ({
   // console.log(menuItemStyle)
   return (
     <View style={{ ...styles.menu, ...menuStyle, backgroundColor: theme['c-content-background'] }} onStartShouldSetResponder={() => true}>
-      <Animated.ScrollView keyboardShouldPersistTaps={'always'}>
+      <Animated.ScrollView keyboardShouldPersistTaps={'always'} showsVerticalScrollIndicator={menus.length * menuItemStyle.height > menuStyle.height}>
         {
           menus.map((menu, index) => (
             menu.disabled

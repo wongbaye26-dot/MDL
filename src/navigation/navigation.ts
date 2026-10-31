@@ -4,6 +4,7 @@ import { Navigation } from 'react-native-navigation'
 import {
   HOME_SCREEN,
   PLAY_DETAIL_SCREEN,
+  SONGLIST_SCREEN,
   SONGLIST_DETAIL_SCREEN,
   COMMENT_SCREEN,
   // SETTING_SCREEN,
@@ -199,6 +200,37 @@ export function pushPlayDetailScreen(componentId: string, skipAnimation = false)
     })
   })
 }
+export function pushSongListScreen(componentId: string) {
+  const theme = themeState.theme
+
+  requestAnimationFrame(() => {
+    void Navigation.push(componentId, {
+      component: {
+        name: SONGLIST_SCREEN,
+        options: {
+          topBar: {
+            visible: false,
+            height: 0,
+            drawBehind: false,
+          },
+          statusBar: {
+            drawBehind: true,
+            visible: true,
+            style: getStatusBarStyle(theme.isDark),
+            backgroundColor: 'transparent',
+          },
+          navigationBar: {
+            backgroundColor: theme['c-content-background'],
+          },
+          layout: {
+            componentBackgroundColor: theme['c-content-background'],
+          },
+        },
+      },
+    })
+  })
+}
+
 export function pushSonglistDetailScreen(componentId: string, info: ListInfoItem) {
   const theme = themeState.theme
 

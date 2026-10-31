@@ -1,5 +1,14 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Modal, ScrollView, StyleSheet, TouchableOpacity, View, Image as RNImage } from 'react-native'
+import {
+  Animated,
+  Modal,
+  PanResponder,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+  Image as RNImage,
+} from 'react-native'
 
 import Text from '@/components/common/Text'
 import PicImage from '@/components/common/PicImage'
@@ -38,11 +47,15 @@ const MODE_LABEL: Record<PlayMode, string> = {
 
 const LYRIC_SIZES = [15, 17, 19, 22]
 
+/** 底部渐变遮罩的逐层透明度，从浅到深模拟线性渐变 */
+const GRADIENT_STOPS = [0.05, 0.09, 0.14, 0.20, 0.27, 0.35, 0.44, 0.54]
+
 const formatTime = (time: number) => {
-  if (!time || time < 0) return '00:00'
-  const m = Math.floor(time / 60)
-  const sec = Math.floor(time % 60)
-  return `${m < 10 ? '0' : ''}${m}:${sec < 10 ? '0' : ''}${sec}`
+  if (!time || time < 0 || !Number.isFinite(time)) return '00:00'
+  const total = Math.floor(time)
+  const m = Math.floor(total / 60)
+  const sec = total % 60
+  return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
 }
 
 /** 当前正在唱的歌词行序号 */
@@ -93,7 +106,7 @@ export default () => {
   const progress = useProgress()
   const lines = useLrcSet()
   const lrcPlay = useLrcPlay()
-  const { width, height } = useWindowSize()
+  const { height } = useWindowSize()
   const playMode = (useSettingValue('player.togglePlayMethod') ?? 'listLoop') as PlayMode
 
   const [mode, setMode] = useState<'cover' | 'lyric'>('cover')
@@ -104,37 +117,86 @@ export default () => {
   const [detailVisible, setDetailVisible] = useState(false)
 
   const lyricSize = LYRIC_SIZES[sizeIndex]
-  const coverSize = useMemo(() => Math.min(width * 0.84, height * 0.44), [width, height])
 
-  // 歌词模式用 requestAnimationFrame 做流畅逐字进度
+  // 下拉返回：拖动封面页下滑关闭，带跟手位移动画
+  const panY = useRef(new Animated.Value(0)).current
+  const modeRef = useRef(mode)
+  modeRef.current = mode
+  const heightRef = useRef(height)
+  heightRef.current = height
+
+  const closeWithSlideDown = useCallback((fromY: number) => {
+    Animated.timing(panY, {
+      toValue: heightRef.current,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      panY.setValue(0)
+      setNavActiveId('nav_home')
+    })
+    void fromY
+  }, [panY])
+
+  const panResponder = useMemo(() => PanResponder.create({
+    onMoveShouldSetPanResponder: (_, g) => (
+      modeRef.current === 'cover' && g.dy > 6 && Math.abs(g.dy) > Math.abs(g.dx) * 1.5
+    ),
+    onPanResponderMove: (_, g) => {
+      if (g.dy > 0) panY.setValue(g.dy)
+    },
+    onPanResponderRelease: (_, g) => {
+      if (g.dy > 110 || g.vy > 0.6) {
+        closeWithSlideDown(g.dy)
+      } else {
+        Animated.spring(panY, {
+          toValue: 0,
+          useNativeDriver: true,
+          friction: 8,
+          tension: 90,
+        }).start()
+      }
+    },
+    onPanResponderTerminate: () => {
+      Animated.spring(panY, { toValue: 0, useNativeDriver: true }).start()
+    },
+  }), [panY, closeWithSlideDown])
+
+  // 歌词模式：本地时钟插值，保证逐字进度连续变化（不再是 500ms 一跳）
   useEffect(() => {
     if (mode !== 'lyric') return
     let stopped = false
-    let rafId: number
+    let rafId = 0
+    let basePos = 0 // 最近一次真实播放位置（秒）
+    let baseAt = 0 // 取到该位置时的本地时间戳
     let lastFetch = 0
-    let cachedPos = 0
+    let lastEmitted = -1
 
-    const tick = (ts: number) => {
+    const syncPosition = () => {
+      lastFetch = Date.now()
+      void getPosition().then(t => {
+        if (stopped) return
+        basePos = t
+        baseAt = Date.now()
+      }).catch(() => {})
+    }
+
+    const tick = () => {
       if (stopped) return
-      // 每 500ms 拉一次真实位置，中间用插值平滑
-      if (ts - lastFetch > 500) {
-        lastFetch = ts
-        void getPosition().then(t => {
-          if (!stopped) cachedPos = t
-        }).catch(() => {})
+      if (Date.now() - lastFetch > 600) syncPosition()
+      // 暂停时不推进插值，避免进度条自己往前走
+      const est = playerState.isPlay
+        ? basePos + (Date.now() - baseAt) / 1000
+        : basePos
+      // 只在变化超过 25ms 时提交，约 40fps，足够平滑且不浪费渲染
+      if (est - lastEmitted >= 0.025) {
+        lastEmitted = est
+        setNow(est)
       }
-      // 用 cachedPos + 时间差做插值估算
-      setNow(cachedPos)
       rafId = requestAnimationFrame(tick)
     }
-    // 初始拉一次
-    void getPosition().then(t => {
-      if (!stopped) {
-        cachedPos = t
-        setNow(t)
-        rafId = requestAnimationFrame(tick)
-      }
-    }).catch(() => {})
+
+    syncPosition()
+    rafId = requestAnimationFrame(tick)
     return () => {
       stopped = true
       if (rafId) cancelAnimationFrame(rafId)
@@ -209,7 +271,7 @@ export default () => {
     }
     const qualities = raw.meta.qualitys ?? []
     const best = qualities.length ? qualities[qualities.length - 1] : null
-    return [best ? (QUALITY_LABEL[best as unknown as LX.Quality] ?? best) : '', raw.meta.albumName].filter(Boolean).join(' · ')
+    return [best ? (QUALITY_LABEL[best.type] ?? best.type) : '', raw.meta.albumName].filter(Boolean).join(' · ')
   }, [musicInfo.id])
 
   const detailRows = useMemo(() => {
@@ -230,8 +292,8 @@ export default () => {
       } else {
         rows.push({ label: '来源', value: raw.source.toUpperCase() })
         const qualities = raw.meta.qualitys ?? []
-        const best = qualities.length ? qualities[qualities.length - 1] : ''
-        if (best) rows.push({ label: '最高音质', value: QUALITY_LABEL[best as unknown as LX.Quality] ?? best })
+        const best = qualities.length ? qualities[qualities.length - 1] : null
+        if (best) rows.push({ label: '最高音质', value: QUALITY_LABEL[best.type] ?? best.type })
       }
     }
     rows.push({ label: '时长', value: formatTime(maxTime) })
@@ -262,15 +324,50 @@ export default () => {
   }, [currentLine, mode, height])
 
   const pic = musicInfo.pic
+  const isCover = mode === 'cover'
 
   return (
-    <View style={styles.container}>
+    <Animated.View
+      style={{ ...styles.container, transform: [{ translateY: panY }] }}
+      {...panResponder.panHandlers}
+    >
+      {/* 背景：封面态清晰全屏，歌词态模糊压暗 */}
       {
         pic
-          ? <RNImage source={{ uri: pic }} blurRadius={30} style={StyleSheet.absoluteFill} resizeMode='cover' />
-          : <View style={[StyleSheet.absoluteFill, { backgroundColor: theme['c-main-background'] }]} />
+          ? <RNImage
+              source={{ uri: pic }}
+              blurRadius={isCover ? 0 : 40}
+              style={StyleSheet.absoluteFill}
+              resizeMode='cover'
+            />
+          : <View style={[StyleSheet.absoluteFill, { backgroundColor: '#151019' }]} />
       }
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(10,8,16,0.55)' }]} />
+
+      {/* 歌词态整体压暗，保证文字可读 */}
+      {
+        isCover
+          ? null
+          : <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(8,6,12,0.62)' }]} />
+      }
+
+      {/* 底部渐变：用多层半透明色块模拟，避免引入渐变库 */}
+      <View pointerEvents='none' style={StyleSheet.absoluteFill}>
+        {
+          GRADIENT_STOPS.map((alpha, i) => (
+            <View
+              key={i}
+              style={{
+                position: 'absolute',
+                left: 0,
+                right: 0,
+                top: `${38 + i * (62 / GRADIENT_STOPS.length)}%`,
+                height: `${62 / GRADIENT_STOPS.length + 1}%`,
+                backgroundColor: `rgba(0,0,0,${alpha})`,
+              }}
+            />
+          ))
+        }
+      </View>
 
       <View style={{ flex: 1, paddingTop: statusBarHeight }}>
         <View style={styles.topBar}>
@@ -298,15 +395,11 @@ export default () => {
           mode === 'cover'
             ? (
               <TouchableOpacity activeOpacity={1} style={styles.coverArea} onPress={handleToggleMode}>
-                <View style={{ ...styles.coverShadow, width: coverSize, height: coverSize }}>
-                  {
-                    pic
-                      ? <RNImage source={{ uri: pic }} style={{ width: coverSize, height: coverSize, borderRadius: 24 }} resizeMode='cover' />
-                      : <View style={{ width: coverSize, height: coverSize, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.08)', justifyContent: 'center', alignItems: 'center' }}>
-                        <Icon name='album' size={coverSize * 0.3} color='rgba(255,255,255,0.15)' />
-                      </View>
-                  }
-                </View>
+                {pic ? null : (
+                  <View style={styles.coverPlaceholder}>
+                    <Icon name='album' size={64} color='rgba(255,255,255,0.12)' />
+                  </View>
+                )}
               </TouchableOpacity>
               )
             : (
@@ -355,17 +448,21 @@ export default () => {
             ? (
               <View style={styles.infoRow}>
                 <TouchableOpacity style={styles.infoText} activeOpacity={0.7} onPress={handleToggleMode}>
-                  <Text size={11} color='rgba(255,255,255,0.55)' numberOfLines={1} style={styles.currentLyric}>
+                  <Text size={12} color='rgba(255,255,255,0.72)' numberOfLines={1} style={styles.currentLyric}>
                     {lrcPlay.text || ' '}
                   </Text>
-                  <Text size={18} color='#FFFFFF' numberOfLines={1} style={styles.name}>{musicInfo.name || '未在播放'}</Text>
-                  <Text size={12} color='rgba(255,255,255,0.62)' numberOfLines={1} style={styles.singer}>{musicInfo.singer}</Text>
+                  <Text size={22} color='#FFFFFF' numberOfLines={1} style={styles.name}>{musicInfo.name || '未在播放'}</Text>
+                  <Text size={12} color='rgba(255,255,255,0.6)' numberOfLines={1} style={styles.singer}>{musicInfo.singer}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.iconBtn} onPress={handleToggleCollect}>
-                  <Icon name={collected ? 'love' : 'heart-outline'} size={21} color={collected ? theme['c-primary-light-200'] : 'rgba(255,255,255,0.85)'} />
+                <TouchableOpacity style={styles.iconBtn} onPress={handleToggleCollect} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                  <Icon
+                    name={collected ? 'love' : 'heart-outline'}
+                    size={22}
+                    color={collected ? '#FF4D6D' : 'rgba(255,255,255,0.9)'}
+                  />
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.iconBtn} onPress={() => { setDetailVisible(true) }}>
-                  <Icon name='information-outline' size={19} color='rgba(255,255,255,0.85)' />
+                <TouchableOpacity style={styles.iconBtn} onPress={() => { setDetailVisible(true) }} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                  <Icon name='dots-vertical' size={20} color='rgba(255,255,255,0.9)' />
                 </TouchableOpacity>
               </View>
               )
@@ -375,62 +472,53 @@ export default () => {
                   <Icon name='format-size' size={20} color='rgba(255,255,255,0.85)' />
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.iconBtn} onPress={handleToggleCollect}>
-                  <Icon name={collected ? 'love' : 'heart-outline'} size={21} color={collected ? theme['c-primary-light-200'] : 'rgba(255,255,255,0.85)'} />
+                  <Icon name={collected ? 'love' : 'heart-outline'} size={21} color={collected ? '#FF4D6D' : 'rgba(255,255,255,0.85)'} />
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.iconBtn} onPress={() => { setDetailVisible(true) }}>
-                  <Icon name='information-outline' size={19} color='rgba(255,255,255,0.85)' />
+                  <Icon name='dots-vertical' size={20} color='rgba(255,255,255,0.85)' />
                 </TouchableOpacity>
               </View>
               )
         }
 
-        <View style={styles.bottomGlass}>
-        <View style={styles.progressArea}>
+        <View style={styles.bottomArea}>
           <Slider
             value={currentTime}
             minimumValue={0}
             maximumValue={maxTime || 1}
-            minimumTrackTintColor='rgba(255,255,255,0.92)'
-            maximumTrackTintColor='rgba(255,255,255,0.24)'
+            minimumTrackTintColor='rgba(255,255,255,0.95)'
+            maximumTrackTintColor='rgba(255,255,255,0.28)'
             thumbTintColor='#FFFFFF'
             style={styles.slider}
             onSlidingComplete={handleSeek}
           />
           <View style={styles.timeRow}>
-            <Text size={11} color='rgba(255,255,255,0.6)' style={styles.timeText}>{formatTime(currentTime)}</Text>
+            <Text size={11} color='rgba(255,255,255,0.65)' style={styles.timeText}>{formatTime(currentTime)}</Text>
             {
-              mode === 'lyric'
-                ? (
-                  <View style={styles.timeCenter} />
-                  )
-                : null
+              audioMeta
+                ? <Text size={10} color='rgba(255,255,255,0.45)' numberOfLines={1} style={styles.timeCenter}>{audioMeta}</Text>
+                : <View style={styles.timeCenter} />
             }
-            <Text size={11} color='rgba(255,255,255,0.6)' style={styles.timeText}>{formatTime(maxTime)}</Text>
+            <Text size={11} color='rgba(255,255,255,0.65)' style={styles.timeText}>{formatTime(maxTime)}</Text>
           </View>
-          {
-            audioMeta
-              ? <Text size={10} color='rgba(255,255,255,0.4)' numberOfLines={1} style={styles.audioMeta}>{audioMeta}</Text>
-              : null
-          }
-        </View>
 
-        <View style={styles.controls}>
-          <TouchableOpacity style={styles.ctrlBtn} onPress={handleCycleMode}>
-            <Icon name={MODE_ICON[playMode]} size={20} color='rgba(255,255,255,0.85)' />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.ctrlBtn} onPress={() => { void playPrev() }}>
-            <Icon name='prevMusic' size={26} color='#FFFFFF' />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.playBtn} onPress={togglePlay}>
-            <Icon name={isPlay ? 'pause' : 'play'} size={38} color='#FFFFFF' />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.ctrlBtn} onPress={() => { void playNext() }}>
-            <Icon name='nextMusic' size={26} color='#FFFFFF' />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.ctrlBtn} onPress={() => { setQueueVisible(true) }}>
-            <Icon name='playlist-music' size={22} color='rgba(255,255,255,0.85)' />
-          </TouchableOpacity>
-        </View>
+          <View style={styles.controls}>
+            <TouchableOpacity style={styles.ctrlBtn} onPress={handleCycleMode}>
+              <Icon name={MODE_ICON[playMode]} size={21} color='rgba(255,255,255,0.85)' />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.ctrlBtn} onPress={() => { void playPrev() }}>
+              <Icon name='prevMusic' size={30} color='#FFFFFF' />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.playBtn} onPress={togglePlay}>
+              <Icon name={isPlay ? 'pause' : 'play'} size={40} color='#FFFFFF' />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.ctrlBtn} onPress={() => { void playNext() }}>
+              <Icon name='nextMusic' size={30} color='#FFFFFF' />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.ctrlBtn} onPress={() => { setQueueVisible(true) }}>
+              <Icon name='playlist-music' size={24} color='rgba(255,255,255,0.85)' />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -476,7 +564,7 @@ export default () => {
           </View>
         </TouchableOpacity>
       </Modal>
-    </View>
+    </Animated.View>
   )
 }
 
@@ -512,21 +600,17 @@ const styles = createStyle({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  coverShadow: {
-    borderRadius: 24,
-    elevation: 20,
-    shadowColor: '#000000',
-    shadowOpacity: 0.5,
-    shadowRadius: 30,
-    shadowOffset: { width: 0, height: 16 },
+  coverPlaceholder: {
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   currentLyric: {
-    marginBottom: 6,
-  },
-  audioMeta: {
-    textAlign: 'center',
-    marginTop: 6,
-    letterSpacing: 0.3,
+    marginBottom: 8,
+    letterSpacing: 0.2,
   },
   queueCover: {
     width: 36,
@@ -582,10 +666,10 @@ const styles = createStyle({
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingLeft: 22,
-    paddingRight: 12,
-    paddingTop: 14,
-    paddingBottom: 6,
+    paddingLeft: 24,
+    paddingRight: 10,
+    paddingTop: 12,
+    paddingBottom: 4,
   },
   infoText: {
     flexGrow: 1,
@@ -593,14 +677,15 @@ const styles = createStyle({
     paddingRight: 8,
   },
   name: {
-    fontWeight: '600',
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
   singer: {
-    marginTop: 4,
+    marginTop: 5,
   },
   iconBtn: {
-    width: 38,
-    height: 38,
+    width: 40,
+    height: 40,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -611,26 +696,14 @@ const styles = createStyle({
     paddingRight: 12,
     paddingTop: 4,
   },
-  bottomGlass: {
-    marginLeft: 12,
-    marginRight: 12,
-    marginTop: 6,
-    marginBottom: 8,
-    borderRadius: 28,
-    borderWidth: 0.5,
-    borderColor: 'rgba(255,255,255,0.12)',
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    paddingBottom: 6,
-    overflow: 'hidden',
-  },
-  progressArea: {
-    paddingLeft: 18,
-    paddingRight: 18,
-    paddingTop: 8,
+  bottomArea: {
+    paddingLeft: 14,
+    paddingRight: 14,
+    paddingBottom: 10,
   },
   slider: {
     width: '100%',
-    height: 32,
+    height: 30,
   },
   timeRow: {
     flexDirection: 'row',
@@ -642,6 +715,7 @@ const styles = createStyle({
   },
   timeText: {
     flexShrink: 0,
+    minWidth: 42,
     fontVariant: ['tabular-nums'],
   },
   timeCenter: {
@@ -655,22 +729,20 @@ const styles = createStyle({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingLeft: 28,
-    paddingRight: 28,
-    paddingTop: 10,
-    paddingBottom: 16,
+    paddingLeft: 14,
+    paddingRight: 14,
+    paddingTop: 6,
+    paddingBottom: 12,
   },
   ctrlBtn: {
-    width: 44,
-    height: 44,
+    width: 46,
+    height: 46,
     justifyContent: 'center',
     alignItems: 'center',
   },
   playBtn: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    width: 62,
+    height: 62,
     justifyContent: 'center',
     alignItems: 'center',
   },

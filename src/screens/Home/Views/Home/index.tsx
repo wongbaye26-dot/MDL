@@ -11,6 +11,8 @@ import { useDownloadList } from '@/store/download'
 import { useStatusbarHeight } from '@/store/common/hook'
 import { useI18n } from '@/lang'
 import playerState from '@/store/player/state'
+import commonState from '@/store/common/state'
+import { navigations } from '@/navigation'
 import { setNavActiveId } from '@/core/common'
 import { getList } from '@/core/songlist'
 import type { ListInfoItem } from '@/store/songlist/state'
@@ -128,6 +130,9 @@ export default () => {
       case 'source':
         userApiModalRef.current?.show()
         break
+      case 'songlist':
+        navigations.pushSongListScreen(commonState.componentIds.home!)
+        break
       default:
         setModal(key)
     }
@@ -224,7 +229,7 @@ export default () => {
           recommend.length
             ? (
                 <>
-                  <SectionHead title='推荐歌单' onPress={() => { setModal('songlist') }} />
+                  <SectionHead title='推荐歌单' onPress={() => { navigations.pushSongListScreen(commonState.componentIds.home!) }} />
                   <ScrollView
                     horizontal
                     showsHorizontalScrollIndicator={false}
@@ -237,7 +242,7 @@ export default () => {
                           key={item.id}
                           style={styles.recCard}
                           activeOpacity={0.8}
-                          onPress={() => { setModal('songlist') }}
+                          onPress={() => { navigations.pushSongListScreen(commonState.componentIds.home!) }}
                         >
                           <Image url={item.img} style={styles.recCover} />
                           <Text size={11} numberOfLines={1} style={styles.recName}>{item.name}</Text>
