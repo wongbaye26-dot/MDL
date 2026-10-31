@@ -150,8 +150,11 @@ const playMusic = ((fn: (musicInfo: LX.Player.PlayMusic, url: string, time: numb
   handlePlayMusic(musicInfo, url, time)
 })
 
+/** 本地文件路径需要转成 file:// 才能交给播放器 */
+const toPlayableUrl = (url: string) => (url && url.startsWith('/')) ? `file://${url}` : url
+
 export const setResource = (musicInfo: LX.Player.PlayMusic, url: string, duration?: number) => {
-  playMusic(musicInfo, url, duration ?? 0)
+  playMusic(musicInfo, toPlayableUrl(url), duration ?? 0)
 }
 
 export const setPlay = async() => TrackPlayer.play()

@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { View, FlatList, Image } from 'react-native'
 import Text from '@/components/common/Text'
 import { useTheme } from '@/store/theme/hook'
@@ -9,6 +9,8 @@ import { clearCompleted, pauseAll, pauseTask, removeTask, retryTask, startAll, s
 import Toolbar from './Toolbar'
 import TaskItem from './TaskItem'
 import TaskMenu, { type TaskMenuType, type TaskMenuAction } from './TaskMenu'
+import PageModal from '../../Vertical/PageModal'
+import LocalMusic from '../LocalMusic'
 
 const emoLogo = require('@/resources/images/emo-logo.png')
 
@@ -18,6 +20,7 @@ export default () => {
   const stats = useDownloadStats()
   const navActiveId = useNavActiveId()
   const menuRef = useRef<TaskMenuType>(null)
+  const [localVisible, setLocalVisible] = useState(false)
 
   const handleShowMenu = useCallback((task: LX.Download.ListItem, position: { x: number, y: number, w: number, h: number }) => {
     menuRef.current?.show(task, position)
@@ -79,6 +82,7 @@ export default () => {
         onStartAll={handleStartAll}
         onPauseAll={handlePauseAll}
         onClearCompleted={handleClearCompleted}
+        onOpenLocal={() => { setLocalVisible(true) }}
       />
       {
         list.length
@@ -104,6 +108,11 @@ export default () => {
             )
       }
       <TaskMenu ref={menuRef} onAction={handleMenuAction} />
+      {
+        localVisible
+          ? <PageModal title='本地音乐' onClose={() => { setLocalVisible(false) }}><LocalMusic /></PageModal>
+          : null
+      }
     </View>
   )
 }

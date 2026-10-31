@@ -15,11 +15,13 @@ export default memo(({
   onStartAll,
   onPauseAll,
   onClearCompleted,
+  onOpenLocal,
 }: {
   stats: DownloadStats
   onStartAll: () => void
   onPauseAll: () => void
   onClearCompleted: () => void
+  onOpenLocal: () => void
 }) => {
   const theme = useTheme()
   const statusBarHeight = useStatusbarHeight()
@@ -61,6 +63,13 @@ export default memo(({
         >
           <Icon name="pause" color='rgba(255, 255, 255, 0.9)' size={13} />
           <Text size={12} color='rgba(255, 255, 255, 0.9)' style={styles.pillText}>全部暂停</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={{ ...styles.pillGhost, marginRight: 0 }}
+          onPress={onOpenLocal}
+        >
+          <Icon name="folder-music" color='rgba(255, 255, 255, 0.9)' size={13} />
+          <Text size={12} color='rgba(255, 255, 255, 0.9)' style={styles.pillText}>本地音乐</Text>
         </TouchableOpacity>
       </View>
     </ImageBackground>
@@ -117,14 +126,15 @@ const styles = createStyle({
   pillGhost: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingLeft: 16,
-    paddingRight: 16,
+    paddingLeft: 14,
+    paddingRight: 14,
     paddingTop: 9,
     paddingBottom: 9,
     borderRadius: 20,
     borderWidth: 0.5,
     borderColor: 'rgba(255, 255, 255, 0.28)',
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    marginRight: 10,
   },
   pillText: {
     marginLeft: 5,
