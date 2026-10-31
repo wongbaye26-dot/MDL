@@ -17,6 +17,7 @@ import { setNavActiveId } from '@/core/common'
 import { getList } from '@/core/songlist'
 import type { ListInfoItem } from '@/store/songlist/state'
 import { createStyle } from '@/utils/tools'
+import { NAV_BAR_SPACE } from '@/config/constant'
 import { formatSize } from '@/core/download/utils'
 import { handlePlay, handlePlayLater } from '@/components/OnlineList/listAction'
 import DownloadQualityModal, { type DownloadQualityModalType } from '@/components/DownloadQualityModal'
@@ -171,7 +172,7 @@ export default () => {
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={{ paddingTop: statusBarHeight + 12, paddingBottom: 24 }}>
+      <ScrollView contentContainerStyle={{ paddingTop: statusBarHeight + 12, paddingBottom: NAV_BAR_SPACE }}>
         <View style={styles.header}>
           <Text size={21} style={styles.brand}>EMO音乐</Text>
           <TouchableOpacity
@@ -315,7 +316,11 @@ export default () => {
       }
       {
         localVisible
-          ? <PageModal title='本地音乐' onClose={() => { setLocalVisible(false) }}><LocalMusic /></PageModal>
+          ? (
+            <PageModal title='本地音乐' onClose={() => { setLocalVisible(false) }}>
+              <LocalMusic onClose={() => { setLocalVisible(false) }} />
+            </PageModal>
+            )
           : null
       }
       <DownloadQualityModal ref={downloadModalRef} />

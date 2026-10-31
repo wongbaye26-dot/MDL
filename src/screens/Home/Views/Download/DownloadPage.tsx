@@ -13,7 +13,7 @@ import listAction from '@/store/list/action'
 import settingState from '@/store/setting/state'
 import { playList } from '@/core/player/player'
 import { getListMusicSync } from '@/utils/listManage'
-import { LIST_IDS } from '@/config/constant'
+import { LIST_IDS, NAV_BAR_SPACE } from '@/config/constant'
 import Toolbar from './Toolbar'
 import TaskItem from './TaskItem'
 import TaskMenu, { type TaskMenuType, type TaskMenuAction } from './TaskMenu'
@@ -168,7 +168,11 @@ export default () => {
       <TaskMenu ref={menuRef} onAction={handleMenuAction} />
       {
         localVisible
-          ? <PageModal title='本地音乐' onClose={() => { setLocalVisible(false) }}><LocalMusic /></PageModal>
+          ? (
+            <PageModal title='本地音乐' onClose={() => { setLocalVisible(false) }}>
+              <LocalMusic onClose={() => { setLocalVisible(false) }} />
+            </PageModal>
+            )
           : null
       }
     </View>
@@ -189,7 +193,7 @@ const styles = createStyle({
   },
   listContent: {
     paddingTop: 6,
-    paddingBottom: 24,
+    paddingBottom: NAV_BAR_SPACE,
   },
   empty: {
     flex: 1,

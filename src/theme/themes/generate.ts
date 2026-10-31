@@ -149,7 +149,8 @@ export const generateThemeFromSeed = (seedHex: string, isDark: boolean): LX.Acti
   const extInfo = isDark
     ? {
         'c-app-background': 'rgba(0, 0, 0, 0)',
-        'c-main-background': 'rgba(18, 18, 20, 0.99)',
+        // 页面底色必须不透明：半透明会让下层页面透上来（亮色主题尤其明显）
+        'c-main-background': 'rgb(18, 18, 20)',
         'c-badge-primary': get('c-primary-light-100'),
         'c-badge-secondary': 'rgb(236, 72, 153)',
         'c-badge-tertiary': get('c-primary-dark-200'),
@@ -158,7 +159,7 @@ export const generateThemeFromSeed = (seedHex: string, isDark: boolean): LX.Acti
       }
     : {
         'c-app-background': get('c-primary-light-600-alpha-600'),
-        'c-main-background': 'rgba(255, 255, 255, 0.9)',
+        'c-main-background': 'rgb(255, 255, 255)',
         'c-badge-primary': get('c-primary'),
         'c-badge-secondary': '#4baed5',
         'c-badge-tertiary': '#e7aa36',

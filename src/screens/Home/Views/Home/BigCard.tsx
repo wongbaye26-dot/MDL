@@ -1,4 +1,5 @@
-import { View, TouchableOpacity } from 'react-native'
+import { useCallback, useRef } from 'react'
+import { Animated, View, TouchableOpacity } from 'react-native'
 
 import Text from '@/components/common/Text'
 import { Icon } from '@/components/common/Icon'
@@ -11,23 +12,40 @@ export interface BigCardProps {
   onPress: () => void
 }
 
-export default ({ title, icon, color, onPress }: BigCardProps) => (
-  <TouchableOpacity
-    activeOpacity={0.85}
-    style={{ ...styles.card, backgroundColor: color }}
-    onPress={onPress}
-  >
-    <View style={styles.bubble} pointerEvents='none' />
-    <View style={styles.bubbleSmall} pointerEvents='none' />
-    <View style={styles.watermark} pointerEvents='none'>
-      <Icon name={icon} size={104} color='rgba(255,255,255,0.16)' />
-    </View>
-    <View style={styles.labelRow}>
-      <Icon name={icon} size={15} color='#FFFFFF' />
-      <Text size={15} color='#FFFFFF' style={styles.label}>{title}</Text>
-    </View>
-  </TouchableOpacity>
-)
+export default ({ title, icon, color, onPress }: BigCardProps) => {
+  // 按下时卡片轻微下沉，松手回弹 —— 比单纯降低透明度更有实体感
+  const scale = useRef(new Animated.Value(1)).current
+  const animate = useCallback((toValue: number) => {
+    Animated.spring(scale, {
+      toValue,
+      useNativeDriver: true,
+      speed: 32,
+      bounciness: 7,
+    }).start()
+  }, [scale])
+
+  return (
+    <Animated.View style={{ transform: [{ scale }] }}>
+      <TouchableOpacity
+        activeOpacity={0.9}
+        style={{ ...styles.card, backgroundColor: color }}
+        onPress={onPress}
+        onPressIn={() => { animate(0.955) }}
+        onPressOut={() => { animate(1) }}
+      >
+        <View style={styles.bubble} pointerEvents='none' />
+        <View style={styles.bubbleSmall} pointerEvents='none' />
+        <View style={styles.watermark} pointerEvents='none'>
+          <Icon name={icon} size={104} color='rgba(255,255,255,0.16)' />
+        </View>
+        <View style={styles.labelRow}>
+          <Icon name={icon} size={15} color='#FFFFFF' />
+          <Text size={15} color='#FFFFFF' style={styles.label}>{title}</Text>
+        </View>
+      </TouchableOpacity>
+    </Animated.View>
+  )
+}
 
 const styles = createStyle({
   card: {

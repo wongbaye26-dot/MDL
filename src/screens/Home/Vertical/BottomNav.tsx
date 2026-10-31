@@ -1,5 +1,5 @@
-import { memo, useMemo } from 'react'
-import { View, TouchableOpacity } from 'react-native'
+import { memo, useEffect, useMemo, useRef } from 'react'
+import { Animated, View, TouchableOpacity } from 'react-native'
 
 import { Icon } from '@/components/common/Icon'
 import Image from '@/components/common/Image'
@@ -18,16 +18,19 @@ const MENU_ICONS: Record<string, string> = {
 }
 
 /** 专辑封面外的分段进度环 */
-const SEGMENTS = 40
+const SEGMENTS = 36
+const RING_RADIUS = 24
+
 const ProgressRing = ({ ratio, activeColor, children }: {
   ratio: number
   activeColor: string
   children: React.ReactNode
 }) => {
-  const items = useMemo(() => Array.from({ length: SEGMENTS }, (_, i) => {
-    const angle = (360 / SEGMENTS) * i
-    return { key: i, angle, active: i / SEGMENTS < ratio }
-  }), [ratio])
+  const items = useMemo(() => Array.from({ length: SEGMENTS }, (_, i) => ({
+    key: i,
+    angle: (360 / SEGMENTS) * i,
+    active: i / SEGMENTS < ratio,
+  })), [ratio])
 
   return (
     <View style={styles.ringWrap}>
@@ -37,14 +40,61 @@ const ProgressRing = ({ ratio, activeColor, children }: {
             key={item.key}
             style={{
               ...styles.tick,
-              backgroundColor: item.active ? activeColor : 'rgba(255,255,255,0.16)',
-              transform: [{ rotate: `${item.angle}deg` }, { translateY: -23 }],
+              backgroundColor: item.active ? activeColor : 'rgba(255,255,255,0.18)',
+              transform: [{ rotate: `${item.angle}deg` }, { translateY: -RING_RADIUS }],
             }}
           />
         ))
       }
       {children}
     </View>
+  )
+}
+
+/**
+ * 单个导航槽位：选中态用 spring 放大 + 淡入圆底，切换时不再是硬跳变。
+ * 颜色无法用 native driver 插值，所以颜色直接切换，动效只做缩放/透明度。
+ */
+const NavSlot = ({ active, onPress, icon, iconColor, activeColor }: {
+  active: boolean
+  onPress: () => void
+  icon: string
+  iconColor: string
+  activeColor: string
+}) => {
+  const anim = useRef(new Animated.Value(active ? 1 : 0)).current
+
+  useEffect(() => {
+    Animated.spring(anim, {
+      toValue: active ? 1 : 0,
+      useNativeDriver: true,
+      friction: 9,
+      tension: 160,
+      restDisplacementThreshold: 0.001,
+      restSpeedThreshold: 0.001,
+    }).start()
+  }, [active, anim])
+
+  return (
+    <TouchableOpacity style={styles.item} activeOpacity={0.85} onPress={onPress}>
+      <Animated.View
+        pointerEvents='none'
+        style={{
+          ...styles.activeBg,
+          backgroundColor: activeColor,
+          opacity: anim,
+          transform: [{ scale: anim.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1] }) }],
+        }}
+      />
+      <Animated.View
+        pointerEvents='none'
+        style={{
+          transform: [{ scale: anim.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1] }) }],
+        }}
+      >
+        <Icon name={icon} size={22} color={iconColor} />
+      </Animated.View>
+    </TouchableOpacity>
   )
 }
 
@@ -59,22 +109,23 @@ export default memo(() => {
     if (activeId !== 'nav_player') setNavActiveId('nav_player')
   }
 
+  // 胶囊外完全透明，只有胶囊本体是半透明玻璃，内容从底下穿过去
   return (
     <View style={styles.wrap} pointerEvents='box-none'>
       <View style={{
         ...styles.bar,
-        backgroundColor: isDark ? 'rgba(26,20,36,0.52)' : 'rgba(255,255,255,0.62)',
-        borderColor: isDark ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.85)',
-        shadowColor: isDark ? '#000000' : '#7C6E92',
+        backgroundColor: isDark ? 'rgba(26,20,36,0.58)' : 'rgba(255,255,255,0.62)',
+        borderColor: isDark ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.80)',
+        shadowColor: isDark ? '#000000' : '#6E6285',
       }}>
         {
           NAV_MENUS.map(menu => {
             const isActive = activeId === menu.id
-            const iconColor = isActive ? '#FFFFFF' : (isDark ? 'rgba(255,255,255,0.62)' : 'rgba(30,24,40,0.55)')
+            const iconColor = isActive ? '#FFFFFF' : (isDark ? 'rgba(255,255,255,0.66)' : 'rgba(30,24,40,0.58)')
 
             if (menu.id === 'nav_player') {
               return (
-                <TouchableOpacity key={menu.id} style={styles.item} activeOpacity={0.8} onPress={openPlayer}>
+                <TouchableOpacity key={menu.id} style={styles.item} activeOpacity={0.85} onPress={openPlayer}>
                   <ProgressRing ratio={progress} activeColor={theme['c-primary']}>
                     <View style={styles.albumInner}>
                       {
@@ -93,19 +144,14 @@ export default memo(() => {
             }
 
             return (
-              <TouchableOpacity
+              <NavSlot
                 key={menu.id}
-                style={styles.item}
-                activeOpacity={0.8}
+                active={isActive}
+                icon={MENU_ICONS[menu.id] ?? menu.icon}
+                iconColor={iconColor}
+                activeColor={theme['c-primary']}
                 onPress={() => { if (!isActive) setNavActiveId(menu.id) }}
-              >
-                <View style={{
-                  ...styles.iconWrap,
-                  backgroundColor: isActive ? theme['c-primary'] : 'rgba(0,0,0,0)',
-                }}>
-                  <Icon name={MENU_ICONS[menu.id] ?? menu.icon} size={22} color={iconColor} />
-                </View>
-              </TouchableOpacity>
+              />
             )
           })
         }
@@ -116,22 +162,25 @@ export default memo(() => {
 
 const styles = createStyle({
   wrap: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
     alignItems: 'center',
-    paddingTop: 8,
-    paddingBottom: 14,
+    paddingBottom: 16,
   },
   bar: {
     flexDirection: 'row',
     alignItems: 'center',
-    width: '64%',
-    height: 62,
-    borderRadius: 31,
+    width: '66%',
+    height: 64,
+    borderRadius: 32,
     borderWidth: 0.5,
     paddingLeft: 8,
     paddingRight: 8,
-    elevation: 16,
-    shadowOpacity: 0.32,
-    shadowRadius: 16,
+    elevation: 14,
+    shadowOpacity: 0.26,
+    shadowRadius: 20,
     shadowOffset: { width: 0, height: 8 },
   },
   item: {
@@ -140,7 +189,8 @@ const styles = createStyle({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  iconWrap: {
+  activeBg: {
+    position: 'absolute',
     width: 44,
     height: 44,
     borderRadius: 22,
@@ -148,15 +198,15 @@ const styles = createStyle({
     alignItems: 'center',
   },
   ringWrap: {
-    width: 52,
-    height: 52,
+    width: 56,
+    height: 56,
     justifyContent: 'center',
     alignItems: 'center',
   },
   tick: {
     position: 'absolute',
     width: 2,
-    height: 4,
+    height: 5,
     borderRadius: 1,
   },
   albumInner: {

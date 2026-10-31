@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { FlatList, TouchableOpacity, View, Modal, TextInput, StyleSheet, type GestureResponderEvent } from 'react-native'
+import { Animated, FlatList, PanResponder, TouchableOpacity, View, Modal, TextInput, StyleSheet, type GestureResponderEvent } from 'react-native'
 
 import Text from '@/components/common/Text'
 import Image from '@/components/common/Image'
@@ -16,6 +16,7 @@ import listAction from '@/store/list/action'
 import { playList } from '@/core/player/player'
 import { addTempPlayList } from '@/core/player/tempPlayList'
 import { LIST_IDS } from '@/config/constant'
+import { useWindowSize } from '@/utils/hooks'
 
 const LOCAL_LIST_ID = 'local_music'
 
@@ -59,8 +60,9 @@ const Cover = ({ item }: { item: LX.Music.MusicInfoLocal }) => {
   )
 }
 
-export default () => {
+export default ({ onClose }: { onClose?: () => void }) => {
   const theme = useTheme()
+  const { height: windowHeight } = useWindowSize()
   const [list, setList] = useState<LX.Music.MusicInfoLocal[]>([])
   const [dir, setDir] = useState('')
   const [scanning, setScanning] = useState(false)
@@ -110,6 +112,40 @@ export default () => {
   }, [handleScan])
 
   const totalSize = useMemo(() => formatSize(getTotalSize(list)), [list])
+
+  // 下滑关闭：回到下载中心。列表在顶部时直接接管手势；任意位置快速下滑也能关闭
+  const panY = useRef(new Animated.Value(0)).current
+  const scrollY = useRef(0)
+  const windowHeightRef = useRef(windowHeight)
+  windowHeightRef.current = windowHeight
+  const panResponder = useMemo(() => PanResponder.create({
+    onMoveShouldSetPanResponderCapture: (_, g) => {
+      if (!onClose) return false
+      if (g.dy <= 8 || g.dy <= Math.abs(g.dx) * 1.4) return false
+      return scrollY.current <= 2 || g.vy > 0.9
+    },
+    onPanResponderMove: (_, g) => {
+      if (g.dy > 0) panY.setValue(g.dy)
+    },
+    onPanResponderRelease: (_, g) => {
+      if (!onClose) return
+      if (g.dy > 110 || g.vy > 0.9) {
+        Animated.timing(panY, {
+          toValue: windowHeightRef.current,
+          duration: 190,
+          useNativeDriver: true,
+        }).start(() => {
+          panY.setValue(0)
+          onClose()
+        })
+      } else {
+        Animated.spring(panY, { toValue: 0, useNativeDriver: true, friction: 9, tension: 120 }).start()
+      }
+    },
+    onPanResponderTerminate: () => {
+      Animated.spring(panY, { toValue: 0, useNativeDriver: true }).start()
+    },
+  }), [onClose, panY])
 
   const handlePlay = useCallback(async(index: number) => {
     if (!list.length) return
@@ -161,7 +197,11 @@ export default () => {
   ), [handlePlay, handlePlayLater, handleDelete, handleEdit])
 
   return (
-    <View style={styles.container}>
+    <Animated.View
+      style={{ flex: 1, transform: [{ translateY: panY }] }}
+      {...(onClose ? panResponder.panHandlers : null)}
+    >
+      <View style={styles.container}>
       <View style={{
         ...styles.scanCard,
         backgroundColor: theme['c-primary-alpha-900'],
@@ -193,6 +233,8 @@ export default () => {
         renderItem={renderItem}
         keyExtractor={item => item.id}
         contentContainerStyle={styles.listContent}
+        scrollEventThrottle={32}
+        onScroll={e => { scrollY.current = e.nativeEvent.contentOffset.y }}
         ListEmptyComponent={(
           <View style={styles.empty}>
             <View style={{ ...styles.emptyIcon, backgroundColor: theme['c-primary-alpha-900'] }}>
@@ -213,7 +255,8 @@ export default () => {
         onClose={() => { setEditingItem(null) }}
         onSave={handleSaveEdit}
       />
-    </View>
+      </View>
+    </Animated.View>
   )
 }
 
@@ -235,7 +278,8 @@ const LocalRow = ({ item, index, onPress, onMenu }: {
 
   const handleLongPress = (e: GestureResponderEvent) => {
     const { pageX, pageY } = e.nativeEvent
-    menuRef.current?.show({ x: Math.max(8, pageX - 180), y: Math.max(60, pageY - 20), w: 1, h: 1 })
+    // 直接用手指标记位置，让 Menu 自己夹到屏幕内（之前手动减 180 会把菜单推出屏幕左侧）
+    menuRef.current?.show({ x: pageX, y: pageY, w: 0, h: 0 })
   }
 
   const meta = useMemo(() => {
@@ -436,6 +480,7 @@ const styles = createStyle({
   },
   listContent: {
     paddingTop: 10,
+    // 底部空间由外层 PageModal 统一留出，这里不再重复加
     paddingBottom: 24,
   },
   row: {

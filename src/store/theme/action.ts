@@ -1,4 +1,5 @@
 import { buildActiveThemeColors } from '@/theme/themes'
+import { syncNativeTheme } from '@/core/themeSync'
 import state from './state'
 
 /** 必要的颜色键，缺任何一个都会让界面出现大面积无背景/无文字色 */
@@ -24,6 +25,8 @@ export default {
       return
     }
     state.theme = next
+    // 先换原生底色，再通知 React 重渲染，避免中间那一帧露出系统白/黑底
+    syncNativeTheme(next)
     global.state_event.themeUpdated(state.theme)
   },
   setShouldUseDarkColors(shouldUseDarkColors: boolean) {

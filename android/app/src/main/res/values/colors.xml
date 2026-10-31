@@ -1,0 +1,6 @@
+<resources>
+    <!-- 窗口底色：亮色模式为白，暗色模式见 values-night/colors.xml。
+         必须在主题里显式指定，否则 DayNight 会跟随系统给出与 App 主题不一致的底色，
+         切换主题或首帧渲染时会露出白/黑闪屏。 -->
+    <color name="window_background">#FFFFFF</color>
+</resources>

@@ -68,8 +68,17 @@ export const getWindowSize = async(): Promise<{ width: number, height: number }>
   return UtilsModule.getWindowSize()
 }
 
-/** 读取系统 Material You 主题色，失败返回 null */
-export const getSystemAccentColor = async(): Promise<string | null> => {
+/**
+ * 设置原生窗口底色，切换主题时调用，避免重渲染首帧露出系统白/黑底
+ * @param color #RRGGBB / #AARRGGBB
+ */
+export const setWindowBackgroundColor = (color: string) => {
+  try {
+    UtilsModule.setWindowBackgroundColor?.(color)
+  } catch {}
+}
+
+/** 读取系统 Material You 主题色，失败返回 null */export const getSystemAccentColor = async(): Promise<string | null> => {
   try {
     return await UtilsModule.getSystemAccentColor() as string | null
   } catch {

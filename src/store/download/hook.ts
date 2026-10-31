@@ -6,9 +6,26 @@ export const useDownloadList = () => {
   const [value, update] = useState(state.list)
 
   useEffect(() => {
-    event.on('list_changed', update)
+    const handleListUpdate = (list: LX.Download.ListItem[]) => {
+      update(list)
+    }
+    // 进度/状态变化只发 task_changed，必须同步到列表，否则卡片会一直停在旧状态
+    // （典型表现：还在下载却显示「已完成」、进度条不动）
+    const handleTaskUpdate = (task: LX.Download.ListItem) => {
+      update(prev => {
+        const index = prev.findIndex(item => item.id === task.id)
+        if (index < 0) return prev
+        if (prev[index] === task) return prev
+        const next = prev.slice()
+        next[index] = task
+        return next
+      })
+    }
+    event.on('list_changed', handleListUpdate)
+    event.on('task_changed', handleTaskUpdate)
     return () => {
-      event.off('list_changed', update)
+      event.off('list_changed', handleListUpdate)
+      event.off('task_changed', handleTaskUpdate)
     }
   }, [])
 

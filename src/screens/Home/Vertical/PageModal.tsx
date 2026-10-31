@@ -5,6 +5,7 @@ import SlideInView from '@/components/common/SlideInView'
 import { useTheme } from '@/store/theme/hook'
 import { useStatusbarHeight } from '@/store/common/hook'
 import { createStyle } from '@/utils/tools'
+import { NAV_BAR_SPACE } from '@/config/constant'
 
 export default ({ title, onClose, children }: {
   title: string
@@ -51,5 +52,7 @@ const styles = createStyle({
   },
   content: {
     flex: 1,
+    // 底部悬浮导航会盖在内容之上，这里统一留出空间，避免最后一项被胶囊挡住
+    paddingBottom: NAV_BAR_SPACE,
   },
 })

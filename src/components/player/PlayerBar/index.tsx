@@ -41,11 +41,14 @@ export default memo(({ isHome = false }: { isHome?: boolean }) => {
   void isHome
 
   return (
-    <View style={{ ...styles.wrap, backgroundColor: theme['c-content-background'] }}>
+    <View style={styles.wrap}>
       <View style={{
         ...styles.card,
-        backgroundColor: theme['c-primary-alpha-900'],
-        borderColor: theme['c-primary-alpha-700'],
+        // 半透明玻璃：之前用 c-primary-alpha-900（10% 透明度）几乎是镂空的，
+        // 现在给一层实心磨砂底 + 高光描边，能透出一点背景但不再“空”
+        backgroundColor: theme.isDark ? 'rgba(32,26,44,0.66)' : 'rgba(255,255,255,0.74)',
+        borderColor: theme.isDark ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.85)',
+        shadowColor: theme.isDark ? '#000000' : '#6E6285',
       }}>
         <TouchableOpacity style={styles.infoArea} activeOpacity={0.75} onPress={openPlayerTab}>
           <View style={styles.picWrap}>
@@ -89,11 +92,10 @@ const styles = createStyle({
     paddingRight: 4,
     paddingTop: 6,
     paddingBottom: 6,
-    elevation: 8,
-    shadowColor: '#000000',
-    shadowOpacity: 0.16,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
+    elevation: 10,
+    shadowOpacity: 0.22,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
     overflow: 'hidden',
   },
   infoArea: {

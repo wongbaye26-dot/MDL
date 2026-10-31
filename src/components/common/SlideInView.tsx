@@ -36,9 +36,15 @@ export default ({ children, style }: { children: React.ReactNode, style?: StyleP
         style,
         {
           opacity,
-          transform: [{
-            translateX: progress.interpolate({ inputRange: [0, 1], outputRange: [-40, 0] }),
-          }],
+          transform: [
+            {
+              translateX: progress.interpolate({ inputRange: [0, 1], outputRange: [-40, 0] }),
+            },
+            {
+              // 一点点推近，比纯平移更“立体”
+              scale: progress.interpolate({ inputRange: [0, 1], outputRange: [0.985, 1] }),
+            },
+          ],
         },
       ]}
     >

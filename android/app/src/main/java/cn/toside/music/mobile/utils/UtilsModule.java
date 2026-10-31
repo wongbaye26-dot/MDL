@@ -12,6 +12,7 @@ import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.util.Log;
+import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
 
@@ -448,6 +449,38 @@ public class UtilsModule extends ReactContextBaseJavaModule {
     } catch (Exception e) {
       Log.e("Utils", "getSystemColorPalette error: " + e.getMessage(), e);
       promise.resolve(result);
+    }
+  }
+
+  /**
+   * 设置窗口底色（RN 根视图与 Activity 窗口）。
+   *
+   * 切换主题时 JS 侧整棵树会重新渲染，在首帧提交前会短暂露出窗口底色：
+   * 系统 DayNight 主题下亮色为白、暗色为黑，就是用户看到的「黑白闪屏」。
+   * 这里让窗口底色跟随当前主题，任何未绘制的瞬间都只会露出主题色本身。
+   *
+   * @param color 形如 #RRGGBB 或 #AARRGGBB
+   */
+  @ReactMethod
+  public void setWindowBackgroundColor(String color) {
+    try {
+      final int parsed = android.graphics.Color.parseColor(color);
+      final Activity activity = getCurrentActivity();
+      if (activity == null) return;
+      activity.runOnUiThread(() -> {
+        try {
+          Window window = activity.getWindow();
+          window.setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(parsed));
+          View decor = window.getDecorView();
+          if (decor != null) decor.setBackgroundColor(parsed);
+          View root = activity.findViewById(android.R.id.content);
+          if (root != null) root.setBackgroundColor(parsed);
+        } catch (Exception e) {
+          Log.e("Utils", "setWindowBackgroundColor ui error: " + e.getMessage(), e);
+        }
+      });
+    } catch (Exception e) {
+      Log.e("Utils", "setWindowBackgroundColor error: " + e.getMessage(), e);
     }
   }
 }

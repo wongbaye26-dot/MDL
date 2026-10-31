@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Animated,
+  Easing,
   Modal,
   PanResponder,
   ScrollView,
@@ -48,14 +49,15 @@ const MODE_LABEL: Record<PlayMode, string> = {
 
 const LYRIC_SIZES = [15, 17, 19, 22]
 
-/** 底部渐变遮罩的逐层透明度，层数够多才看不出色带 */
-const GRADIENT_STOPS = Array.from({ length: 28 }, (_, i) => {
-  const t = i / 27
-  return Number((0.02 + Math.pow(t, 1.5) * 0.62).toFixed(3))
-})
-
-/** 顶部渐变（状态栏区域与封面融合） */
-const TOP_STOPS = [0.34, 0.22, 0.12, 0.05]
+/**
+ * 渐变遮罩用预渲染的 alpha 渐变 PNG，而不是堆几十层色块。
+ * 色块堆叠在低端机上会出现明显横带（截图里的灰色条纹），
+ * 一张 8x256 的渐变图缩放后是完全平滑的，性能也更好。
+ */
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const FADE_TOP = require('@/resources/images/fade-top.png')
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const FADE_BOTTOM = require('@/resources/images/fade-bottom.png')
 
 const formatTime = (time: number) => {
   if (!time || time < 0 || !Number.isFinite(time)) return '00:00'
@@ -402,70 +404,56 @@ export default () => {
   const pic = musicInfo.pic
   const isCover = mode === 'cover'
 
+  // 封面卡进场：换歌或从歌词页切回时，从 92% 缩放淡入
+  const coverAnim = useRef(new Animated.Value(0)).current
+  useEffect(() => {
+    if (!isCover) return
+    coverAnim.setValue(0)
+    Animated.timing(coverAnim, {
+      toValue: 1,
+      duration: 420,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start()
+  }, [coverAnim, isCover, pic])
+
   return (
     <Animated.View
       style={{ ...styles.container, transform: [{ translateY: panY }] }}
       {...panResponder.panHandlers}
     >
-      {/* 底层：同一张封面放大模糊，形成四周磨砂质感 */}
+      {/* 底层：同一张封面放大模糊，铺满整屏 */}
       {
         pic
           ? <RNImage
               source={{ uri: pic }}
-              blurRadius={isCover ? 60 : 40}
-              style={[StyleSheet.absoluteFill, { transform: [{ scale: 1.18 }] }]}
+              blurRadius={isCover ? 48 : 36}
+              style={[StyleSheet.absoluteFill, { transform: [{ scale: 1.22 }] }]}
               resizeMode='cover'
             />
           : <View style={[StyleSheet.absoluteFill, { backgroundColor: '#151019' }]} />
       }
 
-      {/* 上层：封面态用清晰图内缩，露出四周磨砂边；歌词态不再叠清晰图 */}
-      {
-        pic && isCover
-          ? <RNImage
-              source={{ uri: pic }}
-              style={[StyleSheet.absoluteFill, styles.coverInner]}
-              resizeMode='cover'
-            />
-          : null
-      }
+      {/*
+        磨砂玻璃层：封面之外（以及整个歌词页）都是半透明的磨砂面，
+        不是把封面糊成一片背景 —— 加一层冷白高光 + 暗色蒙版，才有“玻璃”的质感
+      */}
+      <View
+        pointerEvents='none'
+        style={[
+          StyleSheet.absoluteFill,
+          { backgroundColor: isCover ? 'rgba(10,8,16,0.34)' : 'rgba(10,8,16,0.30)' },
+        ]}
+      />
+      <View
+        pointerEvents='none'
+        style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(255,255,255,0.045)' }]}
+      />
 
-      {/* 歌词态整体压暗，保证文字可读 */}
-      {
-        isCover
-          ? null
-          : <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(8,6,12,0.62)' }]} />
-      }
-
-      {/* 顶部渐变：让状态栏与封面自然融合 */}
-      <View pointerEvents='none' style={styles.topGradient}>
-        {
-          TOP_STOPS.map((alpha, i) => (
-            <View
-              key={i}
-              style={{
-                flex: 1,
-                backgroundColor: `rgba(0,0,0,${alpha})`,
-              }}
-            />
-          ))
-        }
-      </View>
-
-      {/* 底部渐变：多层细密色块，避免出现横条纹 */}
-      <View pointerEvents='none' style={styles.bottomGradient}>
-        {
-          GRADIENT_STOPS.map((alpha, i) => (
-            <View
-              key={i}
-              style={{
-                flex: 1,
-                backgroundColor: `rgba(0,0,0,${alpha})`,
-              }}
-            />
-          ))
-        }
-      </View>
+      {/* 顶部渐变：让状态栏与背景自然融合 */}
+      <RNImage source={FADE_TOP} resizeMode='stretch' style={styles.topGradient} />
+      {/* 底部渐变：预渲染 alpha 渐变，无横带 */}
+      <RNImage source={FADE_BOTTOM} resizeMode='stretch' style={styles.bottomGradient} />
 
       <View style={{ flex: 1, paddingTop: statusBarHeight }}>
         <View style={styles.topBar}>
@@ -493,11 +481,21 @@ export default () => {
           mode === 'cover'
             ? (
               <TouchableOpacity activeOpacity={1} style={styles.coverArea} onPress={handleToggleMode}>
-                {pic ? null : (
-                  <View style={styles.coverPlaceholder}>
-                    <Icon name='album' size={64} color='rgba(255,255,255,0.12)' />
-                  </View>
-                )}
+                {
+                  pic
+                    ? (
+                      <Animated.View style={{ ...styles.coverShadow, opacity: coverAnim, transform: [{ scale: coverAnim.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1] }) }] }}>
+                        <View style={styles.coverCard}>
+                          <RNImage source={{ uri: pic }} style={styles.coverImg} resizeMode='cover' />
+                        </View>
+                      </Animated.View>
+                      )
+                    : (
+                      <View style={styles.coverPlaceholder}>
+                        <Icon name='album' size={64} color='rgba(255,255,255,0.12)' />
+                      </View>
+                      )
+                }
               </TouchableOpacity>
               )
             : (
@@ -711,26 +709,41 @@ const styles = createStyle({
     flex: 1,
     backgroundColor: '#0B0810',
   },
-  coverInner: {
-    margin: 10,
+  coverShadow: {
+    width: '86%',
+    aspectRatio: 1,
+    borderRadius: 26,
+    elevation: 22,
+    shadowColor: '#000000',
+    shadowOpacity: 0.42,
+    shadowRadius: 28,
+    shadowOffset: { width: 0, height: 16 },
+  },
+  coverCard: {
+    flex: 1,
     borderRadius: 26,
     overflow: 'hidden',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 0.5,
+    borderColor: 'rgba(255,255,255,0.18)',
+  },
+  coverImg: {
+    width: '100%',
+    height: '100%',
   },
   topGradient: {
     position: 'absolute',
     left: 0,
     right: 0,
     top: 0,
-    height: '22%',
-    flexDirection: 'column',
+    height: '26%',
   },
   bottomGradient: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
-    height: '64%',
-    flexDirection: 'column',
+    height: '60%',
   },
   topBar: {
     flexDirection: 'row',

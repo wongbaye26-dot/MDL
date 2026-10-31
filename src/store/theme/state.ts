@@ -252,7 +252,7 @@ const state: InitState = {
   theme: {
     ...theme,
     'c-app-background': theme['c-primary-light-600-alpha-600'],
-    'c-main-background': 'rgba(255, 255, 255, 0.9)',
+    'c-main-background': 'rgb(255, 255, 255)',
 
     'c-badge-primary': theme['c-primary'],
     'c-badge-secondary': '#4baed5',

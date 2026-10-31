@@ -10,7 +10,7 @@ import {
   pauseAll as nativePauseAll,
   type DownloadEventPayload,
 } from '@/utils/nativeModules/download'
-import { cpFile, existsFile, mkdir, unlink, writeFile } from '@/utils/fs'
+import { cpFile, existsFile, mkdir, stat, unlink, writeFile } from '@/utils/fs'
 import { writeTaskExtras } from './extras'
 import {
   buildFileName,
@@ -37,6 +37,24 @@ let saveTimer: ReturnType<typeof setTimeout> | null = null
 let cachedSavePath: string | null = null
 
 const getTask = (id: string) => downloadAction.getTaskById(id)
+
+/**
+ * 校验下载结果：文件存在且大小与预期相符。
+ * 校验本身失败（如 SAF 目录读不到 stat）时放行，避免误判。
+ */
+const verifyDownloadedFile = async(path: string, expected: number): Promise<boolean> => {
+  try {
+    const info = await stat(path)
+    const size = Number(info?.size ?? 0)
+    if (size <= 0) return false
+    // 服务端返回的总大小可能略有出入，留 1KB 容差
+    if (expected > 0 && size + 1024 < expected) return false
+    return true
+  } catch (err) {
+    console.log('verify download file failed', err)
+    return true
+  }
+}
 
 /**
  * 延迟保存下载列表，避免频繁写存储
@@ -183,6 +201,41 @@ const handleNativeEvent = (event: DownloadEventPayload) => {
 const handleComplete = async(id: string, total: number) => {
   const task = getTask(id)
   if (!task) return
+
+  // 原生层报告完成后先校验文件，避免服务端提前断开时「文件没写完却显示已完成」
+  const expected = total || task.total
+  const filePath = task.metadata.filePath
+  if (filePath && !await verifyDownloadedFile(filePath, expected)) {
+    const retryCount = (task.retryCount ?? 0) + 1
+    if (retryCount <= 2) {
+      // 删掉不完整的文件，否则原生层会认为「文件已存在」而直接再次报完成
+      await unlink(filePath).catch(() => {})
+      await unlink(`${filePath}.part`).catch(() => {})
+      downloadAction.updateTask(id, {
+        status: 'waiting',
+        isComplate: false,
+        progress: 0,
+        downloaded: 0,
+        total: 0,
+        speed: '',
+        statusText: '',
+        retryCount,
+        errorMessage: '文件不完整，正在重试',
+      })
+      setTimeout(() => { void startTask(id) }, 1200)
+    } else {
+      downloadAction.updateTask(id, {
+        status: 'error',
+        isComplate: false,
+        speed: '',
+        statusText: '',
+        errorMessage: '文件下载不完整，请重试',
+      })
+      scheduleSave()
+      pump()
+    }
+    return
+  }
 
   downloadAction.updateTask(id, {
     status: 'completed',

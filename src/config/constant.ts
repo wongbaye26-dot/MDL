@@ -109,6 +109,13 @@ export const NAV_MENUS = [
 
 export type NAV_ID_Type = typeof NAV_MENUS[number]['id']
 
+/**
+ * 悬浮胶囊导航（含底部留白）占用的竖向空间。
+ * 导航现在是覆盖在内容之上的，各页面滚动容器需要在底部留出这段空白，
+ * 否则最后一项会被胶囊挡住。
+ */
+export const NAV_BAR_SPACE = 104
+
 export const LXM_FILE_EXT_RXP = ['json', 'lxmc', 'bin']
 export const USER_API_SOURCE_FILE_EXT_RXP = ['js']
 

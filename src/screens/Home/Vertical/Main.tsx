@@ -44,7 +44,12 @@ const Page = ({ id, children }: { id: CommonState['navActiveId'], children: Reac
     }
     const handleHide = () => {
       if (currentId != 'nav_mine') return
+      // 主题/语言变化时让设置页重建一次，但必须马上挂回来：
+      // 只置 false 不置 true 会让「我的」页面直接空白（用户看到的黑/白屏）
       setVisible(false)
+      requestAnimationFrame(() => {
+        setVisible(true)
+      })
     }
     const handleConfigUpdated = (keys: Array<keyof LX.AppSetting>) => {
       if (keys.some(k => hideKeys.includes(k))) handleHide()

@@ -83,6 +83,7 @@ const Menu = ({
   }, [menuSize, width, height])
 
   const menuStyle = useMemo(() => {
+    const margin = 8
     const fullHeight = menus.length * menuItemStyle.height
     const topHeight = buttonPosition.y - 20
     const bottomHeight = windowSize.height - buttonPosition.y - buttonPosition.h - 20
@@ -93,26 +94,26 @@ const Menu = ({
       : fullHeight
 
     const menuWidth = menuItemStyle.width
-    const rightSpace = windowSize.width - buttonPosition.x - menuWidth
     const showInBottom = bottomHeight >= menuHeight
-    const showInRight = rightSpace >= menuWidth
-    const frameStyle: {
-      height: number
-      width: number
-      top: number
-      left?: number
-      right?: number
-    } = {
+
+    // 水平位置：默认贴住触发元素左边缘，放不下就右对齐到触发元素右边缘，
+    // 最后统一夹到屏幕内 —— 长按唤出时 x 就是手指位置，这样菜单永远完整可见
+    let left = buttonPosition.x
+    if (left + menuWidth > windowSize.width - margin) {
+      left = buttonPosition.x + buttonPosition.w - menuWidth
+    }
+    left = Math.min(Math.max(margin, left), Math.max(margin, windowSize.width - menuWidth - margin))
+
+    // 垂直位置同样夹到屏幕内
+    let top = showInBottom ? buttonPosition.y + buttonPosition.h : buttonPosition.y - menuHeight
+    top = Math.min(Math.max(margin, top), Math.max(margin, windowSize.height - menuHeight - margin))
+
+    return {
       height: menuHeight,
-      top: showInBottom ? buttonPosition.y + buttonPosition.h : Math.max(10, buttonPosition.y - menuHeight),
       width: menuWidth,
+      top,
+      left,
     }
-    if (showInRight) {
-      frameStyle.left = buttonPosition.x
-    } else {
-      frameStyle.right = Math.max(6, windowSize.width - buttonPosition.x - buttonPosition.w)
-    }
-    return frameStyle
   }, [menus.length, menuItemStyle, buttonPosition, windowSize])
 
   const menuPress = (menu: Menus[number]) => {

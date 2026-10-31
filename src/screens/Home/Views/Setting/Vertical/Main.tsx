@@ -16,6 +16,7 @@ import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
 import { useStatusbarHeight } from '@/store/common/hook'
 import SlideInView from '@/components/common/SlideInView'
+import { NAV_BAR_SPACE } from '@/config/constant'
 
 const MENU_META: Record<SettingScreenIds, { icon: string, descKey: string }> = {
   basic: { icon: 'setting', descKey: 'setting_desc_basic' },
@@ -119,7 +120,7 @@ const styles = createStyle({
   },
   list: {
     paddingTop: 4,
-    paddingBottom: 20,
+    paddingBottom: NAV_BAR_SPACE,
     paddingLeft: 16,
     paddingRight: 16,
   },
@@ -182,6 +183,6 @@ const styles = createStyle({
     paddingLeft: 16,
     paddingRight: 16,
     paddingTop: 10,
-    paddingBottom: 40,
+    paddingBottom: NAV_BAR_SPACE,
   },
 })

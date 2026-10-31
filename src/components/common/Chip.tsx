@@ -1,4 +1,5 @@
-import { TouchableOpacity } from 'react-native'
+import { useCallback, useRef } from 'react'
+import { Animated, TouchableOpacity } from 'react-native'
 
 import Text from './Text'
 import { Icon } from './Icon'
@@ -29,16 +30,31 @@ export default ({ label, active = false, soft = false, size = 'md', icon, onPres
     ? (soft ? theme['c-primary-light-200'] : '#FFFFFF')
     : theme['c-450']
 
+  // 按压时轻微回弹，比单纯改透明度更有手感（native driver，不阻塞 JS）
+  const scale = useRef(new Animated.Value(1)).current
+  const animate = useCallback((toValue: number) => {
+    Animated.spring(scale, {
+      toValue,
+      useNativeDriver: true,
+      speed: 40,
+      bounciness: 6,
+    }).start()
+  }, [scale])
+
   return (
-    <TouchableOpacity
-      activeOpacity={0.8}
-      onPress={onPress}
-      onLongPress={onLongPress}
-      style={{ ...(isSm ? styles.chipSm : styles.chipMd), backgroundColor, borderColor }}
-    >
-      { icon ? <Icon name={icon} size={isSm ? 10 : 11} color={color} style={styles.icon} /> : null }
-      <Text size={isSm ? 11 : 12} color={color} numberOfLines={1} style={styles.label}>{label}</Text>
-    </TouchableOpacity>
+    <Animated.View style={{ transform: [{ scale }] }}>
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={onPress}
+        onLongPress={onLongPress}
+        onPressIn={() => { animate(0.93) }}
+        onPressOut={() => { animate(1) }}
+        style={{ ...(isSm ? styles.chipSm : styles.chipMd), backgroundColor, borderColor }}
+      >
+        { icon ? <Icon name={icon} size={isSm ? 10 : 11} color={color} style={styles.icon} /> : null }
+        <Text size={isSm ? 11 : 12} color={color} numberOfLines={1} style={styles.label}>{label}</Text>
+      </TouchableOpacity>
+    </Animated.View>
   )
 }
 
