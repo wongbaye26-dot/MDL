@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { View, ScrollView, TouchableOpacity, StyleSheet } from 'react-native'
 
 import Basic from '../settings/Basic'
@@ -9,25 +9,16 @@ import Download from '../settings/Download'
 import Other from '../settings/Other'
 import About from '../settings/About'
 import { createStyle } from '@/utils/tools'
-import { SETTING_SCREENS, type SettingScreenIds } from '../Main'
+import { type SettingScreenIds } from '../Main'
 import { Icon } from '@/components/common/Icon'
 import Text from '@/components/common/Text'
 import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
 import { useStatusbarHeight } from '@/store/common/hook'
 import SlideInView from '@/components/common/SlideInView'
+import Grid from './Grid'
 import { NAV_BAR_SPACE } from '@/config/constant'
 import { getSolidBackground } from '@/theme/solid'
-
-const MENU_META: Record<SettingScreenIds, { icon: string, descKey: string }> = {
-  basic: { icon: 'setting', descKey: 'setting_desc_basic' },
-  player: { icon: 'play', descKey: 'setting_desc_player' },
-  search: { icon: 'search-2', descKey: 'setting_desc_search' },
-  list: { icon: 'list-order', descKey: 'setting_desc_list' },
-  download: { icon: 'download-2', descKey: 'setting_desc_download' },
-  other: { icon: 'slider', descKey: 'setting_desc_other' },
-  about: { icon: 'help', descKey: 'setting_desc_about' },
-}
 
 const getSection = (id: SettingScreenIds) => {
   switch (id) {
@@ -41,27 +32,6 @@ const getSection = (id: SettingScreenIds) => {
     default: return <Basic />
   }
 }
-
-const MenuRow = memo(({ id, onPress }: { id: SettingScreenIds, onPress: (id: SettingScreenIds) => void }) => {
-  const theme = useTheme()
-  const t = useI18n()
-  const meta = MENU_META[id]
-
-  return (
-    <TouchableOpacity style={styles.row} activeOpacity={0.65} onPress={() => { onPress(id) }}>
-      <View style={{ ...styles.iconWrap, backgroundColor: theme['c-primary-alpha-800'] }}>
-        <Icon name={meta.icon} size={18} color={theme['c-primary-light-200']} />
-      </View>
-      <View style={styles.rowText}>
-        <Text size={15} style={styles.rowTitle}>{t(`setting_${id}` as 'setting_basic')}</Text>
-        <Text size={11} color={theme['c-450']} numberOfLines={1} style={styles.rowDesc}>
-          {t(meta.descKey as 'setting_desc_basic')}
-        </Text>
-      </View>
-      <Icon name='chevron-right' size={16} color={theme['c-400']} />
-    </TouchableOpacity>
-  )
-})
 
 export default () => {
   const theme = useTheme()
@@ -78,18 +48,7 @@ export default () => {
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.list}>
-        {
-          [SETTING_SCREENS.slice(0, 5), SETTING_SCREENS.slice(5)].map((group, index) => (
-            <View key={index} style={{ ...styles.group, backgroundColor: theme['c-primary-alpha-900'], borderColor: theme['c-primary-alpha-700'] }}>
-              {group.map((id, i) => (
-                <View key={id}>
-                  <MenuRow id={id} onPress={handlePress} />
-                  {i < group.length - 1 ? <View style={{ ...styles.divider, backgroundColor: theme['c-primary-alpha-800'] }} /> : null}
-                </View>
-              ))}
-            </View>
-          ))
-        }
+        <Grid onPress={handlePress} />
       </ScrollView>
 
       {
@@ -120,47 +79,8 @@ const styles = createStyle({
     flex: 1,
   },
   list: {
-    paddingTop: 4,
+    paddingTop: 6,
     paddingBottom: NAV_BAR_SPACE,
-    paddingLeft: 16,
-    paddingRight: 16,
-  },
-  group: {
-    borderRadius: 18,
-    borderWidth: 0.5,
-    marginBottom: 14,
-    overflow: 'hidden',
-  },
-  divider: {
-    height: 0.5,
-    marginLeft: 66,
-    marginRight: 14,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingLeft: 14,
-    paddingRight: 12,
-    paddingTop: 14,
-    paddingBottom: 14,
-  },
-  iconWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: 13,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 14,
-  },
-  rowText: {
-    flexGrow: 1,
-    flexShrink: 1,
-  },
-  rowTitle: {
-    fontWeight: '600',
-  },
-  rowDesc: {
-    marginTop: 3,
   },
   modal: {
     flex: 1,

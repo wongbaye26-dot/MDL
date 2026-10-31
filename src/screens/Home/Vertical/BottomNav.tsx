@@ -1,12 +1,12 @@
 import { memo, useEffect, useMemo, useRef } from 'react'
-import { Animated, View, TouchableOpacity } from 'react-native'
+import { Animated, Easing, View, TouchableOpacity } from 'react-native'
 
 import { Icon } from '@/components/common/Icon'
 import Image from '@/components/common/Image'
 import Glass from '@/components/common/Glass'
 import { useTheme } from '@/store/theme/hook'
 import { useNavActiveId } from '@/store/common/hook'
-import { usePlayerMusicInfo, useProgress } from '@/store/player/hook'
+import { usePlayerMusicInfo, useProgress, useIsPlay } from '@/store/player/hook'
 import { NAV_MENUS } from '@/config/constant'
 import { setNavActiveId } from '@/core/common'
 import { createStyle } from '@/utils/tools'
@@ -41,7 +41,7 @@ const ProgressRing = ({ ratio, activeColor, children }: {
             key={item.key}
             style={{
               ...styles.tick,
-              backgroundColor: item.active ? activeColor : 'rgba(255,255,255,0.18)',
+              backgroundColor: item.active ? activeColor : 'rgba(255,255,255,0.26)',
               transform: [{ rotate: `${item.angle}deg` }, { translateY: -RING_RADIUS }],
             }}
           />
@@ -56,12 +56,13 @@ const ProgressRing = ({ ratio, activeColor, children }: {
  * 单个导航槽位：选中态用 spring 放大 + 淡入圆底，切换时不再是硬跳变。
  * 颜色无法用 native driver 插值，所以颜色直接切换，动效只做缩放/透明度。
  */
-const NavSlot = ({ active, onPress, icon, iconColor, activeColor }: {
+const NavSlot = ({ active, onPress, icon, iconColor, activeBg, activeBorder }: {
   active: boolean
   onPress: () => void
   icon: string
   iconColor: string
-  activeColor: string
+  activeBg: string
+  activeBorder: string
 }) => {
   const anim = useRef(new Animated.Value(active ? 1 : 0)).current
 
@@ -82,7 +83,8 @@ const NavSlot = ({ active, onPress, icon, iconColor, activeColor }: {
         pointerEvents='none'
         style={{
           ...styles.activeBg,
-          backgroundColor: activeColor,
+          backgroundColor: activeBg,
+          borderColor: activeBorder,
           opacity: anim,
           transform: [{ scale: anim.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1] }) }],
         }}
@@ -96,6 +98,48 @@ const NavSlot = ({ active, onPress, icon, iconColor, activeColor }: {
         <Icon name={icon} size={22} color={iconColor} />
       </Animated.View>
     </TouchableOpacity>
+  )
+}
+
+/** 导航右侧的专辑圆盘：播放时缓慢旋转 */
+const AlbumDisc = ({ pic }: { pic?: string | null }) => {
+  const isPlay = useIsPlay()
+  const spin = useRef(new Animated.Value(0)).current
+
+  useEffect(() => {
+    if (!isPlay) return
+    const anim = Animated.loop(Animated.timing(spin, {
+      toValue: 1,
+      duration: 14000,
+      easing: Easing.linear,
+      useNativeDriver: true,
+    }))
+    anim.start()
+    return () => { anim.stop() }
+  }, [isPlay, spin])
+
+  const inner = pic
+    ? <Image url={pic} style={styles.album} />
+    : (
+      <View style={{ ...styles.album, backgroundColor: 'rgba(255,255,255,0.12)' }}>
+        <Icon name='music_time' size={14} color='rgba(255,255,255,0.75)' />
+      </View>
+      )
+
+  return (
+    <View style={styles.albumInner}>
+      <Animated.View
+        style={{
+          width: 38,
+          height: 38,
+          borderRadius: 19,
+          overflow: 'hidden',
+          transform: [{ rotate: spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }],
+        }}
+      >
+        {inner}
+      </Animated.View>
+    </View>
   )
 }
 
@@ -128,23 +172,15 @@ export default memo(() => {
         {
           NAV_MENUS.map(menu => {
             const isActive = activeId === menu.id
-            const iconColor = isActive ? '#FFFFFF' : (isDark ? 'rgba(255,255,255,0.66)' : 'rgba(30,24,40,0.58)')
+            const iconColor = isActive
+              ? theme['c-primary']
+              : (isDark ? 'rgba(255,255,255,0.66)' : 'rgba(30,24,40,0.58)')
 
             if (menu.id === 'nav_player') {
               return (
                 <TouchableOpacity key={menu.id} style={styles.item} activeOpacity={0.85} onPress={openPlayer}>
                   <ProgressRing ratio={progress} activeColor={theme['c-primary']}>
-                    <View style={styles.albumInner}>
-                      {
-                        musicInfo.pic
-                          ? <Image url={musicInfo.pic} style={styles.album} />
-                          : (
-                            <View style={{ ...styles.album, backgroundColor: 'rgba(255,255,255,0.12)' }}>
-                              <Icon name='music_time' size={14} color='rgba(255,255,255,0.75)' />
-                            </View>
-                            )
-                      }
-                    </View>
+                    <AlbumDisc pic={musicInfo.pic} />
                   </ProgressRing>
                 </TouchableOpacity>
               )
@@ -156,7 +192,8 @@ export default memo(() => {
                 active={isActive}
                 icon={MENU_ICONS[menu.id] ?? menu.icon}
                 iconColor={iconColor}
-                activeColor={theme['c-primary']}
+                activeBg={theme['c-primary-alpha-800']}
+                activeBorder={theme['c-primary-alpha-500']}
                 onPress={() => { if (!isActive) setNavActiveId(menu.id) }}
               />
             )
@@ -203,6 +240,7 @@ const styles = createStyle({
     width: 44,
     height: 44,
     borderRadius: 22,
+    borderWidth: 0.8,
     justifyContent: 'center',
     alignItems: 'center',
   },

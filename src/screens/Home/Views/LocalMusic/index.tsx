@@ -1,5 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Animated, FlatList, PanResponder, TouchableOpacity, View, Modal, TextInput, StyleSheet, type GestureResponderEvent } from 'react-native'
+import {
+  Animated,
+  FlatList,
+  PanResponder,
+  TouchableOpacity,
+  View,
+  Modal,
+  TextInput,
+  StyleSheet,
+  type GestureResponderEvent,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+} from 'react-native'
 
 import Text from '@/components/common/Text'
 import Image from '@/components/common/Image'
@@ -113,31 +125,42 @@ export default ({ onClose }: { onClose?: () => void }) => {
 
   const totalSize = useMemo(() => formatSize(getTotalSize(list)), [list])
 
-  // 下滑关闭：回到下载中心。列表在顶部时直接接管手势；任意位置快速下滑也能关闭
+  // 下滑关闭：回到下载中心。
+  // onClose 放进 ref：外层每次重渲染都会传新闭包，如果进 useMemo 依赖，
+  // PanResponder 会在拖拽过程中被重建 → 手势直接失效（之前「怎么滑都没反应」的原因）
   const panY = useRef(new Animated.Value(0)).current
   const scrollY = useRef(0)
   const windowHeightRef = useRef(windowHeight)
   windowHeightRef.current = windowHeight
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
+  const hasClose = !!onClose
+
+  const closeWithSlide = useCallback(() => {
+    Animated.timing(panY, {
+      toValue: windowHeightRef.current,
+      duration: 190,
+      useNativeDriver: true,
+    }).start(() => {
+      panY.setValue(0)
+      onCloseRef.current?.()
+    })
+  }, [panY])
+
   const panResponder = useMemo(() => PanResponder.create({
     onMoveShouldSetPanResponderCapture: (_, g) => {
-      if (!onClose) return false
-      if (g.dy <= 8 || g.dy <= Math.abs(g.dx) * 1.4) return false
-      return scrollY.current <= 2 || g.vy > 0.9
+      if (!onCloseRef.current) return false
+      if (g.dy <= 5 || Math.abs(g.dy) <= Math.abs(g.dx) * 1.1) return false
+      // 列表在顶部 → 直接接管；任意位置快速下滑也接管
+      return scrollY.current <= 2 || g.vy > 0.5
     },
     onPanResponderMove: (_, g) => {
       if (g.dy > 0) panY.setValue(g.dy)
     },
     onPanResponderRelease: (_, g) => {
-      if (!onClose) return
-      if (g.dy > 110 || g.vy > 0.9) {
-        Animated.timing(panY, {
-          toValue: windowHeightRef.current,
-          duration: 190,
-          useNativeDriver: true,
-        }).start(() => {
-          panY.setValue(0)
-          onClose()
-        })
+      if (!onCloseRef.current) return
+      if (g.dy > 80 || g.vy > 0.4) {
+        closeWithSlide()
       } else {
         Animated.spring(panY, { toValue: 0, useNativeDriver: true, friction: 9, tension: 120 }).start()
       }
@@ -145,7 +168,14 @@ export default ({ onClose }: { onClose?: () => void }) => {
     onPanResponderTerminate: () => {
       Animated.spring(panY, { toValue: 0, useNativeDriver: true }).start()
     },
-  }), [onClose, panY])
+  }), [closeWithSlide, panY])
+
+  // 兜底：列表顶部的快速下滑由原生滚动事件判定（PanResponder 在部分机型上抢不到手势）
+  const handleScrollEndDrag = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (!onCloseRef.current) return
+    const { contentOffset, velocity } = e.nativeEvent
+    if (contentOffset.y <= 0 && (velocity?.y ?? 0) < -0.3) closeWithSlide()
+  }, [closeWithSlide])
 
   const handlePlay = useCallback(async(index: number) => {
     if (!list.length) return
@@ -199,7 +229,7 @@ export default ({ onClose }: { onClose?: () => void }) => {
   return (
     <Animated.View
       style={{ flex: 1, transform: [{ translateY: panY }] }}
-      {...(onClose ? panResponder.panHandlers : null)}
+      {...(hasClose ? panResponder.panHandlers : null)}
     >
       <View style={styles.container}>
       <View style={{
@@ -235,6 +265,7 @@ export default ({ onClose }: { onClose?: () => void }) => {
         contentContainerStyle={styles.listContent}
         scrollEventThrottle={32}
         onScroll={e => { scrollY.current = e.nativeEvent.contentOffset.y }}
+        onScrollEndDrag={handleScrollEndDrag}
         ListEmptyComponent={(
           <View style={styles.empty}>
             <View style={{ ...styles.emptyIcon, backgroundColor: theme['c-primary-alpha-900'] }}>

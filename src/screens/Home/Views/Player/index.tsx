@@ -120,7 +120,7 @@ const LyricLine = memo(({ text, active, ratio, size, wordByWord }: {
 })
 
 /** 黑胶唱片的纹路：几圈同心细环 */
-const GROOVE_INSETS = [5, 10, 15, 20, 25, 30]
+const GROOVE_INSETS = [3, 6, 9, 12, 15, 18]
 
 /**
  * 圆形黑胶封面。
@@ -248,15 +248,23 @@ export default () => {
     void fromY
   }, [panY])
 
+  const lyricScrollY = useRef(0)
+
+  // 用 capture 阶段接管：之前用 onMoveShouldSetPanResponder 会被封面/歌词的
+  // 触摸区域和歌词列表抢走，导致下滑经常没反应
   const panResponder = useMemo(() => PanResponder.create({
-    onMoveShouldSetPanResponder: (_, g) => (
-      modeRef.current === 'cover' && g.dy > 6 && Math.abs(g.dy) > Math.abs(g.dx) * 1.5
-    ),
+    onMoveShouldSetPanResponderCapture: (_, g) => {
+      if (g.dy <= 4) return false
+      if (Math.abs(g.dy) <= Math.abs(g.dx) * 1.1) return false
+      // 歌词列表没回到顶部时，下滑交给列表自己滚动
+      if (modeRef.current === 'lyric' && lyricScrollY.current > 2) return false
+      return true
+    },
     onPanResponderMove: (_, g) => {
       if (g.dy > 0) panY.setValue(g.dy)
     },
     onPanResponderRelease: (_, g) => {
-      if (g.dy > 110 || g.vy > 0.6) {
+      if (g.dy > 70 || g.vy > 0.45) {
         closeWithSlideDown(g.dy)
       } else {
         Animated.spring(panY, {
@@ -495,15 +503,19 @@ export default () => {
       {...panResponder.panHandlers}
     >
       {/* 底层：同一张封面放大模糊，铺满整屏 */}
+      {/*
+        背景层向外多铺 BLEED 像素：模糊图在部分机型上会因为 transform/模糊采样
+        只铺到内容区，边缘留一条没盖住的底色（用户看到的「左侧切边」）
+      */}
       {
         pic
           ? <RNImage
               source={{ uri: pic }}
               blurRadius={isCover ? 48 : 36}
-              style={[StyleSheet.absoluteFill, { transform: [{ scale: 1.22 }] }]}
+              style={[styles.bgLayer, { transform: [{ scale: 1.16 }] }]}
               resizeMode='cover'
             />
-          : <View style={[StyleSheet.absoluteFill, { backgroundColor: '#151019' }]} />
+          : <View style={[styles.bgLayer, { backgroundColor: '#151019' }]} />
       }
 
       {/*
@@ -513,13 +525,13 @@ export default () => {
       <View
         pointerEvents='none'
         style={[
-          StyleSheet.absoluteFill,
+          styles.bgLayer,
           { backgroundColor: isCover ? 'rgba(10,8,16,0.34)' : 'rgba(10,8,16,0.30)' },
         ]}
       />
       <View
         pointerEvents='none'
-        style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(255,255,255,0.045)' }]}
+        style={[styles.bgLayer, { backgroundColor: 'rgba(255,255,255,0.045)' }]}
       />
 
       {/* 顶部渐变：让状态栏与背景自然融合 */}
@@ -591,6 +603,7 @@ export default () => {
                             showsVerticalScrollIndicator={false}
                             contentContainerStyle={styles.lyricContent}
                             scrollEventThrottle={32}
+                            onScroll={e => { lyricScrollY.current = e.nativeEvent.contentOffset.y }}
                           >
                             {
                               lines.map((line, index) => (
@@ -675,7 +688,9 @@ export default () => {
               )
         }
 
-        <View style={styles.bottomArea}>
+        <View style={styles.glassPanel}>
+          <View pointerEvents='none' style={styles.glassEdge} />
+          <View style={styles.bottomArea}>
           <Slider
             value={currentTime}
             minimumValue={0}
@@ -712,6 +727,7 @@ export default () => {
             <TouchableOpacity style={styles.ctrlBtn} onPress={() => { setQueueVisible(true) }}>
               <Icon name='playlist-music' size={24} color='rgba(255,255,255,0.85)' />
             </TouchableOpacity>
+          </View>
           </View>
         </View>
       </View>
@@ -777,10 +793,43 @@ export default () => {
 const styles = createStyle({
   container: {
     flex: 1,
+    width: '100%',
     backgroundColor: '#0B0810',
   },
+  bgLayer: {
+    position: 'absolute',
+    left: -32,
+    right: -32,
+    top: -32,
+    bottom: -32,
+  },
+  glassPanel: {
+    marginLeft: 12,
+    marginRight: 12,
+    marginBottom: 4,
+    borderRadius: 28,
+    borderWidth: 0.5,
+    borderColor: 'rgba(255,255,255,0.16)',
+    backgroundColor: 'rgba(255,255,255,0.09)',
+    paddingTop: 2,
+    paddingBottom: 2,
+    elevation: 10,
+    shadowColor: '#000000',
+    shadowOpacity: 0.22,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
+    overflow: 'hidden',
+  },
+  glassEdge: {
+    position: 'absolute',
+    top: 0,
+    left: '18%',
+    right: '18%',
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.32)',
+  },
   discShadow: {
-    width: '76%',
+    width: '86%',
     aspectRatio: 1,
     borderRadius: 999,
     elevation: 26,
@@ -807,7 +856,7 @@ const styles = createStyle({
     justifyContent: 'center',
   },
   labelClip: {
-    width: '44%',
+    width: '62%',
     aspectRatio: 1,
     borderRadius: 999,
     overflow: 'hidden',
@@ -821,9 +870,9 @@ const styles = createStyle({
   },
   spindle: {
     position: 'absolute',
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 9,
+    height: 9,
+    borderRadius: 5,
     backgroundColor: 'rgba(10,9,12,0.92)',
     borderWidth: 0.5,
     borderColor: 'rgba(255,255,255,0.22)',
@@ -994,9 +1043,10 @@ const styles = createStyle({
     paddingTop: 4,
   },
   bottomArea: {
-    paddingLeft: 14,
-    paddingRight: 14,
-    paddingBottom: 10,
+    paddingLeft: 10,
+    paddingRight: 10,
+    paddingBottom: 6,
+    paddingTop: 2,
   },
   slider: {
     width: '100%',
