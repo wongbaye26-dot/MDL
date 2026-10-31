@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { View, ScrollView, TouchableOpacity, Image } from 'react-native'
 import Text from '@/components/common/Text'
 import { Icon } from '@/components/common/Icon'
@@ -8,6 +8,8 @@ import { useDownloadList } from '@/store/download'
 import { useStatusbarHeight } from '@/store/common/hook'
 import { setNavActiveId } from '@/core/common'
 import playerState from '@/store/player/state'
+import { getList } from '@/core/songlist'
+import type { ListInfoItem } from '@/store/songlist/state'
 import { createStyle } from '@/utils/tools'
 import { formatSize } from '@/core/download/utils'
 import SearchModal from '../../Vertical/SearchModal'
@@ -53,6 +55,13 @@ export default () => {
     .slice(0, 4)
 
   const playedList = [...playerState.playedList].slice(-4).reverse()
+
+  const [recommend, setRecommend] = useState<ListInfoItem[]>([])
+  useEffect(() => {
+    void getList('kw', '全部', 'hot', 1)
+      .then(res => { setRecommend((res.list ?? []).slice(0, 8)) })
+      .catch(() => {})
+  }, [])
 
   const sourceReady = userApiStatus.status
   const sourceText = sourceReady ? '音源已就绪' : '音源未就绪'
@@ -138,6 +147,38 @@ export default () => {
                   <Text size={11} color={theme['c-450']}>还没有下载记录，去搜索一首歌试试</Text>
                 </View>
               )
+        }
+        {
+          recommend.length
+            ? (
+                <>
+                  <View style={styles.sectionHead}>
+                    <Text size={15} style={styles.sectionTitle}>推荐歌单</Text>
+                    <TouchableOpacity onPress={() => { setModal('songlist') }}>
+                      <Text size={11} color={theme['c-450']}>更多 ›</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recommendRow}>
+                    {
+                      recommend.map(item => (
+                        <TouchableOpacity
+                          key={item.id}
+                          style={styles.recCard}
+                          activeOpacity={0.8}
+                          onPress={() => { setModal('songlist') }}
+                        >
+                          <Image url={item.img} style={styles.recCover} />
+                          <Text size={11} numberOfLines={2} style={styles.recName}>{item.name}</Text>
+                          <Text size={9} color={theme['c-450']} numberOfLines={1} style={styles.recMeta}>
+                            {item.play_count ? `${item.play_count} 次播放` : item.author}
+                          </Text>
+                        </TouchableOpacity>
+                      ))
+                    }
+                  </ScrollView>
+                </>
+              )
+            : null
         }
         {
           playedList.length
@@ -313,6 +354,27 @@ const styles = createStyle({
   },
   recentDesc: {
     marginTop: 2,
+  },
+  recommendRow: {
+    paddingLeft: 16,
+    paddingRight: 8,
+    paddingBottom: 2,
+  },
+  recCard: {
+    width: 108,
+    marginRight: 12,
+  },
+  recCover: {
+    width: 108,
+    height: 108,
+    borderRadius: 16,
+    marginBottom: 6,
+  },
+  recName: {
+    lineHeight: 15,
+  },
+  recMeta: {
+    marginTop: 3,
   },
   playedCover: {
     width: 38,
