@@ -1,161 +1,131 @@
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { View } from 'react-native'
-import { createStyle } from '@/utils/tools'
 
-import MusicList, { type MusicListType } from '../MusicList'
-import { getLeaderboardSetting, saveLeaderboardSetting } from '@/utils/data'
-import DrawerLayoutFixed, { type DrawerLayoutFixedType } from '@/components/common/DrawerLayoutFixed'
-import HeaderBar, { type HeaderBarType, type HeaderBarProps } from './HeaderBar'
-import { scaleSizeW } from '@/utils/pixelRatio'
-import { useTheme } from '@/store/theme/hook'
-// import { BorderWidths } from '@/theme'
-// import { useTheme } from '@/store/theme/hook'
-import BoardsList, { type BoardsListType, type BoardsListProps } from '../BoardsList'
-import type { InitState as CommonState } from '@/store/common/state'
-import settingState from '@/store/setting/state'
+import { confirmDialog, createStyle, toast } from '@/utils/tools'
 import { getBoardsList } from '@/core/leaderboard'
-import { COMPONENT_IDS } from '@/config/constant'
-import { handleCollect, handlePlay } from '../listAction'
+import { getLeaderboardSetting, saveLeaderboardSetting } from '@/utils/data'
+import leaderboardState, { type BoardItem } from '@/store/leaderboard/state'
 import boardState from '@/store/leaderboard/state'
-
-
-const MAX_WIDTH = scaleSizeW(200)
+import { useSourceListI18n } from '@/components/SourceSelector'
+import MusicList, { type MusicListType } from '../MusicList'
+import { handlePlay } from '../listAction'
+import { addTasks } from '@/core/download'
+import { SourceChips, BoardChips } from './Chips'
+import Hero from './Hero'
 
 export default () => {
-  const drawer = useRef<DrawerLayoutFixedType>(null)
-  const theme = useTheme()
   const musicListRef = useRef<MusicListType>(null)
-  const isUnmountedRef = useRef(false)
-  const boardsListRef = useRef<BoardsListType>(null)
-  const headerBarRef = useRef<HeaderBarType>(null)
-  const boundInfo = useRef<{ source: LX.OnlineSource, id: string | null }>({ source: 'kw', id: null })
-  // const [width, setWidth] = useState(0)
+  const [source, setSource] = useState<LX.OnlineSource>(leaderboardState.sources[0] ?? 'kw')
+  const [boards, setBoards] = useState<BoardItem[]>([])
+  const [activeId, setActiveId] = useState('')
+  const [count, setCount] = useState(0)
+  const sourceRef = useRef(source)
+  const activeIdRef = useRef('')
+  const requestIdRef = useRef(0)
+  const sourceList = useSourceListI18n(leaderboardState.sources)
 
-  const handleBoundChange = (source: LX.OnlineSource, id: string) => {
-    musicListRef.current?.loadList(source, id)
-    void saveLeaderboardSetting({
-      source,
-      boardId: id,
+  const loadBoardList = useCallback((src: LX.OnlineSource, preferId?: string) => {
+    const requestId = ++requestIdRef.current
+    setBoards([])
+    setActiveId('')
+    activeIdRef.current = ''
+    setCount(0)
+    void getBoardsList(src).then(list => {
+      if (requestId !== requestIdRef.current) return
+      if (!list.length) {
+        toast('该音源暂时没有可用榜单')
+        return
+      }
+      const target = preferId && list.some(b => b.id === preferId) ? preferId : list[0].id
+      setBoards(list)
+      setActiveId(target)
+      activeIdRef.current = target
+      musicListRef.current?.loadList(src, target)
+      void saveLeaderboardSetting({ source: src, boardId: target })
+    }).catch(() => {
+      if (requestId !== requestIdRef.current) return
+      toast('榜单加载失败，请检查音源是否可用')
     })
-  }
-  const onBoundChange: BoardsListProps['onBoundChange'] = (id) => {
-    boundInfo.current.id = id
-    void getBoardsList(boundInfo.current.source).then(list => {
-      requestAnimationFrame(() => {
-        const bound = list.find(l => l.id == id)
-        headerBarRef.current?.setBound(boundInfo.current.source, id, bound?.name ?? 'Unknown')
-      })
-    })
-    handleBoundChange(boundInfo.current.source, id)
-    requestAnimationFrame(() => {
-      drawer.current?.closeDrawer()
-    })
-  }
-  const onPlay: BoardsListProps['onPlay'] = (id) => {
-    boundInfo.current.id = id
-    void handlePlay(id, boardState.listDetailInfo.list)
-  }
-  const onCollect: BoardsListProps['onCollect'] = (id, name) => {
-    boundInfo.current.id = id
-    void handleCollect(id, name, boundInfo.current.source)
-  }
-  const onShowBound = () => {
-    requestAnimationFrame(() => {
-      drawer.current?.openDrawer()
-    })
-  }
-  const onSourceChange: HeaderBarProps['onSourceChange'] = (source) => {
-    boundInfo.current.source = source
-    void getBoardsList(source).then(list => {
-      const id = list[0].id
-      const name = list[0].name
-      requestAnimationFrame(() => {
-        boardsListRef.current?.setList(list, id)
-        headerBarRef.current?.setBound(source, id, name ?? 'Unknown')
-        requestAnimationFrame(() => {
-          handleBoundChange(source, id)
-        })
-      })
-    })
-  }
-
-  const navigationView = () => {
-    return (
-      <BoardsList
-        ref={boardsListRef}
-        onBoundChange={onBoundChange}
-        onCollect={onCollect}
-        onPlay={onPlay}
-      />
-    )
-  }
-
-  // const theme = useTheme()
-
-
-  useEffect(() => {
-    const handleFixDrawer = (id: CommonState['navActiveId']) => {
-      if ((id as string) == 'nav_top') drawer.current?.fixWidth()
-    }
-    global.state_event.on('navActiveIdUpdated', handleFixDrawer)
-
-
-    isUnmountedRef.current = false
-    void getLeaderboardSetting().then(({ source, boardId }) => {
-      boundInfo.current.source = source
-      boundInfo.current.id = boardId
-      void getBoardsList(source).then(list => {
-        const bound = list.find(l => l.id == boardId)
-        boardsListRef.current?.setList(list, boardId)
-        headerBarRef.current?.setBound(source, boardId, bound?.name ?? 'Unknown')
-      })
-      musicListRef.current?.loadList(source, boardId)
-    })
-
-    return () => {
-      global.state_event.off('navActiveIdUpdated', handleFixDrawer)
-      isUnmountedRef.current = true
-    }
   }, [])
 
+  useEffect(() => {
+    void getLeaderboardSetting().then(({ source, boardId }) => {
+      const src = leaderboardState.sources.includes(source) ? source : (leaderboardState.sources[0] ?? 'kw')
+      sourceRef.current = src
+      setSource(src)
+      loadBoardList(src, boardId)
+    })
+  }, [loadBoardList])
+
+  const handleSourceChange = useCallback((src: LX.OnlineSource) => {
+    sourceRef.current = src
+    setSource(src)
+    loadBoardList(src)
+  }, [loadBoardList])
+
+  const handleBoardChange = useCallback((id: string) => {
+    activeIdRef.current = id
+    setActiveId(id)
+    setCount(0)
+    musicListRef.current?.loadList(sourceRef.current, id)
+    void saveLeaderboardSetting({ source: sourceRef.current, boardId: id })
+  }, [])
+
+  const handleListChange = useCallback((list: LX.Music.MusicInfoOnline[]) => {
+    setCount(list.length)
+  }, [])
+
+  const handlePlayAll = useCallback(() => {
+    const id = activeIdRef.current
+    if (!id) return
+    const list = boardState.listDetailInfo.id === id ? boardState.listDetailInfo.list : undefined
+    void handlePlay(id, list)
+  }, [])
+
+  const handleDownloadAll = useCallback(async() => {
+    const id = activeIdRef.current
+    const list = boardState.listDetailInfo.id === id ? boardState.listDetailInfo.list : []
+    if (!list.length) {
+      toast('列表还没加载完，稍后再试')
+      return
+    }
+    const confirm = await confirmDialog({
+      message: `将当前榜单的 ${list.length} 首歌加入下载队列？`,
+      confirmButtonText: '开始下载',
+      cancelButtonText: '取消',
+    })
+    if (!confirm) return
+    const added = addTasks(list, { listId: `board__${id}` })
+    toast(added ? `已添加 ${added} 首到下载队列` : '这些歌曲已经在下载队列中')
+  }, [])
+
+  const activeName = boards.find(b => b.id === activeId)?.name ?? ''
+  const sourceName = sourceList.find(s => s.action === source)?.label ?? ''
+  const meta = `${count ? `共 ${count} 首` : '正在加载'}${sourceName ? ` · ${sourceName}` : ''}`
 
   return (
-    <DrawerLayoutFixed
-      ref={drawer}
-      visibleNavNames={[COMPONENT_IDS.home]}
-      // drawerWidth={width}
-      widthPercentage={0.82}
-      widthPercentageMax={MAX_WIDTH}
-      drawerPosition={settingState.setting['common.drawerLayoutPosition']}
-      renderNavigationView={navigationView}
-      drawerBackgroundColor={theme['c-content-background']}
-      style={{ elevation: 1 }}
-    >
-      <View style={styles.container}>
-        <HeaderBar ref={headerBarRef} onShowBound={onShowBound} onSourceChange={onSourceChange} />
-        <MusicList ref={musicListRef} />
+    <View style={styles.container}>
+      <SourceChips active={source} onChange={handleSourceChange} />
+      <BoardChips boards={boards} activeId={activeId} onChange={handleBoardChange} />
+      <Hero
+        name={activeName}
+        meta={meta}
+        onPlayAll={handlePlayAll}
+        onDownloadAll={handleDownloadAll}
+      />
+      <View style={styles.list}>
+        <MusicList ref={musicListRef} onListChange={handleListChange} />
       </View>
-    </DrawerLayoutFixed>
-    // <View style={styles.container}>
-    //   <LeftBar
-    //     ref={leftBarRef}
-    //     onChangeList={handleChangeBound}
-    //   />
-    //   <MusicList
-    //     ref={musicListRef}
-    //   />
-    // </View>
+    </View>
   )
 }
 
 const styles = createStyle({
   container: {
-    width: '100%',
     flex: 1,
-    flexDirection: 'column',
-    // borderTopWidth: BorderWidths.normal,
   },
-  // content: {
-  //   flex: 1,
-  // },
+  list: {
+    flex: 1,
+    marginTop: 8,
+  },
 })

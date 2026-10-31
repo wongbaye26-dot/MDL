@@ -32,6 +32,7 @@ export interface ListProps {
   checkHomePagerIdle: boolean
   rowType?: RowInfoType
   viewMode?: 'list' | 'card'
+  showRank?: boolean
 }
 export interface ListType {
   setList: (list: LX.Music.MusicInfoOnline[], isAppend: boolean, showSource: boolean) => void
@@ -57,6 +58,7 @@ const List = forwardRef<ListType, ListProps>(({
   checkHomePagerIdle,
   rowType,
   viewMode = 'list',
+  showRank,
 }, ref) => {
   // const t = useI18n()
   const theme = useTheme()
@@ -195,6 +197,7 @@ const List = forwardRef<ListType, ListProps>(({
       isShowAlbumName={isShowAlbumName}
       isShowInterval={isShowInterval}
       viewMode={viewMode}
+      showRank={showRank}
     />
   )
   const getkey: FlatListType['keyExtractor'] = item => item.id

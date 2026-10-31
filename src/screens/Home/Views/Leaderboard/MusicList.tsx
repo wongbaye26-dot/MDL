@@ -14,16 +14,24 @@ export interface MusicListType {
   loadList: (source: LX.OnlineSource, listId: string) => void
 }
 
-export default forwardRef<MusicListType, {}>((props, ref) => {
+export interface MusicListProps {
+  onListChange?: (list: LX.Music.MusicInfoOnline[]) => void
+}
+
+export default forwardRef<MusicListType, MusicListProps>(({ onListChange }, ref) => {
   const listRef = useRef<OnlineListType>(null)
   const isUnmountedRef = useRef(false)
+  const onListChangeRef = useRef(onListChange)
+  onListChangeRef.current = onListChange
   useImperativeHandle(ref, () => ({
     async loadList(source, id) {
       const listDetailInfo = boardState.listDetailInfo
       listRef.current?.setList([])
+      onListChangeRef.current?.([])
       if (listDetailInfo.id == id && listDetailInfo.source == source && listDetailInfo.list.length) {
         requestAnimationFrame(() => {
           listRef.current?.setList(listDetailInfo.list)
+          onListChangeRef.current?.(listDetailInfo.list)
         })
       } else {
         listRef.current?.setStatus('loading')
@@ -34,6 +42,7 @@ export default forwardRef<MusicListType, {}>((props, ref) => {
           if (isUnmountedRef.current) return
           requestAnimationFrame(() => {
             listRef.current?.setList(result.list)
+            onListChangeRef.current?.(result.list)
             listRef.current?.setStatus(boardState.listDetailInfo.maxPage <= page ? 'end' : 'idle')
           })
         }).catch(() => {
@@ -64,6 +73,7 @@ export default forwardRef<MusicListType, {}>((props, ref) => {
       const result = setListDetail(listDetail, boardState.listDetailInfo.id, page)
       if (isUnmountedRef.current) return
       listRef.current?.setList(result.list)
+      onListChangeRef.current?.(result.list)
       listRef.current?.setStatus(boardState.listDetailInfo.maxPage <= page ? 'end' : 'idle')
     }).catch(() => {
       if (boardState.listDetailInfo.list.length && page == 1) clearListDetail()
@@ -77,6 +87,7 @@ export default forwardRef<MusicListType, {}>((props, ref) => {
       const result = setListDetail(listDetail, boardState.listDetailInfo.id, page)
       if (isUnmountedRef.current) return
       listRef.current?.setList(result.list, true)
+      onListChangeRef.current?.(result.list)
       listRef.current?.setStatus(boardState.listDetailInfo.maxPage <= page ? 'end' : 'idle')
     }).catch(() => {
       if (boardState.listDetailInfo.list.length && page == 1) clearListDetail()
@@ -91,6 +102,8 @@ export default forwardRef<MusicListType, {}>((props, ref) => {
     onLoadMore={handleLoadMore}
     checkHomePagerIdle
     rowType='medium'
+    showRank
+    hideModeBar
    />
 })
 

@@ -30,7 +30,29 @@ const useQualityTag = (musicInfo: LX.Music.MusicInfoOnline) => {
   return info
 }
 
-export default memo(({ item, index, showSource, onPress, onLongPress, onShowMenu, selectedList, rowInfo, isShowAlbumName, isShowInterval, viewMode = 'list' }: {
+const RANK_COLORS = ['#F5B942', '#C9D3E0', '#D8915F']
+
+const RankBadge = ({ index }: { index: number }) => {
+  const theme = useTheme()
+  const rank = index + 1
+  if (rank <= 3) {
+    const color = RANK_COLORS[rank - 1]
+    return (
+      <View style={styles.rankWrap}>
+        <View style={{ ...styles.rankTop, backgroundColor: `${color}26`, borderColor: `${color}66` }}>
+          <Text size={12} color={color} style={styles.rankTopText}>{rank}</Text>
+        </View>
+      </View>
+    )
+  }
+  return (
+    <View style={styles.rankWrap}>
+      <Text size={12} color={theme['c-400']} style={styles.rankText}>{rank}</Text>
+    </View>
+  )
+}
+
+export default memo(({ item, index, showSource, onPress, onLongPress, onShowMenu, selectedList, rowInfo, isShowAlbumName, isShowInterval, viewMode = 'list', showRank }: {
   item: LX.Music.MusicInfoOnline
   index: number
   showSource?: boolean
@@ -42,6 +64,7 @@ export default memo(({ item, index, showSource, onPress, onLongPress, onShowMenu
   isShowAlbumName: boolean
   isShowInterval: boolean
   viewMode?: 'list' | 'card'
+  showRank?: boolean
 }) => {
   const theme = useTheme()
 
@@ -82,7 +105,8 @@ export default memo(({ item, index, showSource, onPress, onLongPress, onShowMenu
   return (
     <View style={{ ...styles.listItem, width: rowInfo.rowWidth, height: ITEM_HEIGHT, backgroundColor: isSelected ? theme['c-primary-background-hover'] : 'rgba(0,0,0,0)' }}>
       <TouchableOpacity style={styles.listItemLeft} onPress={() => { onPress(item, index) }} onLongPress={() => { onLongPress(item, index) }}>
-        <Image url={item.meta.picUrl} style={styles.cover} />
+        { showRank ? <RankBadge index={index} /> : null }
+        <Image url={item.meta.picUrl} style={showRank ? styles.coverWithRank : styles.cover} />
         <View style={styles.itemInfo}>
           <Text numberOfLines={1}>{item.name}</Text>
           <View style={styles.listItemSingle}>
@@ -142,6 +166,33 @@ const styles = createStyle({
     borderRadius: 10,
     marginLeft: 12,
     marginRight: 11,
+  },
+  coverWithRank: {
+    width: 42,
+    height: 42,
+    borderRadius: 10,
+    marginLeft: 6,
+    marginRight: 11,
+  },
+  rankWrap: {
+    width: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 6,
+  },
+  rankTop: {
+    width: 22,
+    height: 22,
+    borderRadius: 8,
+    borderWidth: 0.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rankTopText: {
+    fontWeight: '800',
+  },
+  rankText: {
+    fontWeight: '600',
   },
   card: {
     flexDirection: 'row',
