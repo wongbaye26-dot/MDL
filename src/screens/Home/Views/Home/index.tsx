@@ -1,164 +1,195 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { View, ScrollView, TouchableOpacity, Image } from 'react-native'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { ScrollView, TouchableOpacity, View } from 'react-native'
+
 import Text from '@/components/common/Text'
 import { Icon } from '@/components/common/Icon'
+import Image from '@/components/common/Image'
+import DorpDownMenu from '@/components/common/DorpDownMenu'
 import { useTheme } from '@/store/theme/hook'
-import { useStatus } from '@/store/userApi'
 import { useDownloadList } from '@/store/download'
 import { useStatusbarHeight } from '@/store/common/hook'
-import { setNavActiveId } from '@/core/common'
+import { useI18n } from '@/lang'
 import playerState from '@/store/player/state'
+import { setNavActiveId } from '@/core/common'
 import { getList } from '@/core/songlist'
 import type { ListInfoItem } from '@/store/songlist/state'
 import { createStyle } from '@/utils/tools'
 import { formatSize } from '@/core/download/utils'
+import { handlePlay, handlePlayLater } from '@/components/OnlineList/listAction'
+import DownloadQualityModal, { type DownloadQualityModalType } from '@/components/DownloadQualityModal'
 import SearchModal from '../../Vertical/SearchModal'
 import PageModal from '../../Vertical/PageModal'
 import SongList from '../SongList'
 import Leaderboard from '../Leaderboard'
 import Mylist from '../Mylist'
-import UserApiEditModal, { type UserApiEditModalType } from '../Setting/settings/Basic/UserApiEditModal'
-
-const emoLogo = require('@/resources/images/emo-logo.png')
+import BigCard from './BigCard'
 
 type ModalType = 'songlist' | 'leaderboard' | 'mylist' | null
 
-const ENTRIES = [
-  { key: 'leaderboard', title: '排行榜', desc: '热歌 / 飙升 / 新声', icon: 'leaderboard', color: '#8B5CF6' },
-  { key: 'songlist', title: '歌单广场', desc: '按分类发现好歌单', icon: 'album', color: '#EC4899' },
-  { key: 'mylist', title: '我的列表', desc: '收藏与自建歌单', icon: 'love', color: '#14B8A6' },
-  { key: 'source', title: '音源管理', desc: '导入 LX 音源脚本', icon: 'share', color: '#F59E0B' },
+const CARDS = [
+  { key: 'leaderboard', title: '排行榜', icon: 'leaderboard', color: '#8B5CF6' },
+  { key: 'mylist', title: '收藏', icon: 'love', color: '#EC4899' },
+  { key: 'songlist', title: '歌单广场', icon: 'album', color: '#14B8A6' },
 ] as const
+
+/** 播放历史里可能混入下载任务，统一取出歌曲信息 */
+const toMusicInfo = (music: LX.Player.PlayMusic): LX.Music.MusicInfo => {
+  return 'metadata' in music ? music.metadata.musicInfo : music
+}
+
+const SectionHead = ({ title, onPress }: { title: string, onPress?: () => void }) => {
+  const theme = useTheme()
+  return (
+    <TouchableOpacity style={styles.sectionHead} activeOpacity={0.7} onPress={onPress}>
+      <Text size={16} style={styles.sectionTitle}>{title}</Text>
+      <Icon name='chevron-right' size={16} color={theme['c-400']} style={styles.sectionArrow} />
+    </TouchableOpacity>
+  )
+}
+
+const RecentRow = ({ musicInfo, onPlay, onMenu }: {
+  musicInfo: LX.Music.MusicInfo
+  onPlay: () => void
+  onMenu: (action: string) => void
+}) => {
+  const theme = useTheme()
+  const t = useI18n()
+  const menus = useMemo(() => [
+    { action: 'play', label: t('play') },
+    { action: 'playLater', label: t('play_later') },
+    { action: 'download', label: t('download') },
+  ], [t])
+
+  return (
+    <View style={styles.row}>
+      <TouchableOpacity style={styles.rowMain} activeOpacity={0.7} onPress={onPlay}>
+        <Image url={musicInfo.meta?.picUrl} style={styles.rowCover} />
+        <View style={styles.rowInfo}>
+          <Text size={14} numberOfLines={1}>{musicInfo.name}</Text>
+          <Text size={11} color={theme['c-450']} numberOfLines={1} style={styles.rowSub}>{musicInfo.singer}</Text>
+        </View>
+      </TouchableOpacity>
+      <DorpDownMenu menus={menus} onPress={menu => { onMenu(menu.action) }} btnStyle={styles.moreBtn}>
+        <Icon name='dots-vertical' size={14} color={theme['c-350']} />
+      </DorpDownMenu>
+    </View>
+  )
+}
 
 export default () => {
   const theme = useTheme()
   const statusBarHeight = useStatusbarHeight()
-  const userApiStatus = useStatus()
   const downloadList = useDownloadList()
   const [searchVisible, setSearchVisible] = useState(false)
   const [modal, setModal] = useState<ModalType>(null)
-  const userApiModalRef = useRef<UserApiEditModalType>(null)
+  const [recommend, setRecommend] = useState<ListInfoItem[]>([])
+  const [playedList, setPlayedList] = useState<LX.Player.PlayMusicInfo[]>([])
+  const downloadModalRef = useRef<DownloadQualityModalType>(null)
 
-  const handleEntry = useCallback((key: typeof ENTRIES[number]['key']) => {
-    if (key === 'source') {
-      userApiModalRef.current?.show()
-      return
-    }
-    setModal(key)
-  }, [])
-
-  const recent = [...downloadList]
+  const recent = useMemo(() => [...downloadList]
     .sort((a, b) => {
       if (a.isComplate !== b.isComplate) return a.isComplate ? 1 : -1
       return (b.createdAt ?? 0) - (a.createdAt ?? 0)
     })
-    .slice(0, 4)
+    .slice(0, 3), [downloadList])
 
-  const playedList = [...playerState.playedList].slice(-4).reverse()
-
-  const [recommend, setRecommend] = useState<ListInfoItem[]>([])
   useEffect(() => {
     void getList('kw', '全部', 'hot', 1)
       .then(res => { setRecommend((res.list ?? []).slice(0, 8)) })
       .catch(() => {})
   }, [])
 
-  const sourceReady = userApiStatus.status
-  const sourceText = sourceReady ? '音源已就绪' : '音源未就绪'
+  useEffect(() => {
+    const handleUpdate = () => {
+      setPlayedList([...playerState.playedList].slice(-6).reverse())
+    }
+    handleUpdate()
+    global.state_event.on('playMusicInfoChanged', handleUpdate)
+    return () => {
+      global.state_event.off('playMusicInfoChanged', handleUpdate)
+    }
+  }, [])
+
+  const handleMenu = useCallback((musicInfo: LX.Music.MusicInfo, action: string) => {
+    const info = musicInfo as LX.Music.MusicInfoOnline
+    switch (action) {
+      case 'play':
+        handlePlay(info)
+        break
+      case 'playLater':
+        handlePlayLater(info, [], () => {})
+        break
+      case 'download':
+        downloadModalRef.current?.show({ musicInfos: [info] })
+        break
+    }
+  }, [])
 
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={{ paddingTop: statusBarHeight + 12, paddingBottom: 24 }}>
-        <View style={styles.brandRow}>
-          <Image source={emoLogo} style={styles.logo} />
-          <View style={styles.brandText}>
-            <Text size={22} style={styles.brandName}>EMO音乐</Text>
-            <Text size={11} color={theme['c-450']} style={styles.brandDesc}>
-              {`全网音乐 · 聚合搜索 · ${sourceText}`}
-            </Text>
-          </View>
-        </View>
-
-        <TouchableOpacity
-          style={{ ...styles.searchBox, backgroundColor: theme['c-primary-alpha-900'], borderColor: theme['c-primary-alpha-700'] }}
-          activeOpacity={0.7}
-          onPress={() => { setSearchVisible(true) }}
-        >
-          <Icon name='search-2' size={16} color={theme['c-450']} />
-          <Text size={12} color={theme['c-450']} style={styles.searchText}>搜索歌曲、歌手或专辑</Text>
-          <View style={{ ...styles.searchBtn, backgroundColor: theme['c-primary'] }}>
-            <Text size={11} color='#FFFFFF'>搜索</Text>
-          </View>
-        </TouchableOpacity>
-
-        <View style={styles.entryGrid}>
-          {
-            ENTRIES.map(entry => (
-              <TouchableOpacity
-                key={entry.key}
-                style={{ ...styles.entry, backgroundColor: `${entry.color}22`, borderColor: `${entry.color}55` }}
-                activeOpacity={0.75}
-                onPress={() => { handleEntry(entry.key) }}
-              >
-                <View style={{ ...styles.entryIcon, backgroundColor: `${entry.color}44` }}>
-                  <Icon name={entry.icon} size={18} color='#FFFFFF' />
-                </View>
-                <Text size={15} style={styles.entryTitle}>{entry.title}</Text>
-                <Text size={10} color={theme['c-400']} numberOfLines={1} style={styles.entryDesc}>{entry.desc}</Text>
-                <View style={{ ...styles.entryWatermark, backgroundColor: `${entry.color}33` }}>
-                  <Icon name={entry.icon} size={44} color={`${entry.color}99`} />
-                </View>
-              </TouchableOpacity>
-            ))
-          }
-        </View>
-
-        <View style={styles.sectionHead}>
-          <Text size={15} style={styles.sectionTitle}>最近下载</Text>
-          <TouchableOpacity onPress={() => { setNavActiveId('nav_download') }}>
-            <Text size={11} color={theme['c-450']}>全部 ›</Text>
+        <View style={styles.header}>
+          <Text size={21} style={styles.brand}>EMO音乐</Text>
+          <TouchableOpacity
+            style={{ ...styles.searchBtn, backgroundColor: theme['c-primary-alpha-900'] }}
+            activeOpacity={0.8}
+            onPress={() => { setSearchVisible(true) }}
+          >
+            <Icon name='search-2' size={17} color={theme['c-font']} />
           </TouchableOpacity>
         </View>
 
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.cards}
+        >
+          {
+            CARDS.map(card => (
+              <BigCard
+                key={card.key}
+                title={card.title}
+                icon={card.icon}
+                color={card.color}
+                onPress={() => { setModal(card.key) }}
+              />
+            ))
+          }
+        </ScrollView>
+
         {
-          recent.length
-            ? recent.map(task => (
-                <TouchableOpacity
-                  key={task.id}
-                  style={styles.recentRow}
-                  activeOpacity={0.7}
-                  onPress={() => { setNavActiveId('nav_download') }}
-                >
-                  <View style={{ ...styles.recentIcon, backgroundColor: task.isComplate ? 'rgba(52, 211, 153, 0.14)' : theme['c-primary-alpha-800'] }}>
-                    <Icon name={task.isComplate ? 'checkbox-marked' : 'download-2'} size={14} color={task.isComplate ? '#34D399' : theme['c-primary-light-200']} />
-                  </View>
-                  <View style={styles.recentInfo}>
-                    <Text size={13} numberOfLines={1}>{task.metadata.musicInfo.name}</Text>
-                    <Text size={10} color={theme['c-450']} numberOfLines={1} style={styles.recentDesc}>
-                      {task.isComplate
-                        ? `${task.metadata.musicInfo.singer} · ${task.metadata.ext.toUpperCase()} · ${formatSize(task.total)}`
-                        : `${task.metadata.musicInfo.singer} · ${task.status === 'run' ? `下载中 ${task.progress.toFixed(0)}%` : task.status === 'error' ? '下载失败' : '等待下载'}`}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              ))
-            : (
-                <View style={styles.emptyRecent}>
-                  <Text size={11} color={theme['c-450']}>还没有下载记录，去搜索一首歌试试</Text>
-                </View>
+          playedList.length
+            ? (
+                <>
+                  <SectionHead title='最近播放' onPress={() => { setNavActiveId('nav_player') }} />
+                  {
+                    playedList.map(item => {
+                      const musicInfo = toMusicInfo(item.musicInfo)
+                      return (
+                        <RecentRow
+                          key={`${item.listId}_${musicInfo.id}`}
+                          musicInfo={musicInfo}
+                          onPlay={() => { handlePlay(musicInfo as LX.Music.MusicInfoOnline) }}
+                          onMenu={action => { handleMenu(musicInfo, action) }}
+                        />
+                      )
+                    })
+                  }
+                </>
               )
+            : null
         }
+
         {
           recommend.length
             ? (
                 <>
-                  <View style={styles.sectionHead}>
-                    <Text size={15} style={styles.sectionTitle}>推荐歌单</Text>
-                    <TouchableOpacity onPress={() => { setModal('songlist') }}>
-                      <Text size={11} color={theme['c-450']}>更多 ›</Text>
-                    </TouchableOpacity>
-                  </View>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recommendRow}>
+                  <SectionHead title='推荐歌单' onPress={() => { setModal('songlist') }} />
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.recommendRow}
+                  >
                     {
                       recommend.map(item => (
                         <TouchableOpacity
@@ -168,7 +199,7 @@ export default () => {
                           onPress={() => { setModal('songlist') }}
                         >
                           <Image url={item.img} style={styles.recCover} />
-                          <Text size={11} numberOfLines={2} style={styles.recName}>{item.name}</Text>
+                          <Text size={11} numberOfLines={1} style={styles.recName}>{item.name}</Text>
                           <Text size={9} color={theme['c-450']} numberOfLines={1} style={styles.recMeta}>
                             {item.play_count ? `${item.play_count} 次播放` : item.author}
                           </Text>
@@ -180,28 +211,39 @@ export default () => {
               )
             : null
         }
+
         {
-          playedList.length
+          recent.length
             ? (
                 <>
-                  <View style={styles.sectionHead}>
-                    <Text size={15} style={styles.sectionTitle}>最近播放</Text>
-                    <TouchableOpacity onPress={() => { setNavActiveId('nav_player') }}>
-                      <Text size={11} color={theme['c-450']}>播放器 ›</Text>
-                    </TouchableOpacity>
-                  </View>
+                  <SectionHead title='最近下载' onPress={() => { setNavActiveId('nav_download') }} />
                   {
-                    playedList.map(item => (
+                    recent.map(task => (
                       <TouchableOpacity
-                        key={item.musicInfo.id}
-                        style={styles.recentRow}
+                        key={task.id}
+                        style={styles.row}
                         activeOpacity={0.7}
-                        onPress={() => { setNavActiveId('nav_player') }}
+                        onPress={() => { setNavActiveId('nav_download') }}
                       >
-                        <Image url={item.musicInfo.meta?.picUrl} style={styles.playedCover} />
-                        <View style={styles.recentInfo}>
-                          <Text size={13} numberOfLines={1}>{item.musicInfo.name}</Text>
-                          <Text size={10} color={theme['c-450']} numberOfLines={1} style={styles.recentDesc}>{item.musicInfo.singer}</Text>
+                        <View style={styles.rowMain}>
+                          <View style={{
+                            ...styles.downloadIcon,
+                            backgroundColor: task.isComplate ? 'rgba(52, 211, 153, 0.14)' : theme['c-primary-alpha-800'],
+                          }}>
+                            <Icon
+                              name={task.isComplate ? 'checkbox-marked' : 'download-2'}
+                              size={15}
+                              color={task.isComplate ? '#34D399' : theme['c-primary-light-200']}
+                            />
+                          </View>
+                          <View style={styles.rowInfo}>
+                            <Text size={13} numberOfLines={1}>{task.metadata.musicInfo.name}</Text>
+                            <Text size={10} color={theme['c-450']} numberOfLines={1} style={styles.rowSub}>
+                              {task.isComplate
+                                ? `${task.metadata.musicInfo.singer} · ${task.metadata.ext.toUpperCase()} · ${formatSize(task.total)}`
+                                : `${task.metadata.musicInfo.singer} · ${task.status === 'run' ? `下载中 ${task.progress.toFixed(0)}%` : task.status === 'error' ? '下载失败' : '等待下载'}`}
+                            </Text>
+                          </View>
                         </View>
                       </TouchableOpacity>
                     ))
@@ -222,7 +264,7 @@ export default () => {
               ? <PageModal title='我的列表' onClose={() => { setModal(null) }}><Mylist /></PageModal>
               : null
       }
-      <UserApiEditModal ref={userApiModalRef} />
+      <DownloadQualityModal ref={downloadModalRef} />
     </View>
   )
 }
@@ -231,161 +273,104 @@ const styles = createStyle({
   container: {
     flex: 1,
   },
-  brandRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingLeft: 16,
-    paddingRight: 16,
-  },
-  logo: {
-    width: 46,
-    height: 46,
-    borderRadius: 15,
-    marginRight: 12,
-  },
-  brandText: {
-    flexGrow: 1,
-    flexShrink: 1,
-  },
-  brandName: {
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  brandDesc: {
-    marginTop: 3,
-  },
-  searchBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: 16,
-    marginRight: 16,
-    marginTop: 16,
-    height: 44,
-    borderRadius: 14,
-    borderWidth: 0.5,
-    paddingLeft: 12,
-    paddingRight: 5,
-  },
-  searchText: {
-    flexGrow: 1,
-    flexShrink: 1,
-    marginLeft: 8,
-  },
-  searchBtn: {
-    height: 34,
-    paddingLeft: 14,
-    paddingRight: 14,
-    borderRadius: 11,
-    justifyContent: 'center',
-  },
-  entryGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingLeft: 12,
-    paddingRight: 12,
-    marginTop: 6,
-  },
-  entry: {
-    width: '46%',
-    marginLeft: 4,
-    marginRight: 4,
-    marginTop: 10,
-    padding: 14,
-    borderRadius: 20,
-    borderWidth: 0.5,
-    height: 116,
-    overflow: 'hidden',
-  },
-  entryIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  entryWatermark: {
-    position: 'absolute',
-    right: -8,
-    bottom: -10,
-    width: 74,
-    height: 74,
-    borderRadius: 37,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  entryTitle: {
-    fontWeight: '600',
-  },
-  entryDesc: {
-    marginTop: 3,
-  },
-  sectionHead: {
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingLeft: 16,
     paddingRight: 16,
-    marginTop: 22,
+    paddingBottom: 14,
+  },
+  brand: {
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  searchBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cards: {
+    paddingLeft: 16,
+    paddingRight: 4,
+  },
+  sectionHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingLeft: 16,
+    paddingRight: 16,
+    marginTop: 24,
     marginBottom: 6,
   },
   sectionTitle: {
     fontWeight: '700',
   },
-  recentRow: {
+  sectionArrow: {
+    marginLeft: 2,
+    marginTop: 1,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingRight: 8,
+  },
+  rowMain: {
+    flexGrow: 1,
+    flexShrink: 1,
     flexDirection: 'row',
     alignItems: 'center',
     paddingLeft: 16,
-    paddingRight: 16,
-    paddingTop: 8,
-    paddingBottom: 8,
+    paddingTop: 7,
+    paddingBottom: 7,
   },
-  recentIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 11,
+  rowCover: {
+    width: 46,
+    height: 46,
+    borderRadius: 9,
+    marginRight: 12,
   },
-  recentInfo: {
+  rowInfo: {
     flexGrow: 1,
     flexShrink: 1,
   },
-  recentDesc: {
-    marginTop: 2,
+  rowSub: {
+    marginTop: 3,
+  },
+  moreBtn: {
+    width: 34,
+    height: 34,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  downloadIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 9,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
   },
   recommendRow: {
     paddingLeft: 16,
-    paddingRight: 8,
-    paddingBottom: 2,
+    paddingRight: 4,
+    paddingTop: 2,
   },
   recCard: {
-    width: 108,
+    width: 132,
     marginRight: 12,
   },
   recCover: {
-    width: 108,
-    height: 108,
+    width: 132,
+    height: 132,
     borderRadius: 16,
-    marginBottom: 6,
+    marginBottom: 7,
   },
   recName: {
     lineHeight: 15,
   },
   recMeta: {
     marginTop: 3,
-  },
-  playedCover: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    marginRight: 11,
-  },
-  emptyRecent: {
-    paddingLeft: 16,
-    paddingRight: 16,
-    paddingTop: 12,
-    paddingBottom: 12,
   },
 })
