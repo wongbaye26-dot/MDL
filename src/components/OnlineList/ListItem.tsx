@@ -41,6 +41,7 @@ export default memo(({ item, index, showSource, onPress, onLongPress, onShowMenu
   rowInfo: RowInfo
   isShowAlbumName: boolean
   isShowInterval: boolean
+  viewMode?: 'list' | 'card'
 }) => {
   const theme = useTheme()
 
@@ -58,6 +59,25 @@ export default memo(({ item, index, showSource, onPress, onLongPress, onShowMenu
   const tagInfo = useQualityTag(item)
 
   const singer = `${item.singer}${isShowAlbumName && item.meta.albumName ? ` · ${item.meta.albumName}` : ''}`
+
+
+  if (viewMode === 'card') {
+    return (
+      <View style={{ ...styles.card, backgroundColor: isSelected ? theme['c-primary-background-hover'] : theme['c-primary-alpha-900'], borderColor: theme['c-primary-alpha-700'] }}>
+        <TouchableOpacity style={styles.cardLeft} activeOpacity={0.75} onPress={() => { onPress(item, index) }} onLongPress={() => { onLongPress(item, index) }}>
+          <Image url={item.meta.picUrl} style={styles.cardCover} />
+          <View style={styles.cardInfo}>
+            <Text size={14} numberOfLines={1} style={styles.cardName}>{item.name}</Text>
+            <Text size={11} color={theme['c-450']} numberOfLines={1} style={styles.cardSinger}>{singer}</Text>
+          </View>
+          {isShowInterval ? <Text size={11} color={theme['c-400']} style={styles.interval}>{item.interval ?? ''}</Text> : null}
+        </TouchableOpacity>
+        <TouchableOpacity onPress={handleShowMenu} ref={moreButtonRef} style={styles.moreButton} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <Icon name="dots-vertical" style={{ color: theme['c-350'] }} size={13} />
+        </TouchableOpacity>
+      </View>
+    )
+  }
 
   return (
     <View style={{ ...styles.listItem, width: rowInfo.rowWidth, height: ITEM_HEIGHT, backgroundColor: isSelected ? theme['c-primary-background-hover'] : 'rgba(0,0,0,0)' }}>
@@ -122,6 +142,40 @@ const styles = createStyle({
     borderRadius: 10,
     marginLeft: 12,
     marginRight: 11,
+  },
+  card: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 12,
+    marginRight: 12,
+    marginBottom: 8,
+    paddingLeft: 8,
+    paddingRight: 2,
+    paddingTop: 8,
+    paddingBottom: 8,
+    borderRadius: 16,
+    borderWidth: 0.5,
+  },
+  cardLeft: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  cardCover: {
+    width: 52,
+    height: 52,
+    borderRadius: 14,
+    marginRight: 12,
+  },
+  cardInfo: {
+    flexGrow: 1,
+    flexShrink: 1,
+  },
+  cardName: {
+    fontWeight: '600',
+  },
+  cardSinger: {
+    marginTop: 3,
   },
   interval: {
     width: 44,

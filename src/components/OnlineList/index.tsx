@@ -1,4 +1,4 @@
-import { useRef, forwardRef, useImperativeHandle } from 'react'
+import { useRef, forwardRef, useImperativeHandle, useState } from 'react'
 import { View } from 'react-native'
 // import LoadingMask, { LoadingMaskType } from '@/components/common/LoadingMask'
 import List, { type ListProps, type ListType, type Status, type RowInfoType } from './List'
@@ -9,6 +9,9 @@ import MultipleModeBar, { type MultipleModeBarType, type SelectMode } from './Mu
 import DownloadQualityModal, { type DownloadQualityModalType } from '@/components/DownloadQualityModal'
 import { clearMusicUrl, handleDislikeMusic, handlePlay, handlePlayLater, handleShare, handleShowMusicSourceDetail } from './listAction'
 import { createStyle } from '@/utils/tools'
+import { TouchableOpacity } from 'react-native'
+import Text from '@/components/common/Text'
+import { useTheme } from '@/store/theme/hook'
 
 export interface OnlineListProps {
   onRefresh: ListProps['onRefresh']
@@ -39,6 +42,8 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
   const listMusicMultiAddRef = useRef<ListAddMultiType>(null)
   const listMenuRef = useRef<ListMenuType>(null)
   const downloadModalRef = useRef<DownloadQualityModalType>(null)
+  const [viewMode, setViewMode] = useState<'list' | 'card'>('list')
+  const theme = useTheme()
   // const loadingMaskRef = useRef<LoadingMaskType>(null)
 
   useImperativeHandle(ref, () => ({
@@ -87,6 +92,14 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
   return (
     <View style={styles.container}>
       <View style={{ flex: 1 }}>
+        <View style={styles.modeBar}>
+          <TouchableOpacity onPress={() => { setViewMode('list') }} style={{ ...styles.modeBtn, backgroundColor: viewMode === 'list' ? theme['c-primary-alpha-700'] : 'rgba(0,0,0,0)' }}>
+            <Text size={11} color={viewMode === 'list' ? theme['c-primary-light-200'] : theme['c-450']}>列表</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => { setViewMode('card') }} style={{ ...styles.modeBtn, backgroundColor: viewMode === 'card' ? theme['c-primary-alpha-700'] : 'rgba(0,0,0,0)' }}>
+            <Text size={11} color={viewMode === 'card' ? theme['c-primary-light-200'] : theme['c-450']}>卡片</Text>
+          </TouchableOpacity>
+        </View>
         <List
           ref={listRef}
           onShowMenu={showMenu}
@@ -99,6 +112,7 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
           ListHeaderComponent={ListHeaderComponent}
           checkHomePagerIdle={checkHomePagerIdle}
           rowType={rowType}
+          viewMode={viewMode}
         />
         <MultipleModeBar
           ref={multipleModeBarRef}
@@ -134,6 +148,20 @@ const styles = createStyle({
   },
   list: {
     flex: 1,
+  },
+  modeBar: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingRight: 12,
+    paddingBottom: 2,
+  },
+  modeBtn: {
+    paddingLeft: 10,
+    paddingRight: 10,
+    paddingTop: 4,
+    paddingBottom: 4,
+    borderRadius: 9,
+    marginLeft: 6,
   },
   exitMultipleModeBtn: {
     height: 40,
