@@ -307,7 +307,23 @@ export default () => {
       {searchVisible ? <SearchModal onClose={() => { setSearchVisible(false) }} /> : null}
       {
         modal === 'songlist'
-          ? <PageModal title='歌单广场' onClose={() => { setModal(null) }}><SongList /></PageModal>
+          ? (
+            <PageModal
+              title='歌单广场'
+              onClose={() => { setModal(null) }}
+              right={(
+                <TouchableOpacity
+                  style={styles.headerAction}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  onPress={() => { global.app_event.openSonglistLink() }}
+                >
+                  <Icon name='link-variant' size={19} color={theme['c-450']} />
+                </TouchableOpacity>
+              )}
+            >
+              <SongList />
+            </PageModal>
+            )
           : modal === 'leaderboard'
             ? <PageModal title='排行榜' onClose={() => { setModal(null) }}><Leaderboard /></PageModal>
             : modal === 'mylist'
@@ -332,6 +348,12 @@ export default () => {
 const styles = createStyle({
   container: {
     flex: 1,
+  },
+  headerAction: {
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   header: {
     flexDirection: 'row',

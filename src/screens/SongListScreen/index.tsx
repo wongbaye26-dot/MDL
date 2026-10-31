@@ -31,7 +31,13 @@ export default ({ componentId }: { componentId: string }) => {
           <Icon name='chevron-left-2' size={22} color={theme['c-font']} />
         </TouchableOpacity>
         <Text size={17} style={styles.title} numberOfLines={1}>歌单广场</Text>
-        <View style={styles.back} />
+        <TouchableOpacity
+          style={styles.back}
+          onPress={() => { global.app_event.openSonglistLink() }}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Icon name='link-variant' size={19} color={theme['c-450']} />
+        </TouchableOpacity>
       </View>
       <View style={styles.content}>
         <SongList />

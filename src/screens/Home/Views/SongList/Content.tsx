@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ScrollView, TouchableOpacity, View } from 'react-native'
+import { ScrollView, View } from 'react-native'
 
 import Chip from '@/components/common/Chip'
-import { Icon } from '@/components/common/Icon'
-import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
 import { createStyle } from '@/utils/tools'
 import { getSongListSetting, saveSongListSetting } from '@/utils/data'
@@ -23,7 +21,6 @@ interface SonglistInfo {
 
 export default () => {
   const t = useI18n()
-  const theme = useTheme()
   const listRef = useRef<ListType>(null)
   const openListModalRef = useRef<OpenListModalType>(null)
   const songlistInfo = useRef<SonglistInfo>({ source: 'kw', sortId: '', tagId: '' })
@@ -46,6 +43,16 @@ export default () => {
 
   const loadList = useCallback((src: Source, sId: string, tId: string) => {
     listRef.current?.loadList(src, sId, tId)
+  }, [])
+
+  useEffect(() => {
+    const handleOpenLink = () => {
+      openListModalRef.current?.show(songlistInfo.current.source)
+    }
+    global.app_event.on('openSonglistLink', handleOpenLink)
+    return () => {
+      global.app_event.off('openSonglistLink', handleOpenLink)
+    }
   }, [])
 
   useEffect(() => {
@@ -142,13 +149,6 @@ export default () => {
             ))
           }
         </ScrollView>
-        <TouchableOpacity
-          style={styles.openBtn}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          onPress={() => { openListModalRef.current?.show(songlistInfo.current.source) }}
-        >
-          <Icon name='link-variant' size={15} color={theme['c-450']} />
-        </TouchableOpacity>
       </View>
 
       <ScrollView

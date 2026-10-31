@@ -1,72 +1,77 @@
 import { memo, useMemo } from 'react'
-
-import { StyleSheet, View } from 'react-native'
+import { View } from 'react-native'
 
 import SubTitle from '../../components/SubTitle'
-import CheckBox from '@/components/common/CheckBox'
+import Chip from '@/components/common/Chip'
+import Text from '@/components/common/Text'
 import { useSettingValue } from '@/store/setting/hook'
 import { updateSetting } from '@/core/common'
 import { useI18n } from '@/lang'
+import { useTheme } from '@/store/theme/hook'
+import { createStyle } from '@/utils/tools'
 import { TRY_QUALITYS_LIST } from '@/core/music/utils'
+import { QUALITY_LABEL, QUALITY_DESC } from '@/core/download/utils'
 
-const useActive = (id: LX.Quality) => {
-  const q = useSettingValue('player.playQuality')
-  const isActive = useMemo(() => q == id, [q, id])
-  return isActive
-}
-
-const Item = ({ id, name }: {
-  id: LX.Quality
-  name: string
-}) => {
-  const isActive = useActive(id)
-  // const [toggleCheckBox, setToggleCheckBox] = useState(false)
-  return <CheckBox marginRight={8} check={isActive} label={name} onChange={() => { updateSetting({ 'player.playQuality': id }) }} need />
-}
-
+/**
+ * 优先播放的音质。
+ *
+ * 原来是 CheckBox 方框 + 文字平铺，和设置页其它「胶囊选择」不搭；
+ * 改成胶囊行：选中实心、未选半透明，下面补一句降级说明。
+ */
 export default memo(() => {
   const t = useI18n()
+  const theme = useTheme()
+  const playQuality = useSettingValue('player.playQuality')
+
   const playQualityList = useMemo(() => {
     return [...TRY_QUALITYS_LIST, '128k'].reverse() as LX.Quality[]
   }, [])
+
+  const activeLabel = QUALITY_LABEL[playQuality] ?? playQuality
+  const activeDesc = QUALITY_DESC[playQuality] ?? ''
 
   return (
     <SubTitle title={t('setting_play_play_quality')}>
       <View style={styles.list}>
         {
-          playQualityList.map((q) => <Item name={q} id={q} key={q} />)
+          playQualityList.map(q => (
+            <View key={q} style={styles.chipWrap}>
+              <Chip
+                label={QUALITY_LABEL[q] ?? q}
+                active={q === playQuality}
+                onPress={() => { updateSetting({ 'player.playQuality': q }) }}
+              />
+            </View>
+          ))
         }
+      </View>
+      <View style={{ ...styles.tip, backgroundColor: theme['c-primary-alpha-900'] }}>
+        <Text size={11} color={theme['c-450']} style={styles.tipText}>
+          {`当前优先 ${activeLabel}${activeDesc ? `（${activeDesc}）` : ''}，音源没有该档位时会自动降到可用音质`}
+        </Text>
       </View>
     </SubTitle>
   )
 })
 
-const styles = StyleSheet.create({
+const styles = createStyle({
   list: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    marginTop: 2,
+  },
+  chipWrap: {
+    marginBottom: 8,
+  },
+  tip: {
+    marginTop: 2,
+    borderRadius: 10,
+    paddingLeft: 10,
+    paddingRight: 10,
+    paddingTop: 8,
+    paddingBottom: 8,
+  },
+  tipText: {
+    lineHeight: 16,
   },
 })
-
-
-// export default memo(() => {
-//   const t = useI18n()
-//   const isPlayHighQuality = useSettingValue('player.isPlayHighQuality')
-//   const setPlayHighQuality = (isPlayHighQuality: boolean) => {
-//     updateSetting({ 'player.isPlayHighQuality': isPlayHighQuality })
-//   }
-
-//   return (
-//     <View style={styles.content}>
-//       <CheckBoxItem check={isPlayHighQuality} onChange={setPlayHighQuality} label={t('setting_play_quality')} />
-//     </View>
-//   )
-// })
-
-
-// const styles = createStyle({
-//   content: {
-//     marginTop: 5,
-//   },
-// })
-

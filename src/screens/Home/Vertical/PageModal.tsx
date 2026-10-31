@@ -7,9 +7,11 @@ import { useStatusbarHeight } from '@/store/common/hook'
 import { createStyle } from '@/utils/tools'
 import { getSolidBackground } from '@/theme/solid'
 
-export default ({ title, onClose, children }: {
+export default ({ title, onClose, right, children }: {
   title: string
   onClose: () => void
+  /** 标题右侧的操作按钮 */
+  right?: React.ReactNode
   children: React.ReactNode
 }) => {
   const theme = useTheme()
@@ -25,6 +27,7 @@ export default ({ title, onClose, children }: {
             <Icon name='chevron-left-2' size={20} color={theme['c-font']} />
           </TouchableOpacity>
           <Text size={17} style={styles.title} numberOfLines={1}>{title}</Text>
+          {right ?? <View style={styles.back} />}
         </View>
         <View style={styles.content}>{children}</View>
       </SlideInView>

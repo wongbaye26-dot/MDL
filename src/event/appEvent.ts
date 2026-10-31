@@ -186,6 +186,11 @@ export class AppEvent extends Event {
     this.emit('hideSonglistTagList')
   }
 
+  /** 打开「添加歌单」弹窗（歌单广场标题栏按钮触发） */
+  openSonglistLink() {
+    this.emit('openSonglistLink')
+  }
+
   songlistTagInfoChange(name: string, id: string) {
     this.emit('songlistTagInfoChange', name, id)
   }
