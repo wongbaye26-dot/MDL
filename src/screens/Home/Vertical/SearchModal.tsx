@@ -1,4 +1,4 @@
-import { Modal, View, TouchableOpacity } from 'react-native'
+import { View, TouchableOpacity, StyleSheet } from 'react-native'
 import Search from '@/screens/Home/Views/Search'
 import SearchTypeSelector from '@/screens/Home/Views/Search/SearchTypeSelector'
 import { Icon } from '@/components/common/Icon'
@@ -11,12 +11,7 @@ export default ({ onClose }: { onClose: () => void }) => {
   const statusBarHeight = useStatusbarHeight()
 
   return (
-    <Modal
-      visible
-      animationType='slide'
-      statusBarTranslucent
-      onRequestClose={onClose}
-    >
+    <View style={[StyleSheet.absoluteFill, { zIndex: 200, elevation: 24 }]}>
       <View style={{ ...styles.container, backgroundColor: theme['c-main-background'] }}>
         <View style={{ ...styles.header, height: 48 + statusBarHeight, paddingTop: statusBarHeight }}>
           <TouchableOpacity style={styles.backBtn} onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
@@ -30,7 +25,7 @@ export default ({ onClose }: { onClose: () => void }) => {
           <Search />
         </View>
       </View>
-    </Modal>
+    </View>
   )
 }
 
