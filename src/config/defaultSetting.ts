@@ -91,6 +91,9 @@ const defaultSetting: LX.AppSetting = {
   'theme.seedColor': '#6C5CE7',
   'theme.useSeed': false,
   'theme.seedDark': true,
+  // 歌词显示
+  'player.isWordByWordLyric': true,
+  'player.isSingleLineLyric': false,
 }
 
 

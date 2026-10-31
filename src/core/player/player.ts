@@ -20,6 +20,7 @@ import {
   removeTempPlayList,
 } from '@/core/player/tempPlayList'
 import { getMusicUrl, getPicPath, getLyricInfo } from '@/core/music'
+import { getPlayQuality } from '@/core/music/utils'
 import { requestMsg } from '@/utils/message'
 import { getRandom } from '@/utils/common'
 import { filterList } from './utils'
@@ -97,6 +98,18 @@ const getMusicPlayUrl = async(musicInfo: LX.Music.MusicInfo | LX.Download.ListIt
   // this.musicInfo.url = await getMusicPlayUrl(targetSong, type)
   setStatusText(global.i18n.t('player__getting_url'))
   addLoadTimeout()
+
+  // 记录本次实际会用的音质，供播放器界面展示真实信息
+  if ('progress' in musicInfo) {
+    playerState.playQuality = musicInfo.metadata.quality
+  } else if (musicInfo.source === 'local') {
+    playerState.playQuality = ''
+  } else {
+    playerState.playQuality = getPlayQuality(
+      settingState.setting['player.playQuality'],
+      musicInfo as LX.Music.MusicInfoOnline,
+    )
+  }
 
   // 本地优先播放：如果是在线歌曲，先检查本地是否已有相同歌曲的文件
   if (!('progress' in musicInfo) && musicInfo.source !== 'local' && !isRefresh) {

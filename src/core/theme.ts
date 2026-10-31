@@ -1,6 +1,7 @@
 import themeActions from '@/store/theme/action'
 import { getTheme } from '@/theme/themes'
 import { generateThemeFromSeed } from '@/theme/themes/generate'
+import { getSystemAccentColor } from '@/utils/nativeModules/utils'
 import { updateSetting } from './common'
 import themeState from '@/store/theme/state'
 
@@ -20,10 +21,14 @@ export const setTheme = (id: string) => {
   })
 }
 
-/** 设置 Material You 种子色并立即生效 */
-export const setSeedColor = (hex: string, isDark: boolean) => {
+/** 设置 Material You 种子色并立即生效；传 'system' 表示跟随系统主题色 */
+export const setSeedColor = async(hex: string, isDark: boolean) => {
   updateSetting({ 'theme.seedColor': hex, 'theme.useSeed': true, 'theme.seedDark': isDark })
-  applyTheme(generateThemeFromSeed(hex, isDark))
+  let resolved = hex
+  if (hex === 'system') {
+    resolved = (await getSystemAccentColor()) ?? '#6C5CE7'
+  }
+  applyTheme(generateThemeFromSeed(resolved, isDark))
 }
 
 /** 关闭 Material You，回退到内置主题 */

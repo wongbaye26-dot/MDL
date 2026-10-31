@@ -7,6 +7,7 @@ import { isUrl } from '@/utils'
 import { privateStorageDirectoryPath } from '@/utils/fs'
 import { type ImageSourcePropType } from 'react-native'
 import { generateThemeFromSeed } from './generate'
+import { getSystemAccentColor } from '@/utils/nativeModules/utils'
 
 export { generateThemeFromSeed, SEED_COLORS } from './generate'
 
@@ -117,7 +118,11 @@ export const getTheme = async(): Promise<LocalTheme | LX.Theme | LX.ActiveTheme>
 
   // Material You：由种子色动态生成整套主题
   if (settingState.setting['theme.useSeed']) {
-    const seed = settingState.setting['theme.seedColor'] || '#6C5CE7'
+    let seed = settingState.setting['theme.seedColor'] || '#6C5CE7'
+    // 跟随系统主题色
+    if (seed === 'system') {
+      seed = (await getSystemAccentColor()) ?? '#6C5CE7'
+    }
     const isDark = settingState.setting['common.isAutoTheme']
       ? shouldUseDarkColors
       : settingState.setting['theme.seedDark']

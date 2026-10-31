@@ -68,6 +68,24 @@ export const getWindowSize = async(): Promise<{ width: number, height: number }>
   return UtilsModule.getWindowSize()
 }
 
+/** 读取系统 Material You 主题色，失败返回 null */
+export const getSystemAccentColor = async(): Promise<string | null> => {
+  try {
+    return await UtilsModule.getSystemAccentColor() as string | null
+  } catch {
+    return null
+  }
+}
+
+/** 读取系统 Material You 色板（accent1~3 / neutral1~2），Android 12 以下为空对象 */
+export const getSystemColorPalette = async(): Promise<Record<string, string[]>> => {
+  try {
+    return await UtilsModule.getSystemColorPalette() as Record<string, string[]>
+  } catch {
+    return {}
+  }
+}
+
 export const onWindowSizeChange = (handler: (size: { width: number, height: number }) => void): () => void => {
   UtilsModule.listenWindowSizeChanged()
   // eslint-disable-next-line @typescript-eslint/no-unsafe-argument

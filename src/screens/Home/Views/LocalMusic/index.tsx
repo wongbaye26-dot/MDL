@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { FlatList, TouchableOpacity, View, Modal, TextInput, StyleSheet } from 'react-native'
+import { FlatList, TouchableOpacity, View, Modal, TextInput, StyleSheet, type GestureResponderEvent } from 'react-native'
 
 import Text from '@/components/common/Text'
 import Image from '@/components/common/Image'
 import { Icon } from '@/components/common/Icon'
 import DorpDownMenu from '@/components/common/DorpDownMenu'
+import Menu, { type MenuType } from '@/components/common/Menu'
 import { useTheme } from '@/store/theme/hook'
 import { createStyle, toast } from '@/utils/tools'
-import { formatSize } from '@/core/download/utils'
+import { formatSize, formatSampleRate } from '@/core/download/utils'
 import { getLocalMusicList, scanLocalMusic, getTotalSize, deleteLocalMusic, updateLocalMusicMeta } from '@/core/localMusic'
 import { readPic } from '@/utils/localMediaMetadata'
 import { overwriteListMusics } from '@/core/list'
@@ -223,6 +224,7 @@ const LocalRow = ({ item, index, onPress, onMenu }: {
   onMenu: (action: string) => void
 }) => {
   const theme = useTheme()
+  const menuRef = useRef<MenuType>(null)
   const menus = useMemo(() => [
     { action: 'play', label: '播放' },
     { action: 'playLater', label: '稍后播放' },
@@ -231,11 +233,20 @@ const LocalRow = ({ item, index, onPress, onMenu }: {
     { action: 'deleteFile', label: '删除文件' },
   ], [])
 
+  const handleLongPress = (e: GestureResponderEvent) => {
+    const { pageX, pageY } = e.nativeEvent
+    menuRef.current?.show({ x: Math.max(8, pageX - 180), y: Math.max(60, pageY - 20), w: 1, h: 1 })
+  }
+
   const meta = useMemo(() => {
+    const rate = item.meta.sampleRate
+      ? formatSampleRate(item.meta.sampleRate)
+      : ''
     return [
       item.singer || '未知歌手',
       item.meta.ext.toUpperCase(),
-      item.meta.bitrate,
+      rate,
+      item.meta.bitrate ? `${item.meta.bitrate} kbps` : '',
       item.interval,
       item.meta.size ? formatSize(item.meta.size) : '',
     ].filter(Boolean).join(' · ')
@@ -243,7 +254,13 @@ const LocalRow = ({ item, index, onPress, onMenu }: {
 
   return (
     <View style={styles.row}>
-      <TouchableOpacity style={styles.rowMain} activeOpacity={0.7} onPress={onPress}>
+      <TouchableOpacity
+        style={styles.rowMain}
+        activeOpacity={0.7}
+        onPress={onPress}
+        onLongPress={handleLongPress}
+        delayLongPress={320}
+      >
         <Text size={11} color={theme['c-350']} style={styles.index}>{index + 1}</Text>
         <Cover item={item} />
         <View style={styles.info}>
@@ -254,6 +271,7 @@ const LocalRow = ({ item, index, onPress, onMenu }: {
       <DorpDownMenu menus={menus} onPress={menu => { onMenu(menu.action) }} btnStyle={styles.moreBtn}>
         <Icon name='dots-vertical' size={14} color={theme['c-350']} />
       </DorpDownMenu>
+      <Menu ref={menuRef} menus={menus} onPress={menu => { onMenu(menu.action) }} />
     </View>
   )
 }

@@ -19,7 +19,11 @@ const MENU_ICONS: Record<string, string> = {
 
 /** 专辑封面外的分段进度环 */
 const SEGMENTS = 40
-const ProgressRing = ({ ratio, children }: { ratio: number, children: React.ReactNode }) => {
+const ProgressRing = ({ ratio, activeColor, children }: {
+  ratio: number
+  activeColor: string
+  children: React.ReactNode
+}) => {
   const items = useMemo(() => Array.from({ length: SEGMENTS }, (_, i) => {
     const angle = (360 / SEGMENTS) * i
     return { key: i, angle, active: i / SEGMENTS < ratio }
@@ -33,7 +37,7 @@ const ProgressRing = ({ ratio, children }: { ratio: number, children: React.Reac
             key={item.key}
             style={{
               ...styles.tick,
-              backgroundColor: item.active ? '#C08BFF' : 'rgba(255,255,255,0.16)',
+              backgroundColor: item.active ? activeColor : 'rgba(255,255,255,0.16)',
               transform: [{ rotate: `${item.angle}deg` }, { translateY: -23 }],
             }}
           />
@@ -71,7 +75,7 @@ export default memo(() => {
             if (menu.id === 'nav_player') {
               return (
                 <TouchableOpacity key={menu.id} style={styles.item} activeOpacity={0.8} onPress={openPlayer}>
-                  <ProgressRing ratio={progress}>
+                  <ProgressRing ratio={progress} activeColor={theme['c-primary']}>
                     <View style={styles.albumInner}>
                       {
                         musicInfo.pic
@@ -80,7 +84,7 @@ export default memo(() => {
                             <View style={{ ...styles.album, backgroundColor: 'rgba(255,255,255,0.12)' }}>
                               <Icon name='music_time' size={14} color='rgba(255,255,255,0.75)' />
                             </View>
-                          )
+                            )
                       }
                     </View>
                   </ProgressRing>

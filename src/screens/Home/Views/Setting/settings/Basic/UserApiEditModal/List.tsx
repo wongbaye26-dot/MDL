@@ -7,7 +7,6 @@ import { useI18n } from '@/lang'
 import { useUserApiList, state as userApiState } from '@/store/userApi'
 import { useSettingValue } from '@/store/setting/hook'
 import { removeUserApi, setUserApiAllowShowUpdateAlert } from '@/core/userApi'
-import { BorderRadius } from '@/theme'
 import CheckBox from '@/components/common/CheckBox'
 import { Icon } from '@/components/common/Icon'
 import settingState from '@/store/setting/state'
@@ -25,6 +24,8 @@ const ListItem = ({ item, activeId, onRemove, onChangeAllowShowUpdateAlert }: {
 }) => {
   const theme = useTheme()
   const t = useI18n()
+  const active = activeId === item.id
+
   const changeAllowShowUpdateAlert = (check: boolean) => {
     onChangeAllowShowUpdateAlert(item.id, check)
   }
@@ -35,16 +36,16 @@ const ListItem = ({ item, activeId, onRemove, onChangeAllowShowUpdateAlert }: {
   return (
     <View style={{
       ...styles.card,
-      backgroundColor: activeId == item.id ? theme['c-primary-alpha-800'] : theme['c-primary-alpha-900'],
-      borderColor: activeId == item.id ? theme['c-primary-alpha-500'] : theme['c-primary-alpha-700'],
+      backgroundColor: active ? theme['c-primary-alpha-800'] : theme['c-primary-alpha-900'],
+      borderColor: active ? theme['c-primary-alpha-400'] : theme['c-primary-alpha-700'],
     }}>
       <TouchableOpacity style={styles.main} activeOpacity={0.7} onPress={() => { setApiSource(item.id) }}>
-        <View style={{ ...styles.iconWrap, backgroundColor: theme['c-primary-alpha-800'] }}>
-          <Icon name='script-text-outline' size={16} color={theme['c-primary-light-200']} />
+        <View style={{ ...styles.iconWrap, backgroundColor: active ? theme['c-primary-alpha-600'] : theme['c-primary-alpha-800'] }}>
+          <Icon name='script-text-outline' size={18} color={active ? '#FFFFFF' : theme['c-primary-light-200']} />
         </View>
         <View style={styles.info}>
           <View style={styles.titleRow}>
-            <Text size={14} numberOfLines={1} style={styles.name}>{item.name}</Text>
+            <Text size={15} numberOfLines={1} style={styles.name}>{item.name}</Text>
             {
               item.version
                 ? (
@@ -55,22 +56,34 @@ const ListItem = ({ item, activeId, onRemove, onChangeAllowShowUpdateAlert }: {
                 : null
             }
             {
-              activeId == item.id
-                ? <Icon name='check-circle' size={15} color={theme['c-primary']} style={styles.check} />
+              active
+                ? <Icon name='check-circle' size={16} color={theme['c-primary']} style={styles.check} />
                 : null
             }
           </View>
           {
             item.description || item.author
-              ? <Text size={10} color={theme['c-450']} numberOfLines={2} style={styles.desc}>{item.description || item.author}</Text>
+              ? <Text size={11} color={theme['c-450']} numberOfLines={2} style={styles.desc}>{item.description || item.author}</Text>
               : null
           }
-          <CheckBox check={item.allowShowUpdateAlert} label={t('user_api_allow_show_update_alert')} onChange={changeAllowShowUpdateAlert} size={0.8} />
         </View>
       </TouchableOpacity>
-      <TouchableOpacity style={styles.del} onPress={handleRemove} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-        <Icon name='trash-can-outline' size={15} color={theme['c-350']} />
-      </TouchableOpacity>
+
+      <View style={{ ...styles.footer, borderTopColor: theme['c-primary-alpha-800'] }}>
+        <CheckBox
+          check={item.allowShowUpdateAlert}
+          label={t('user_api_allow_show_update_alert')}
+          onChange={changeAllowShowUpdateAlert}
+          size={0.75}
+        />
+        <TouchableOpacity
+          style={styles.del}
+          onPress={handleRemove}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Icon name='trash-can-outline' size={15} color={theme['c-400']} />
+        </TouchableOpacity>
+      </View>
     </View>
   )
 }
@@ -144,28 +157,24 @@ const styles = createStyle({
     flexDirection: 'column',
   },
   card: {
-    flexDirection: 'row',
-    alignItems: 'center',
     marginLeft: 14,
     marginRight: 14,
     marginTop: 10,
     paddingLeft: 12,
-    paddingRight: 6,
+    paddingRight: 12,
     paddingTop: 12,
-    paddingBottom: 12,
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 0.5,
+    overflow: 'hidden',
   },
   main: {
-    flexGrow: 1,
-    flexShrink: 1,
     flexDirection: 'row',
     alignItems: 'flex-start',
   },
   iconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 11,
+    width: 40,
+    height: 40,
+    borderRadius: 13,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -180,7 +189,7 @@ const styles = createStyle({
   },
   name: {
     flexShrink: 1,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   tag: {
     marginLeft: 6,
@@ -194,8 +203,16 @@ const styles = createStyle({
     marginLeft: 6,
   },
   desc: {
-    marginTop: 4,
-    lineHeight: 15,
+    marginTop: 5,
+    lineHeight: 16,
+  },
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 10,
+    paddingTop: 6,
+    borderTopWidth: 0.5,
   },
   del: {
     width: 34,

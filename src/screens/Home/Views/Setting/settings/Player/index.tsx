@@ -13,6 +13,8 @@ import IsShowLyricTranslation from './IsShowLyricTranslation'
 import IsShowLyricRoma from './IsShowLyricRoma'
 import IsS2T from './IsS2T'
 import MaxCache from './MaxCache'
+import IsWordByWordLyric from './IsWordByWordLyric'
+import IsSingleLineLyric from './IsSingleLineLyric'
 
 export default memo(() => {
   return (
@@ -25,6 +27,8 @@ export default memo(() => {
         <PlayHighQuality />
       </Section>
       <Section title='歌词'>
+        <IsWordByWordLyric />
+        <IsSingleLineLyric />
         <IsShowLyricTranslation />
         <IsShowLyricRoma />
         <IsS2T />

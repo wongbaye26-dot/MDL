@@ -26,6 +26,7 @@ interface AudioMetadata {
   albumName?: string
   interval?: number
   bitrate?: string
+  sampleRate?: string
 }
 
 let cachedList: LX.Music.MusicInfoLocal[] | null = null
@@ -99,6 +100,7 @@ const buildMusicInfo = async(file: DirEntry): Promise<LX.Music.MusicInfoLocal> =
       ext,
       size: file.size,
       bitrate: metadata?.bitrate,
+      sampleRate: metadata?.sampleRate,
     },
   }
 }

@@ -10,9 +10,8 @@ export default memo(({ children }: {
 
   useEffect(() => {
     const handleUpdateTheme = (theme: LX.ActiveTheme) => {
-      requestAnimationFrame(() => {
-        setTheme(theme)
-      })
+      // 同步提交，避免 rAF 延迟期间新旧主题混用造成闪屏
+      setTheme(theme)
     }
     global.state_event.on('themeUpdated', handleUpdateTheme)
     return () => {

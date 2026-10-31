@@ -9,6 +9,8 @@ declare global {
         size?: number
         /** 码率，扫描时写入，如 918 kbps */
         bitrate?: string
+        /** 采样率，扫描时写入，如 44100 或 44.1 */
+        sampleRate?: string
       }
     }
   }

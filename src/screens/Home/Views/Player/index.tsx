@@ -22,13 +22,14 @@ import { useSettingValue } from '@/store/setting/hook'
 import { createStyle, toast } from '@/utils/tools'
 import { useLrcSet, useLrcPlay, type Line } from '@/plugins/lyric'
 import playerState from '@/store/player/state'
-import { collectMusic, playNext, playPrev, togglePlay, uncollectMusic } from '@/core/player/player'
+import { collectMusic, playList, playNext, playPrev, togglePlay, uncollectMusic } from '@/core/player/player'
 import { setCurrentTime, getPosition, getDuration } from '@/plugins/player'
 import { setNowPlayTime, setMaxplayTime } from '@/core/player/progress'
 import { getListMusicSync } from '@/utils/listManage'
 import { LIST_IDS } from '@/config/constant'
 import { setNavActiveId, updateSetting } from '@/core/common'
-import { formatSize, QUALITY_LABEL } from '@/core/download/utils'
+import { formatSize, formatSampleRate, QUALITY_LABEL, QUALITY_DESC } from '@/core/download/utils'
+import DownloadQualityModal, { type DownloadQualityModalType } from '@/components/DownloadQualityModal'
 
 const PLAY_MODES = ['listLoop', 'random', 'singleLoop', 'list'] as const
 type PlayMode = typeof PLAY_MODES[number]
@@ -47,8 +48,14 @@ const MODE_LABEL: Record<PlayMode, string> = {
 
 const LYRIC_SIZES = [15, 17, 19, 22]
 
-/** 底部渐变遮罩的逐层透明度，从浅到深模拟线性渐变 */
-const GRADIENT_STOPS = [0.05, 0.09, 0.14, 0.20, 0.27, 0.35, 0.44, 0.54]
+/** 底部渐变遮罩的逐层透明度，层数够多才看不出色带 */
+const GRADIENT_STOPS = Array.from({ length: 28 }, (_, i) => {
+  const t = i / 27
+  return Number((0.02 + Math.pow(t, 1.5) * 0.62).toFixed(3))
+})
+
+/** 顶部渐变（状态栏区域与封面融合） */
+const TOP_STOPS = [0.34, 0.22, 0.12, 0.05]
 
 const formatTime = (time: number) => {
   if (!time || time < 0 || !Number.isFinite(time)) return '00:00'
@@ -68,11 +75,12 @@ const findLine = (lines: Line[], timeMs: number) => {
   return index
 }
 
-const LyricLine = memo(({ text, active, ratio, size }: {
+const LyricLine = memo(({ text, active, ratio, size, wordByWord }: {
   text: string
   active: boolean
   ratio: number
   size: number
+  wordByWord: boolean
 }) => {
   if (!active) {
     return (
@@ -80,6 +88,17 @@ const LyricLine = memo(({ text, active, ratio, size }: {
         size={size}
         color='rgba(255,255,255,0.42)'
         style={{ ...styles.lyricLine, lineHeight: size * 1.5 }}
+        numberOfLines={2}
+      >{text || ' '}</Text>
+    )
+  }
+  // 关闭逐字时整行高亮
+  if (!wordByWord) {
+    return (
+      <Text
+        size={size}
+        color='#FFFFFF'
+        style={{ ...styles.lyricLine, lineHeight: size * 1.5, fontWeight: '600' }}
         numberOfLines={2}
       >{text || ' '}</Text>
     )
@@ -115,6 +134,24 @@ export default () => {
   const [collected, setCollected] = useState(false)
   const [queueVisible, setQueueVisible] = useState(false)
   const [detailVisible, setDetailVisible] = useState(false)
+  const downloadModalRef = useRef<DownloadQualityModalType>(null)
+  const autoSaveEnabled = useSettingValue('download.autoSaveWhilePlaying')
+  const isWordByWord = useSettingValue('player.isWordByWordLyric')
+  const isSingleLine = useSettingValue('player.isSingleLineLyric')
+
+  const handleDownload = useCallback(() => {
+    const raw = playerState.playMusicInfo.musicInfo
+    if (!raw) return
+    if ('progress' in raw) {
+      toast('这首已经下载过了')
+      return
+    }
+    if (raw.source === 'local') {
+      toast('本地文件无需下载')
+      return
+    }
+    downloadModalRef.current?.show({ musicInfos: [raw] })
+  }, [])
 
   const lyricSize = LYRIC_SIZES[sizeIndex]
 
@@ -256,23 +293,62 @@ export default () => {
     setSizeIndex(index => (index + 1) % LYRIC_SIZES.length)
   }, [])
 
+  /** 点击队列里的歌曲直接切歌播放 */
+  const handlePlayFromQueue = useCallback((index: number) => {
+    const listId = playerState.playInfo.playerListId
+    if (!listId) return
+    setQueueVisible(false)
+    void playList(listId, index)
+  }, [])
+
   const currentTime = progress.nowPlayTime
   const maxTime = progress.maxPlayTime
 
   const audioMeta = useMemo(() => {
     const raw = playerState.playMusicInfo.musicInfo
     if (!raw) return ''
+
+    // 已下载文件
     if ('progress' in raw) {
       const info = raw.metadata
-      return [info.ext?.toUpperCase(), QUALITY_LABEL[info.quality as LX.Quality] ?? info.quality].filter(Boolean).join(' · ')
+      return [
+        '已下载',
+        QUALITY_LABEL[info.quality as LX.Quality] ?? info.quality,
+        raw.total ? formatSize(raw.total) : '',
+      ].filter(Boolean).join(' · ')
     }
+
+    // 本地文件：格式 / 采样率 / 码率 / 大小
     if (raw.source === 'local') {
-      return [raw.meta.ext?.toUpperCase(), raw.meta.bitrate, raw.meta.size ? formatSize(raw.meta.size) : ''].filter(Boolean).join(' · ')
+      const meta = raw.meta
+      const rate = meta.sampleRate ? formatSampleRate(meta.sampleRate) : ''
+      const bitrate = meta.bitrate ? `${meta.bitrate} kbps` : ''
+      return [
+        '本地',
+        meta.ext?.toUpperCase(),
+        rate,
+        bitrate,
+        meta.size ? formatSize(meta.size) : '',
+      ].filter(Boolean).join(' · ')
+    }
+
+    // 在线音乐：当前实际播放音质
+    const quality = playerState.playQuality
+    if (quality) {
+      return [
+        '在线',
+        QUALITY_DESC[quality as LX.Quality] ?? QUALITY_LABEL[quality as LX.Quality] ?? quality,
+        raw.meta.albumName || '',
+      ].filter(Boolean).join(' · ')
     }
     const qualities = raw.meta.qualitys ?? []
     const best = qualities.length ? qualities[qualities.length - 1] : null
-    return [best ? (QUALITY_LABEL[best.type] ?? best.type) : '', raw.meta.albumName].filter(Boolean).join(' · ')
-  }, [musicInfo.id])
+    return [
+      '在线',
+      best ? (QUALITY_DESC[best.type] ?? QUALITY_LABEL[best.type] ?? best.type) : '',
+      raw.meta.albumName || '',
+    ].filter(Boolean).join(' · ')
+  }, [musicInfo.id, musicInfo.pic])
 
   const detailRows = useMemo(() => {
     const raw = playerState.playMusicInfo.musicInfo
@@ -331,16 +407,27 @@ export default () => {
       style={{ ...styles.container, transform: [{ translateY: panY }] }}
       {...panResponder.panHandlers}
     >
-      {/* 背景：封面态清晰全屏，歌词态模糊压暗 */}
+      {/* 底层：同一张封面放大模糊，形成四周磨砂质感 */}
       {
         pic
           ? <RNImage
               source={{ uri: pic }}
-              blurRadius={isCover ? 0 : 40}
-              style={StyleSheet.absoluteFill}
+              blurRadius={isCover ? 60 : 40}
+              style={[StyleSheet.absoluteFill, { transform: [{ scale: 1.18 }] }]}
               resizeMode='cover'
             />
           : <View style={[StyleSheet.absoluteFill, { backgroundColor: '#151019' }]} />
+      }
+
+      {/* 上层：封面态用清晰图内缩，露出四周磨砂边；歌词态不再叠清晰图 */}
+      {
+        pic && isCover
+          ? <RNImage
+              source={{ uri: pic }}
+              style={[StyleSheet.absoluteFill, styles.coverInner]}
+              resizeMode='cover'
+            />
+          : null
       }
 
       {/* 歌词态整体压暗，保证文字可读 */}
@@ -350,18 +437,29 @@ export default () => {
           : <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(8,6,12,0.62)' }]} />
       }
 
-      {/* 底部渐变：用多层半透明色块模拟，避免引入渐变库 */}
-      <View pointerEvents='none' style={StyleSheet.absoluteFill}>
+      {/* 顶部渐变：让状态栏与封面自然融合 */}
+      <View pointerEvents='none' style={styles.topGradient}>
+        {
+          TOP_STOPS.map((alpha, i) => (
+            <View
+              key={i}
+              style={{
+                flex: 1,
+                backgroundColor: `rgba(0,0,0,${alpha})`,
+              }}
+            />
+          ))
+        }
+      </View>
+
+      {/* 底部渐变：多层细密色块，避免出现横条纹 */}
+      <View pointerEvents='none' style={styles.bottomGradient}>
         {
           GRADIENT_STOPS.map((alpha, i) => (
             <View
               key={i}
               style={{
-                position: 'absolute',
-                left: 0,
-                right: 0,
-                top: `${38 + i * (62 / GRADIENT_STOPS.length)}%`,
-                height: `${62 / GRADIENT_STOPS.length + 1}%`,
+                flex: 1,
                 backgroundColor: `rgba(0,0,0,${alpha})`,
               }}
             />
@@ -407,30 +505,45 @@ export default () => {
                 {
                   lines.length
                     ? (
-                      <ScrollView
-                        ref={scrollRef}
-                        showsVerticalScrollIndicator={false}
-                        contentContainerStyle={styles.lyricContent}
-                        scrollEventThrottle={32}
-                      >
-                        {
-                          lines.map((line, index) => (
-                            <TouchableOpacity
-                              key={`${index}_${line.time}`}
-                              activeOpacity={0.8}
-                              onPress={handleToggleMode}
-                              onLayout={e => { lineOffsets.current[index] = e.nativeEvent.layout.y }}
-                            >
-                              <LyricLine
-                                text={line.text}
-                                size={lyricSize}
-                                active={index === currentLine}
-                                ratio={index === currentLine ? currentRatio : 0}
-                              />
-                            </TouchableOpacity>
-                          ))
-                        }
-                      </ScrollView>
+                        isSingleLine
+                          ? (
+                          <TouchableOpacity activeOpacity={0.9} style={styles.singleLineArea} onPress={handleToggleMode}>
+                            <LyricLine
+                              text={currentLine >= 0 ? lines[currentLine].text : ''}
+                              size={lyricSize + 3}
+                              active
+                              ratio={currentRatio}
+                              wordByWord={isWordByWord}
+                            />
+                          </TouchableOpacity>
+                            )
+                          : (
+                          <ScrollView
+                            ref={scrollRef}
+                            showsVerticalScrollIndicator={false}
+                            contentContainerStyle={styles.lyricContent}
+                            scrollEventThrottle={32}
+                          >
+                            {
+                              lines.map((line, index) => (
+                                <TouchableOpacity
+                                  key={`${index}_${line.time}`}
+                                  activeOpacity={0.8}
+                                  onPress={handleToggleMode}
+                                  onLayout={e => { lineOffsets.current[index] = e.nativeEvent.layout.y }}
+                                >
+                                  <LyricLine
+                                    text={line.text}
+                                    size={lyricSize}
+                                    active={index === currentLine}
+                                    ratio={index === currentLine ? currentRatio : 0}
+                                    wordByWord={isWordByWord}
+                                  />
+                                </TouchableOpacity>
+                              ))
+                            }
+                          </ScrollView>
+                            )
                       )
                     : (
                       <TouchableOpacity activeOpacity={0.8} style={styles.lyricEmpty} onPress={handleToggleMode}>
@@ -448,12 +561,25 @@ export default () => {
             ? (
               <View style={styles.infoRow}>
                 <TouchableOpacity style={styles.infoText} activeOpacity={0.7} onPress={handleToggleMode}>
-                  <Text size={12} color='rgba(255,255,255,0.72)' numberOfLines={1} style={styles.currentLyric}>
+                  <Text size={15} color='rgba(255,255,255,0.78)' numberOfLines={1} style={styles.currentLyric}>
                     {lrcPlay.text || ' '}
                   </Text>
                   <Text size={22} color='#FFFFFF' numberOfLines={1} style={styles.name}>{musicInfo.name || '未在播放'}</Text>
                   <Text size={12} color='rgba(255,255,255,0.6)' numberOfLines={1} style={styles.singer}>{musicInfo.singer}</Text>
                 </TouchableOpacity>
+                {
+                  autoSaveEnabled
+                    ? null
+                    : (
+                      <TouchableOpacity
+                        style={styles.iconBtn}
+                        onPress={handleDownload}
+                        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                      >
+                        <Icon name='download-2' size={21} color='rgba(255,255,255,0.9)' />
+                      </TouchableOpacity>
+                      )
+                }
                 <TouchableOpacity style={styles.iconBtn} onPress={handleToggleCollect} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
                   <Icon
                     name={collected ? 'love' : 'heart-outline'}
@@ -534,14 +660,24 @@ export default () => {
             <ScrollView style={styles.queueList}>
               {
                 queue.map((item, index) => (
-                  <View key={`${item.id}_${index}`} style={styles.queueRow}>
+                  <TouchableOpacity
+                    key={`${item.id}_${index}`}
+                    style={styles.queueRow}
+                    activeOpacity={0.6}
+                    onPress={() => { handlePlayFromQueue(index) }}
+                  >
                     <Text size={12} color={theme['c-450']} style={styles.queueIndex}>{index + 1}</Text>
                     <PicImage musicInfo={item} listId={playerState.playInfo.playerListId} style={styles.queueCover} />
                     <View style={styles.queueInfo}>
                       <Text size={13} numberOfLines={1}>{item.name}</Text>
                       <Text size={10} color={theme['c-450']} numberOfLines={1} style={styles.queueSinger}>{item.singer}</Text>
                     </View>
-                  </View>
+                    {
+                      item.id === musicInfo.id
+                        ? <Icon name='volume-high' size={15} color={theme['c-primary-font']} />
+                        : null
+                    }
+                  </TouchableOpacity>
                 ))
               }
             </ScrollView>
@@ -564,6 +700,8 @@ export default () => {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      <DownloadQualityModal ref={downloadModalRef} />
     </Animated.View>
   )
 }
@@ -571,6 +709,28 @@ export default () => {
 const styles = createStyle({
   container: {
     flex: 1,
+    backgroundColor: '#0B0810',
+  },
+  coverInner: {
+    margin: 10,
+    borderRadius: 26,
+    overflow: 'hidden',
+  },
+  topGradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    height: '22%',
+    flexDirection: 'column',
+  },
+  bottomGradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '64%',
+    flexDirection: 'column',
   },
   topBar: {
     flexDirection: 'row',
@@ -609,8 +769,9 @@ const styles = createStyle({
     justifyContent: 'center',
   },
   currentLyric: {
-    marginBottom: 8,
+    marginBottom: 12,
     letterSpacing: 0.2,
+    lineHeight: 21,
   },
   queueCover: {
     width: 36,
@@ -640,6 +801,12 @@ const styles = createStyle({
   },
   lyricArea: {
     flex: 1,
+  },
+  singleLineArea: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingLeft: 26,
+    paddingRight: 26,
   },
   lyricContent: {
     paddingLeft: 26,

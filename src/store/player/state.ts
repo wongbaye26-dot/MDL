@@ -15,6 +15,8 @@ export interface InitState {
   }
   playInfo: LX.Player.PlayInfo
   musicInfo: LX.Player.MusicInfo
+  /** 当前实际播放的音质（在线音乐解析 URL 后写入） */
+  playQuality: LX.Quality | ''
 
   isPlay: boolean
   volume: number
@@ -68,6 +70,7 @@ const state: InitState = {
   playRate: 1,
   statusText: '',
   loadErrorPicUrl: '',
+  playQuality: '',
 
   playedList: [],
   tempPlayList: [],

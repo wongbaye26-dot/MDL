@@ -15,6 +15,26 @@ export const QUALITY_LABEL: Record<LX.Quality, string> = {
   '128k': '128k',
 }
 
+/** 面向用户的音质档位描述（普通/高品质/无损） */
+export const QUALITY_DESC: Record<LX.Quality, string> = {
+  flac24bit: 'Hi-Res 无损',
+  flac: '无损音质',
+  wav: '无损音质',
+  ape: '无损音质',
+  '320k': '高品质',
+  '192k': '标准音质',
+  '128k': '普通音质',
+}
+
+/** 采样率格式化为 44.1 kHz / 48 kHz */
+export const formatSampleRate = (raw: string | number) => {
+  const n = typeof raw === 'number' ? raw : parseFloat(String(raw).replace(/[^\d.]/g, ''))
+  if (!n || !Number.isFinite(n)) return ''
+  // 有些实现返回 kHz（如 44.1），有些返回 Hz（如 44100）
+  const khz = n > 1000 ? n / 1000 : n
+  return `${Number(khz.toFixed(1))} kHz`
+}
+
 const fileNameRxp = /[\\/:*?#"<>|]/g
 
 /**

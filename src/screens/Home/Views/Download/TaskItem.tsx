@@ -91,7 +91,13 @@ export default memo(({
         }
       </TouchableOpacity>
 
-      <View style={styles.info}>
+      <TouchableOpacity
+        activeOpacity={0.7}
+        style={styles.info}
+        onPress={() => { onOpen(task) }}
+        onLongPress={handleShowMenu}
+        delayLongPress={320}
+      >
         <View style={styles.titleRow}>
           <Text numberOfLines={1} size={14} style={styles.name}>{musicInfo.name}</Text>
           <View style={{ ...styles.qualityTag, backgroundColor: theme['c-primary-alpha-800'] }}>
@@ -103,7 +109,7 @@ export default memo(({
           <View style={{ ...styles.progressBar, width: `${progress}%`, backgroundColor: isCompleted ? SUCCESS : isError ? DANGER : theme['c-primary'] }} />
         </View>
         <Text size={10} color={statusColor ?? theme['c-450']} numberOfLines={1}>{getStatusText(task)}</Text>
-      </View>
+      </TouchableOpacity>
 
       <TouchableOpacity
         onPress={handleShowMenu}

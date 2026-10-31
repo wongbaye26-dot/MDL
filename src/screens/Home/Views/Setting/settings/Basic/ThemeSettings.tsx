@@ -1,4 +1,4 @@
-import { memo, useCallback } from 'react'
+import { memo, useCallback, useEffect, useState } from 'react'
 import { View, TouchableOpacity, ScrollView } from 'react-native'
 
 import Text from '@/components/common/Text'
@@ -9,6 +9,7 @@ import { createStyle } from '@/utils/tools'
 import { updateSetting } from '@/core/common'
 import { setShouldUseDarkColors, applyTheme, setSeedColor, disableSeedTheme } from '@/core/theme'
 import { getTheme, SEED_COLORS, generateThemeFromSeed } from '@/theme/themes'
+import { getSystemAccentColor } from '@/utils/nativeModules/utils'
 import themeState from '@/store/theme/state'
 
 type ThemeMode = 'auto' | 'light' | 'dark'
@@ -99,9 +100,14 @@ const MaterialYouColors = memo(() => {
   const seedColor = useSettingValue('theme.seedColor')
   const isAutoTheme = useSettingValue('common.isAutoTheme')
   const isDark = isAutoTheme ? themeState.shouldUseDarkColors : themeState.theme.isDark
+  const [systemColor, setSystemColor] = useState<string | null>(null)
+
+  useEffect(() => {
+    void getSystemAccentColor().then(c => { setSystemColor(c) })
+  }, [])
 
   const handleSelect = useCallback((hex: string) => {
-    setSeedColor(hex, isDark)
+    void setSeedColor(hex, isDark)
   }, [isDark])
 
   const handleReset = useCallback(() => {
@@ -121,6 +127,18 @@ const MaterialYouColors = memo(() => {
           : null}
       </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.swatchRow}>
+        {/* 跟随系统主题色 */}
+        <TouchableOpacity style={styles.swatchWrap} activeOpacity={0.7} onPress={() => { handleSelect('system') }}>
+          <View style={{
+            ...styles.swatch,
+            backgroundColor: systemColor ?? '#888888',
+            borderWidth: seedColor === 'system' ? 3 : 0,
+            borderColor: seedColor === 'system' ? theme['c-font'] : 'transparent',
+          }}>
+            <Icon name='cellphone-link' size={18} color='#FFFFFF' />
+          </View>
+          <Text size={10} color={seedColor === 'system' ? theme['c-font'] : theme['c-450']} style={styles.swatchLabel}>系统</Text>
+        </TouchableOpacity>
         {SEED_COLORS.map(c => (
           <ColorSwatch
             key={c.hex}
@@ -132,7 +150,7 @@ const MaterialYouColors = memo(() => {
         ))}
       </ScrollView>
       <Text size={10} color={theme['c-400']} style={styles.hint}>
-        选择后将从该颜色自动派生整套配色，明亮与暗黑模式各自适配
+        选「系统」会读取手机 Material You 主题色（Android 12+），其余为固定种子色；选中后自动派生整套配色
       </Text>
     </View>
   )

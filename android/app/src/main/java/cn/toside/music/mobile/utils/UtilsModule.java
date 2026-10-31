@@ -381,5 +381,74 @@ public class UtilsModule extends ReactContextBaseJavaModule {
       }
     }).start();
   }
+
+  /**
+   * 读取系统 Material You 主题色（Android 12+），低版本回退到 colorAccent。
+   * 返回十六进制字符串，如 "#6C5CE7"；读取失败返回 null。
+   */
+  @ReactMethod
+  public void getSystemAccentColor(Promise promise) {
+    try {
+      int color = 0;
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        // system_accent1_500 是 Material You 的主色调
+        color = reactContext.getResources().getColor(android.R.color.system_accent1_500, null);
+      } else {
+        android.util.TypedValue value = new android.util.TypedValue();
+        boolean found = reactContext.getTheme().resolveAttribute(android.R.attr.colorAccent, value, true);
+        if (found) {
+          if (value.resourceId != 0) {
+            color = reactContext.getResources().getColor(value.resourceId);
+          } else {
+            color = value.data;
+          }
+        }
+      }
+      if (color == 0) {
+        promise.resolve(null);
+        return;
+      }
+      String hex = String.format("#%06X", 0xFFFFFF & color);
+      promise.resolve(hex);
+    } catch (Exception e) {
+      Log.e("Utils", "getSystemAccentColor error: " + e.getMessage(), e);
+      promise.resolve(null);
+    }
+  }
+
+  /**
+   * 一次返回 Material You 的整套色板（accent1~3 / neutral1~2 的关键档位）。
+   * Android 12 以下返回空 Map。
+   */
+  @ReactMethod
+  public void getSystemColorPalette(Promise promise) {
+    WritableMap result = Arguments.createMap();
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+      promise.resolve(result);
+      return;
+    }
+    try {
+      int[][] groups = {
+        {android.R.color.system_accent1_100, android.R.color.system_accent1_200, android.R.color.system_accent1_500, android.R.color.system_accent1_700},
+        {android.R.color.system_accent2_100, android.R.color.system_accent2_200, android.R.color.system_accent2_500, android.R.color.system_accent2_700},
+        {android.R.color.system_accent3_100, android.R.color.system_accent3_200, android.R.color.system_accent3_500, android.R.color.system_accent3_700},
+        {android.R.color.system_neutral1_100, android.R.color.system_neutral1_500, android.R.color.system_neutral1_900},
+        {android.R.color.system_neutral2_100, android.R.color.system_neutral2_500, android.R.color.system_neutral2_900},
+      };
+      String[] names = {"accent1", "accent2", "accent3", "neutral1", "neutral2"};
+      for (int i = 0; i < groups.length; i++) {
+        WritableArray arr = new WritableNativeArray();
+        for (int resId : groups[i]) {
+          int c = reactContext.getResources().getColor(resId, null);
+          arr.pushString(String.format("#%06X", 0xFFFFFF & c));
+        }
+        result.putArray(names[i], arr);
+      }
+      promise.resolve(result);
+    } catch (Exception e) {
+      Log.e("Utils", "getSystemColorPalette error: " + e.getMessage(), e);
+      promise.resolve(result);
+    }
+  }
 }
 
