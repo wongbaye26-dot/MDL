@@ -267,19 +267,21 @@ export const updateOptions = async(options = {
     Capability.SkipToPrevious,
   ],
 
+  // 通知栏/状态栏媒体卡片：去掉 Stop（它等于退出 App），
+  // 只保留 上一首 / 播放暂停 / 下一首，否则系统卡片上会多出一个「停止」键，
+  // 而且主按钮容易被它顶掉
   notificationCapabilities: [
     Capability.Play,
     Capability.Pause,
-    Capability.Stop,
-    Capability.SkipToNext,
     Capability.SkipToPrevious,
+    Capability.SkipToNext,
+    Capability.SeekTo,
   ],
 
   // // An array of capabilities that will show up when the notification is in the compact form on Android
   compactCapabilities: [
     Capability.Play,
     Capability.Pause,
-    Capability.Stop,
     Capability.SkipToNext,
   ],
 

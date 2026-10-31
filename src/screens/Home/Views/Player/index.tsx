@@ -74,18 +74,20 @@ const findLine = (lines: Line[], timeMs: number) => {
   return index
 }
 
-const LyricLine = memo(({ text, active, ratio, size, wordByWord }: {
+const LyricLine = memo(({ text, active, ratio, size, wordByWord, activeColor }: {
   text: string
   active: boolean
   ratio: number
   size: number
   wordByWord: boolean
+  /** 当前行高亮色（主题色） */
+  activeColor: string
 }) => {
   if (!active) {
     return (
       <Text
         size={size}
-        color='rgba(255,255,255,0.42)'
+        color='rgba(255,255,255,0.45)'
         style={{ ...styles.lyricLine, lineHeight: size * 1.5 }}
         numberOfLines={2}
       >{text || ' '}</Text>
@@ -96,7 +98,7 @@ const LyricLine = memo(({ text, active, ratio, size, wordByWord }: {
     return (
       <Text
         size={size}
-        color='#FFFFFF'
+        color={activeColor}
         style={{ ...styles.lyricLine, lineHeight: size * 1.5, fontWeight: '600' }}
         numberOfLines={2}
       >{text || ' '}</Text>
@@ -106,11 +108,11 @@ const LyricLine = memo(({ text, active, ratio, size, wordByWord }: {
   return (
     <Text
       size={size}
-      color='rgba(255,255,255,0.42)'
+      color='rgba(255,255,255,0.45)'
       style={{ ...styles.lyricLine, lineHeight: size * 1.5 }}
       numberOfLines={2}
     >
-      <Text size={size} color='#FFFFFF' style={styles.lyricActive}>{text.slice(0, shown)}</Text>
+      <Text size={size} color={activeColor} style={styles.lyricActive}>{text.slice(0, shown)}</Text>
       {text.slice(shown)}
     </Text>
   )
@@ -482,14 +484,29 @@ export default () => {
         {
           mode === 'cover'
             ? (
-              <TouchableOpacity activeOpacity={1} style={styles.coverBox} onPress={handleToggleMode}>
-                <Animated.View style={{ flex: 1, opacity: coverAnim, transform: [{ scale: coverScale }] }}>
+              <TouchableOpacity activeOpacity={1} style={styles.coverStage} onPress={handleToggleMode}>
+                <Animated.View style={{ ...styles.coverBox, opacity: coverAnim, transform: [{ scale: coverScale }] }}>
                   {
                     pic
                       ? <RNImage source={{ uri: pic }} resizeMode='contain' style={styles.coverImg} />
                       : <View style={styles.coverEmpty}><Icon name='album' size={64} color='rgba(255,255,255,0.14)' /></View>
                   }
                 </Animated.View>
+                {/* 封面下方的倒影：垂直翻转 + 高斯模糊，向下淡出 */}
+                {
+                  pic
+                    ? (
+                      <Animated.View style={{ ...styles.reflection, opacity: coverAnim }}>
+                        <RNImage
+                          source={{ uri: pic }}
+                          blurRadius={42}
+                          resizeMode='cover'
+                          style={styles.reflectionImg}
+                        />
+                      </Animated.View>
+                      )
+                    : null
+                }
               </TouchableOpacity>
               )
             : (
@@ -506,6 +523,7 @@ export default () => {
                               active
                               ratio={currentRatio}
                               wordByWord={isWordByWord}
+                              activeColor={theme['c-primary']}
                             />
                           </TouchableOpacity>
                             )
@@ -531,6 +549,7 @@ export default () => {
                                     active={index === currentLine}
                                     ratio={index === currentLine ? currentRatio : 0}
                                     wordByWord={isWordByWord}
+                                    activeColor={theme['c-primary']}
                                   />
                                 </TouchableOpacity>
                               ))
@@ -554,7 +573,7 @@ export default () => {
           mode === 'cover'
             ? (
               <View style={styles.lyricStrip}>
-                <Text size={15} color='rgba(255,255,255,0.86)' numberOfLines={2} style={styles.nowLyric}>
+                <Text size={17} color='rgba(255,255,255,0.88)' numberOfLines={2} style={styles.nowLyric}>
                   {lrcPlay.text || ' '}
                 </Text>
               </View>
@@ -565,7 +584,7 @@ export default () => {
         {/* 歌名 / 歌手 + 下载 / 收藏 / 更多 */}
         <View style={styles.infoBlock}>
           <TouchableOpacity style={styles.titleText} activeOpacity={0.75} onPress={handleToggleMode}>
-            <Text size={24} color='#FFFFFF' numberOfLines={1} style={styles.songName}>{musicInfo.name || '未在播放'}</Text>
+            <Text size={21} color='#FFFFFF' numberOfLines={1} style={styles.songName}>{musicInfo.name || '未在播放'}</Text>
             <Text size={12} color='rgba(255,255,255,0.66)' numberOfLines={1} style={styles.songSinger}>{musicInfo.singer}</Text>
           </TouchableOpacity>
           {
@@ -749,12 +768,29 @@ const styles = createStyle({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  coverStage: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   coverBox: {
-    // 飞牛实测：封面区占屏高 52%（459dp/891dp），图片 contain 居中，
-    // 竖版专辑图两侧露出模糊背景、方图上下留一点，都不会裁画面
-    height: '52%',
+    // 飞牛：封面两边留空（约 7%），图片 contain 不裁切
+    width: '86%',
+    aspectRatio: 1,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  reflection: {
+    width: '86%',
+    aspectRatio: 7,
     marginTop: 2,
-    marginBottom: 2,
+    overflow: 'hidden',
+    opacity: 0.24,
+  },
+  reflectionImg: {
+    width: '100%',
+    height: '100%',
+    transform: [{ scaleY: -1 }],
   },
   coverImg: {
     width: '100%',
@@ -781,7 +817,7 @@ const styles = createStyle({
     paddingBottom: 60,
   },
   lyricLine: {
-    textAlign: 'left',
+    textAlign: 'center',
     paddingTop: 9,
     paddingBottom: 9,
   },
@@ -797,11 +833,11 @@ const styles = createStyle({
     marginTop: 10,
   },
   lyricStrip: {
-    flex: 1,
+    minHeight: 52,
     justifyContent: 'center',
     paddingLeft: 26,
     paddingRight: 26,
-    paddingBottom: 6,
+    paddingTop: 4,
   },
   nowLyric: {
     lineHeight: 21,
