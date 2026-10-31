@@ -1,71 +1,91 @@
-import { createIconSetFromIcoMoon } from 'react-native-vector-icons'
-import icoMoonConfig from '@/resources/fonts/selection.json'
-import { scaleSizeW } from '@/utils/pixelRatio'
-import { memo, type ComponentProps } from 'react'
-import { useTextShadow, useTheme } from '@/store/theme/hook'
+import { memo } from 'react'
 import { StyleSheet, type StyleProp, type TextStyle } from 'react-native'
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons'
+import { scaleSizeW } from '@/utils/pixelRatio'
+import { useTextShadow, useTheme } from '@/store/theme/hook'
 
-// import IconAntDesign from 'react-native-vector-icons/AntDesign'
-// import IconEntypo from 'react-native-vector-icons/Entypo'
-// import IconEvilIcons from 'react-native-vector-icons/EvilIcons'
-// import IconFeather from 'react-native-vector-icons/Feather'
-// import IconFontAwesome from 'react-native-vector-icons/FontAwesome'
-// import IconFontAwesome5 from 'react-native-vector-icons/FontAwesome5'
-// import IconFontisto from 'react-native-vector-icons/Fontisto'
-// import IconFoundation from 'react-native-vector-icons/Foundation'
-// import IconIonicons from 'react-native-vector-icons/Ionicons'
-// import IconMaterialIcons from 'react-native-vector-icons/MaterialIcons'
-// import IconMaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons'
-// import IconOcticons from 'react-native-vector-icons/Octicons'
-// import IconZocial from 'react-native-vector-icons/Zocial'
-// import IconSimpleLineIcons from 'react-native-vector-icons/SimpleLineIcons'
+const ICON_MAP: Record<string, string> = {
+  'add-music': 'playlist-plus',
+  'add_folder': 'folder-plus',
+  'album': 'album',
+  'available_updates': 'update',
+  'back-2': 'arrow-left',
+  'checkbox-blank-outline': 'checkbox-blank-outline',
+  'checkbox-marked': 'checkbox-marked',
+  'chevron-left': 'chevron-left',
+  'chevron-left-2': 'chevron-left',
+  'chevron-right': 'chevron-right',
+  'chevron-right-2': 'chevron-right',
+  'close': 'close',
+  'comment': 'comment-outline',
+  'dots-vertical': 'dots-vertical',
+  'download-2': 'download',
+  'eraser': 'eraser',
+  'exit': 'logout',
+  'exit2': 'logout-variant',
+  'full_stop': 'stop',
+  'help': 'help-circle-outline',
+  'home': 'home-variant',
+  'leaderboard': 'chart-bar',
+  'list-loop': 'repeat',
+  'list-order': 'format-list-numbered',
+  'list-random': 'shuffle-variant',
+  'logo': 'music-circle',
+  'love': 'heart',
+  'lyric-off': 'comment-remove-outline',
+  'lyric-on': 'comment-text-outline',
+  'menu': 'menu',
+  'minus-box': 'minus-box',
+  'music_time': 'music-note',
+  'nextMusic': 'skip-next',
+  'pause': 'pause',
+  'play': 'play',
+  'play-outline': 'play-outline',
+  'playback-rate': 'speedometer',
+  'prevMusic': 'skip-previous',
+  'remove': 'delete-outline',
+  'sd-card': 'sd',
+  'search-2': 'magnify',
+  'setting': 'cog',
+  'share': 'share-variant',
+  'single': 'repeat-once',
+  'single-loop': 'repeat-once',
+  'slider': 'tune',
+  'thumbs-up': 'thumb-up-outline',
+  'volume-higt': 'volume-high',
+  'volume-low': 'volume-low',
+  'volume-medium': 'volume-medium',
+  'volume-mute': 'volume-mute',
+  'volume-off': 'volume-off'
+}
 
-
-const IcoMoon = createIconSetFromIcoMoon(icoMoonConfig)
-
-
-// https://oblador.github.io/react-native-vector-icons/
-
-type IconType = ReturnType<typeof createIconSetFromIcoMoon>
-
-interface IconProps extends Omit<ComponentProps<IconType>, 'style'> {
+interface IconProps {
+  name: string
+  size?: number
+  color?: string
   style?: StyleProp<TextStyle>
   rawSize?: number
 }
 
-export const Icon = memo(({ size = 15, rawSize, color, style, ...props }: IconProps) => {
+const Icon = memo(({ name, size = 15, rawSize, color, style }: IconProps) => {
   const theme = useTheme()
   const textShadow = useTextShadow()
-  const newStyle = textShadow ? StyleSheet.compose({
-    textShadowColor: theme['c-primary-dark-300-alpha-800'],
-    textShadowOffset: { width: 0.2, height: 0.2 },
-    textShadowRadius: 2,
-  }, style) : style
+  const finalStyle = textShadow
+    ? StyleSheet.compose({
+      textShadowColor: theme['c-primary-dark-300-alpha-800'],
+      textShadowOffset: { width: 0.2, height: 0.2 },
+      textShadowRadius: 2
+    }, style)
+    : style
+  const iconName = ICON_MAP[name] ?? name
   return (
-    <IcoMoon
+    <MaterialCommunityIcons
+      name={iconName as any}
       size={rawSize ?? scaleSizeW(size)}
       color={color ?? theme['c-font']}
-      // @ts-expect-error
-      style={newStyle}
-      {...props}
+      style={finalStyle}
     />
   )
 })
 
-
-export {
-  // IconAntDesign,
-  // IconEntypo,
-  // IconEvilIcons,
-  // IconFeather,
-  // IconFontAwesome,
-  // IconFontAwesome5,
-  // IconFontisto,
-  // IconFoundation,
-  // IconIonicons,
-  // IconMaterialIcons,
-  // IconMaterialCommunityIcons,
-  // IconOcticons,
-  // IconZocial,
-  // IconSimpleLineIcons,
-}
+export { Icon }
