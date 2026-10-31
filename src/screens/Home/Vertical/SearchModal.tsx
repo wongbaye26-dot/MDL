@@ -17,7 +17,7 @@ export default ({ onClose }: { onClose: () => void }) => {
           <TouchableOpacity style={styles.backBtn} onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <Icon name="chevron-left-2" size={20} color={theme['c-font']} />
           </TouchableOpacity>
-          <View style={styles.typeSelector}>
+          <View style={{ ...styles.typeSelector, backgroundColor: theme['c-primary-alpha-900'], borderColor: theme['c-primary-alpha-700'] }}>
             <SearchTypeSelector />
           </View>
         </View>
@@ -48,6 +48,13 @@ const styles = createStyle({
   typeSelector: {
     flexGrow: 1,
     flexShrink: 1,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 0.5,
+    justifyContent: 'center',
+    paddingLeft: 8,
+    paddingRight: 8,
+    overflow: 'hidden',
   },
   content: {
     flex: 1,
