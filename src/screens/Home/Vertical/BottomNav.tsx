@@ -8,8 +8,6 @@ import { useNavActiveId } from '@/store/common/hook'
 import { usePlayerMusicInfo } from '@/store/player/hook'
 import { NAV_MENUS } from '@/config/constant'
 import { setNavActiveId } from '@/core/common'
-import { navigations } from '@/navigation'
-import commonState from '@/store/common/state'
 import { createStyle } from '@/utils/tools'
 
 const MENU_ICONS: Record<string, string> = {
@@ -26,8 +24,7 @@ export default memo(() => {
   const isDark = theme.isDark
 
   const openPlayer = () => {
-    const componentId = commonState.componentIds.home
-    if (componentId) navigations.pushPlayDetailScreen(componentId)
+    if (activeId !== 'nav_player') setNavActiveId('nav_player')
   }
 
   return (

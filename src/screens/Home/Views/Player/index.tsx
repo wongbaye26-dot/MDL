@@ -1,61 +1,556 @@
-import { useMemo } from 'react'
-import { View, ScrollView } from 'react-native'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Modal, ScrollView, StyleSheet, TouchableOpacity, View, Image as RNImage } from 'react-native'
+
 import Text from '@/components/common/Text'
-import Image from '@/components/common/Image'
+import { Icon } from '@/components/common/Icon'
+import Slider from '@react-native-community/slider'
 import { useTheme } from '@/store/theme/hook'
-import { usePlayerMusicInfo } from '@/store/player/hook'
+import { usePlayerMusicInfo, useIsPlay, useProgress } from '@/store/player/hook'
 import { useStatusbarHeight } from '@/store/common/hook'
 import { useWindowSize } from '@/utils/hooks'
-import { createStyle } from '@/utils/tools'
-import PlayInfo from '@/screens/PlayDetail/Vertical/Player/components/PlayInfo'
-import PlayerMeta from '@/screens/PlayDetail/Vertical/Player/components/PlayerMeta'
-import MoreBtn from '@/screens/PlayDetail/Vertical/Player/components/MoreBtn'
-import ControlBtn from '@/screens/PlayDetail/Vertical/Player/components/ControlBtn'
-import VolumeBar from '@/screens/PlayDetail/Vertical/Player/components/VolumeBar'
+import { useSettingValue } from '@/store/setting/hook'
+import { createStyle, toast } from '@/utils/tools'
+import { useLrcSet, type Line } from '@/plugins/lyric'
+import playerState from '@/store/player/state'
+import { collectMusic, playNext, playPrev, togglePlay, uncollectMusic } from '@/core/player/player'
+import { setCurrentTime, getPosition } from '@/plugins/player'
+import { setNowPlayTime } from '@/core/player/progress'
+import { getListMusicSync } from '@/utils/listManage'
+import { LIST_IDS } from '@/config/constant'
+import { setNavActiveId, updateSetting } from '@/core/common'
+
+const PLAY_MODES = ['listLoop', 'random', 'singleLoop', 'list'] as const
+type PlayMode = typeof PLAY_MODES[number]
+const MODE_ICON: Record<PlayMode, string> = {
+  listLoop: 'repeat',
+  random: 'shuffle-variant',
+  singleLoop: 'repeat-once',
+  list: 'format-list-numbered',
+}
+const MODE_LABEL: Record<PlayMode, string> = {
+  listLoop: '列表循环',
+  random: '随机播放',
+  singleLoop: '单曲循环',
+  list: '顺序播放',
+}
+
+const LYRIC_SIZES = [15, 17, 19, 22]
+
+/** 当前正在唱的歌词行序号 */
+const findLine = (lines: Line[], timeMs: number) => {
+  let index = -1
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].time <= timeMs) index = i
+    else break
+  }
+  return index
+}
+
+const LyricLine = memo(({ text, active, ratio, size }: {
+  text: string
+  active: boolean
+  ratio: number
+  size: number
+}) => {
+  if (!active) {
+    return (
+      <Text
+        size={size}
+        color='rgba(255,255,255,0.42)'
+        style={{ ...styles.lyricLine, lineHeight: size * 1.5 }}
+        numberOfLines={2}
+      >{text || ' '}</Text>
+    )
+  }
+  const shown = Math.min(text.length, Math.ceil(text.length * Math.max(0, Math.min(1, ratio))))
+  return (
+    <Text
+      size={size}
+      color='rgba(255,255,255,0.42)'
+      style={{ ...styles.lyricLine, lineHeight: size * 1.5 }}
+      numberOfLines={2}
+    >
+      <Text size={size} color='#FFFFFF' style={styles.lyricActive}>{text.slice(0, shown)}</Text>
+      {text.slice(shown)}
+    </Text>
+  )
+})
 
 export default () => {
   const theme = useTheme()
-  const musicInfo = usePlayerMusicInfo()
   const statusBarHeight = useStatusbarHeight()
+  const musicInfo = usePlayerMusicInfo()
+  const isPlay = useIsPlay()
+  const progress = useProgress()
+  const lines = useLrcSet()
   const { width, height } = useWindowSize()
+  const playMode = (useSettingValue('player.togglePlayMethod') ?? 'listLoop') as PlayMode
 
-  const artSize = useMemo(() => Math.min(width * 0.82, height * 0.42), [width, height])
+  const [mode, setMode] = useState<'cover' | 'lyric'>('cover')
+  const [sizeIndex, setSizeIndex] = useState(1)
+  const [now, setNow] = useState(0)
+  const [collected, setCollected] = useState(false)
+  const [queueVisible, setQueueVisible] = useState(false)
+
+  const lyricSize = LYRIC_SIZES[sizeIndex]
+  const coverSize = useMemo(() => Math.min(width * 0.76, height * 0.4), [width, height])
+
+  // 歌词模式用更细的时间粒度做逐字进度
+  useEffect(() => {
+    if (mode !== 'lyric') return
+    let stopped = false
+    const tick = () => {
+      void getPosition().then(t => {
+        if (!stopped) setNow(t)
+      }).catch(() => {})
+    }
+    tick()
+    const timer = setInterval(tick, 160)
+    return () => {
+      stopped = true
+      clearInterval(timer)
+    }
+  }, [mode])
+
+  useEffect(() => {
+    setCollected(getListMusicSync(LIST_IDS.LOVE).some(m => m.id === musicInfo.id))
+  }, [musicInfo.id])
+
+  const handleToggleMode = useCallback(() => {
+    setMode(mode => mode === 'cover' ? 'lyric' : 'cover')
+  }, [])
+
+  const handleSeek = useCallback((time: number) => {
+    setNowPlayTime(time)
+    void setCurrentTime(time)
+  }, [])
+
+  const handleToggleCollect = useCallback(() => {
+    if (collected) {
+      uncollectMusic()
+      setCollected(false)
+      toast('已取消收藏')
+    } else {
+      collectMusic()
+      setCollected(true)
+      toast('已收藏到「我的收藏」')
+    }
+  }, [collected])
+
+  const handleCycleMode = useCallback(() => {
+    const index = PLAY_MODES.indexOf(playMode)
+    const next = PLAY_MODES[(index + 1) % PLAY_MODES.length]
+    updateSetting({ 'player.togglePlayMethod': next })
+    toast(MODE_LABEL[next])
+  }, [playMode])
+
+  const handleSizeChange = useCallback(() => {
+    setSizeIndex(index => (index + 1) % LYRIC_SIZES.length)
+  }, [])
+
+  const queue = useMemo(() => {
+    return queueVisible ? getListMusicSync(playerState.playInfo.playerListId) : []
+  }, [queueVisible])
+
+  const currentTime = progress.nowPlayTime
+  const maxTime = progress.maxPlayTime
+  const timeMs = (mode === 'lyric' ? now : currentTime) * 1000
+  const currentLine = useMemo(() => findLine(lines, timeMs), [lines, timeMs])
+  const currentRatio = useMemo(() => {
+    if (currentLine < 0) return 0
+    const start = lines[currentLine].time
+    const end = lines[currentLine + 1]?.time ?? (maxTime * 1000 || start + 4000)
+    return end > start ? (timeMs - start) / (end - start) : 0
+  }, [currentLine, lines, timeMs, maxTime])
+
+  const scrollRef = useRef<ScrollView>(null)
+  const lineOffsets = useRef<number[]>([])
+
+  useEffect(() => {
+    if (mode !== 'lyric' || currentLine < 0) return
+    const offset = lineOffsets.current[currentLine]
+    if (offset == null) return
+    scrollRef.current?.scrollTo({ y: Math.max(0, offset - height * 0.26), animated: true })
+  }, [currentLine, mode, height])
+
+  const pic = musicInfo.pic
 
   return (
-    <ScrollView contentContainerStyle={{ paddingTop: statusBarHeight + 8, paddingBottom: 12 }}>
-      <View style={styles.topBar}>
-        <Text size={11} color={theme['c-450']} style={styles.topLabel}>正在播放</Text>
+    <View style={styles.container}>
+      {
+        pic
+          ? <RNImage source={{ uri: pic }} blurRadius={30} style={StyleSheet.absoluteFill} resizeMode='cover' />
+          : <View style={[StyleSheet.absoluteFill, { backgroundColor: theme['c-main-background'] }]} />
+      }
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(10,8,16,0.55)' }]} />
+
+      <View style={{ flex: 1, paddingTop: statusBarHeight }}>
+        <View style={styles.topBar}>
+          <TouchableOpacity
+            style={styles.topBtn}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            onPress={() => { setNavActiveId('nav_home') }}
+          >
+            <Icon name='chevron-down' size={22} color='rgba(255,255,255,0.9)' />
+          </TouchableOpacity>
+          {
+            mode === 'lyric'
+              ? (
+                <View style={styles.topTitle}>
+                  <Text size={16} color='#FFFFFF' numberOfLines={1} style={styles.topName}>{musicInfo.name || '未在播放'}</Text>
+                  <Text size={11} color='rgba(255,255,255,0.6)' numberOfLines={1} style={styles.topSinger}>{musicInfo.singer}</Text>
+                </View>
+                )
+              : null
+          }
+          <View style={styles.topBtn} />
+        </View>
+
+        {
+          mode === 'cover'
+            ? (
+              <TouchableOpacity activeOpacity={1} style={styles.coverArea} onPress={handleToggleMode}>
+                <View style={{ ...styles.coverShadow, width: coverSize, height: coverSize }}>
+                  {
+                    pic
+                      ? <RNImage source={{ uri: pic }} style={{ width: coverSize, height: coverSize, borderRadius: 20 }} resizeMode='cover' />
+                      : <View style={{ width: coverSize, height: coverSize, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.08)' }} />
+                  }
+                </View>
+                <Text size={10} color='rgba(255,255,255,0.45)' style={styles.tapTip}>轻点封面查看歌词</Text>
+              </TouchableOpacity>
+              )
+            : (
+              <View style={styles.lyricArea}>
+                {
+                  lines.length
+                    ? (
+                      <ScrollView
+                        ref={scrollRef}
+                        showsVerticalScrollIndicator={false}
+                        contentContainerStyle={styles.lyricContent}
+                        scrollEventThrottle={32}
+                      >
+                        {
+                          lines.map((line, index) => (
+                            <View
+                              key={`${index}_${line.time}`}
+                              onLayout={e => { lineOffsets.current[index] = e.nativeEvent.layout.y }}
+                            >
+                              <LyricLine
+                                text={line.text}
+                                size={lyricSize}
+                                active={index === currentLine}
+                                ratio={index === currentLine ? currentRatio : 0}
+                              />
+                            </View>
+                          ))
+                        }
+                      </ScrollView>
+                      )
+                    : (
+                      <View style={styles.lyricEmpty}>
+                        <Icon name='comment-text-outline' size={30} color='rgba(255,255,255,0.35)' />
+                        <Text size={12} color='rgba(255,255,255,0.5)' style={styles.lyricEmptyText}>暂无歌词</Text>
+                      </View>
+                      )
+                }
+              </View>
+              )
+        }
+
+        {
+          mode === 'cover'
+            ? (
+              <View style={styles.infoRow}>
+                <TouchableOpacity style={styles.infoText} activeOpacity={0.7} onPress={handleToggleMode}>
+                  <Text size={18} color='#FFFFFF' numberOfLines={1} style={styles.name}>{musicInfo.name || '未在播放'}</Text>
+                  <Text size={12} color='rgba(255,255,255,0.62)' numberOfLines={1} style={styles.singer}>{musicInfo.singer}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.iconBtn} onPress={handleToggleCollect}>
+                  <Icon name={collected ? 'love' : 'heart-outline'} size={21} color={collected ? theme['c-primary-light-200'] : 'rgba(255,255,255,0.85)'} />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.iconBtn} onPress={() => { setQueueVisible(true) }}>
+                  <Icon name='dots-vertical' size={19} color='rgba(255,255,255,0.85)' />
+                </TouchableOpacity>
+              </View>
+              )
+            : (
+              <View style={styles.lyricTools}>
+                <TouchableOpacity style={styles.iconBtn} onPress={handleSizeChange}>
+                  <Icon name='format-size' size={20} color='rgba(255,255,255,0.85)' />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.iconBtn} onPress={handleToggleCollect}>
+                  <Icon name={collected ? 'love' : 'heart-outline'} size={21} color={collected ? theme['c-primary-light-200'] : 'rgba(255,255,255,0.85)'} />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.iconBtn} onPress={() => { setQueueVisible(true) }}>
+                  <Icon name='dots-vertical' size={19} color='rgba(255,255,255,0.85)' />
+                </TouchableOpacity>
+              </View>
+              )
+        }
+
+        <View style={styles.progressArea}>
+          <Slider
+            value={currentTime}
+            minimumValue={0}
+            maximumValue={maxTime || 1}
+            minimumTrackTintColor='rgba(255,255,255,0.92)'
+            maximumTrackTintColor='rgba(255,255,255,0.24)'
+            thumbTintColor='#FFFFFF'
+            style={styles.slider}
+            onSlidingComplete={handleSeek}
+          />
+          <View style={styles.timeRow}>
+            <Text size={10} color='rgba(255,255,255,0.6)'>{progress.nowPlayTimeStr || '00:00'}</Text>
+            {
+              mode === 'lyric'
+                ? (
+                  <View style={styles.timeCenter} />
+                  )
+                : null
+            }
+            <Text size={10} color='rgba(255,255,255,0.6)'>{progress.maxPlayTimeStr || '00:00'}</Text>
+          </View>
+        </View>
+
+        <View style={styles.controls}>
+          <TouchableOpacity style={styles.ctrlBtn} onPress={handleCycleMode}>
+            <Icon name={MODE_ICON[playMode]} size={20} color='rgba(255,255,255,0.85)' />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.ctrlBtn} onPress={() => { void playPrev() }}>
+            <Icon name='prevMusic' size={26} color='#FFFFFF' />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.playBtn} onPress={togglePlay}>
+            <Icon name={isPlay ? 'pause' : 'play'} size={38} color='#FFFFFF' />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.ctrlBtn} onPress={() => { void playNext() }}>
+            <Icon name='nextMusic' size={26} color='#FFFFFF' />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.ctrlBtn} onPress={() => { setQueueVisible(true) }}>
+            <Icon name='playlist-music' size={22} color='rgba(255,255,255,0.85)' />
+          </TouchableOpacity>
+        </View>
       </View>
 
-      <View style={styles.artWrap}>
-        <Image url={musicInfo.pic} style={{ width: artSize, height: artSize, borderRadius: 24 }} />
-      </View>
-
-      <View style={styles.playerBlock}>
-        <PlayInfo />
-        <PlayerMeta />
-        <MoreBtn />
-        <ControlBtn />
-        <VolumeBar />
-      </View>
-    </ScrollView>
+      <Modal visible={queueVisible} transparent animationType='slide' onRequestClose={() => { setQueueVisible(false) }}>
+        <TouchableOpacity style={styles.modalMask} activeOpacity={1} onPress={() => { setQueueVisible(false) }}>
+          <View style={{ ...styles.queueSheet, backgroundColor: theme['c-content-background'] }}>
+            <View style={styles.queueHead}>
+              <Text size={14} style={styles.queueTitle}>播放队列 · {queue.length}</Text>
+              <TouchableOpacity onPress={() => { setQueueVisible(false) }}>
+                <Icon name='close' size={18} color={theme['c-450']} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.queueList}>
+              {
+                queue.map((item, index) => (
+                  <View key={`${item.id}_${index}`} style={styles.queueRow}>
+                    <Text size={12} color={theme['c-450']} style={styles.queueIndex}>{index + 1}</Text>
+                    <View style={styles.queueInfo}>
+                      <Text size={13} numberOfLines={1}>{item.name}</Text>
+                      <Text size={10} color={theme['c-450']} numberOfLines={1} style={styles.queueSinger}>{item.singer}</Text>
+                    </View>
+                  </View>
+                ))
+              }
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+    </View>
   )
 }
 
 const styles = createStyle({
+  container: {
+    flex: 1,
+  },
   topBar: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
+    paddingLeft: 8,
+    paddingRight: 8,
+    height: 44,
   },
-  topLabel: {
-    letterSpacing: 2,
+  topBtn: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  artWrap: {
+  topTitle: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  topName: {
+    fontWeight: '600',
+  },
+  topSinger: {
+    marginTop: 3,
+  },
+  coverArea: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  coverShadow: {
+    borderRadius: 20,
+    elevation: 16,
+    shadowColor: '#000000',
+    shadowOpacity: 0.45,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 14 },
+  },
+  tapTip: {
+    marginTop: 16,
+    letterSpacing: 1,
+  },
+  lyricArea: {
+    flex: 1,
+  },
+  lyricContent: {
+    paddingLeft: 26,
+    paddingRight: 26,
+    paddingTop: 40,
+    paddingBottom: 60,
+  },
+  lyricLine: {
+    textAlign: 'center',
+    paddingTop: 9,
+    paddingBottom: 9,
+  },
+  lyricActive: {
+    fontWeight: '600',
+  },
+  lyricEmpty: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  lyricEmptyText: {
+    marginTop: 10,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingLeft: 22,
+    paddingRight: 12,
+    paddingTop: 14,
+    paddingBottom: 6,
+  },
+  infoText: {
+    flexGrow: 1,
+    flexShrink: 1,
+    paddingRight: 8,
+  },
+  name: {
+    fontWeight: '600',
+  },
+  singer: {
     marginTop: 4,
   },
-  playerBlock: {
+  iconBtn: {
+    width: 38,
+    height: 38,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  lyricTools: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    paddingRight: 12,
+    paddingTop: 4,
+  },
+  progressArea: {
+    paddingLeft: 16,
+    paddingRight: 16,
+    paddingTop: 6,
+  },
+  slider: {
+    width: '100%',
+    height: 32,
+  },
+  timeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingLeft: 6,
+    paddingRight: 6,
+    marginTop: -4,
+  },
+  timeCenter: {
+    flexGrow: 1,
+    flexShrink: 1,
+    textAlign: 'center',
+    paddingLeft: 10,
+    paddingRight: 10,
+  },
+  controls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingLeft: 26,
+    paddingRight: 26,
     paddingTop: 8,
+    paddingBottom: 14,
+  },
+  ctrlBtn: {
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  playBtn: {
+    width: 60,
+    height: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalMask: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  queueSheet: {
+    maxHeight: '60%',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 20,
+  },
+  queueHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingLeft: 18,
+    paddingRight: 18,
+    paddingTop: 16,
+    paddingBottom: 12,
+  },
+  queueTitle: {
+    fontWeight: '600',
+  },
+  queueList: {
+    paddingLeft: 8,
+    paddingRight: 8,
+  },
+  queueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingLeft: 10,
+    paddingRight: 10,
+    paddingTop: 8,
+    paddingBottom: 8,
+  },
+  queueIndex: {
+    width: 26,
+  },
+  queueInfo: {
+    flexGrow: 1,
+    flexShrink: 1,
+  },
+  queueSinger: {
+    marginTop: 2,
   },
 })
