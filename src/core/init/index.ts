@@ -12,7 +12,6 @@ import { setApiSource } from '@/core/apiSource'
 import { init as initDownload } from '@/core/download'
 import commonActions from '@/store/common/action'
 import settingState from '@/store/setting/state'
-import { checkUpdate } from '@/core/version'
 import { bootLog } from '@/utils/bootLog'
 
 let isFirstPush = true
@@ -20,7 +19,6 @@ const handlePushedHomeScreen = async() => {
   // 下载器定位：不再展示首次启动的协议与提示弹窗
   if (isFirstPush) {
     isFirstPush = false
-    void checkUpdate()
     void initDeeplink()
   }
 }

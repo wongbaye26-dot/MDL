@@ -7,7 +7,6 @@ import Search from '../settings/Search'
 import List from '../settings/List'
 import Download from '../settings/Download'
 import Other from '../settings/Other'
-import Version from '../settings/Version'
 import About from '../settings/About'
 import { createStyle } from '@/utils/tools'
 import { SETTING_SCREENS, type SettingScreenIds } from '../Main'
@@ -24,7 +23,6 @@ const MENU_META: Record<SettingScreenIds, { icon: string, descKey: string }> = {
   list: { icon: 'list-order', descKey: 'setting_desc_list' },
   download: { icon: 'download-2', descKey: 'setting_desc_download' },
   other: { icon: 'slider', descKey: 'setting_desc_other' },
-  version: { icon: 'available_updates', descKey: 'setting_desc_version' },
   about: { icon: 'help', descKey: 'setting_desc_about' },
 }
 
@@ -35,7 +33,6 @@ const getSection = (id: SettingScreenIds) => {
     case 'list': return <List />
     case 'download': return <Download />
     case 'other': return <Other />
-    case 'version': return <Version />
     case 'about': return <About />
     case 'basic':
     default: return <Basic />
