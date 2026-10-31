@@ -3,6 +3,7 @@ import { View } from 'react-native'
 import Home from '../Views/Home'
 import Download from '../Views/Download'
 import Mine from '../Views/Mine'
+import Player from '../Views/Player'
 import commonState, { type InitState as CommonState } from '@/store/common/state'
 import { createStyle } from '@/utils/tools'
 import PagerView, { type PageScrollStateChangedNativeEvent, type PagerViewOnPageSelectedEvent } from 'react-native-pager-view'
@@ -19,6 +20,7 @@ const PAGES = [
   { id: 'nav_home', component: Home },
   { id: 'nav_download', component: Download },
   { id: 'nav_mine', component: Mine },
+  { id: 'nav_player', component: Player },
 ] as const
 
 const Page = ({ id, children }: { id: CommonState['navActiveId'], children: React.ReactNode }) => {

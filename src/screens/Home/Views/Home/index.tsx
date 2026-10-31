@@ -21,10 +21,10 @@ const emoLogo = require('@/resources/images/emo-logo.png')
 type ModalType = 'songlist' | 'leaderboard' | 'mylist' | null
 
 const ENTRIES = [
-  { key: 'leaderboard', title: '排行榜', desc: '热歌 / 飙升 / 新声', icon: 'leaderboard' },
-  { key: 'songlist', title: '歌单广场', desc: '按分类浏览歌单', icon: 'album' },
-  { key: 'mylist', title: '我的列表', desc: '收藏与自建歌单', icon: 'love' },
-  { key: 'source', title: '音源管理', desc: '导入 LX 音源脚本', icon: 'share' },
+  { key: 'leaderboard', title: '排行榜', desc: '热歌 / 飙升 / 新声', icon: 'leaderboard', color: '#8B5CF6' },
+  { key: 'songlist', title: '歌单广场', desc: '按分类发现好歌单', icon: 'album', color: '#EC4899' },
+  { key: 'mylist', title: '我的列表', desc: '收藏与自建歌单', icon: 'love', color: '#14B8A6' },
+  { key: 'source', title: '音源管理', desc: '导入 LX 音源脚本', icon: 'share', color: '#F59E0B' },
 ] as const
 
 export default () => {
@@ -82,15 +82,18 @@ export default () => {
             ENTRIES.map(entry => (
               <TouchableOpacity
                 key={entry.key}
-                style={{ ...styles.entry, backgroundColor: theme['c-primary-alpha-900'], borderColor: theme['c-primary-alpha-700'] }}
-                activeOpacity={0.7}
+                style={{ ...styles.entry, backgroundColor: `${entry.color}22`, borderColor: `${entry.color}55` }}
+                activeOpacity={0.75}
                 onPress={() => { handleEntry(entry.key) }}
               >
-                <View style={{ ...styles.entryIcon, backgroundColor: theme['c-primary-alpha-800'] }}>
-                  <Icon name={entry.icon} size={17} color={theme['c-primary-light-200']} />
+                <View style={{ ...styles.entryIcon, backgroundColor: `${entry.color}44` }}>
+                  <Icon name={entry.icon} size={18} color='#FFFFFF' />
                 </View>
-                <Text size={13} style={styles.entryTitle}>{entry.title}</Text>
-                <Text size={10} color={theme['c-450']} numberOfLines={1} style={styles.entryDesc}>{entry.desc}</Text>
+                <Text size={15} style={styles.entryTitle}>{entry.title}</Text>
+                <Text size={10} color={theme['c-400']} numberOfLines={1} style={styles.entryDesc}>{entry.desc}</Text>
+                <View style={{ ...styles.entryWatermark, backgroundColor: `${entry.color}33` }}>
+                  <Icon name={entry.icon} size={44} color={`${entry.color}99`} />
+                </View>
               </TouchableOpacity>
             ))
           }
@@ -209,17 +212,29 @@ const styles = createStyle({
     marginLeft: 4,
     marginRight: 4,
     marginTop: 10,
-    padding: 12,
-    borderRadius: 16,
+    padding: 14,
+    borderRadius: 20,
     borderWidth: 0.5,
+    height: 116,
+    overflow: 'hidden',
   },
   entryIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 11,
+    width: 34,
+    height: 34,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 10,
+  },
+  entryWatermark: {
+    position: 'absolute',
+    right: -8,
+    bottom: -10,
+    width: 74,
+    height: 74,
+    borderRadius: 37,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   entryTitle: {
     fontWeight: '600',

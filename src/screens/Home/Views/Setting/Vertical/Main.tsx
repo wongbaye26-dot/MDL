@@ -79,7 +79,16 @@ export default () => {
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.list}>
         {
-          SETTING_SCREENS.map(id => <MenuRow key={id} id={id} onPress={handlePress} />)
+          [SETTING_SCREENS.slice(0, 5), SETTING_SCREENS.slice(5)].map((group, index) => (
+            <View key={index} style={{ ...styles.group, backgroundColor: theme['c-primary-alpha-900'], borderColor: theme['c-primary-alpha-700'] }}>
+              {group.map((id, i) => (
+                <View key={id}>
+                  <MenuRow id={id} onPress={handlePress} />
+                  {i < group.length - 1 ? <View style={{ ...styles.divider, backgroundColor: theme['c-primary-alpha-800'] }} /> : null}
+                </View>
+              ))}
+            </View>
+          ))
         }
       </ScrollView>
 
@@ -113,12 +122,24 @@ const styles = createStyle({
   list: {
     paddingTop: 4,
     paddingBottom: 20,
+    paddingLeft: 16,
+    paddingRight: 16,
+  },
+  group: {
+    borderRadius: 18,
+    borderWidth: 0.5,
+    marginBottom: 14,
+    overflow: 'hidden',
+  },
+  divider: {
+    height: 0.5,
+    marginLeft: 66,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingLeft: 16,
-    paddingRight: 16,
+    paddingLeft: 14,
+    paddingRight: 14,
     paddingTop: 13,
     paddingBottom: 13,
   },

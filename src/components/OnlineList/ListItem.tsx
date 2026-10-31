@@ -73,7 +73,7 @@ export default memo(({ item, index, showSource, onPress, onLongPress, onShowMenu
         </View>
         {
           isShowInterval ? (
-            <Text size={12} color={theme['c-250']} numberOfLines={1}>{item.interval}</Text>
+            <Text size={11} color={theme['c-250']} numberOfLines={1} style={styles.interval}>{item.interval ?? ''}</Text>
           ) : null
         }
       </TouchableOpacity>
@@ -122,6 +122,13 @@ const styles = createStyle({
     borderRadius: 10,
     marginLeft: 12,
     marginRight: 11,
+  },
+  interval: {
+    width: 44,
+    flexGrow: 0,
+    flexShrink: 0,
+    textAlign: 'right',
+    marginRight: 2,
   },
   itemInfo: {
     flexGrow: 1,

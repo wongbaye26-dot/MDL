@@ -101,9 +101,10 @@ export const APP_PROVIDER_NAME = 'cn.toside.music.mobile.provider'
 
 
 export const NAV_MENUS = [
-  { id: 'nav_home', icon: 'search-2' },
+  { id: 'nav_home', icon: 'home' },
   { id: 'nav_download', icon: 'download-2' },
   { id: 'nav_mine', icon: 'setting' },
+  { id: 'nav_player', icon: 'play' },
 ] as const
 
 export type NAV_ID_Type = typeof NAV_MENUS[number]['id']
