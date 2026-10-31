@@ -92,9 +92,10 @@ export default memo(() => {
 
 const styles = createStyle({
   checkBox: {
-    // paddingTop: 10,
-    paddingBottom: 15,
-    marginLeft: -25,
+    // CheckBoxItem 自带 14 的左内边距，SubTitle 也有 14，
+    // 这里抵消一层，让开关行和卡片里其它行左边缘对齐（之前是 -25，会明显偏左）
+    marginLeft: -14,
+    paddingBottom: 12,
   },
   btn: {
     flexDirection: 'row',

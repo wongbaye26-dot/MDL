@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
-import { View, ScrollView, TouchableOpacity, StyleSheet } from 'react-native'
+import { View, ScrollView, TouchableOpacity, StyleSheet, RefreshControl } from 'react-native'
 
 import Basic from '../settings/Basic'
 import Player from '../settings/Player'
@@ -62,7 +62,18 @@ export default () => {
                     </TouchableOpacity>
                     <Text size={17} style={styles.modalTitle}>{t(`setting_${activeId}` as 'setting_basic')}</Text>
                   </View>
-                  <ScrollView contentContainerStyle={styles.modalContent}>
+                  <ScrollView
+                    contentContainerStyle={styles.modalContent}
+                    refreshControl={(
+                      <RefreshControl
+                        refreshing={false}
+                        onRefresh={() => { setActiveId(null) }}
+                        colors={['transparent']}
+                        progressBackgroundColor='transparent'
+                        tintColor='transparent'
+                      />
+                    )}
+                  >
                     {section}
                   </ScrollView>
                 </SlideInView>

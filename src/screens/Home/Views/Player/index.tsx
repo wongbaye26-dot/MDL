@@ -119,78 +119,6 @@ const LyricLine = memo(({ text, active, ratio, size, wordByWord }: {
   )
 })
 
-/** 黑胶唱片的纹路：几圈同心细环 */
-const GROOVE_INSETS = [3, 6, 9, 12, 15, 18]
-
-/**
- * 圆形黑胶封面。
- *
- * 原来的方形封面在大画幅下左右留白很难看（专辑图本身带白边时更明显），
- * 改成黑胶唱片：圆盘 + 同心纹路 + 中间圆形封面标签，播放时匀速旋转。
- * 高光层不跟着转，看起来才像真的塑料反光。
- */
-const VinylCover = ({ pic, spinning }: { pic: string, spinning: boolean }) => {
-  const spin = useRef(new Animated.Value(0)).current
-
-  useEffect(() => {
-    if (!spinning) return
-    // 匀速、不重置：暂停时停在当前角度，恢复后继续转
-    const anim = Animated.loop(Animated.timing(spin, {
-      toValue: 1,
-      duration: 28000,
-      easing: Easing.linear,
-      useNativeDriver: true,
-    }))
-    anim.start()
-    return () => { anim.stop() }
-  }, [spinning, spin])
-
-  return (
-    <View style={styles.discShadow}>
-      <View style={styles.discClip}>
-        <Animated.View
-          style={{
-            ...StyleSheet.absoluteFillObject,
-            transform: [{
-              rotate: spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }),
-            }],
-          }}
-        >
-          <View style={styles.discBase} />
-          {
-            GROOVE_INSETS.map(inset => (
-              <View
-                key={inset}
-                pointerEvents='none'
-                style={{
-                  position: 'absolute',
-                  top: `${inset}%`,
-                  left: `${inset}%`,
-                  right: `${inset}%`,
-                  bottom: `${inset}%`,
-                  borderRadius: 999,
-                  borderWidth: 0.8,
-                  borderColor: inset % 10 === 0 ? 'rgba(255,255,255,0.075)' : 'rgba(255,255,255,0.035)',
-                }}
-              />
-            ))
-          }
-          <View style={styles.labelWrap}>
-            <View style={styles.labelClip}>
-              <RNImage source={{ uri: pic }} style={styles.labelImg} resizeMode='cover' />
-            </View>
-            <View style={styles.spindle} />
-          </View>
-        </Animated.View>
-
-        {/* 固定高光：不随唱片旋转 */}
-        <View pointerEvents='none' style={styles.sheenOuter} />
-        <View pointerEvents='none' style={styles.sheenInner} />
-      </View>
-    </View>
-  )
-}
-
 export default () => {
   const theme = useTheme()
   const statusBarHeight = useStatusbarHeight()
@@ -482,62 +410,49 @@ export default () => {
   }, [currentLine, mode, height])
 
   const pic = musicInfo.pic
-  const isCover = mode === 'cover'
 
-  // 封面卡进场：换歌或从歌词页切回时，从 92% 缩放淡入
+  // 播放键按压反馈
+  const playBtnScale = useRef(new Animated.Value(1)).current
+  const pressPlay = useCallback((to: number) => {
+    Animated.spring(playBtnScale, {
+      toValue: to,
+      useNativeDriver: true,
+      speed: 40,
+      bounciness: 8,
+    }).start()
+  }, [playBtnScale])
+
+  // 封面进场：换歌时淡入 + 从 1.06 推近到 1
   const coverAnim = useRef(new Animated.Value(0)).current
+  const coverScale = coverAnim.interpolate({ inputRange: [0, 1], outputRange: [1.06, 1] })
+  // 只在换歌时重放（切歌词页不重放），否则歌词态背景会一直是黑的
   useEffect(() => {
-    if (!isCover) return
     coverAnim.setValue(0)
     Animated.timing(coverAnim, {
       toValue: 1,
-      duration: 420,
+      duration: 460,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start()
-  }, [coverAnim, isCover, pic])
+  }, [coverAnim, pic])
 
   return (
     <Animated.View
       style={{ ...styles.container, transform: [{ translateY: panY }] }}
       {...panResponder.panHandlers}
     >
-      {/* 底层：同一张封面放大模糊，铺满整屏 */}
-      {/*
-        背景层向外多铺 BLEED 像素：模糊图在部分机型上会因为 transform/模糊采样
-        只铺到内容区，边缘留一条没盖住的底色（用户看到的「左侧切边」）
-      */}
-      {
-        pic
-          ? <RNImage
-              source={{ uri: pic }}
-              blurRadius={isCover ? 48 : 36}
-              style={[styles.bgLayer, { transform: [{ scale: 1.16 }] }]}
-              resizeMode='cover'
-            />
-          : <View style={[styles.bgLayer, { backgroundColor: '#151019' }]} />
-      }
+      {/* 全屏专辑封面（飞牛式）：整图铺满，换歌时轻微推近 */}
+      <Animated.View style={[styles.coverLayer, { opacity: coverAnim, transform: [{ scale: coverScale }] }]}>
+        {
+          pic
+            ? <RNImage source={{ uri: pic }} style={styles.coverImg} resizeMode='cover' />
+            : <View style={[StyleSheet.absoluteFillObject, { backgroundColor: '#17141C' }]} />
+        }
+      </Animated.View>
 
-      {/*
-        磨砂玻璃层：封面之外（以及整个歌词页）都是半透明的磨砂面，
-        不是把封面糊成一片背景 —— 加一层冷白高光 + 暗色蒙版，才有“玻璃”的质感
-      */}
-      <View
-        pointerEvents='none'
-        style={[
-          styles.bgLayer,
-          { backgroundColor: isCover ? 'rgba(10,8,16,0.34)' : 'rgba(10,8,16,0.30)' },
-        ]}
-      />
-      <View
-        pointerEvents='none'
-        style={[styles.bgLayer, { backgroundColor: 'rgba(255,255,255,0.045)' }]}
-      />
-
-      {/* 顶部渐变：让状态栏与背景自然融合 */}
-      <RNImage source={FADE_TOP} resizeMode='stretch' style={styles.topGradient} />
-      {/* 底部渐变：预渲染 alpha 渐变，无横带 */}
-      <RNImage source={FADE_BOTTOM} resizeMode='stretch' style={styles.bottomGradient} />
+      {/* 顶部渐变融合状态栏，底部压暗保证文字与按键可读 */}
+      <RNImage source={FADE_TOP} resizeMode='stretch' style={styles.topFade} />
+      <RNImage source={FADE_BOTTOM} resizeMode='stretch' style={styles.bottomFade} />
 
       <View style={{ flex: 1, paddingTop: statusBarHeight }}>
         <View style={styles.topBar}>
@@ -546,40 +461,22 @@ export default () => {
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             onPress={() => { setNavActiveId('nav_home') }}
           >
-            <Icon name='chevron-down' size={22} color='rgba(255,255,255,0.9)' />
+            <Icon name='chevron-down' size={26} color='rgba(255,255,255,0.92)' />
           </TouchableOpacity>
           {
             mode === 'lyric'
               ? (
-                <TouchableOpacity style={styles.topTitle} activeOpacity={0.7} onPress={handleToggleMode}>
-                  <Text size={16} color='#FFFFFF' numberOfLines={1} style={styles.topName}>{musicInfo.name || '未在播放'}</Text>
-                  <Text size={11} color='rgba(255,255,255,0.6)' numberOfLines={1} style={styles.topSinger}>{musicInfo.singer}</Text>
+                <TouchableOpacity style={styles.topBtn} onPress={handleSizeChange} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Icon name='format-size' size={20} color='rgba(255,255,255,0.85)' />
                 </TouchableOpacity>
                 )
-              : null
+              : <View style={styles.topBtn} />
           }
-          <View style={styles.topBtn} />
         </View>
 
         {
           mode === 'cover'
-            ? (
-              <TouchableOpacity activeOpacity={1} style={styles.coverArea} onPress={handleToggleMode}>
-                {
-                  pic
-                    ? (
-                      <Animated.View style={{ opacity: coverAnim, transform: [{ scale: coverAnim.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1] }) }] }}>
-                        <VinylCover pic={pic} spinning={isPlay} />
-                      </Animated.View>
-                      )
-                    : (
-                      <View style={styles.coverPlaceholder}>
-                        <Icon name='album' size={64} color='rgba(255,255,255,0.12)' />
-                      </View>
-                      )
-                }
-              </TouchableOpacity>
-              )
+            ? <TouchableOpacity activeOpacity={1} style={styles.flexArea} onPress={handleToggleMode} />
             : (
               <View style={styles.lyricArea}>
                 {
@@ -590,7 +487,7 @@ export default () => {
                           <TouchableOpacity activeOpacity={0.9} style={styles.singleLineArea} onPress={handleToggleMode}>
                             <LyricLine
                               text={currentLine >= 0 ? lines[currentLine].text : ''}
-                              size={lyricSize + 3}
+                              size={lyricSize + 5}
                               active
                               ratio={currentRatio}
                               wordByWord={isWordByWord}
@@ -637,98 +534,92 @@ export default () => {
               )
         }
 
-        {
-          mode === 'cover'
-            ? (
-              <View style={styles.infoRow}>
-                <TouchableOpacity style={styles.infoText} activeOpacity={0.7} onPress={handleToggleMode}>
-                  <Text size={15} color='rgba(255,255,255,0.78)' numberOfLines={1} style={styles.currentLyric}>
-                    {lrcPlay.text || ' '}
-                  </Text>
-                  <Text size={22} color='#FFFFFF' numberOfLines={1} style={styles.name}>{musicInfo.name || '未在播放'}</Text>
-                  <Text size={12} color='rgba(255,255,255,0.6)' numberOfLines={1} style={styles.singer}>{musicInfo.singer}</Text>
-                </TouchableOpacity>
-                {
-                  autoSaveEnabled
-                    ? null
-                    : (
-                      <TouchableOpacity
-                        style={styles.iconBtn}
-                        onPress={handleDownload}
-                        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                      >
-                        <Icon name='download-2' size={21} color='rgba(255,255,255,0.9)' />
-                      </TouchableOpacity>
-                      )
-                }
-                <TouchableOpacity style={styles.iconBtn} onPress={handleToggleCollect} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-                  <Icon
-                    name={collected ? 'love' : 'heart-outline'}
-                    size={22}
-                    color={collected ? '#FF4D6D' : 'rgba(255,255,255,0.9)'}
-                  />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.iconBtn} onPress={() => { setDetailVisible(true) }} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-                  <Icon name='dots-vertical' size={20} color='rgba(255,255,255,0.9)' />
-                </TouchableOpacity>
-              </View>
-              )
-            : (
-              <View style={styles.lyricTools}>
-                <TouchableOpacity style={styles.iconBtn} onPress={handleSizeChange}>
-                  <Icon name='format-size' size={20} color='rgba(255,255,255,0.85)' />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.iconBtn} onPress={handleToggleCollect}>
-                  <Icon name={collected ? 'love' : 'heart-outline'} size={21} color={collected ? '#FF4D6D' : 'rgba(255,255,255,0.85)'} />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.iconBtn} onPress={() => { setDetailVisible(true) }}>
-                  <Icon name='dots-vertical' size={20} color='rgba(255,255,255,0.85)' />
-                </TouchableOpacity>
-              </View>
-              )
-        }
+        {/* 信息区：歌词行 / 歌名 / 歌手 + 收藏与更多 */}
+        <View style={styles.infoBlock}>
+          {
+            mode === 'cover'
+              ? (
+                <Text size={14} color='rgba(255,255,255,0.82)' numberOfLines={2} style={styles.nowLyric}>
+                  {lrcPlay.text || ' '}
+                </Text>
+                )
+              : null
+          }
+          <View style={styles.titleRow}>
+            <TouchableOpacity style={styles.titleText} activeOpacity={0.75} onPress={handleToggleMode}>
+              <Text size={24} color='#FFFFFF' numberOfLines={1} style={styles.songName}>{musicInfo.name || '未在播放'}</Text>
+              <Text size={12} color='rgba(255,255,255,0.62)' numberOfLines={1} style={styles.songSinger}>{musicInfo.singer}</Text>
+            </TouchableOpacity>
+            {
+              autoSaveEnabled
+                ? null
+                : (
+                  <TouchableOpacity style={styles.iconBtn} onPress={handleDownload} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                    <Icon name='download-2' size={21} color='rgba(255,255,255,0.9)' />
+                  </TouchableOpacity>
+                  )
+            }
+            <TouchableOpacity style={styles.iconBtn} onPress={handleToggleCollect} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+              <Icon
+                name={collected ? 'love' : 'heart-outline'}
+                size={23}
+                color={collected ? '#FF3B5C' : 'rgba(255,255,255,0.9)'}
+              />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.iconBtn} onPress={() => { setDetailVisible(true) }} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+              <Icon name='dots-vertical' size={20} color='rgba(255,255,255,0.9)' />
+            </TouchableOpacity>
+          </View>
+        </View>
 
-        <View style={styles.glassPanel}>
-          <View pointerEvents='none' style={styles.glassEdge} />
-          <View style={styles.bottomArea}>
+        {/* 进度条 + 时间 */}
+        <View style={styles.progressBlock}>
           <Slider
             value={currentTime}
             minimumValue={0}
             maximumValue={maxTime || 1}
-            minimumTrackTintColor='rgba(255,255,255,0.95)'
-            maximumTrackTintColor='rgba(255,255,255,0.28)'
+            minimumTrackTintColor='rgba(255,255,255,0.96)'
+            maximumTrackTintColor='rgba(255,255,255,0.26)'
             thumbTintColor='#FFFFFF'
             style={styles.slider}
             onSlidingComplete={handleSeek}
           />
           <View style={styles.timeRow}>
-            <Text size={11} color='rgba(255,255,255,0.65)' style={styles.timeText}>{formatTime(currentTime)}</Text>
+            <Text size={11} color='rgba(255,255,255,0.68)' style={styles.timeText}>{formatTime(currentTime)}</Text>
             {
               audioMeta
-                ? <Text size={10} color='rgba(255,255,255,0.45)' numberOfLines={1} style={styles.timeCenter}>{audioMeta}</Text>
+                ? <Text size={10} color='rgba(255,255,255,0.46)' numberOfLines={1} style={styles.timeCenter}>{audioMeta}</Text>
                 : <View style={styles.timeCenter} />
             }
-            <Text size={11} color='rgba(255,255,255,0.65)' style={styles.timeText}>{formatTime(maxTime)}</Text>
+            <Text size={11} color='rgba(255,255,255,0.68)' style={styles.timeText}>{formatTime(maxTime)}</Text>
           </View>
+        </View>
 
-          <View style={styles.controls}>
-            <TouchableOpacity style={styles.ctrlBtn} onPress={handleCycleMode}>
-              <Icon name={MODE_ICON[playMode]} size={21} color='rgba(255,255,255,0.85)' />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.ctrlBtn} onPress={() => { void playPrev() }}>
-              <Icon name='prevMusic' size={30} color='#FFFFFF' />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.playBtn} onPress={togglePlay}>
-              <Icon name={isPlay ? 'pause' : 'play'} size={40} color='#FFFFFF' />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.ctrlBtn} onPress={() => { void playNext() }}>
-              <Icon name='nextMusic' size={30} color='#FFFFFF' />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.ctrlBtn} onPress={() => { setQueueVisible(true) }}>
-              <Icon name='playlist-music' size={24} color='rgba(255,255,255,0.85)' />
-            </TouchableOpacity>
-          </View>
-          </View>
+        {/* 五个主控键 */}
+        <View style={styles.controls}>
+          <TouchableOpacity style={styles.ctrlBtn} onPress={handleCycleMode} activeOpacity={0.6}>
+            <Icon name={MODE_ICON[playMode]} size={22} color='rgba(255,255,255,0.88)' />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.ctrlBtn} onPress={() => { void playPrev() }} activeOpacity={0.6}>
+            <Icon name='prevMusic' size={32} color='#FFFFFF' />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.playBtn}
+            onPress={togglePlay}
+            activeOpacity={0.75}
+            onPressIn={() => { pressPlay(0.88) }}
+            onPressOut={() => { pressPlay(1) }}
+          >
+            <Animated.View style={{ transform: [{ scale: playBtnScale }] }}>
+              <Icon name={isPlay ? 'pause' : 'play'} size={44} color='#FFFFFF' />
+            </Animated.View>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.ctrlBtn} onPress={() => { void playNext() }} activeOpacity={0.6}>
+            <Icon name='nextMusic' size={32} color='#FFFFFF' />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.ctrlBtn} onPress={() => { setQueueVisible(true) }} activeOpacity={0.6}>
+            <Icon name='playlist-music' size={26} color='rgba(255,255,255,0.88)' />
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -796,125 +687,39 @@ const styles = createStyle({
     width: '100%',
     backgroundColor: '#0B0810',
   },
-  bgLayer: {
+  // 全屏封面：向外扩一圈，保证任何机型上都不会露出边缘底色
+  coverLayer: {
     position: 'absolute',
-    left: -32,
-    right: -32,
-    top: -32,
-    bottom: -32,
+    left: -40,
+    right: -40,
+    top: -40,
+    bottom: -40,
   },
-  glassPanel: {
-    marginLeft: 12,
-    marginRight: 12,
-    marginBottom: 4,
-    borderRadius: 28,
-    borderWidth: 0.5,
-    borderColor: 'rgba(255,255,255,0.16)',
-    backgroundColor: 'rgba(255,255,255,0.09)',
-    paddingTop: 2,
-    paddingBottom: 2,
-    elevation: 10,
-    shadowColor: '#000000',
-    shadowOpacity: 0.22,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 8 },
-    overflow: 'hidden',
-  },
-  glassEdge: {
-    position: 'absolute',
-    top: 0,
-    left: '18%',
-    right: '18%',
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.32)',
-  },
-  discShadow: {
-    width: '86%',
-    aspectRatio: 1,
-    borderRadius: 999,
-    elevation: 26,
-    shadowColor: '#000000',
-    shadowOpacity: 0.5,
-    shadowRadius: 30,
-    shadowOffset: { width: 0, height: 18 },
-  },
-  discClip: {
-    flex: 1,
-    borderRadius: 999,
-    overflow: 'hidden',
-    backgroundColor: '#0C0B0F',
-    borderWidth: 0.5,
-    borderColor: 'rgba(255,255,255,0.10)',
-  },
-  discBase: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#111015',
-  },
-  labelWrap: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  labelClip: {
-    width: '62%',
-    aspectRatio: 1,
-    borderRadius: 999,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.14)',
-    backgroundColor: '#1A1820',
-  },
-  labelImg: {
+  coverImg: {
     width: '100%',
     height: '100%',
   },
-  spindle: {
-    position: 'absolute',
-    width: 9,
-    height: 9,
-    borderRadius: 5,
-    backgroundColor: 'rgba(10,9,12,0.92)',
-    borderWidth: 0.5,
-    borderColor: 'rgba(255,255,255,0.22)',
-  },
-  sheenOuter: {
-    position: 'absolute',
-    top: '-30%',
-    left: '-10%',
-    width: '70%',
-    height: '160%',
-    backgroundColor: 'rgba(255,255,255,0.045)',
-    transform: [{ rotate: '24deg' }],
-  },
-  sheenInner: {
-    position: 'absolute',
-    top: '-30%',
-    left: '46%',
-    width: '26%',
-    height: '160%',
-    backgroundColor: 'rgba(255,255,255,0.028)',
-    transform: [{ rotate: '24deg' }],
-  },
-  topGradient: {
+  topFade: {
     position: 'absolute',
     left: 0,
     right: 0,
     top: 0,
-    height: '26%',
+    height: '18%',
   },
-  bottomGradient: {
+  bottomFade: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
-    height: '60%',
+    height: '66%',
   },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingLeft: 8,
     paddingRight: 8,
-    height: 44,
+    height: 48,
   },
   topBtn: {
     width: 40,
@@ -922,61 +727,8 @@ const styles = createStyle({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  topTitle: {
+  flexArea: {
     flex: 1,
-    alignItems: 'center',
-  },
-  topName: {
-    fontWeight: '600',
-  },
-  topSinger: {
-    marginTop: 3,
-  },
-  coverArea: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingLeft: 0,
-    paddingRight: 0,
-  },
-  coverPlaceholder: {
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  currentLyric: {
-    marginBottom: 12,
-    letterSpacing: 0.2,
-    lineHeight: 21,
-  },
-  queueCover: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    marginRight: 10,
-  },
-  detailSheet: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingLeft: 20,
-    paddingRight: 20,
-    paddingTop: 18,
-    paddingBottom: 28,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginTop: 12,
-  },
-  detailLabel: {
-    width: 62,
-  },
-  detailValue: {
-    flexGrow: 1,
-    flexShrink: 1,
   },
   lyricArea: {
     flex: 1,
@@ -984,17 +736,17 @@ const styles = createStyle({
   singleLineArea: {
     flex: 1,
     justifyContent: 'center',
-    paddingLeft: 26,
-    paddingRight: 26,
+    paddingLeft: 24,
+    paddingRight: 24,
   },
   lyricContent: {
-    paddingLeft: 26,
-    paddingRight: 26,
+    paddingLeft: 24,
+    paddingRight: 24,
     paddingTop: 40,
     paddingBottom: 60,
   },
   lyricLine: {
-    textAlign: 'center',
+    textAlign: 'left',
     paddingTop: 9,
     paddingBottom: 9,
   },
@@ -1009,24 +761,30 @@ const styles = createStyle({
   lyricEmptyText: {
     marginTop: 10,
   },
-  infoRow: {
+  infoBlock: {
+    paddingLeft: 24,
+    paddingRight: 16,
+    paddingBottom: 6,
+  },
+  nowLyric: {
+    marginBottom: 12,
+    lineHeight: 21,
+    letterSpacing: 0.2,
+  },
+  titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingLeft: 26,
-    paddingRight: 8,
-    paddingTop: 12,
-    paddingBottom: 4,
   },
-  infoText: {
+  titleText: {
     flexGrow: 1,
     flexShrink: 1,
-    paddingRight: 8,
+    paddingRight: 10,
   },
-  name: {
+  songName: {
     fontWeight: '700',
     letterSpacing: 0.3,
   },
-  singer: {
+  songSinger: {
     marginTop: 5,
   },
   iconBtn: {
@@ -1035,30 +793,20 @@ const styles = createStyle({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  lyricTools: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    paddingRight: 12,
-    paddingTop: 4,
-  },
-  bottomArea: {
-    paddingLeft: 10,
-    paddingRight: 10,
-    paddingBottom: 6,
-    paddingTop: 2,
+  progressBlock: {
+    paddingLeft: 20,
+    paddingRight: 20,
+    paddingTop: 6,
   },
   slider: {
     width: '100%',
-    height: 30,
+    height: 28,
   },
   timeRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingLeft: 6,
-    paddingRight: 6,
-    marginTop: -2,
+    marginTop: -4,
   },
   timeText: {
     flexShrink: 0,
@@ -1076,10 +824,10 @@ const styles = createStyle({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingLeft: 14,
-    paddingRight: 14,
-    paddingTop: 6,
-    paddingBottom: 12,
+    paddingLeft: 22,
+    paddingRight: 22,
+    paddingTop: 8,
+    paddingBottom: 14,
   },
   ctrlBtn: {
     width: 46,
@@ -1088,8 +836,8 @@ const styles = createStyle({
     alignItems: 'center',
   },
   playBtn: {
-    width: 62,
-    height: 62,
+    width: 66,
+    height: 66,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1131,11 +879,37 @@ const styles = createStyle({
   queueIndex: {
     width: 26,
   },
+  queueCover: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    marginRight: 10,
+  },
   queueInfo: {
     flexGrow: 1,
     flexShrink: 1,
   },
   queueSinger: {
     marginTop: 2,
+  },
+  detailSheet: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingLeft: 20,
+    paddingRight: 20,
+    paddingTop: 18,
+    paddingBottom: 28,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: 12,
+  },
+  detailLabel: {
+    width: 62,
+  },
+  detailValue: {
+    flexGrow: 1,
+    flexShrink: 1,
   },
 })

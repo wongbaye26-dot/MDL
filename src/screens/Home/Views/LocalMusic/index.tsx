@@ -3,6 +3,7 @@ import {
   Animated,
   FlatList,
   PanResponder,
+  RefreshControl,
   TouchableOpacity,
   View,
   Modal,
@@ -170,6 +171,22 @@ export default ({ onClose }: { onClose?: () => void }) => {
     },
   }), [closeWithSlide, panY])
 
+  // 原生下拉手势：Android 的 ScrollView 会抢走 JS 侧的 responder，PanResponder 经常收不到，
+  // 用 RefreshControl 兜住「列表顶部下拉 = 关闭」这条最常用的路径（指示器设成全透明）
+  const refreshControl = useMemo(() => (
+    hasClose
+      ? (
+        <RefreshControl
+          refreshing={false}
+          onRefresh={() => { closeWithSlide() }}
+          colors={['transparent']}
+          progressBackgroundColor='transparent'
+          tintColor='transparent'
+        />
+        )
+      : undefined
+  ), [closeWithSlide, hasClose])
+
   // 兜底：列表顶部的快速下滑由原生滚动事件判定（PanResponder 在部分机型上抢不到手势）
   const handleScrollEndDrag = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
     if (!onCloseRef.current) return
@@ -266,6 +283,7 @@ export default ({ onClose }: { onClose?: () => void }) => {
         scrollEventThrottle={32}
         onScroll={e => { scrollY.current = e.nativeEvent.contentOffset.y }}
         onScrollEndDrag={handleScrollEndDrag}
+        refreshControl={refreshControl}
         ListEmptyComponent={(
           <View style={styles.empty}>
             <View style={{ ...styles.emptyIcon, backgroundColor: theme['c-primary-alpha-900'] }}>
