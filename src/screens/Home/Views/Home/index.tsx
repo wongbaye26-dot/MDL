@@ -7,6 +7,7 @@ import { useStatus } from '@/store/userApi'
 import { useDownloadList } from '@/store/download'
 import { useStatusbarHeight } from '@/store/common/hook'
 import { setNavActiveId } from '@/core/common'
+import playerState from '@/store/player/state'
 import { createStyle } from '@/utils/tools'
 import { formatSize } from '@/core/download/utils'
 import SearchModal from '../../Vertical/SearchModal'
@@ -50,6 +51,8 @@ export default () => {
       return (b.createdAt ?? 0) - (a.createdAt ?? 0)
     })
     .slice(0, 4)
+
+  const playedList = [...playerState.playedList].slice(-4).reverse()
 
   const sourceReady = userApiStatus.status
   const sourceText = sourceReady ? '音源已就绪' : '音源未就绪'
@@ -135,6 +138,36 @@ export default () => {
                   <Text size={11} color={theme['c-450']}>还没有下载记录，去搜索一首歌试试</Text>
                 </View>
               )
+        }
+        {
+          playedList.length
+            ? (
+                <>
+                  <View style={styles.sectionHead}>
+                    <Text size={15} style={styles.sectionTitle}>最近播放</Text>
+                    <TouchableOpacity onPress={() => { setNavActiveId('nav_player') }}>
+                      <Text size={11} color={theme['c-450']}>播放器 ›</Text>
+                    </TouchableOpacity>
+                  </View>
+                  {
+                    playedList.map(item => (
+                      <TouchableOpacity
+                        key={item.musicInfo.id}
+                        style={styles.recentRow}
+                        activeOpacity={0.7}
+                        onPress={() => { setNavActiveId('nav_player') }}
+                      >
+                        <Image url={item.musicInfo.meta?.picUrl} style={styles.playedCover} />
+                        <View style={styles.recentInfo}>
+                          <Text size={13} numberOfLines={1}>{item.musicInfo.name}</Text>
+                          <Text size={10} color={theme['c-450']} numberOfLines={1} style={styles.recentDesc}>{item.musicInfo.singer}</Text>
+                        </View>
+                      </TouchableOpacity>
+                    ))
+                  }
+                </>
+              )
+            : null
         }
       </ScrollView>
 
@@ -280,6 +313,12 @@ const styles = createStyle({
   },
   recentDesc: {
     marginTop: 2,
+  },
+  playedCover: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    marginRight: 11,
   },
   emptyRecent: {
     paddingLeft: 16,
