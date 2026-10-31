@@ -222,6 +222,24 @@ const defaultThemes = [
     },
   },
   {
+    id: 'emo',
+    name: 'EMO 深夜',
+    isDark: true,
+    config: {
+      primary: 'rgb(168, 85, 247)',
+      font: 'rgb(245, 245, 250)',
+      'c-app-background': 'rgba(0, 0, 0, 0)',
+      'c-main-background': 'rgba(11, 11, 18, 0.96)',
+      'bg-image': '',
+      'bg-image-position': 'center',
+      'bg-image-size': 'cover',
+
+      'c-badge-primary': 'var(c-primary-light-100)',
+      'c-badge-secondary': 'rgb(236, 72, 153)',
+      'c-badge-tertiary': 'var(c-primary-dark-200)',
+    },
+  },
+  {
     id: 'mid_autumn',
     name: '月里嫦娥',
     isDark: false,

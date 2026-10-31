@@ -1,5 +1,5 @@
 import { useCallback, useRef } from 'react'
-import { View, FlatList } from 'react-native'
+import { View, FlatList, Image } from 'react-native'
 import Text from '@/components/common/Text'
 import { useTheme } from '@/store/theme/hook'
 import { createStyle, toast } from '@/utils/tools'
@@ -9,6 +9,8 @@ import { clearCompleted, pauseAll, pauseTask, removeTask, retryTask, startAll, s
 import Toolbar from './Toolbar'
 import TaskItem from './TaskItem'
 import TaskMenu, { type TaskMenuType, type TaskMenuAction } from './TaskMenu'
+
+const emoLogo = require('@/resources/images/emo-logo.png')
 
 export default () => {
   const theme = useTheme()
@@ -87,14 +89,16 @@ export default () => {
                 keyExtractor={keyExtractor}
                 maxToRenderPerBatch={12}
                 windowSize={5}
+                contentContainerStyle={styles.listContent}
                 removeClippedSubviews={navActiveId !== 'nav_download'}
               />
             )
           : (
               <View style={styles.empty}>
-                <Text color={theme['c-450']} size={13}>暂无下载任务</Text>
-                <Text color={theme['c-400']} size={12} style={styles.emptyTip}>
-                  在搜索、歌单、排行榜或我的列表中长按歌曲，选择「下载」即可添加任务
+                <Image source={emoLogo} style={styles.emptyLogo} />
+                <Text color={theme['c-font']} size={15} style={styles.emptyTitle}>还没有下载任务</Text>
+                <Text color={theme['c-450']} size={12} style={styles.emptyTip}>
+                  在搜索、歌单、排行榜或我的列表里长按歌曲，选择「下载」，就能在这里排队下载
                 </Text>
               </View>
             )
@@ -108,6 +112,10 @@ const styles = createStyle({
   container: {
     flex: 1,
   },
+  listContent: {
+    paddingTop: 8,
+    paddingBottom: 24,
+  },
   empty: {
     flex: 1,
     justifyContent: 'center',
@@ -115,9 +123,20 @@ const styles = createStyle({
     paddingLeft: 40,
     paddingRight: 40,
   },
+  emptyLogo: {
+    width: 72,
+    height: 72,
+    borderRadius: 22,
+    marginBottom: 16,
+    opacity: 0.9,
+  },
+  emptyTitle: {
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
   emptyTip: {
     marginTop: 8,
     textAlign: 'center',
-    lineHeight: 18,
+    lineHeight: 19,
   },
 })

@@ -46,9 +46,13 @@ const LeftHeader = () => {
         <TouchableOpacity style={styles.btn} onPress={openMenu}>
           <Icon color={theme['c-font']} name="menu" size={18} />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.titleBtn} onPress={openMenu}>
-          <Text style={styles.leftTitle} size={18}>{t(id)}</Text>
-        </TouchableOpacity>
+        {id === 'nav_download'
+          ? null
+          : (
+              <TouchableOpacity style={styles.titleBtn} onPress={openMenu}>
+                <Text style={styles.leftTitle} size={18}>{t(id)}</Text>
+              </TouchableOpacity>
+            )}
       </View>
       {headerComponents[id] ?? null}
 

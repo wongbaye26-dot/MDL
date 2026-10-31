@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>EMO音乐 Logo</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #0B0B12; }
+  .stage {
+    width: 1024px; height: 1024px;
+    display: flex; align-items: center; justify-content: center;
+    background: #0B0B12;
+  }
+  svg { display: block; }
+</style>
+</head>
+<body>
+<div class="stage">
+  <svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <radialGradient id="glow" cx="50%" cy="34%" r="58%">
+        <stop offset="0%" stop-color="#8B5CF6" stop-opacity="0.42"/>
+        <stop offset="55%" stop-color="#8B5CF6" stop-opacity="0.10"/>
+        <stop offset="100%" stop-color="#8B5CF6" stop-opacity="0"/>
+      </radialGradient>
+      <linearGradient id="mark" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#A78BFA"/>
+        <stop offset="48%" stop-color="#8B5CF6"/>
+        <stop offset="100%" stop-color="#EC4899"/>
+      </linearGradient>
+      <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
+        <feGaussianBlur stdDeviation="18" result="b"/>
+        <feMerge>
+          <feMergeNode in="b"/>
+          <feMergeNode in="SourceGraphic"/>
+        </feMerge>
+      </filter>
+    </defs>
+
+    <rect width="1024" height="1024" fill="#0B0B12"/>
+    <rect width="1024" height="1024" fill="url(#glow)"/>
+
+    <!-- E 的上下横 + 中间的心跳波形 -->
+    <g filter="url(#soft)" opacity="0.38">
+      <rect x="300" y="286" width="424" height="76" rx="38" fill="url(#mark)"/>
+      <path d="M300 512 H380 L424 468 L472 556 L516 512 H724"
+            fill="none" stroke="url(#mark)" stroke-width="76"
+            stroke-linecap="round" stroke-linejoin="round"/>
+      <rect x="300" y="662" width="424" height="76" rx="38" fill="url(#mark)"/>
+    </g>
+
+    <g>
+      <rect x="300" y="286" width="424" height="76" rx="38" fill="url(#mark)"/>
+      <path d="M300 512 H380 L424 468 L472 556 L516 512 H724"
+            fill="none" stroke="url(#mark)" stroke-width="76"
+            stroke-linecap="round" stroke-linejoin="round"/>
+      <rect x="300" y="662" width="424" height="76" rx="38" fill="url(#mark)"/>
+    </g>
+  </svg>
+</div>
+</body>
+</html>

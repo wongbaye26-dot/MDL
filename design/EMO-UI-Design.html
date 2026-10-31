@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>EMO音乐 · 界面设计方案 v1</title>
+<style>
+  :root{
+    --bg:#0B0B12; --bg-2:#101019; --surface:#15151F; --surface-2:#1B1B28;
+    --line:rgba(168,85,247,.16); --line-strong:rgba(168,85,247,.30);
+    --primary:#A855F7; --primary-deep:#8B5CF6; --accent:#EC4899;
+    --text:#F5F5FA; --text-2:#A1A1B5; --text-3:#6E6E85;
+    --success:#34D399; --danger:#F87171; --warning:#FBBF24;
+    --grad:linear-gradient(135deg,#A78BFA 0%,#8B5CF6 48%,#EC4899 100%);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:radial-gradient(1200px 600px at 15% -10%,rgba(139,92,246,.22),transparent 60%),
+               radial-gradient(900px 500px at 95% 0%,rgba(236,72,153,.16),transparent 55%),
+               var(--bg);
+    color:var(--text);
+    font-family:-apple-system,"SF Pro SC","PingFang SC","Helvetica Neue",Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    padding:56px 40px 80px;
+    line-height:1.6;
+  }
+  .wrap{max-width:1180px;margin:0 auto}
+  .eyebrow{font-size:12px;letter-spacing:3px;color:var(--text-3);text-transform:uppercase}
+  h1{font-size:44px;font-weight:800;letter-spacing:1px;margin-top:10px}
+  h2{font-size:22px;font-weight:700;letter-spacing:.5px;margin-bottom:6px}
+  h3{font-size:15px;font-weight:600;margin-bottom:10px}
+  .sub{color:var(--text-2);font-size:14px}
+  .section{margin-top:64px}
+  .section-head{display:flex;align-items:baseline;gap:14px;margin-bottom:22px;border-bottom:1px solid rgba(255,255,255,.06);padding-bottom:14px}
+  .section-head .idx{font-size:12px;color:var(--primary);font-weight:700;letter-spacing:2px}
+  .grid{display:grid;gap:16px}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:20px}
+  .muted{color:var(--text-3);font-size:12px}
+
+  /* 封面 */
+  .cover{display:flex;gap:40px;align-items:center;padding:36px;border-radius:28px;
+    background:linear-gradient(120deg,rgba(139,92,246,.16),rgba(236,72,153,.10) 55%,transparent);
+    border:1px solid var(--line-strong)}
+  .cover img{width:148px;height:148px;border-radius:44px;box-shadow:0 24px 60px rgba(139,92,246,.35)}
+  .cover .tag{display:inline-block;margin-top:14px;padding:6px 12px;border-radius:999px;font-size:12px;
+    color:#E9D5FF;background:rgba(168,85,247,.16);border:1px solid var(--line-strong)}
+
+  /* 色板 */
+  .swatches{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  .sw{border-radius:14px;overflow:hidden;border:1px solid rgba(255,255,255,.07)}
+  .sw .chip{height:64px}
+  .sw .meta{padding:10px 12px;background:var(--surface);font-size:11px;color:var(--text-2)}
+  .sw .meta b{display:block;color:var(--text);font-size:12px;font-weight:600;margin-bottom:2px}
+  .gradbar{height:56px;border-radius:14px;background:var(--grad);margin-bottom:12px}
+
+  /* 规范表 */
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:11px 12px;border-bottom:1px solid rgba(255,255,255,.06);vertical-align:top}
+  th{color:var(--text-3);font-weight:500;font-size:12px;letter-spacing:1px}
+  td b{font-weight:600}
+  code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:#D8B4FE;
+    background:rgba(168,85,247,.12);padding:2px 6px;border-radius:5px}
+
+  /* 手机 */
+  .phones{display:grid;grid-template-columns:repeat(3,1fr);gap:26px}
+  .phone{background:var(--bg-2);border:1px solid var(--line);border-radius:34px;padding:12px;
+    box-shadow:0 30px 80px rgba(0,0,0,.55)}
+  .screen{background:var(--bg);border-radius:26px;overflow:hidden;height:600px;position:relative;
+    display:flex;flex-direction:column}
+  .statusbar{height:26px;display:flex;align-items:center;justify-content:space-between;
+    padding:0 16px;font-size:10px;color:var(--text-3)}
+  .navbar{height:44px;display:flex;align-items:center;gap:12px;padding:0 16px}
+  .navbar .nav-title{font-size:15px;font-weight:600}
+  .navbar .ico{width:18px;height:18px;border-radius:5px;background:rgba(255,255,255,.12)}
+
+  /* 下载页 hero */
+  .hero{position:relative;padding:16px;overflow:hidden}
+  .hero::before{content:"";position:absolute;left:-90px;top:-120px;width:280px;height:280px;border-radius:50%;
+    background:radial-gradient(circle,rgba(139,92,246,.55),transparent 68%)}
+  .hero::after{content:"";position:absolute;right:-90px;top:-110px;width:260px;height:260px;border-radius:50%;
+    background:radial-gradient(circle,rgba(236,72,153,.42),transparent 70%)}
+  .hero>*{position:relative;z-index:2}
+  .hero-top{display:flex;align-items:center;gap:11px}
+  .hero-top img{width:38px;height:38px;border-radius:12px}
+  .hero-title{font-size:19px;font-weight:800;letter-spacing:1px}
+  .hero-sub{font-size:10px;color:rgba(255,255,255,.62);margin-top:2px}
+  .pills{display:flex;gap:9px;margin-top:15px}
+  .pill{display:flex;align-items:center;gap:5px;padding:8px 15px;border-radius:999px;font-size:11px;
+    background:var(--primary);color:#fff;font-weight:600}
+  .pill.ghost{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.26);color:rgba(255,255,255,.9);font-weight:500}
+
+  /* 任务卡片 */
+  .list{padding:8px 12px 12px;display:flex;flex-direction:column;gap:9px;overflow:hidden}
+  .task{display:flex;gap:11px;align-items:center;padding:11px;border-radius:15px;
+    background:rgba(168,85,247,.10);border:1px solid rgba(168,85,247,.20)}
+  .task .ava{width:34px;height:34px;border-radius:17px;display:flex;align-items:center;justify-content:center;
+    background:rgba(168,85,247,.30);color:#DDD6FE;font-size:12px;flex:0 0 auto}
+  .task.done .ava{background:rgba(52,211,153,.15);color:var(--success)}
+  .task .body{flex:1;min-width:0}
+  .task .row1{display:flex;align-items:center;gap:6px}
+  .task .name{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .qtag{font-size:9px;padding:1px 5px;border-radius:4px;background:rgba(168,85,247,.22);color:#DDD6FE;flex:0 0 auto}
+  .task .singer{font-size:10px;color:var(--text-3);margin:2px 0 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .track{height:3.5px;border-radius:2px;background:rgba(168,85,247,.28);overflow:hidden;margin-bottom:4px}
+  .track i{display:block;height:100%;border-radius:2px;background:var(--primary)}
+  .task.done .track i{background:var(--success)}
+  .task .status{font-size:10px;color:var(--text-3)}
+  .task.done .status{color:var(--success)}
+
+  /* 搜索页 */
+  .searchbar{margin:10px 16px 14px;height:38px;border-radius:12px;background:var(--surface-2);
+    border:1px solid rgba(255,255,255,.07);display:flex;align-items:center;gap:8px;padding:0 12px;
+    font-size:12px;color:var(--text-3)}
+  .chips{display:flex;gap:7px;padding:0 16px 14px;flex-wrap:wrap}
+  .chip2{font-size:10px;padding:5px 11px;border-radius:999px;color:var(--text-2);
+    background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.07)}
+  .chip2.on{background:rgba(168,85,247,.20);border-color:var(--line-strong);color:#E9D5FF}
+  .song{display:flex;align-items:center;gap:11px;padding:9px 16px}
+  .song .idx{width:16px;font-size:10px;color:var(--text-3);flex:0 0 auto}
+  .song .body{flex:1;min-width:0}
+  .song .n{font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .song .s{font-size:10px;color:var(--text-3);margin-top:1px}
+  .dlbtn{font-size:10px;padding:5px 10px;border-radius:999px;background:rgba(168,85,247,.18);
+    color:#E9D5FF;border:1px solid var(--line-strong);flex:0 0 auto}
+
+  /* 我的 */
+  .profile{padding:18px 16px;display:flex;align-items:center;gap:13px}
+  .profile img{width:52px;height:52px;border-radius:17px}
+  .profile .pn{font-size:15px;font-weight:700}
+  .profile .ps{font-size:10.5px;color:var(--text-3);margin-top:2px}
+  .stats{display:flex;gap:8px;padding:0 16px 16px}
+  .stat{flex:1;background:var(--surface);border:1px solid rgba(255,255,255,.06);border-radius:13px;
+    padding:10px;text-align:center}
+  .stat b{display:block;font-size:15px;font-weight:700}
+  .stat span{font-size:9.5px;color:var(--text-3)}
+  .menu{display:flex;flex-direction:column}
+  .mrow{display:flex;align-items:center;gap:12px;padding:13px 16px;font-size:12.5px;
+    border-bottom:1px solid rgba(255,255,255,.045)}
+  .mrow .mi{width:28px;height:28px;border-radius:9px;background:rgba(168,85,247,.14);
+    display:flex;align-items:center;justify-content:center;font-size:11px;color:#D8B4FE}
+  .mrow .arrow{margin-left:auto;color:var(--text-3);font-size:11px}
+
+  .do-dont{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .dd{border-radius:14px;padding:16px;border:1px solid rgba(255,255,255,.07);background:var(--surface)}
+  .dd.do{border-color:rgba(52,211,153,.35)}
+  .dd.dont{border-color:rgba(248,113,113,.35)}
+  .dd h4{font-size:12px;letter-spacing:1px;margin-bottom:8px}
+  .dd.do h4{color:var(--success)} .dd.dont h4{color:var(--danger)}
+  .dd li{font-size:12px;color:var(--text-2);margin-left:16px;margin-bottom:5px}
+
+  footer{margin-top:70px;padding-top:20px;border-top:1px solid rgba(255,255,255,.06);
+    color:var(--text-3);font-size:11px;display:flex;justify-content:space-between}
+  @media (max-width:1100px){.phones{grid-template-columns:1fr}.swatches{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="eyebrow">UI Design Spec · v1.0</div>
+  <h1>EMO音乐</h1>
+  <p class="sub">一款「情绪化」的手机音乐下载器 —— 深夜、安静、专注把歌存进手机。</p>
+
+  <div class="section" style="margin-top:32px">
+    <div class="cover">
+      <img src="icon-squircle.png" alt="EMO音乐 logo">
+      <div>
+        <div class="eyebrow" style="letter-spacing:2px">BRAND MARK</div>
+        <h2 style="margin-top:8px;font-size:26px">E = 心跳波形</h2>
+        <p class="sub" style="max-width:520px;margin-top:8px">
+          字母 E 的三条横线，中间那条断开成一段心电图。<br>
+          既读得出品牌首字母，也表达「音乐是情绪的波形」。
+        </p>
+        <span class="tag">深空黑 #0B0B12 · 紫粉渐变 #A78BFA → #EC4899</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 01 设计令牌 -->
+  <div class="section">
+    <div class="section-head"><span class="idx">01</span><h2>设计令牌</h2><span class="muted">颜色 / 字体 / 间距 / 圆角</span></div>
+
+    <h3>品牌与语义色</h3>
+    <div class="gradbar"></div>
+    <div class="swatches" style="margin-bottom:22px">
+      <div class="sw"><div class="chip" style="background:#0B0B12"></div><div class="meta"><b>底色 Deep Space</b>#0B0B12</div></div>
+      <div class="sw"><div class="chip" style="background:#15151F"></div><div class="meta"><b>卡片 Surface</b>#15151F</div></div>
+      <div class="sw"><div class="chip" style="background:#A855F7"></div><div class="meta"><b>主色 Primary</b>#A855F7</div></div>
+      <div class="sw"><div class="chip" style="background:#EC4899"></div><div class="meta"><b>强调 Accent</b>#EC4899</div></div>
+      <div class="sw"><div class="chip" style="background:#34D399"></div><div class="meta"><b>成功 Success</b>#34D399</div></div>
+      <div class="sw"><div class="chip" style="background:#F87171"></div><div class="meta"><b>失败 Danger</b>#F87171</div></div>
+      <div class="sw"><div class="chip" style="background:#FBBF24"></div><div class="meta"><b>警示 Warning</b>#FBBF24</div></div>
+      <div class="sw"><div class="chip" style="background:#F5F5FA"></div><div class="meta"><b>主文本</b>#F5F5FA / 次级 #A1A1B5</div></div>
+    </div>
+
+    <div class="grid" style="grid-template-columns:1.15fr .85fr">
+      <div class="card">
+        <h3>字号层级</h3>
+        <table>
+          <tr><th>用途</th><th>字号 / 字重</th><th>颜色</th></tr>
+          <tr><td><b>页面大标题</b>（下载中心）</td><td>22 / 800</td><td>#FFFFFF</td></tr>
+          <tr><td><b>卡片标题</b>（歌名）</td><td>15 / 600</td><td>#F5F5FA</td></tr>
+          <tr><td><b>列表主文本</b></td><td>14 / 400</td><td>#F5F5FA</td></tr>
+          <tr><td><b>辅助信息</b>（歌手、状态）</td><td>11–12 / 400</td><td>#A1A1B5</td></tr>
+          <tr><td><b>标签 / 角标</b></td><td>10 / 500</td><td>#DDD6FE</td></tr>
+        </table>
+        <p class="muted" style="margin-top:10px">全部使用系统字体（Android：思源黑体 / Roboto），不引入自定义字体，保证中英文混排与包体。</p>
+      </div>
+      <div class="card">
+        <h3>间距与圆角</h3>
+        <table>
+          <tr><th>Token</th><th>值</th><th>使用场景</th></tr>
+          <tr><td><code>space-1</code></td><td>4</td><td>文字与进度条之间</td></tr>
+          <tr><td><code>space-2</code></td><td>8</td><td>卡片内元素</td></tr>
+          <tr><td><code>space-3</code></td><td>12</td><td>卡片内边距 / 卡片间距</td></tr>
+          <tr><td><code>space-4</code></td><td>16</td><td>页面左右边距</td></tr>
+          <tr><td><code>radius-card</code></td><td>16</td><td>任务卡片</td></tr>
+          <tr><td><code>radius-pill</code></td><td>999</td><td>按钮、标签</td></tr>
+        </table>
+        <p class="muted" style="margin-top:10px">所有可点元素热区 ≥ 44×44（视觉小图标用 <code>hitSlop</code> 补足）。</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 02 关键界面 -->
+  <div class="section">
+    <div class="section-head"><span class="idx">02</span><h2>关键界面</h2><span class="muted">下载中心 / 搜索 / 我的</span></div>
+    <div class="phones">
+
+      <!-- 下载中心 -->
+      <div class="phone">
+        <div class="screen">
+          <div class="statusbar"><span>9:41</span><span>5G · 82%</span></div>
+          <div class="navbar"><div class="ico"></div></div>
+          <div class="hero">
+            <div class="hero-top">
+              <img src="icon-squircle.png">
+              <div>
+                <div class="hero-title">下载中心</div>
+                <div class="hero-sub">共 12 首 · 已完成 8 · 下载中 2</div>
+              </div>
+            </div>
+            <div class="pills">
+              <div class="pill">↓ 全部开始</div>
+              <div class="pill ghost">❚❚ 全部暂停</div>
+            </div>
+          </div>
+          <div class="list">
+            <div class="task">
+              <div class="ava">❚❚</div>
+              <div class="body">
+                <div class="row1"><span class="name">夜航西飞</span><span class="qtag">FLAC</span></div>
+                <div class="singer">陈粒</div>
+                <div class="track"><i style="width:64%"></i></div>
+                <div class="status">64.2% · 1.8 MB/s · 21.4 / 33.2 MB</div>
+              </div>
+            </div>
+            <div class="task">
+              <div class="ava">❚❚</div>
+              <div class="body">
+                <div class="row1"><span class="name">关于我爱你</span><span class="qtag">320k</span></div>
+                <div class="singer">张悬</div>
+                <div class="track"><i style="width:23%"></i></div>
+                <div class="status">23.0% · 640 KB/s · 2.1 / 9.1 MB</div>
+              </div>
+            </div>
+            <div class="task done">
+              <div class="ava">✓</div>
+              <div class="body">
+                <div class="row1"><span class="name">海阔天空</span><span class="qtag">320k</span></div>
+                <div class="singer">Beyond</div>
+                <div class="track"><i style="width:100%"></i></div>
+                <div class="status">已完成 · 9.6 MB</div>
+              </div>
+            </div>
+            <div class="task">
+              <div class="ava">▶</div>
+              <div class="body">
+                <div class="row1"><span class="name">一生所爱</span><span class="qtag">FLAC</span></div>
+                <div class="singer">卢冠廷</div>
+                <div class="track"><i style="width:0%"></i></div>
+                <div class="status">已暂停 · 4.2 MB</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 搜索 -->
+      <div class="phone">
+        <div class="screen">
+          <div class="statusbar"><span>9:41</span><span>5G · 82%</span></div>
+          <div class="navbar"><div class="ico"></div><div class="nav-title">搜索</div></div>
+          <div class="searchbar">🔍 搜索歌曲、歌手、专辑</div>
+          <div class="chips">
+            <span class="chip2 on">全部音源</span><span class="chip2">LX 音源</span>
+            <span class="chip2">酷我</span><span class="chip2">网易</span>
+          </div>
+          <div class="song"><span class="idx">1</span><div class="body"><div class="n">夜航西飞</div><div class="s">陈粒 · FLAC 无损</div></div><span class="dlbtn">下载</span></div>
+          <div class="song"><span class="idx">2</span><div class="body"><div class="n">历历万乡</div><div class="s">陈粒 · 320k</div></div><span class="dlbtn">下载</span></div>
+          <div class="song"><span class="idx">3</span><div class="body"><div class="n">奇妙能力歌</div><div class="s">陈粒 · FLAC 无损</div></div><span class="dlbtn">下载</span></div>
+          <div class="song"><span class="idx">4</span><div class="body"><div class="n">小半</div><div class="s">陈粒 · 320k</div></div><span class="dlbtn">下载</span></div>
+          <div class="song"><span class="idx">5</span><div class="body"><div class="n">走马</div><div class="s">陈粒 · 128k</div></div><span class="dlbtn">下载</span></div>
+        </div>
+      </div>
+
+      <!-- 我的 -->
+      <div class="phone">
+        <div class="screen">
+          <div class="statusbar"><span>9:41</span><span>5G · 82%</span></div>
+          <div class="navbar"><div class="ico"></div></div>
+          <div class="profile">
+            <img src="icon-squircle.png">
+            <div>
+              <div class="pn">EMO音乐</div>
+              <div class="ps">深夜下载 · 情绪收藏</div>
+            </div>
+          </div>
+          <div class="stats">
+            <div class="stat"><b>8</b><span>已下载</span></div>
+            <div class="stat"><b>2</b><span>下载中</span></div>
+            <div class="stat"><b>126</b><span>收藏</span></div>
+          </div>
+          <div class="menu">
+            <div class="mrow"><div class="mi">⤓</div>下载设置<span class="arrow">›</span></div>
+            <div class="mrow"><div class="mi">♪</div>音源管理<span class="arrow">›</span></div>
+            <div class="mrow"><div class="mi">☾</div>主题外观<span class="arrow">›</span></div>
+            <div class="mrow"><div class="mi">⇄</div>备份与同步<span class="arrow">›</span></div>
+            <div class="mrow"><div class="mi">?</div>关于 EMO音乐<span class="arrow">›</span></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 03 交互规范 -->
+  <div class="section">
+    <div class="section-head"><span class="idx">03</span><h2>交互与可用性</h2><span class="muted">符合用户习惯的细节</span></div>
+    <div class="do-dont">
+      <div class="dd do">
+        <h4>DO · 这样做</h4>
+        <ul>
+          <li>长按歌曲 = 打开操作菜单，菜单第一项是「下载」</li>
+          <li>下载任务卡片点击左侧圆形按钮即可暂停 / 继续，无需进二级页</li>
+          <li>状态用颜色区分：进行中紫色、完成绿色、失败红色，并配文字说明</li>
+          <li>批量下载前弹一次音质选择，默认记住上次选择</li>
+          <li>空列表给出「怎么开始」的一句话引导，而不是只显示「暂无数据」</li>
+        </ul>
+      </div>
+      <div class="dd dont">
+        <h4>DON'T · 不要这样做</h4>
+        <ul>
+          <li>不要用纯图标按钮表达「删除」，必须有文字确认</li>
+          <li>不要在下载中弹出阻塞式弹窗打断用户</li>
+          <li>不要用红色表示「进行中」（红色只留给失败）</li>
+          <li>不要把进度百分比做成唯一反馈，需同时给出已下载/总大小</li>
+          <li>不要在深色底上使用低于 4.5:1 对比度的灰字作为正文</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- 04 落地 -->
+  <div class="section">
+    <div class="section-head"><span class="idx">04</span><h2>落地说明</h2><span class="muted">已在代码中实现</span></div>
+    <div class="card">
+      <table>
+        <tr><th>项目</th><th>实现方式</th></tr>
+        <tr><td><b>主题</b></td><td>新增暗色主题 <code>emo</code>（primary <code>rgb(168,85,247)</code>），并设为默认主题</td></tr>
+        <tr><td><b>图标</b></td><td>自适应图标前景 <code>drawable-*/ic_launcher_emo.png</code> + 背景 <code>#0B0B12</code>，兼容 API 21 的圆角/圆形 mipmap</td></tr>
+        <tr><td><b>应用名</b></td><td><code>strings.xml</code> → EMO音乐；三语言文案同步替换</td></tr>
+        <tr><td><b>下载页</b></td><td>渐变 Hero 头部 + 胶囊操作按钮 + 圆角任务卡片 + 品牌化空态</td></tr>
+        <tr><td><b>品牌位</b></td><td>侧边抽屉头部替换为 LOGO + 品牌名 + slogan</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <footer>
+    <span>EMO音乐 · 界面设计方案 v1.0</span>
+    <span>基于 lx-music-mobile 改造 · Android</span>
+  </footer>
+</div>
+</body>
+</html>

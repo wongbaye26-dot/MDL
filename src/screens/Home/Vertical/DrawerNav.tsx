@@ -1,5 +1,5 @@
 import { memo } from 'react'
-import { ScrollView, TouchableOpacity, View } from 'react-native'
+import { ScrollView, TouchableOpacity, View, Image } from 'react-native'
 import { useI18n } from '@/lang'
 import { useNavActiveId, useStatusbarHeight } from '@/store/common/hook'
 import { useTheme } from '@/store/theme/hook'
@@ -31,6 +31,20 @@ const styles = createStyle({
     textAlign: 'center',
     marginLeft: 16,
   },
+  logo: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    marginRight: 12,
+  },
+  brandName: {
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+  brandSlogan: {
+    marginTop: 2,
+    letterSpacing: 1,
+  },
   menus: {
     flex: 1,
   },
@@ -57,14 +71,19 @@ const styles = createStyle({
   },
 })
 
+const emoLogo = require('@/resources/images/emo-logo.png')
+
 const Header = () => {
   const theme = useTheme()
   const statusBarHeight = useStatusbarHeight()
   return (
-    <View style={{ paddingTop: statusBarHeight, backgroundColor: theme['c-primary-light-700-alpha-500'] }}>
+    <View style={{ paddingTop: statusBarHeight, backgroundColor: theme['c-primary-alpha-900'] }}>
       <View style={styles.header}>
-        <Icon name="logo" color={theme['c-primary-dark-100-alpha-300']} size={28} />
-        <Text style={styles.headerText} size={28} color={theme['c-primary-dark-100-alpha-300']}>LX Music</Text>
+        <Image source={emoLogo} style={styles.logo} />
+        <View>
+          <Text style={styles.brandName} size={21} color={theme['c-font']}>EMO音乐</Text>
+          <Text style={styles.brandSlogan} size={11} color={theme['c-font-label']}>深夜下载 · 情绪收藏</Text>
+        </View>
       </View>
     </View>
   )
