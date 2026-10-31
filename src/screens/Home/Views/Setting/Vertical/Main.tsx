@@ -58,7 +58,7 @@ const MenuRow = memo(({ id, onPress }: { id: SettingScreenIds, onPress: (id: Set
           {t(meta.descKey as 'setting_desc_basic')}
         </Text>
       </View>
-      <Icon name='chevron-right' size={13} color={theme['c-350']} />
+      <Icon name='chevron-right' size={16} color={theme['c-400']} />
     </TouchableOpacity>
   )
 })
@@ -134,19 +134,20 @@ const styles = createStyle({
   divider: {
     height: 0.5,
     marginLeft: 66,
+    marginRight: 14,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingLeft: 14,
-    paddingRight: 14,
-    paddingTop: 13,
-    paddingBottom: 13,
+    paddingRight: 12,
+    paddingTop: 14,
+    paddingBottom: 14,
   },
   iconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
+    width: 38,
+    height: 38,
+    borderRadius: 13,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 14,
@@ -156,7 +157,7 @@ const styles = createStyle({
     flexShrink: 1,
   },
   rowTitle: {
-    fontWeight: '500',
+    fontWeight: '600',
   },
   rowDesc: {
     marginTop: 3,

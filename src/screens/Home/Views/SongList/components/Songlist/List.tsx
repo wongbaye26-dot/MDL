@@ -10,6 +10,7 @@ import { useI18n } from '@/lang'
 import { scaleSizeW } from '@/utils/pixelRatio'
 import { createStyle } from '@/utils/tools'
 import Text from '@/components/common/Text'
+import { NAV_BAR_SPACE } from '@/config/constant'
 
 type FlatListType = FlatListProps<ListInfoItem>
 
@@ -152,6 +153,7 @@ export default forwardRef<ListType, ListProps>(({ onRefresh, onLoadMore, onOpenD
                 key={String(rowInfo.num)}
                 ref={flatListRef}
                 style={styles.list}
+                contentContainerStyle={{ paddingBottom: NAV_BAR_SPACE }}
                 columnWrapperStyle={{ justifyContent: 'space-evenly' }}
                 numColumns={rowInfo.num}
                 data={list}

@@ -119,6 +119,78 @@ const LyricLine = memo(({ text, active, ratio, size, wordByWord }: {
   )
 })
 
+/** 黑胶唱片的纹路：几圈同心细环 */
+const GROOVE_INSETS = [5, 10, 15, 20, 25, 30]
+
+/**
+ * 圆形黑胶封面。
+ *
+ * 原来的方形封面在大画幅下左右留白很难看（专辑图本身带白边时更明显），
+ * 改成黑胶唱片：圆盘 + 同心纹路 + 中间圆形封面标签，播放时匀速旋转。
+ * 高光层不跟着转，看起来才像真的塑料反光。
+ */
+const VinylCover = ({ pic, spinning }: { pic: string, spinning: boolean }) => {
+  const spin = useRef(new Animated.Value(0)).current
+
+  useEffect(() => {
+    if (!spinning) return
+    // 匀速、不重置：暂停时停在当前角度，恢复后继续转
+    const anim = Animated.loop(Animated.timing(spin, {
+      toValue: 1,
+      duration: 28000,
+      easing: Easing.linear,
+      useNativeDriver: true,
+    }))
+    anim.start()
+    return () => { anim.stop() }
+  }, [spinning, spin])
+
+  return (
+    <View style={styles.discShadow}>
+      <View style={styles.discClip}>
+        <Animated.View
+          style={{
+            ...StyleSheet.absoluteFillObject,
+            transform: [{
+              rotate: spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }),
+            }],
+          }}
+        >
+          <View style={styles.discBase} />
+          {
+            GROOVE_INSETS.map(inset => (
+              <View
+                key={inset}
+                pointerEvents='none'
+                style={{
+                  position: 'absolute',
+                  top: `${inset}%`,
+                  left: `${inset}%`,
+                  right: `${inset}%`,
+                  bottom: `${inset}%`,
+                  borderRadius: 999,
+                  borderWidth: 0.8,
+                  borderColor: inset % 10 === 0 ? 'rgba(255,255,255,0.075)' : 'rgba(255,255,255,0.035)',
+                }}
+              />
+            ))
+          }
+          <View style={styles.labelWrap}>
+            <View style={styles.labelClip}>
+              <RNImage source={{ uri: pic }} style={styles.labelImg} resizeMode='cover' />
+            </View>
+            <View style={styles.spindle} />
+          </View>
+        </Animated.View>
+
+        {/* 固定高光：不随唱片旋转 */}
+        <View pointerEvents='none' style={styles.sheenOuter} />
+        <View pointerEvents='none' style={styles.sheenInner} />
+      </View>
+    </View>
+  )
+}
+
 export default () => {
   const theme = useTheme()
   const statusBarHeight = useStatusbarHeight()
@@ -484,10 +556,8 @@ export default () => {
                 {
                   pic
                     ? (
-                      <Animated.View style={{ ...styles.coverShadow, opacity: coverAnim, transform: [{ scale: coverAnim.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1] }) }] }}>
-                        <View style={styles.coverCard}>
-                          <RNImage source={{ uri: pic }} style={styles.coverImg} resizeMode='cover' />
-                        </View>
+                      <Animated.View style={{ opacity: coverAnim, transform: [{ scale: coverAnim.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1] }) }] }}>
+                        <VinylCover pic={pic} spinning={isPlay} />
                       </Animated.View>
                       )
                     : (
@@ -709,27 +779,72 @@ const styles = createStyle({
     flex: 1,
     backgroundColor: '#0B0810',
   },
-  coverShadow: {
-    width: '86%',
+  discShadow: {
+    width: '76%',
     aspectRatio: 1,
-    borderRadius: 26,
-    elevation: 22,
+    borderRadius: 999,
+    elevation: 26,
     shadowColor: '#000000',
-    shadowOpacity: 0.42,
-    shadowRadius: 28,
-    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.5,
+    shadowRadius: 30,
+    shadowOffset: { width: 0, height: 18 },
   },
-  coverCard: {
+  discClip: {
     flex: 1,
-    borderRadius: 26,
+    borderRadius: 999,
     overflow: 'hidden',
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: '#0C0B0F',
     borderWidth: 0.5,
-    borderColor: 'rgba(255,255,255,0.18)',
+    borderColor: 'rgba(255,255,255,0.10)',
   },
-  coverImg: {
+  discBase: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#111015',
+  },
+  labelWrap: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  labelClip: {
+    width: '44%',
+    aspectRatio: 1,
+    borderRadius: 999,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
+    backgroundColor: '#1A1820',
+  },
+  labelImg: {
     width: '100%',
     height: '100%',
+  },
+  spindle: {
+    position: 'absolute',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(10,9,12,0.92)',
+    borderWidth: 0.5,
+    borderColor: 'rgba(255,255,255,0.22)',
+  },
+  sheenOuter: {
+    position: 'absolute',
+    top: '-30%',
+    left: '-10%',
+    width: '70%',
+    height: '160%',
+    backgroundColor: 'rgba(255,255,255,0.045)',
+    transform: [{ rotate: '24deg' }],
+  },
+  sheenInner: {
+    position: 'absolute',
+    top: '-30%',
+    left: '46%',
+    width: '26%',
+    height: '160%',
+    backgroundColor: 'rgba(255,255,255,0.028)',
+    transform: [{ rotate: '24deg' }],
   },
   topGradient: {
     position: 'absolute',
@@ -772,6 +887,8 @@ const styles = createStyle({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingLeft: 0,
+    paddingRight: 0,
   },
   coverPlaceholder: {
     width: 180,
@@ -846,8 +963,8 @@ const styles = createStyle({
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingLeft: 24,
-    paddingRight: 10,
+    paddingLeft: 26,
+    paddingRight: 8,
     paddingTop: 12,
     paddingBottom: 4,
   },

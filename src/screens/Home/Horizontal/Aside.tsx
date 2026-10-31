@@ -11,7 +11,7 @@ import { exitApp, setNavActiveId } from '@/core/common'
 import { BorderWidths } from '@/theme'
 import { useSettingValue } from '@/store/setting/hook'
 
-const NAV_WIDTH = 68
+const NAV_WIDTH = 74
 
 const styles = createStyle({
   container: {
@@ -25,9 +25,16 @@ const styles = createStyle({
     width: NAV_WIDTH,
   },
   header: {
-    paddingTop: 15,
-    paddingBottom: 15,
+    paddingTop: 14,
+    paddingBottom: 10,
     flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  logoWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 13,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -39,23 +46,21 @@ const styles = createStyle({
     flex: 1,
   },
   list: {
-    // paddingTop: 10,
+    paddingTop: 4,
     paddingBottom: 15,
+    alignItems: 'center',
   },
   menuItem: {
-    flexDirection: 'row',
-    paddingTop: 15,
-    paddingBottom: 15,
-    // paddingLeft: 25,
-    // paddingRight: 25,
+    width: 44,
+    height: 44,
+    marginBottom: 8,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    // backgroundColor: 'rgba(0, 0, 0, 0.2)',
   },
   iconContent: {
-    // width: 24,
-    // backgroundColor: 'rgba(0, 0, 0, 0.2)',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   text: {
     paddingLeft: 15,
@@ -69,8 +74,9 @@ const Header = () => {
   return (
     <View style={{ paddingTop: statusBarHeight }}>
       <View style={styles.header}>
-        <Icon name="logo" color={theme['c-primary-dark-100-alpha-300']} size={22} />
-        {/* <Text style={styles.headerText} size={16} color={theme['c-primary-dark-100-alpha-300']}>LX Music</Text> */}
+        <View style={{ ...styles.logoWrap, backgroundColor: theme['c-primary-alpha-900'] }}>
+          <Icon name="logo" color={theme['c-primary-font']} size={22} />
+        </View>
       </View>
     </View>
   )
@@ -88,17 +94,19 @@ const MenuItem = ({ id, icon, onPress }: {
   const theme = useTheme()
 
   return activeId == id
-    ? <View style={styles.menuItem}>
+    ? <View style={{ ...styles.menuItem, backgroundColor: theme['c-primary'] }}>
         <View style={styles.iconContent}>
-          <Icon name={icon} size={20} color={theme['c-primary-font-active']} />
+          <Icon name={icon} size={21} color='#FFFFFF' />
         </View>
-        {/* <Text style={styles.text} size={14} color={theme['c-primary-font']}>{t(id)}</Text> */}
       </View>
-    : <TouchableOpacity style={styles.menuItem} onPress={() => { onPress(id) }}>
+    : <TouchableOpacity
+        style={styles.menuItem}
+        activeOpacity={0.65}
+        onPress={() => { onPress(id) }}
+      >
         <View style={styles.iconContent}>
-          <Icon name={icon} size={20} color={theme['c-font-label']} />
+          <Icon name={icon} size={21} color={theme['c-font-label']} />
         </View>
-        {/* <Text style={styles.text} size={14}>{t(id)}</Text> */}
       </TouchableOpacity>
 }
 
@@ -136,12 +144,14 @@ export default memo(() => {
           {NAV_MENUS.map(menu => <MenuItem key={menu.id} id={menu.id} icon={menu.icon} onPress={handlePress} />)}
         </View>
       </ScrollView>
-      {
-        showBackBtn ? <MenuItem id="back_home" icon="home" onPress={handlePress} /> : null
-      }
-      {
-        showExitBtn ? <MenuItem id="nav_exit" icon="exit2" onPress={handlePress} /> : null
-      }
+      <View style={styles.list}>
+        {
+          showBackBtn ? <MenuItem id="back_home" icon="home" onPress={handlePress} /> : null
+        }
+        {
+          showExitBtn ? <MenuItem id="nav_exit" icon="exit2" onPress={handlePress} /> : null
+        }
+      </View>
     </View>
   )
 })

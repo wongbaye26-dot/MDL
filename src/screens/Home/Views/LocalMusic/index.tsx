@@ -15,7 +15,7 @@ import { overwriteListMusics } from '@/core/list'
 import listAction from '@/store/list/action'
 import { playList } from '@/core/player/player'
 import { addTempPlayList } from '@/core/player/tempPlayList'
-import { LIST_IDS } from '@/config/constant'
+import { LIST_IDS, NAV_BAR_SPACE } from '@/config/constant'
 import { useWindowSize } from '@/utils/hooks'
 
 const LOCAL_LIST_ID = 'local_music'
@@ -480,8 +480,8 @@ const styles = createStyle({
   },
   listContent: {
     paddingTop: 10,
-    // 底部空间由外层 PageModal 统一留出，这里不再重复加
-    paddingBottom: 24,
+    // 悬浮导航会盖在列表上，内容滚动到底时要能露出最后一项
+    paddingBottom: NAV_BAR_SPACE,
   },
   row: {
     flexDirection: 'row',

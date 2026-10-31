@@ -85,6 +85,11 @@ export default memo(({ isHome = false }: { isHome?: boolean }) => {
 
 const styles = createStyle({
   wrap: {
+    // 悬浮在内容之上：只有卡片本身有实体，四周全透明，列表从底下穿过去
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
     paddingLeft: 10,
     paddingRight: 10,
     paddingTop: 6,

@@ -1,5 +1,5 @@
 import { useImperativeHandle, forwardRef, useMemo, useRef } from 'react'
-import { View, TouchableHighlight } from 'react-native'
+import { View, TouchableOpacity } from 'react-native'
 
 import Modal, { type ModalType } from './Modal'
 import { Icon } from '@/components/common/Icon'
@@ -7,9 +7,8 @@ import { useKeyboard } from '@/utils/hooks'
 import { createStyle } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
 import Text from './Text'
-import { scaleSizeH } from '@/utils/pixelRatio'
 
-const HEADER_HEIGHT = 20
+const HEADER_HEIGHT = 46
 const styles = createStyle({
   centeredView: {
     flex: 1,
@@ -18,39 +17,34 @@ const styles = createStyle({
   },
   modalView: {
     maxWidth: '90%',
-    minWidth: '60%',
+    minWidth: '62%',
     maxHeight: '78%',
-    // backgroundColor: 'white',
-    borderRadius: 4,
-    // shadowColor: '#000',
-    // shadowOffset: {
-    //   width: 0,
-    //   height: 2,
-    // },
-    // shadowOpacity: 0.25,
-    // shadowRadius: 4,
-    elevation: 3,
+    borderRadius: 20,
+    elevation: 12,
+    shadowColor: '#000000',
+    shadowOpacity: 0.24,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 10 },
+    overflow: 'hidden',
   },
   header: {
     flexGrow: 0,
     flexShrink: 0,
     flexDirection: 'row',
-    borderTopLeftRadius: 4,
-    borderTopRightRadius: 4,
+    alignItems: 'center',
     height: HEADER_HEIGHT,
+    paddingLeft: 18,
+    paddingRight: 8,
   },
   title: {
-    paddingLeft: 5,
-    paddingRight: 25,
-    lineHeight: HEADER_HEIGHT,
+    flexGrow: 1,
+    flexShrink: 1,
+    fontWeight: '700',
   },
   closeBtn: {
-    position: 'absolute',
-    right: 0,
-    borderTopRightRadius: 4,
-    flexGrow: 0,
-    flexShrink: 0,
-    height: HEADER_HEIGHT,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -89,22 +83,36 @@ export default forwardRef<DialogType, DialogProps>(({
     },
   }))
 
-  const closeBtnComponent = useMemo(() => {
-    return closeBtn
-      ? <TouchableHighlight style={{ ...styles.closeBtn, width: scaleSizeH(HEADER_HEIGHT) }} underlayColor={theme['c-primary-dark-200-alpha-600']} onPress={() => modalRef.current?.setVisible(false)}>
-          <Icon name="close" color={theme['c-primary-dark-500-alpha-500']} size={10} />
-        </TouchableHighlight>
-      : null
-  }, [closeBtn, theme])
+  // 原来是 primary 色块标题条（整条背景色 + 10px 小叉），非常突兀；
+  // 改成透明头部 + 圆形关闭按钮，所有用 Dialog 的弹层一起变干净
+  const headerComponent = useMemo(() => {
+    if (!title && !closeBtn) return null
+    return (
+      <View style={styles.header}>
+        <Text style={styles.title} size={15} color={theme['c-font']} numberOfLines={1}>{title}</Text>
+        {
+          closeBtn
+            ? (
+              <TouchableOpacity
+                style={{ ...styles.closeBtn, backgroundColor: theme['c-primary-alpha-900'] }}
+                activeOpacity={0.7}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                onPress={() => modalRef.current?.setVisible(false)}
+              >
+                <Icon name="close" color={theme['c-500']} size={16} />
+              </TouchableOpacity>
+              )
+            : null
+        }
+      </View>
+    )
+  }, [closeBtn, theme, title])
 
   return (
     <Modal onHide={onHide} keyHide={keyHide} bgHide={bgHide} bgColor="rgba(50,50,50,.3)" ref={modalRef}>
       <View style={{ ...styles.centeredView, paddingBottom: keyboardShown ? keyboardHeight : 0 }}>
         <View style={{ ...styles.modalView, height, backgroundColor: theme['c-content-background'] }} onStartShouldSetResponder={() => true}>
-          <View style={{ ...styles.header, backgroundColor: theme['c-primary-light-100-alpha-100'] }}>
-            <Text style={styles.title} size={13} color={theme['c-primary-light-1000']} numberOfLines={1}>{title}</Text>
-            {closeBtnComponent}
-          </View>
+          {headerComponent}
           {children}
         </View>
       </View>

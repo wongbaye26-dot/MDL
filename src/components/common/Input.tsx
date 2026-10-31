@@ -35,11 +35,17 @@ const styles = createStyle({
     flexShrink: 0,
   },
   clearBtn: {
-    height: '70%',
-    paddingLeft: 5,
-    paddingRight: 5,
+    width: 30,
+    height: '100%',
     justifyContent: 'center',
-    // backgroundColor: 'rgba(0,0,0,0.2)',
+    alignItems: 'center',
+  },
+  clearDot: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 })
 
@@ -123,8 +129,14 @@ export default forwardRef<InputType, InputProps>(({ onChangeText, onClearText, c
       <Animated.View style={{ ...styles.clearBtnContent, transform: [{ scale: scaleClearBtn }] }}> */}
         {clearBtn
           ? <View style={styles.clearBtnContent}>
-              <TouchableOpacity style={styles.clearBtn} onPress={clearText}>
-                <Icon name="remove" color={theme['c-primary-dark-100-alpha-500']} size={11} />
+              <TouchableOpacity
+                style={styles.clearBtn}
+                onPress={clearText}
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              >
+                <View style={{ ...styles.clearDot, backgroundColor: theme['c-primary-dark-100-alpha-500'] }}>
+                  <Icon name="close" color="#FFFFFF" size={12} />
+                </View>
               </TouchableOpacity>
             </View>
           : null

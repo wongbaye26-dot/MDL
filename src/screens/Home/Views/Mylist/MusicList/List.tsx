@@ -9,6 +9,7 @@ import { getListPosition, getListPrevSelectId, saveListPosition } from '@/utils/
 import { getListMusics, setActiveList } from '@/core/list'
 import ListItem, { ITEM_HEIGHT } from './ListItem'
 import { createStyle, getRowInfo } from '@/utils/tools'
+import { NAV_BAR_SPACE } from '@/config/constant'
 import { usePlayInfo, usePlayMusicInfo } from '@/store/player/hook'
 import type { Position } from './ListMenu'
 import type { SelectMode } from './MultipleModeBar'
@@ -273,6 +274,7 @@ const List = forwardRef<ListType, ListProps>(({ onShowMenu, onMuiltSelectMode, o
       ref={flatListRef}
       onScroll={handleScroll}
       style={styles.list}
+      contentContainerStyle={{ paddingBottom: NAV_BAR_SPACE }}
       data={currentList}
       maxToRenderPerBatch={4}
       numColumns={rowInfo.current.rowNum}

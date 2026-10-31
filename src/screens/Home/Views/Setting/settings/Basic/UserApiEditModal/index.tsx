@@ -5,7 +5,6 @@ import { createStyle, openUrl } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
 import Dialog, { type DialogType } from '@/components/common/Dialog'
-import Button from '@/components/common/Button'
 import List from './List'
 import ImportBtn from './ImportBtn'
 
@@ -120,10 +119,14 @@ export default forwardRef<UserApiEditModalType, {}>((props, ref) => {
               </View>
             </View>
             <View style={styles.btns}>
-              <Button style={{ ...styles.btn, backgroundColor: theme['c-button-background'] }} onPress={handleCancel}>
-                <Text size={14} color={theme['c-button-font']}>{t('close')}</Text>
-              </Button>
-              <ImportBtn btnStyle={{ ...styles.btn, backgroundColor: theme['c-button-background'] }} />
+              <TouchableOpacity
+                style={{ ...styles.btn, borderWidth: 1, borderColor: theme['c-primary-alpha-600'] }}
+                activeOpacity={0.8}
+                onPress={handleCancel}
+              >
+                <Text size={14} color={theme['c-font']} style={styles.btnText}>{t('close')}</Text>
+              </TouchableOpacity>
+              <ImportBtn btnStyle={{ ...styles.btn, backgroundColor: theme['c-primary'] }} />
             </View>
           </Dialog>
         ) : null
@@ -160,16 +163,20 @@ const styles = createStyle({
   btns: {
     flexDirection: 'row',
     justifyContent: 'center',
-    paddingBottom: 15,
-    paddingLeft: 15,
-    // paddingRight: 15,
+    paddingBottom: 18,
+    paddingLeft: 18,
+    paddingRight: 18,
   },
   btn: {
     flex: 1,
-    padding: 10,
+    height: 44,
     alignItems: 'center',
-    borderRadius: 4,
-    marginRight: 15,
+    justifyContent: 'center',
+    borderRadius: 22,
+    marginRight: 12,
+  },
+  btnText: {
+    fontWeight: '600',
   },
 })
 
