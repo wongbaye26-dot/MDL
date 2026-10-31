@@ -44,9 +44,11 @@ export default () => {
     setModal(key)
   }, [])
 
-  const recent = downloadList
-    .filter(task => task.isComplate)
-    .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0))
+  const recent = [...downloadList]
+    .sort((a, b) => {
+      if (a.isComplate !== b.isComplate) return a.isComplate ? 1 : -1
+      return (b.createdAt ?? 0) - (a.createdAt ?? 0)
+    })
     .slice(0, 4)
 
   const sourceReady = userApiStatus.status
@@ -115,13 +117,15 @@ export default () => {
                   activeOpacity={0.7}
                   onPress={() => { setNavActiveId('nav_download') }}
                 >
-                  <View style={{ ...styles.recentIcon, backgroundColor: 'rgba(52, 211, 153, 0.14)' }}>
-                    <Icon name='checkbox-marked' size={14} color='#34D399' />
+                  <View style={{ ...styles.recentIcon, backgroundColor: task.isComplate ? 'rgba(52, 211, 153, 0.14)' : theme['c-primary-alpha-800'] }}>
+                    <Icon name={task.isComplate ? 'checkbox-marked' : 'download-2'} size={14} color={task.isComplate ? '#34D399' : theme['c-primary-light-200']} />
                   </View>
                   <View style={styles.recentInfo}>
                     <Text size={13} numberOfLines={1}>{task.metadata.musicInfo.name}</Text>
                     <Text size={10} color={theme['c-450']} numberOfLines={1} style={styles.recentDesc}>
-                      {`${task.metadata.musicInfo.singer} · ${task.metadata.ext.toUpperCase()} · ${formatSize(task.total)}`}
+                      {task.isComplate
+                        ? `${task.metadata.musicInfo.singer} · ${task.metadata.ext.toUpperCase()} · ${formatSize(task.total)}`
+                        : `${task.metadata.musicInfo.singer} · ${task.status === 'run' ? `下载中 ${task.progress.toFixed(0)}%` : task.status === 'error' ? '下载失败' : '等待下载'}`}
                     </Text>
                   </View>
                 </TouchableOpacity>
