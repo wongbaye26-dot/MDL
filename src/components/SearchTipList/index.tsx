@@ -109,7 +109,11 @@ const Component = <T extends ItemT<T>>({ onPressBg = noop, ...props }: SearchTip
           { scaleY },
         ],
       }}>
-      <View style={{ ...styles.container, backgroundColor: theme['c-content-background'] }}>
+      <View style={{
+        ...styles.container,
+        backgroundColor: theme['c-content-background'],
+        borderColor: theme['c-primary-alpha-700'],
+      }}>
         <List ref={listRef} {...props} />
       </View>
       <View style={styles.blank} onTouchStart={onPressBg}></View>
@@ -133,10 +137,14 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 0,
-    // flexGrow: 0,
-    // borderBottomWidth: BorderWidths.normal,
-    elevation: 2,
-    maxHeight: '80%',
+    elevation: 8,
+    maxHeight: '72%',
+    borderBottomLeftRadius: 18,
+    borderBottomRightRadius: 18,
+    borderBottomWidth: 0.5,
+    borderLeftWidth: 0.5,
+    borderRightWidth: 0.5,
+    overflow: 'hidden',
   },
   blank: {
     flex: 1,

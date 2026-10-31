@@ -1,26 +1,56 @@
-import { memo } from 'react'
+import { memo, useMemo } from 'react'
 import { View, TouchableOpacity } from 'react-native'
 
 import { Icon } from '@/components/common/Icon'
 import Image from '@/components/common/Image'
 import { useTheme } from '@/store/theme/hook'
 import { useNavActiveId } from '@/store/common/hook'
-import { usePlayerMusicInfo } from '@/store/player/hook'
+import { usePlayerMusicInfo, useProgress } from '@/store/player/hook'
 import { NAV_MENUS } from '@/config/constant'
 import { setNavActiveId } from '@/core/common'
 import { createStyle } from '@/utils/tools'
 
 const MENU_ICONS: Record<string, string> = {
-  nav_home: 'home',
+  nav_home: 'home-variant',
   nav_download: 'download-2',
   nav_mine: 'account',
   nav_player: 'play',
+}
+
+/** 专辑封面外的分段进度环 */
+const SEGMENTS = 44
+const ProgressRing = ({ progress, children }: { progress: number, children: React.ReactNode }) => {
+  const ratio = Math.max(0, Math.min(1, progress / 100))
+  const items = useMemo(() => Array.from({ length: SEGMENTS }, (_, i) => {
+    const angle = (360 / SEGMENTS) * i
+    const active = i / SEGMENTS < ratio
+    return { key: i, angle, active }
+  }), [ratio])
+
+  return (
+    <View style={styles.ringWrap}>
+      {
+        items.map(item => (
+          <View
+            key={item.key}
+            style={{
+              ...styles.tick,
+              backgroundColor: item.active ? '#B478FF' : 'rgba(255,255,255,0.22)',
+              transform: [{ rotate: `${item.angle}deg` }, { translateY: -22 }],
+            }}
+          />
+        ))
+      }
+      {children}
+    </View>
+  )
 }
 
 export default memo(() => {
   const theme = useTheme()
   const activeId = useNavActiveId()
   const musicInfo = usePlayerMusicInfo()
+  const { progress } = useProgress()
   const isDark = theme.isDark
 
   const openPlayer = () => {
@@ -31,51 +61,44 @@ export default memo(() => {
     <View style={styles.wrap} pointerEvents='box-none'>
       <View style={{
         ...styles.bar,
-        backgroundColor: isDark ? 'rgba(26,20,36,0.62)' : 'rgba(255,255,255,0.66)',
-        borderColor: isDark ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.85)',
+        backgroundColor: isDark ? 'rgba(28,22,38,0.66)' : 'rgba(255,255,255,0.68)',
+        borderColor: isDark ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.9)',
         shadowColor: isDark ? '#000000' : '#7C6E92',
       }}>
         <View
-          style={{
-            ...styles.specular,
-            backgroundColor: isDark ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.9)',
-          }}
+          style={{ ...styles.specular, backgroundColor: isDark ? 'rgba(255,255,255,0.24)' : 'rgba(255,255,255,0.95)' }}
           pointerEvents='none'
         />
         <View
-          style={{
-            ...styles.glow,
-            backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.45)',
-          }}
+          style={{ ...styles.glow, backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.5)' }}
           pointerEvents='none'
         />
         {
           NAV_MENUS.map(menu => {
             const isActive = activeId === menu.id
-            const color = isActive ? '#FFFFFF' : (isDark ? 'rgba(255,255,255,0.72)' : 'rgba(30,24,40,0.62)')
+            const iconColor = isActive ? '#FFFFFF' : (isDark ? 'rgba(255,255,255,0.7)' : 'rgba(30,24,40,0.6)')
 
             if (menu.id === 'nav_player') {
               return (
                 <TouchableOpacity key={menu.id} style={styles.item} activeOpacity={0.8} onPress={openPlayer}>
-                  <View style={{
-                    ...styles.albumRing,
-                    borderColor: isActive ? theme['c-primary'] : (isDark ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.95)'),
-                  }}>
-                    {
-                      musicInfo.pic
-                        ? <Image url={musicInfo.pic} style={styles.album} />
-                        : (
-                          <View style={{ ...styles.album, backgroundColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(30,24,40,0.10)' }}>
-                            <Icon name='music_time' size={15} color={color} />
-                          </View>
+                  <ProgressRing progress={isActive ? progress : progress}>
+                    <View style={styles.albumInner}>
+                      {
+                        musicInfo.pic
+                          ? <Image url={musicInfo.pic} style={styles.album} />
+                          : (
+                            <View style={{ ...styles.album, backgroundColor: 'rgba(255,255,255,0.14)' }}>
+                              <Icon name='music_time' size={14} color='rgba(255,255,255,0.8)' />
+                            </View>
                           )
-                    }
-                  </View>
+                      }
+                    </View>
+                  </ProgressRing>
                 </TouchableOpacity>
               )
             }
 
-            const isSquare = menu.id === 'nav_download'
+            const isSquare = menu.id !== 'nav_mine'
             return (
               <TouchableOpacity
                 key={menu.id}
@@ -87,12 +110,12 @@ export default memo(() => {
                   ...(isSquare ? styles.square : styles.circle),
                   backgroundColor: isActive
                     ? theme['c-primary']
-                    : (isSquare
-                        ? (isDark ? 'rgba(255,255,255,0.10)' : 'rgba(30,24,40,0.06)')
-                        : 'rgba(0,0,0,0)'),
-                  borderColor: isActive ? theme['c-primary'] : (isSquare ? 'rgba(0,0,0,0)' : (isDark ? 'rgba(255,255,255,0.22)' : 'rgba(30,24,40,0.16)')),
+                    : (isSquare ? (isDark ? 'rgba(255,255,255,0.09)' : 'rgba(30,24,40,0.05)') : 'rgba(0,0,0,0)'),
+                  borderColor: isActive
+                    ? theme['c-primary']
+                    : (isSquare ? 'rgba(255,255,255,0.10)' : (isDark ? 'rgba(255,255,255,0.24)' : 'rgba(30,24,40,0.16)')),
                 }}>
-                  <Icon name={MENU_ICONS[menu.id] ?? menu.icon} size={isSquare ? 18 : 17} color={color} />
+                  <Icon name={MENU_ICONS[menu.id] ?? menu.icon} size={isSquare ? 19 : 18} color={iconColor} />
                 </View>
               </TouchableOpacity>
             )
@@ -112,12 +135,12 @@ const styles = createStyle({
   bar: {
     flexDirection: 'row',
     alignItems: 'center',
-    width: '64%',
+    width: '88%',
     height: 64,
     borderRadius: 32,
     borderWidth: 0.5,
-    paddingLeft: 4,
-    paddingRight: 4,
+    paddingLeft: 6,
+    paddingRight: 6,
     elevation: 18,
     shadowOpacity: 0.35,
     shadowRadius: 18,
@@ -127,8 +150,8 @@ const styles = createStyle({
   specular: {
     position: 'absolute',
     top: 0,
-    left: 24,
-    right: 24,
+    left: 28,
+    right: 28,
     height: 1,
     borderRadius: 1,
   },
@@ -147,34 +170,45 @@ const styles = createStyle({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  circle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   square: {
-    width: 40,
-    height: 40,
+    width: 42,
+    height: 42,
     borderRadius: 14,
     borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  albumRing: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 2,
+  circle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1.2,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  ringWrap: {
+    width: 52,
+    height: 52,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tick: {
+    position: 'absolute',
+    width: 2,
+    height: 4,
+    borderRadius: 1,
+  },
+  albumInner: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     justifyContent: 'center',
     alignItems: 'center',
   },
   album: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     justifyContent: 'center',
     alignItems: 'center',
   },

@@ -7,6 +7,8 @@ declare global {
       interface MusicInfoMeta_local {
         /** 文件大小（字节），扫描时写入 */
         size?: number
+        /** 码率，扫描时写入，如 918 kbps */
+        bitrate?: string
       }
     }
   }

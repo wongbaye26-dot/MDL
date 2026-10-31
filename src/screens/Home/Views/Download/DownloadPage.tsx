@@ -1,18 +1,27 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { View, FlatList, Image } from 'react-native'
 import Text from '@/components/common/Text'
+import Chip from '@/components/common/Chip'
 import { useTheme } from '@/store/theme/hook'
 import { createStyle, toast } from '@/utils/tools'
 import { useDownloadList, useDownloadStats } from '@/store/download'
 import { useNavActiveId } from '@/store/common/hook'
 import { clearCompleted, pauseAll, pauseTask, removeTask, retryTask, startAll, startTask } from '@/core/download'
+import { getLocalMusicList } from '@/core/localMusic'
+import { overwriteListMusics } from '@/core/list'
+import listAction from '@/store/list/action'
+import { playList } from '@/core/player/player'
+import { LIST_IDS } from '@/config/constant'
 import Toolbar from './Toolbar'
 import TaskItem from './TaskItem'
 import TaskMenu, { type TaskMenuType, type TaskMenuAction } from './TaskMenu'
 import PageModal from '../../Vertical/PageModal'
 import LocalMusic from '../LocalMusic'
 
+// eslint-disable-next-line @typescript-eslint/no-var-requires
 const emoLogo = require('@/resources/images/emo-logo.png')
+
+type Filter = 'all' | 'running' | 'done'
 
 export default () => {
   const theme = useTheme()
@@ -21,6 +30,11 @@ export default () => {
   const navActiveId = useNavActiveId()
   const menuRef = useRef<TaskMenuType>(null)
   const [localVisible, setLocalVisible] = useState(false)
+  const [filter, setFilter] = useState<Filter>('all')
+
+  const runningList = useMemo(() => list.filter(task => !task.isComplate), [list])
+  const doneList = useMemo(() => list.filter(task => task.isComplate), [list])
+  const shownList = filter === 'running' ? runningList : filter === 'done' ? doneList : list
 
   const handleShowMenu = useCallback((task: LX.Download.ListItem, position: { x: number, y: number, w: number, h: number }) => {
     menuRef.current?.show(task, position)
@@ -32,6 +46,25 @@ export default () => {
     else if (task.status === 'error') void retryTask(task.id)
     else void startTask(task.id)
   }, [])
+
+  const handleOpen = useCallback((task: LX.Download.ListItem) => {
+    if (!task.isComplate) {
+      handleToggle(task)
+      return
+    }
+    void getLocalMusicList().then(localList => {
+      const index = localList.findIndex(item => item.meta.filePath === task.metadata.filePath)
+      if (index < 0) {
+        toast('本地列表里还没有这首歌，试试在本地音乐里重新扫描')
+        setLocalVisible(true)
+        return
+      }
+      void overwriteListMusics(LIST_IDS.TEMP, localList).then(() => {
+        listAction.setTempListMeta({ id: 'local_music' })
+        void playList(LIST_IDS.TEMP, index)
+      })
+    })
+  }, [handleToggle])
 
   const handleMenuAction = useCallback((action: TaskMenuAction, task: LX.Download.ListItem) => {
     switch (action) {
@@ -70,8 +103,8 @@ export default () => {
   }, [])
 
   const renderItem = useCallback(({ item }: { item: LX.Download.ListItem }) => (
-    <TaskItem task={item} onShowMenu={handleShowMenu} onToggle={handleToggle} />
-  ), [handleShowMenu, handleToggle])
+    <TaskItem task={item} onShowMenu={handleShowMenu} onToggle={handleToggle} onOpen={handleOpen} />
+  ), [handleShowMenu, handleToggle, handleOpen])
 
   const keyExtractor = useCallback((item: LX.Download.ListItem) => item.id, [])
 
@@ -84,11 +117,18 @@ export default () => {
         onClearCompleted={handleClearCompleted}
         onOpenLocal={() => { setLocalVisible(true) }}
       />
+
+      <View style={styles.filterRow}>
+        <Chip soft label={`全部 ${stats.total}`} active={filter === 'all'} onPress={() => { setFilter('all') }} />
+        <Chip soft label={`下载中 ${stats.running}`} active={filter === 'running'} onPress={() => { setFilter('running') }} />
+        <Chip soft label={`已完成 ${stats.completed}`} active={filter === 'done'} onPress={() => { setFilter('done') }} />
+      </View>
+
       {
-        list.length
+        shownList.length
           ? (
               <FlatList
-                data={list}
+                data={shownList}
                 renderItem={renderItem}
                 keyExtractor={keyExtractor}
                 maxToRenderPerBatch={12}
@@ -100,7 +140,9 @@ export default () => {
           : (
               <View style={styles.empty}>
                 <Image source={emoLogo} style={styles.emptyLogo} />
-                <Text color={theme['c-font']} size={15} style={styles.emptyTitle}>还没有下载任务</Text>
+                <Text color={theme['c-font']} size={15} style={styles.emptyTitle}>
+                  {filter === 'running' ? '没有正在下载的任务' : filter === 'done' ? '还没有已完成的下载' : '还没有下载任务'}
+                </Text>
                 <Text color={theme['c-450']} size={12} style={styles.emptyTip}>
                   在搜索、歌单、排行榜或我的列表里长按歌曲，选择「下载」，就能在这里排队下载
                 </Text>
@@ -121,8 +163,16 @@ const styles = createStyle({
   container: {
     flex: 1,
   },
+  filterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingLeft: 16,
+    paddingRight: 16,
+    paddingTop: 10,
+    paddingBottom: 4,
+  },
   listContent: {
-    paddingTop: 8,
+    paddingTop: 6,
     paddingBottom: 24,
   },
   empty: {

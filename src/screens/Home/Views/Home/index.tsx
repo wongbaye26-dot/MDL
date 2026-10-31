@@ -22,6 +22,8 @@ import PageModal from '../../Vertical/PageModal'
 import SongList from '../SongList'
 import Leaderboard from '../Leaderboard'
 import Mylist from '../Mylist'
+import LocalMusic from '../LocalMusic'
+import { useBackHandler } from '@/utils/hooks/useBackHandler'
 import UserApiEditModal, { type UserApiEditModalType } from '../Setting/settings/Basic/UserApiEditModal'
 import BigCard from './BigCard'
 
@@ -87,6 +89,7 @@ export default () => {
   const downloadList = useDownloadList()
   const [searchVisible, setSearchVisible] = useState(false)
   const [modal, setModal] = useState<ModalType>(null)
+  const [localVisible, setLocalVisible] = useState(false)
   const [recommend, setRecommend] = useState<ListInfoItem[]>([])
   const [playedList, setPlayedList] = useState<LX.Player.PlayMusicInfo[]>([])
   const downloadModalRef = useRef<DownloadQualityModalType>(null)
@@ -119,7 +122,7 @@ export default () => {
   const handleCard = useCallback((key: CardKey) => {
     switch (key) {
       case 'download':
-        setNavActiveId('nav_download')
+        setLocalVisible(true)
         break
       case 'source':
         userApiModalRef.current?.show()
@@ -128,6 +131,22 @@ export default () => {
         setModal(key)
     }
   }, [])
+
+  useBackHandler(useCallback(() => {
+    if (localVisible) {
+      setLocalVisible(false)
+      return true
+    }
+    if (searchVisible) {
+      setSearchVisible(false)
+      return true
+    }
+    if (modal) {
+      setModal(null)
+      return true
+    }
+    return false
+  }, [localVisible, searchVisible, modal]))
 
   const handleMenu = useCallback((musicInfo: LX.Music.MusicInfo, action: string) => {
     const info = musicInfo as LX.Music.MusicInfoOnline
@@ -284,6 +303,11 @@ export default () => {
             : modal === 'mylist'
               ? <PageModal title='我的列表' onClose={() => { setModal(null) }}><Mylist /></PageModal>
               : null
+      }
+      {
+        localVisible
+          ? <PageModal title='本地音乐' onClose={() => { setLocalVisible(false) }}><LocalMusic /></PageModal>
+          : null
       }
       <DownloadQualityModal ref={downloadModalRef} />
       <UserApiEditModal ref={userApiModalRef} />

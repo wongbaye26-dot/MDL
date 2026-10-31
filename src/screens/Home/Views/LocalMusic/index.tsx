@@ -2,12 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { FlatList, TouchableOpacity, View } from 'react-native'
 
 import Text from '@/components/common/Text'
+import Image from '@/components/common/Image'
 import { Icon } from '@/components/common/Icon'
 import DorpDownMenu from '@/components/common/DorpDownMenu'
 import { useTheme } from '@/store/theme/hook'
 import { createStyle, toast } from '@/utils/tools'
 import { formatSize } from '@/core/download/utils'
 import { getLocalMusicList, scanLocalMusic, getTotalSize } from '@/core/localMusic'
+import { readPic } from '@/utils/localMediaMetadata'
 import { overwriteListMusics } from '@/core/list'
 import listAction from '@/store/list/action'
 import { playList } from '@/core/player/player'
@@ -15,6 +17,46 @@ import { addTempPlayList } from '@/core/player/tempPlayList'
 import { LIST_IDS } from '@/config/constant'
 
 const LOCAL_LIST_ID = 'local_music'
+
+/** 封面提取有开销，做一层串行队列 + 内存缓存 */
+const picCache = new Map<string, string>()
+let picQueue: Promise<unknown> = Promise.resolve()
+const loadPic = async(filePath: string): Promise<string> => {
+  const cached = picCache.get(filePath)
+  if (cached) return cached
+  picQueue = picQueue.then(async() => {
+    return await readPic(filePath).catch(() => '')
+  }).then(pic => {
+    if (pic) picCache.set(filePath, pic)
+    return pic
+  })
+  return picQueue as Promise<string>
+}
+
+const Cover = ({ item }: { item: LX.Music.MusicInfoLocal }) => {
+  const theme = useTheme()
+  const [uri, setUri] = useState<string | null>(() => picCache.get(item.meta.filePath) ?? null)
+
+  useEffect(() => {
+    let alive = true
+    if (uri) return
+    void loadPic(item.meta.filePath).then(pic => {
+      if (alive && pic) setUri(pic)
+    })
+    return () => { alive = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [item.meta.filePath])
+
+  return (
+    <View style={{ ...styles.cover, backgroundColor: theme['c-primary-alpha-900'] }}>
+      {
+        uri
+          ? <Image url={uri} style={styles.coverImg} />
+          : <Icon name='music_time' size={18} color={theme['c-primary-light-200']} />
+      }
+    </View>
+  )
+}
 
 export default () => {
   const theme = useTheme()
@@ -100,8 +142,8 @@ export default () => {
       }}>
         <View style={styles.scanInfo}>
           <View style={styles.scanTitleRow}>
-            <Icon name='folder' size={14} color={theme['c-primary-light-200']} />
-            <Text size={13} numberOfLines={1} style={styles.scanTitle}>{dir || '下载目录'}</Text>
+            <Icon name='folder' size={13} color={theme['c-primary-light-200']} />
+            <Text size={12} numberOfLines={1} style={styles.scanTitle}>{dir || '下载目录'}</Text>
           </View>
           <Text size={11} color={theme['c-450']} style={styles.scanMeta}>
             {scanning
@@ -114,7 +156,7 @@ export default () => {
           disabled={scanning}
           onPress={() => { void handleScan() }}
         >
-          <Icon name='refresh' size={13} color='#FFFFFF' />
+          <Icon name='refresh' size={12} color='#FFFFFF' />
           <Text size={11} color='#FFFFFF' style={styles.scanBtnText}>{scanning ? '扫描中' : '重新扫描'}</Text>
         </TouchableOpacity>
       </View>
@@ -153,17 +195,23 @@ const LocalRow = ({ item, onPress, onMenu }: {
     { action: 'playLater', label: '稍后播放' },
   ], [])
 
+  const meta = useMemo(() => {
+    return [
+      item.singer || '未知歌手',
+      item.meta.ext.toUpperCase(),
+      item.meta.bitrate,
+      item.interval,
+      item.meta.size ? formatSize(item.meta.size) : '',
+    ].filter(Boolean).join(' · ')
+  }, [item])
+
   return (
     <View style={styles.row}>
       <TouchableOpacity style={styles.rowMain} activeOpacity={0.7} onPress={onPress}>
-        <View style={{ ...styles.cover, backgroundColor: theme['c-primary-alpha-900'] }}>
-          <Icon name='music_time' size={17} color={theme['c-primary-light-200']} />
-        </View>
+        <Cover item={item} />
         <View style={styles.info}>
           <Text size={14} numberOfLines={1}>{item.name}</Text>
-          <Text size={11} color={theme['c-450']} numberOfLines={1} style={styles.meta}>
-            {[item.singer || '未知歌手', item.meta.ext.toUpperCase(), item.interval, item.meta.size ? formatSize(item.meta.size) : ''].filter(Boolean).join(' · ')}
-          </Text>
+          <Text size={10} color={theme['c-450']} numberOfLines={1} style={styles.meta}>{meta}</Text>
         </View>
       </TouchableOpacity>
       <DorpDownMenu menus={menus} onPress={menu => { onMenu(menu.action) }} btnStyle={styles.moreBtn}>
@@ -209,10 +257,10 @@ const styles = createStyle({
   scanBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 30,
-    paddingLeft: 12,
-    paddingRight: 13,
-    borderRadius: 15,
+    height: 28,
+    paddingLeft: 11,
+    paddingRight: 12,
+    borderRadius: 14,
   },
   scanBtnText: {
     marginLeft: 5,
@@ -237,19 +285,25 @@ const styles = createStyle({
     paddingBottom: 8,
   },
   cover: {
-    width: 44,
-    height: 44,
+    width: 48,
+    height: 48,
     borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
+    overflow: 'hidden',
+  },
+  coverImg: {
+    width: 48,
+    height: 48,
+    borderRadius: 10,
   },
   info: {
     flexGrow: 1,
     flexShrink: 1,
   },
   meta: {
-    marginTop: 3,
+    marginTop: 4,
   },
   moreBtn: {
     width: 34,
