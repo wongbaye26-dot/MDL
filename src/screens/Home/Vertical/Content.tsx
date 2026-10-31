@@ -1,12 +1,12 @@
 import { View } from 'react-native'
-import Header from './Header'
 import Main from './Main'
+import StatusBar from '@/components/common/StatusBar'
 import { createStyle } from '@/utils/tools'
 
 const Content = () => {
   return (
     <View style={styles.container}>
-      <Header />
+      <StatusBar />
       <Main />
     </View>
   )

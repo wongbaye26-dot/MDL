@@ -12,7 +12,7 @@ export type { SettingScreenIds } from './Main'
 export default () => {
   const isHorizontalMode = useHorizontalMode()
   useBackHandler(useCallback(() => {
-    if (Object.keys(commonState.componentIds).length == 1 && commonState.navActiveId == 'nav_setting') {
+    if (Object.keys(commonState.componentIds).length == 1 && commonState.navActiveId == 'nav_mine') {
       setNavActiveId(commonState.lastNavActiveId)
       return true
     }

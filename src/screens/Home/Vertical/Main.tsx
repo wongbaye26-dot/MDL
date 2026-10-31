@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentRef } from 'react'
 import { View } from 'react-native'
-import SongList from '../Views/SongList'
-import Mylist from '../Views/Mylist'
-import Leaderboard from '../Views/Leaderboard'
+import Home from '../Views/Home'
 import Download from '../Views/Download'
-import Setting from '../Views/Setting'
+import Mine from '../Views/Mine'
 import commonState, { type InitState as CommonState } from '@/store/common/state'
 import { createStyle } from '@/utils/tools'
 import PagerView, { type PageScrollStateChangedNativeEvent, type PagerViewOnPageSelectedEvent } from 'react-native-pager-view'
@@ -18,11 +16,9 @@ const hideKeys = [
 ] as Readonly<Array<keyof LX.AppSetting>>
 
 const PAGES = [
-  { id: 'nav_songlist', component: SongList },
-  { id: 'nav_top', component: Leaderboard },
-  { id: 'nav_love', component: Mylist },
+  { id: 'nav_home', component: Home },
   { id: 'nav_download', component: Download },
-  { id: 'nav_setting', component: Setting },
+  { id: 'nav_mine', component: Mine },
 ] as const
 
 const Page = ({ id, children }: { id: CommonState['navActiveId'], children: React.ReactNode }) => {
@@ -39,7 +35,7 @@ const Page = ({ id, children }: { id: CommonState['navActiveId'], children: Reac
       }
     }
     const handleHide = () => {
-      if (currentId != 'nav_setting') return
+      if (currentId != 'nav_mine') return
       setVisible(false)
     }
     const handleConfigUpdated = (keys: Array<keyof LX.AppSetting>) => {

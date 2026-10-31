@@ -3,12 +3,9 @@ import { View, ScrollView, TouchableOpacity, Modal } from 'react-native'
 
 import Basic from '../settings/Basic'
 import Player from '../settings/Player'
-import LyricDesktop from '../settings/LyricDesktop'
 import Search from '../settings/Search'
 import List from '../settings/List'
 import Download from '../settings/Download'
-import Sync from '../settings/Sync'
-import Backup from '../settings/Backup'
 import Other from '../settings/Other'
 import Version from '../settings/Version'
 import About from '../settings/About'
@@ -23,12 +20,9 @@ import { useStatusbarHeight } from '@/store/common/hook'
 const MENU_META: Record<SettingScreenIds, { icon: string, descKey: string }> = {
   basic: { icon: 'setting', descKey: 'setting_desc_basic' },
   player: { icon: 'play', descKey: 'setting_desc_player' },
-  lyric_desktop: { icon: 'lyric-on', descKey: 'setting_desc_lyric_desktop' },
   search: { icon: 'search-2', descKey: 'setting_desc_search' },
   list: { icon: 'list-order', descKey: 'setting_desc_list' },
   download: { icon: 'download-2', descKey: 'setting_desc_download' },
-  sync: { icon: 'share', descKey: 'setting_desc_sync' },
-  backup: { icon: 'add_folder', descKey: 'setting_desc_backup' },
   other: { icon: 'slider', descKey: 'setting_desc_other' },
   version: { icon: 'available_updates', descKey: 'setting_desc_version' },
   about: { icon: 'help', descKey: 'setting_desc_about' },
@@ -37,12 +31,9 @@ const MENU_META: Record<SettingScreenIds, { icon: string, descKey: string }> = {
 const getSection = (id: SettingScreenIds) => {
   switch (id) {
     case 'player': return <Player />
-    case 'lyric_desktop': return <LyricDesktop />
     case 'search': return <Search />
     case 'list': return <List />
     case 'download': return <Download />
-    case 'sync': return <Sync />
-    case 'backup': return <Backup />
     case 'other': return <Other />
     case 'version': return <Version />
     case 'about': return <About />

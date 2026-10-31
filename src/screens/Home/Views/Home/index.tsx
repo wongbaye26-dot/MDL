@@ -1,0 +1,271 @@
+import { useCallback, useRef, useState } from 'react'
+import { View, ScrollView, TouchableOpacity, Image } from 'react-native'
+import Text from '@/components/common/Text'
+import { Icon } from '@/components/common/Icon'
+import { useTheme } from '@/store/theme/hook'
+import { useStatus } from '@/store/userApi'
+import { useDownloadList } from '@/store/download'
+import { useStatusbarHeight } from '@/store/common/hook'
+import { setNavActiveId } from '@/core/common'
+import { createStyle } from '@/utils/tools'
+import { formatSize } from '@/core/download/utils'
+import SearchModal from '../../Vertical/SearchModal'
+import PageModal from '../../Vertical/PageModal'
+import SongList from '../SongList'
+import Leaderboard from '../Leaderboard'
+import Mylist from '../Mylist'
+import UserApiEditModal, { type UserApiEditModalType } from '../Setting/settings/Basic/UserApiEditModal'
+
+const emoLogo = require('@/resources/images/emo-logo.png')
+
+type ModalType = 'songlist' | 'leaderboard' | 'mylist' | null
+
+const ENTRIES = [
+  { key: 'leaderboard', title: '排行榜', desc: '热歌 / 飙升 / 新声', icon: 'leaderboard' },
+  { key: 'songlist', title: '歌单广场', desc: '按分类浏览歌单', icon: 'album' },
+  { key: 'mylist', title: '我的列表', desc: '收藏与自建歌单', icon: 'love' },
+  { key: 'source', title: '音源管理', desc: '导入 LX 音源脚本', icon: 'share' },
+] as const
+
+export default () => {
+  const theme = useTheme()
+  const statusBarHeight = useStatusbarHeight()
+  const userApiStatus = useStatus()
+  const downloadList = useDownloadList()
+  const [searchVisible, setSearchVisible] = useState(false)
+  const [modal, setModal] = useState<ModalType>(null)
+  const userApiModalRef = useRef<UserApiEditModalType>(null)
+
+  const handleEntry = useCallback((key: typeof ENTRIES[number]['key']) => {
+    if (key === 'source') {
+      userApiModalRef.current?.show()
+      return
+    }
+    setModal(key)
+  }, [])
+
+  const recent = downloadList
+    .filter(task => task.isComplate)
+    .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0))
+    .slice(0, 4)
+
+  const sourceReady = userApiStatus.status
+  const sourceText = sourceReady ? '音源已就绪' : '音源未就绪'
+
+  return (
+    <View style={styles.container}>
+      <ScrollView contentContainerStyle={{ paddingTop: statusBarHeight + 12, paddingBottom: 24 }}>
+        <View style={styles.brandRow}>
+          <Image source={emoLogo} style={styles.logo} />
+          <View style={styles.brandText}>
+            <Text size={22} style={styles.brandName}>EMO音乐</Text>
+            <Text size={11} color={theme['c-450']} style={styles.brandDesc}>
+              {`全网音乐 · 聚合搜索 · ${sourceText}`}
+            </Text>
+          </View>
+        </View>
+
+        <TouchableOpacity
+          style={{ ...styles.searchBox, backgroundColor: theme['c-primary-alpha-900'], borderColor: theme['c-primary-alpha-700'] }}
+          activeOpacity={0.7}
+          onPress={() => { setSearchVisible(true) }}
+        >
+          <Icon name='search-2' size={16} color={theme['c-450']} />
+          <Text size={12} color={theme['c-450']} style={styles.searchText}>搜索歌曲、歌手或专辑</Text>
+          <View style={{ ...styles.searchBtn, backgroundColor: theme['c-primary'] }}>
+            <Text size={11} color='#FFFFFF'>搜索</Text>
+          </View>
+        </TouchableOpacity>
+
+        <View style={styles.entryGrid}>
+          {
+            ENTRIES.map(entry => (
+              <TouchableOpacity
+                key={entry.key}
+                style={{ ...styles.entry, backgroundColor: theme['c-primary-alpha-900'], borderColor: theme['c-primary-alpha-700'] }}
+                activeOpacity={0.7}
+                onPress={() => { handleEntry(entry.key) }}
+              >
+                <View style={{ ...styles.entryIcon, backgroundColor: theme['c-primary-alpha-800'] }}>
+                  <Icon name={entry.icon} size={17} color={theme['c-primary-light-200']} />
+                </View>
+                <Text size={13} style={styles.entryTitle}>{entry.title}</Text>
+                <Text size={10} color={theme['c-450']} numberOfLines={1} style={styles.entryDesc}>{entry.desc}</Text>
+              </TouchableOpacity>
+            ))
+          }
+        </View>
+
+        <View style={styles.sectionHead}>
+          <Text size={15} style={styles.sectionTitle}>最近下载</Text>
+          <TouchableOpacity onPress={() => { setNavActiveId('nav_download') }}>
+            <Text size={11} color={theme['c-450']}>全部 ›</Text>
+          </TouchableOpacity>
+        </View>
+
+        {
+          recent.length
+            ? recent.map(task => (
+                <TouchableOpacity
+                  key={task.id}
+                  style={styles.recentRow}
+                  activeOpacity={0.7}
+                  onPress={() => { setNavActiveId('nav_download') }}
+                >
+                  <View style={{ ...styles.recentIcon, backgroundColor: 'rgba(52, 211, 153, 0.14)' }}>
+                    <Icon name='checkbox-marked' size={14} color='#34D399' />
+                  </View>
+                  <View style={styles.recentInfo}>
+                    <Text size={13} numberOfLines={1}>{task.metadata.musicInfo.name}</Text>
+                    <Text size={10} color={theme['c-450']} numberOfLines={1} style={styles.recentDesc}>
+                      {`${task.metadata.musicInfo.singer} · ${task.metadata.ext.toUpperCase()} · ${formatSize(task.total)}`}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))
+            : (
+                <View style={styles.emptyRecent}>
+                  <Text size={11} color={theme['c-450']}>还没有下载记录，去搜索一首歌试试</Text>
+                </View>
+              )
+        }
+      </ScrollView>
+
+      {searchVisible ? <SearchModal onClose={() => { setSearchVisible(false) }} /> : null}
+      {
+        modal === 'songlist'
+          ? <PageModal title='歌单广场' onClose={() => { setModal(null) }}><SongList /></PageModal>
+          : modal === 'leaderboard'
+            ? <PageModal title='排行榜' onClose={() => { setModal(null) }}><Leaderboard /></PageModal>
+            : modal === 'mylist'
+              ? <PageModal title='我的列表' onClose={() => { setModal(null) }}><Mylist /></PageModal>
+              : null
+      }
+      <UserApiEditModal ref={userApiModalRef} />
+    </View>
+  )
+}
+
+const styles = createStyle({
+  container: {
+    flex: 1,
+  },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingLeft: 16,
+    paddingRight: 16,
+  },
+  logo: {
+    width: 46,
+    height: 46,
+    borderRadius: 15,
+    marginRight: 12,
+  },
+  brandText: {
+    flexGrow: 1,
+    flexShrink: 1,
+  },
+  brandName: {
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  brandDesc: {
+    marginTop: 3,
+  },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 16,
+    marginRight: 16,
+    marginTop: 16,
+    height: 44,
+    borderRadius: 14,
+    borderWidth: 0.5,
+    paddingLeft: 12,
+    paddingRight: 5,
+  },
+  searchText: {
+    flexGrow: 1,
+    flexShrink: 1,
+    marginLeft: 8,
+  },
+  searchBtn: {
+    height: 34,
+    paddingLeft: 14,
+    paddingRight: 14,
+    borderRadius: 11,
+    justifyContent: 'center',
+  },
+  entryGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingLeft: 12,
+    paddingRight: 12,
+    marginTop: 6,
+  },
+  entry: {
+    width: '46%',
+    marginLeft: 4,
+    marginRight: 4,
+    marginTop: 10,
+    padding: 12,
+    borderRadius: 16,
+    borderWidth: 0.5,
+  },
+  entryIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 11,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  entryTitle: {
+    fontWeight: '600',
+  },
+  entryDesc: {
+    marginTop: 3,
+  },
+  sectionHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingLeft: 16,
+    paddingRight: 16,
+    marginTop: 22,
+    marginBottom: 6,
+  },
+  sectionTitle: {
+    fontWeight: '700',
+  },
+  recentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingLeft: 16,
+    paddingRight: 16,
+    paddingTop: 8,
+    paddingBottom: 8,
+  },
+  recentIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 11,
+  },
+  recentInfo: {
+    flexGrow: 1,
+    flexShrink: 1,
+  },
+  recentDesc: {
+    marginTop: 2,
+  },
+  emptyRecent: {
+    paddingLeft: 16,
+    paddingRight: 16,
+    paddingTop: 12,
+    paddingBottom: 12,
+  },
+})

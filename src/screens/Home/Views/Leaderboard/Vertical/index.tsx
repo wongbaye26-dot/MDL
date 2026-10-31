@@ -95,7 +95,7 @@ export default () => {
 
   useEffect(() => {
     const handleFixDrawer = (id: CommonState['navActiveId']) => {
-      if (id == 'nav_top') drawer.current?.fixWidth()
+      if ((id as string) == 'nav_top') drawer.current?.fixWidth()
     }
     global.state_event.on('navActiveIdUpdated', handleFixDrawer)
 

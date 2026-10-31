@@ -101,11 +101,9 @@ export const APP_PROVIDER_NAME = 'cn.toside.music.mobile.provider'
 
 
 export const NAV_MENUS = [
-  { id: 'nav_songlist', icon: 'album' },
-  { id: 'nav_top', icon: 'leaderboard' },
-  { id: 'nav_love', icon: 'love' },
+  { id: 'nav_home', icon: 'search-2' },
   { id: 'nav_download', icon: 'download-2' },
-  { id: 'nav_setting', icon: 'setting' },
+  { id: 'nav_mine', icon: 'setting' },
 ] as const
 
 export type NAV_ID_Type = typeof NAV_MENUS[number]['id']
@@ -149,7 +147,7 @@ export const DEFAULT_SETTING = {
   },
 
   viewPrevState: {
-    id: 'nav_songlist' as NAV_ID_Type,
+    id: 'nav_home' as NAV_ID_Type,
     // query: {},
   },
 }

@@ -16,7 +16,7 @@ export default () => {
 
   useEffect(() => {
     const handleFixDrawer = (id: CommonState['navActiveId']) => {
-      if (id == 'nav_songlist') drawer.current?.fixWidth()
+      if ((id as string) == 'nav_songlist') drawer.current?.fixWidth()
     }
     const handleShow = () => {
       requestAnimationFrame(() => {

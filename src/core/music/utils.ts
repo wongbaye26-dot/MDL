@@ -280,6 +280,23 @@ export const getOnlineOtherSourceMusicUrl = async({ musicInfos, quality, onToggl
   })
 }
 
+
+/**
+ * 音质降级链：优先目标音质，失败后依次尝试其它可用音质
+ */
+const QUALITY_ORDER: LX.Quality[] = ['flac24bit', 'flac', 'wav', 'ape', '320k', '192k', '128k']
+const buildQualityChain = (musicInfo: LX.Music.MusicInfoOnline, targetQuality: LX.Quality, fixedQuality?: LX.Quality): LX.Quality[] => {
+  const supportList = global.lx.qualityList[musicInfo.source] ?? []
+  const isAvailable = (q: LX.Quality) => supportList.includes(q) && musicInfo.meta._qualitys?.[q] != null
+  const startIndex = QUALITY_ORDER.indexOf(targetQuality)
+  // 指定音质（下载）时只允许降级，避免拿到的文件与所选音质不一致
+  const candidates = fixedQuality
+    ? QUALITY_ORDER.slice(startIndex < 0 ? 0 : startIndex)
+    : [targetQuality, ...QUALITY_ORDER.filter(q => q !== targetQuality)]
+  const chain = candidates.filter(isAvailable)
+  return chain.length ? chain : [targetQuality]
+}
+
 /**
  * 获取在线音乐URL
  */
@@ -299,15 +316,22 @@ export const handleGetOnlineMusicUrl = async({ musicInfo, quality, onToggleSourc
   // console.log(musicInfo.source)
   const targetQuality = quality ?? getPlayQuality(settingState.setting['player.playQuality'], musicInfo)
 
-  let reqPromise
-  try {
-    reqPromise = musicSdk[musicInfo.source].getMusicUrl(toOldMusicInfo(musicInfo), targetQuality).promise
-  } catch (err: any) {
-    reqPromise = Promise.reject(err)
+  // 同一音源内按音质降级重试：下载只向下降级，播放允许尝试任意可用音质
+  const qualityChain = buildQualityChain(musicInfo, targetQuality, quality)
+  let lastError: any
+  for (const tryQuality of qualityChain) {
+    try {
+      const { url, type } = await musicSdk[musicInfo.source].getMusicUrl(toOldMusicInfo(musicInfo), tryQuality).promise as { url: string, type: LX.Quality }
+      return { musicInfo, url, quality: type, isFromCache: false }
+    } catch (err: any) {
+      lastError = err
+      // 请求过于频繁时直接放弃，避免越试越糟
+      if (err?.message == requestMsg.tooManyRequests) break
+    }
   }
-  return reqPromise.then(({ url, type }: { url: string, type: LX.Quality }) => {
-    return { musicInfo, url, quality: type, isFromCache: false }
-  }).catch(async(err: any) => {
+
+  const err = lastError
+  return Promise.reject(err).catch(async(err: any) => {
     console.log(err)
     if (!allowToggleSource || err.message == requestMsg.tooManyRequests) throw err
     onToggleSource()

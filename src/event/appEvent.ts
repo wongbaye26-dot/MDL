@@ -171,15 +171,7 @@ export class AppEvent extends Event {
   }
 
   jumpListPosition() {
-    if (commonState.navActiveId == 'nav_love') {
-      this.emit('jumpListPosition')
-    } else {
-      global.lx.jumpMyListPosition = true
-      setNavActiveId('nav_love')
-      setTimeout(() => {
-        this.emit('jumpListPosition')
-      }, 200)
-    }
+    this.emit('jumpListPosition')
   }
 
   changeLoveListVisible(visible: boolean) {

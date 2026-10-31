@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import SongList from '../Views/SongList'
-import Mylist from '../Views/Mylist'
+import Home from '../Views/Home'
 import Download from '../Views/Download'
-import Leaderboard from '../Views/Leaderboard'
-import Setting from '../Views/Setting'
+import Mine from '../Views/Mine'
 import commonState, { type InitState as CommonState } from '@/store/common/state'
 
 
@@ -24,12 +22,9 @@ const Main = () => {
 
   const component = useMemo(() => {
     switch (id) {
-      case 'nav_songlist': return <SongList />
-      case 'nav_top': return <Leaderboard />
-      case 'nav_love': return <Mylist />
       case 'nav_download': return <Download />
-      case 'nav_setting': return <Setting />
-      default: return <SongList />
+      case 'nav_mine': return <Mine />
+      default: return <Home />
     }
   }, [id])
 
