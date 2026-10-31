@@ -3,6 +3,7 @@ import { Animated, View, TouchableOpacity } from 'react-native'
 
 import { Icon } from '@/components/common/Icon'
 import Image from '@/components/common/Image'
+import Glass from '@/components/common/Glass'
 import { useTheme } from '@/store/theme/hook'
 import { useNavActiveId } from '@/store/common/hook'
 import { usePlayerMusicInfo, useProgress } from '@/store/player/hook'
@@ -109,15 +110,21 @@ export default memo(() => {
     if (activeId !== 'nav_player') setNavActiveId('nav_player')
   }
 
-  // 胶囊外完全透明，只有胶囊本体是半透明玻璃，内容从底下穿过去
+  // 胶囊外完全透明，只有胶囊本体是磨砂玻璃，内容从底下穿过去
   return (
     <View style={styles.wrap} pointerEvents='box-none'>
       <View style={{
         ...styles.bar,
-        backgroundColor: isDark ? 'rgba(26,20,36,0.58)' : 'rgba(255,255,255,0.62)',
-        borderColor: isDark ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.80)',
+        backgroundColor: isDark ? 'rgba(26,20,36,0.42)' : 'rgba(255,255,255,0.40)',
+        borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.80)',
         shadowColor: isDark ? '#000000' : '#6E6285',
       }}>
+        {/* 真高斯模糊：把胶囊背后的列表内容抓成位图做一次模糊 */}
+        <Glass
+          blurRadius={20}
+          tint={isDark ? 'rgba(22,17,32,0.52)' : 'rgba(255,255,255,0.55)'}
+          radius={32}
+        />
         {
           NAV_MENUS.map(menu => {
             const isActive = activeId === menu.id
@@ -178,6 +185,8 @@ const styles = createStyle({
     borderWidth: 0.5,
     paddingLeft: 8,
     paddingRight: 8,
+    // 模糊层要按胶囊形状裁切
+    overflow: 'hidden',
     elevation: 14,
     shadowOpacity: 0.26,
     shadowRadius: 20,

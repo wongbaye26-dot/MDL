@@ -4,6 +4,7 @@ import { Navigation } from 'react-native-navigation'
 
 import Text from '@/components/common/Text'
 import { Icon } from '@/components/common/Icon'
+import Glass from '@/components/common/Glass'
 import Image from '@/components/common/Image'
 import { useTheme } from '@/store/theme/hook'
 import { usePlayerMusicInfo, useIsPlay, useProgress } from '@/store/player/hook'
@@ -46,10 +47,16 @@ export default memo(({ isHome = false }: { isHome?: boolean }) => {
         ...styles.card,
         // 半透明玻璃：之前用 c-primary-alpha-900（10% 透明度）几乎是镂空的，
         // 现在给一层实心磨砂底 + 高光描边，能透出一点背景但不再“空”
-        backgroundColor: theme.isDark ? 'rgba(32,26,44,0.66)' : 'rgba(255,255,255,0.74)',
-        borderColor: theme.isDark ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.85)',
+        backgroundColor: theme.isDark ? 'rgba(32,26,44,0.44)' : 'rgba(255,255,255,0.48)',
+        borderColor: theme.isDark ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.85)',
         shadowColor: theme.isDark ? '#000000' : '#6E6285',
       }}>
+        {/* 真高斯模糊：模糊背后的页面内容，形成磨砂玻璃 */}
+        <Glass
+          blurRadius={16}
+          tint={theme.isDark ? 'rgba(30,24,42,0.55)' : 'rgba(255,255,255,0.58)'}
+          radius={26}
+        />
         <TouchableOpacity style={styles.infoArea} activeOpacity={0.75} onPress={openPlayerTab}>
           <View style={styles.picWrap}>
             <Image url={musicInfo.pic} style={styles.pic} />

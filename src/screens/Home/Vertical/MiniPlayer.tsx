@@ -3,6 +3,7 @@ import { View, TouchableOpacity } from 'react-native'
 import Text from '@/components/common/Text'
 import { Icon } from '@/components/common/Icon'
 import Image from '@/components/common/Image'
+import Glass from '@/components/common/Glass'
 import { useTheme } from '@/store/theme/hook'
 import { usePlayerMusicInfo, useIsPlay, useProgress } from '@/store/player/hook'
 import { useSettingValue } from '@/store/setting/hook'
@@ -29,8 +30,18 @@ export default memo(() => {
   }
 
   return (
-    <View style={{ ...styles.wrap, backgroundColor: theme['c-content-background'] }}>
-      <View style={{ ...styles.card, backgroundColor: theme['c-primary-alpha-900'], borderColor: theme['c-primary-alpha-700'] }}>
+    <View style={styles.wrap}>
+      <View style={{
+        ...styles.card,
+        backgroundColor: theme.isDark ? 'rgba(32,26,44,0.44)' : 'rgba(255,255,255,0.48)',
+        borderColor: theme.isDark ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.85)',
+      }}>
+        {/* 真高斯模糊 */}
+        <Glass
+          blurRadius={16}
+          tint={theme.isDark ? 'rgba(30,24,42,0.55)' : 'rgba(255,255,255,0.58)'}
+          radius={18}
+        />
         <TouchableOpacity style={styles.infoArea} activeOpacity={0.75} onPress={openDetail}>
           <Image url={musicInfo.pic} style={styles.pic} />
           <View style={styles.textArea}>
