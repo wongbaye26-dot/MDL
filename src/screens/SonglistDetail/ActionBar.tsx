@@ -1,4 +1,4 @@
-import { memo } from 'react'
+import { memo, useRef } from 'react'
 import { View } from 'react-native'
 import Button from '@/components/common/Button'
 
@@ -11,12 +11,14 @@ import { handleCollect, handlePlay } from './listAction'
 import songlistState from '@/store/songlist/state'
 import { useI18n } from '@/lang'
 import { useListInfo } from './state'
+import DownloadQualityModal, { type DownloadQualityModalType } from '@/components/DownloadQualityModal'
 // import { NAV_SHEAR_NATIVE_IDS } from '@/config/constant'
 
 export default memo(() => {
   const theme = useTheme()
   const t = useI18n()
   const info = useListInfo()
+  const downloadModalRef = useRef<DownloadQualityModalType>(null)
 
   const back = () => {
     void pop(commonState.componentIds.songlistDetail!)
@@ -25,6 +27,13 @@ export default memo(() => {
   const handlePlayAll = () => {
     if (!songlistState.listDetailInfo.info.name) return
     void handlePlay(info.id, info.source, songlistState.listDetailInfo.list)
+  }
+
+  const handleDownloadAll = () => {
+    const musicInfos = songlistState.listDetailInfo.list
+      .filter((musicInfo): musicInfo is LX.Music.MusicInfoOnline => musicInfo.source !== 'local')
+    if (!musicInfos.length) return
+    downloadModalRef.current?.show({ musicInfos, title: '下载歌单全部歌曲' })
   }
 
   const handleCollection = () => {
@@ -40,9 +49,13 @@ export default memo(() => {
       <Button onPress={handlePlayAll} style={styles.controlBtn}>
         <Text style={{ ...styles.controlBtnText, color: theme['c-button-font'] }}>{t('play_all')}</Text>
       </Button>
+      <Button onPress={handleDownloadAll} style={styles.controlBtn}>
+        <Text style={{ ...styles.controlBtnText, color: theme['c-button-font'] }}>{t('download_all')}</Text>
+      </Button>
       <Button onPress={back} style={styles.controlBtn}>
         <Text style={{ ...styles.controlBtnText, color: theme['c-button-font'] }}>{t('back')}</Text>
       </Button>
+      <DownloadQualityModal ref={downloadModalRef} />
     </View>
   )
 })
@@ -57,7 +70,7 @@ const styles = createStyle({
   controlBtn: {
     flexGrow: 1,
     flexShrink: 1,
-    width: '33%',
+    width: '25%',
     paddingTop: 12,
     paddingBottom: 12,
     paddingLeft: 10,

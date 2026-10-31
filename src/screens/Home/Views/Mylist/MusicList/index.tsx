@@ -6,7 +6,7 @@ import { clearMusicUrl, handleDislikeMusic, handlePlay, handlePlayLater, handleR
 import List, { type ListType } from './List'
 import ListMusicAdd, { type MusicAddModalType as ListMusicAddType } from '@/components/MusicAddModal'
 import ListMusicMultiAdd, { type MusicMultiAddModalType as ListAddMultiType } from '@/components/MusicMultiAddModal'
-import { createStyle } from '@/utils/tools'
+import { createStyle, toast } from '@/utils/tools'
 import { type LayoutChangeEvent, View } from 'react-native'
 import ActiveList, { type ActiveListType } from './ActiveList'
 import MultipleModeBar, { type SelectMode, type MultipleModeBarType } from './MultipleModeBar'
@@ -15,6 +15,7 @@ import ListMusicSearch, { type ListMusicSearchType } from './ListMusicSearch'
 import MusicPositionModal, { type MusicPositionModalType } from './MusicPositionModal'
 import MetadataEditModal, { type MetadataEditType, type MetadataEditProps } from '@/components/MetadataEditModal'
 import MusicToggleModal, { type MusicToggleModalType } from './MusicToggleModal'
+import DownloadQualityModal, { type DownloadQualityModalType } from '@/components/DownloadQualityModal'
 
 
 export default () => {
@@ -30,6 +31,7 @@ export default () => {
   const metadataEditTypeRef = useRef<MetadataEditType>(null)
   const listMenuRef = useRef<ListMenuType>(null)
   const musicToggleModalRef = useRef<MusicToggleModalType>(null)
+  const downloadModalRef = useRef<DownloadQualityModalType>(null)
   const layoutHeightRef = useRef<number>(0)
   const isShowMultipleModeBar = useRef(false)
   const isShowSearchBarModeBar = useRef(false)
@@ -108,6 +110,15 @@ export default () => {
       listMusicAddRef.current?.show({ musicInfo: info.musicInfo, listId: info.listId, isMove: true })
     }
   }, [])
+  const handleDownload = useCallback((info: SelectInfo) => {
+    const musicInfos = (info.selectedList.length ? info.selectedList : [info.musicInfo])
+      .filter((musicInfo): musicInfo is LX.Music.MusicInfoOnline => musicInfo.source !== 'local')
+    if (!musicInfos.length) {
+      toast('本地歌曲无需下载')
+      return
+    }
+    downloadModalRef.current?.show({ musicInfos, listId: info.listId })
+  }, [])
   const handleEditMetadata = useCallback((info: SelectInfo) => {
     if (info.musicInfo.source != 'local') return
     selectedInfoRef.current = info
@@ -160,6 +171,7 @@ export default () => {
         onCopyName={info => { handleShare(info.musicInfo) }}
         onMusicSourceDetail={info => { void handleShowMusicSourceDetail(info.musicInfo) }}
         onAdd={handleAddMusic}
+        onDownload={handleDownload}
         onMove={handleMoveMusic}
         onEditMetadata={handleEditMetadata}
         onChangePosition={info => musicPositionModalRef.current?.show(info)}
@@ -171,6 +183,7 @@ export default () => {
         onUpdate={handleUpdateMetadata}
       />
       <MusicToggleModal ref={musicToggleModalRef} />
+      <DownloadQualityModal ref={downloadModalRef} />
     </View>
   )
 }

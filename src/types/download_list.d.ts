@@ -48,6 +48,12 @@ declare namespace LX {
       total: number
       progress: number
       speed: string
+      /** 出错时的提示信息 */
+      errorMessage?: string
+      /** 重试次数 */
+      retryCount?: number
+      /** 创建时间，用于列表排序 */
+      createdAt?: number
       metadata: {
         musicInfo: LX.Music.MusicInfoOnline
         url: string | null
@@ -55,6 +61,8 @@ declare namespace LX {
         ext: FileExt
         fileName: string
         filePath: string
+        /** 任务来源列表 id，用于按列表名分组保存 */
+        listId?: string | null
       }
     }
 

@@ -1,14 +1,2 @@
-import {
-  // StyleSheet,
-  View,
-  // Button,
-  Text,
-} from 'react-native'
-
-// import Menu from '@/components/Menu'
-
-export default () => {
-  return <View>
-    <Text>下载</Text>
-  </View>
-}
+// 下载页实现见 DownloadPage.tsx
+export { default } from './DownloadPage'

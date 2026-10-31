@@ -9,6 +9,7 @@ import initSync from './sync'
 import initCommonState from './common'
 import { initDeeplink } from './deeplink'
 import { setApiSource } from '@/core/apiSource'
+import { init as initDownload } from '@/core/download'
 import commonActions from '@/store/common/action'
 import settingState from '@/store/setting/state'
 import { checkUpdate } from '@/core/version'
@@ -57,6 +58,8 @@ export default async() => {
   bootLog('Player inited.')
   await dataInit(setting)
   bootLog('Data inited.')
+  await initDownload()
+  bootLog('Download inited.')
   await initCommonState(setting)
   bootLog('Common State inited.')
 

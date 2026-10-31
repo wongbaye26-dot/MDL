@@ -29,6 +29,7 @@ const dislikeListPrefix = storageDataPrefix.dislikeList
 const userApiPrefix = storageDataPrefix.userApi
 const openStoragePathPrefix = storageDataPrefix.openStoragePath
 const selectedManagedFolderPrefix = storageDataPrefix.selectedManagedFolder
+const downloadListKey = storageDataPrefix.downloadList
 
 // const defaultListKey = listPrefix + 'default'
 // const loveListKey = listPrefix + 'love'
@@ -589,4 +590,11 @@ export const setUserApiAllowShowUpdateAlert = async(id: string, enable: boolean)
   if (!targetApi) return
   targetApi.allowShowUpdateAlert = enable
   await saveData(userApiPrefix, userApis)
+}
+
+export const getDownloadList = async(): Promise<LX.Download.ListItem[]> => {
+  return (await getData<LX.Download.ListItem[]>(downloadListKey)) ?? []
+}
+export const saveDownloadList = async(list: LX.Download.ListItem[]) => {
+  await saveData(downloadListKey, list)
 }

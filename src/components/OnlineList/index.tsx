@@ -6,6 +6,7 @@ import ListMenu, { type ListMenuType, type Position, type SelectInfo } from './L
 import ListMusicMultiAdd, { type MusicMultiAddModalType as ListAddMultiType } from '@/components/MusicMultiAddModal'
 import ListMusicAdd, { type MusicAddModalType as ListMusicAddType } from '@/components/MusicAddModal'
 import MultipleModeBar, { type MultipleModeBarType, type SelectMode } from './MultipleModeBar'
+import DownloadQualityModal, { type DownloadQualityModalType } from '@/components/DownloadQualityModal'
 import { clearMusicUrl, handleDislikeMusic, handlePlay, handlePlayLater, handleShare, handleShowMusicSourceDetail } from './listAction'
 import { createStyle } from '@/utils/tools'
 
@@ -37,6 +38,7 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
   const listMusicAddRef = useRef<ListMusicAddType>(null)
   const listMusicMultiAddRef = useRef<ListAddMultiType>(null)
   const listMenuRef = useRef<ListMenuType>(null)
+  const downloadModalRef = useRef<DownloadQualityModalType>(null)
   // const loadingMaskRef = useRef<LoadingMaskType>(null)
 
   useImperativeHandle(ref, () => ({
@@ -69,6 +71,10 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
       single: false,
       selectedList: listRef.current!.getSelectedList(),
     }, position)
+  }
+  const handleDownload = (info: SelectInfo) => {
+    const musicInfos = info.selectedList.length ? info.selectedList : [info.musicInfo]
+    downloadModalRef.current?.show({ musicInfos })
   }
   const handleAddMusic = (info: SelectInfo) => {
     if (info.selectedList.length) {
@@ -109,10 +115,12 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
         onPlayLater={info => { hancelExitSelect(); handlePlayLater(info.musicInfo, info.selectedList, hancelExitSelect) }}
         onCopyName={info => { handleShare(info.musicInfo) }}
         onAdd={handleAddMusic}
+        onDownload={handleDownload}
         onMusicSourceDetail={info => { void handleShowMusicSourceDetail(info.musicInfo) }}
         onRemoveCache={info => { void clearMusicUrl(info.musicInfo) }}
         onDislikeMusic={info => { void handleDislikeMusic(info.musicInfo) }}
       />
+      <DownloadQualityModal ref={downloadModalRef} />
       {/* <LoadingMask ref={loadingMaskRef} /> */}
     </View>
   )
