@@ -87,6 +87,10 @@ const defaultSetting: LX.AppSetting = {
   'theme.hideBgDark': false,
   'theme.dynamicBg': false,
   'theme.fontShadow': false,
+  // Material You 动态主题
+  'theme.seedColor': '#6C5CE7',
+  'theme.useSeed': false,
+  'theme.seedDark': true,
 }
 
 

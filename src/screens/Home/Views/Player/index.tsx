@@ -2,7 +2,6 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Modal, ScrollView, StyleSheet, TouchableOpacity, View, Image as RNImage } from 'react-native'
 
 import Text from '@/components/common/Text'
-import Image from '@/components/common/Image'
 import PicImage from '@/components/common/PicImage'
 import { Icon } from '@/components/common/Icon'
 import Slider from '@react-native-community/slider'
@@ -289,7 +288,7 @@ export default () => {
                   <Text size={16} color='#FFFFFF' numberOfLines={1} style={styles.topName}>{musicInfo.name || '未在播放'}</Text>
                   <Text size={11} color='rgba(255,255,255,0.6)' numberOfLines={1} style={styles.topSinger}>{musicInfo.singer}</Text>
                 </TouchableOpacity>
-              )
+                )
               : null
           }
           <View style={styles.topBtn} />
@@ -339,16 +338,16 @@ export default () => {
                           ))
                         }
                       </ScrollView>
-                    )
+                      )
                     : (
                       <TouchableOpacity activeOpacity={0.8} style={styles.lyricEmpty} onPress={handleToggleMode}>
                         <Icon name='comment-text-outline' size={30} color='rgba(255,255,255,0.35)' />
                         <Text size={12} color='rgba(255,255,255,0.5)' style={styles.lyricEmptyText}>暂无歌词 · 点击返回</Text>
                       </TouchableOpacity>
-                    )
+                      )
                 }
               </View>
-            )
+              )
         }
 
         {

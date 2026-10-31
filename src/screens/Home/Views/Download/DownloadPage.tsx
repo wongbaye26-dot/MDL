@@ -8,10 +8,10 @@ import { useDownloadList, useDownloadStats } from '@/store/download'
 import { useNavActiveId } from '@/store/common/hook'
 import { clearCompleted, pauseAll, pauseTask, removeTask, retryTask, startAll, startTask } from '@/core/download'
 import { getLocalMusicList } from '@/core/localMusic'
-import { overwriteListMusics } from '@/core/list'
+import { overwriteListMusics, addListMusics } from '@/core/list'
 import listAction from '@/store/list/action'
+import settingState from '@/store/setting/state'
 import { playList } from '@/core/player/player'
-import { collectMusic } from '@/core/player/player'
 import { getListMusicSync } from '@/utils/listManage'
 import { LIST_IDS } from '@/config/constant'
 import Toolbar from './Toolbar'
@@ -95,7 +95,7 @@ export default () => {
         if (loveList.some(m => m.id === musicInfo.id)) {
           toast('已在收藏列表中')
         } else {
-          void collectMusic()
+          void addListMusics(LIST_IDS.LOVE, [musicInfo], settingState.setting['list.addMusicLocationType'])
           toast('已收藏到「我的收藏」')
         }
         break

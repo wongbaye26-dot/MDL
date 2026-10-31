@@ -6,6 +6,9 @@ import themeState from '@/store/theme/state'
 import { isUrl } from '@/utils'
 import { privateStorageDirectoryPath } from '@/utils/fs'
 import { type ImageSourcePropType } from 'react-native'
+import { generateThemeFromSeed } from './generate'
+
+export { generateThemeFromSeed, SEED_COLORS } from './generate'
 
 export const BG_IMAGES = {
   'china_ink.jpg': require('./images/china_ink.jpg') as ImageSourcePropType,
@@ -108,22 +111,23 @@ export const buildActiveThemeColors = (theme: LX.Theme): LX.ActiveTheme => {
 //   }
 // }
 // type IDS = LocalTheme['id']
-export const getTheme = async() => {
+export const getTheme = async(): Promise<LocalTheme | LX.Theme | LX.ActiveTheme> => {
   // fs.promises.readdir()
   const shouldUseDarkColors = themeState.shouldUseDarkColors
-  // let themeId = settingState.setting['theme.id'] == 'auto'
-  //   ? shouldUseDarkColors
-  //     ? settingState.setting['theme.darkId']
-  //     : settingState.setting['theme.lightId']
-  //   // : 'china_ink'
-  //   : settingState.setting['theme.id']
+
+  // Material You：由种子色动态生成整套主题
+  if (settingState.setting['theme.useSeed']) {
+    const seed = settingState.setting['theme.seedColor'] || '#6C5CE7'
+    const isDark = settingState.setting['common.isAutoTheme']
+      ? shouldUseDarkColors
+      : settingState.setting['theme.seedDark']
+    return generateThemeFromSeed(seed, isDark)
+  }
+
   // 跟随系统时在亮/暗主题之间切换，否则使用手动选择的主题
   let themeId = settingState.setting['common.isAutoTheme']
     ? (shouldUseDarkColors ? settingState.setting['theme.darkId'] : settingState.setting['theme.lightId'])
     : settingState.setting['theme.id']
-  // themeId = 'naruto'
-  // themeId = 'pink'
-  // themeId = 'black'
   let theme: LocalTheme | LX.Theme | undefined = themes.find(theme => theme.id == themeId)
   if (!theme) {
     userThemes = await getUserTheme()

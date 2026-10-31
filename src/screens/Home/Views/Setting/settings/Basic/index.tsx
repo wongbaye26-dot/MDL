@@ -10,7 +10,7 @@ import IsStartupAutoPlay from './IsStartupAutoPlay'
 import IsStartupPushPlayDetailScreen from './IsStartupPushPlayDetailScreen'
 import IsHomePageScroll from './IsHomePageScroll'
 import IsAllowProgressBarSeek from './IsAllowProgressBarSeek'
-import ThemeSettings from './ThemeSettings'
+import { ThemeModeSelector, MaterialYouColors } from './ThemeSettings'
 import { useI18n } from '@/lang/i18n'
 
 export default memo(() => {
@@ -18,8 +18,11 @@ export default memo(() => {
 
   return (
     <>
-      <Section title='主题'>
-        <ThemeSettings />
+      <Section title='外观'>
+        <ThemeModeSelector />
+      </Section>
+      <Section title='主题色'>
+        <MaterialYouColors />
       </Section>
       <Section title='启动与播放'>
         <IsStartupAutoPlay />

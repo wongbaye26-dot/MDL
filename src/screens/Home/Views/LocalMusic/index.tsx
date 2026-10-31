@@ -15,7 +15,6 @@ import listAction from '@/store/list/action'
 import { playList } from '@/core/player/player'
 import { addTempPlayList } from '@/core/player/tempPlayList'
 import { LIST_IDS } from '@/config/constant'
-import RNFS from 'react-native-fs'
 
 const LOCAL_LIST_ID = 'local_music'
 

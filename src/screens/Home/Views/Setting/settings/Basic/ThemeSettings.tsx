@@ -1,4 +1,4 @@
-import { memo, useCallback, useState } from 'react'
+import { memo, useCallback } from 'react'
 import { View, TouchableOpacity, ScrollView } from 'react-native'
 
 import Text from '@/components/common/Text'
@@ -7,81 +7,66 @@ import { useTheme } from '@/store/theme/hook'
 import { useSettingValue } from '@/store/setting/hook'
 import { createStyle } from '@/utils/tools'
 import { updateSetting } from '@/core/common'
-import { setTheme, setShouldUseDarkColors, applyTheme } from '@/core/theme'
-import { getTheme } from '@/theme/themes'
+import { setShouldUseDarkColors, applyTheme, setSeedColor, disableSeedTheme } from '@/core/theme'
+import { getTheme, SEED_COLORS, generateThemeFromSeed } from '@/theme/themes'
 import themeState from '@/store/theme/state'
 
-/** Material You 风格预设主题色 */
-const PRESET_COLORS = [
-  { id: 'emo', name: '深紫', color: '#6C5CE7', darkId: 'emo', lightId: 'emo_light' },
-  { id: 'green', name: '翠绿', color: '#4DAF7C', darkId: 'emo', lightId: 'emo_light' },
-  { id: 'blue', name: '湛蓝', color: '#3B82F6', darkId: 'black', lightId: 'blue' },
-  { id: 'purple', name: '魅紫', color: '#A855F7', darkId: 'purple', lightId: 'purple' },
-  { id: 'pink', name: '樱粉', color: '#EC4899', darkId: 'pink', lightId: 'pink' },
-  { id: 'orange', name: '暖橙', color: '#F59E0B', darkId: 'orange', lightId: 'orange' },
-  { id: 'red', name: '赤红', color: '#EF4444', darkId: 'red', lightId: 'red' },
-  { id: 'grey', name: '极简灰', color: '#6B7280', darkId: 'grey', lightId: 'grey' },
-] as const
-
 type ThemeMode = 'auto' | 'light' | 'dark'
+
+const MODES: Array<{ mode: ThemeMode, label: string, icon: string }> = [
+  { mode: 'light', label: '明亮', icon: 'white-balance-sunny' },
+  { mode: 'dark', label: '暗黑', icon: 'weather-night' },
+  { mode: 'auto', label: '跟随系统', icon: 'theme-light-dark' },
+]
 
 const ThemeModeSelector = memo(() => {
   const theme = useTheme()
   const isAutoTheme = useSettingValue('common.isAutoTheme')
-  const currentThemeId = useSettingValue('theme.id')
-
+  const useSeed = useSettingValue('theme.useSeed')
+  const seedColor = useSettingValue('theme.seedColor')
+  const darkId = useSettingValue('theme.darkId')
+  const lightId = useSettingValue('theme.lightId')
   const mode: ThemeMode = isAutoTheme ? 'auto' : (themeState.theme.isDark ? 'dark' : 'light')
 
-  const handleSelect = useCallback(async(newMode: ThemeMode) => {
-    if (newMode === 'auto') {
-      updateSetting({ 'common.isAutoTheme': true })
+  const handleSelect = useCallback((newMode: ThemeMode) => {
+    const isDark = newMode === 'auto' ? themeState.shouldUseDarkColors : newMode === 'dark'
+    const auto = newMode === 'auto'
+    updateSetting({ 'common.isAutoTheme': auto, 'theme.seedDark': isDark })
+    setShouldUseDarkColors(isDark)
+    if (useSeed) {
+      // 种子模式：按新的明暗直接重建配色
+      applyTheme(generateThemeFromSeed(seedColor, isDark))
     } else {
-      updateSetting({ 'common.isAutoTheme': false })
-      const targetId = newMode === 'dark' ? currentThemeId : (currentThemeId === 'emo' ? 'emo_light' : currentThemeId)
-      // 如果当前已是暗色主题但选了明亮，切到对应的亮色
-      if (newMode === 'light' && themeState.theme.isDark) {
-        const lightId = PRESET_COLORS.find(c => c.darkId === currentThemeId)?.lightId ?? 'emo_light'
-        setTheme(lightId)
-        setShouldUseDarkColors(false)
-      } else if (newMode === 'dark' && !themeState.theme.isDark) {
-        const darkId = PRESET_COLORS.find(c => c.lightId === currentThemeId)?.darkId ?? 'emo'
-        setTheme(darkId)
-        setShouldUseDarkColors(true)
-      }
+      // 内置主题：切到对应明暗的主题 id
+      updateSetting({ 'theme.id': isDark ? (darkId || 'emo') : (lightId || 'emo_light') })
+      void getTheme().then(t => { applyTheme(t) })
     }
-    // 重新应用主题
-    void getTheme().then(t => {
-      if (t.id !== themeState.theme.id) applyTheme(t)
-    })
-  }, [currentThemeId])
-
-  const modes: Array<{ mode: ThemeMode, label: string, icon: string }> = [
-    { mode: 'light', label: '明亮', icon: 'white-balance-sunny' },
-    { mode: 'dark', label: '暗黑', icon: 'weather-night' },
-    { mode: 'auto', label: '跟随系统', icon: 'theme-light-dark' },
-  ]
+  }, [useSeed, seedColor, darkId, lightId])
 
   return (
     <View style={styles.modeRow}>
-      {modes.map(m => (
-        <TouchableOpacity
-          key={m.mode}
-          style={{
-            ...styles.modeBtn,
-            backgroundColor: mode === m.mode ? theme['c-primary'] : theme['c-primary-alpha-900'],
-            borderColor: mode === m.mode ? theme['c-primary'] : theme['c-primary-alpha-700'],
-          }}
-          activeOpacity={0.7}
-          onPress={() => { void handleSelect(m.mode) }}
-        >
-          <Icon name={m.icon} size={15} color={mode === m.mode ? '#FFFFFF' : theme['c-450']} />
-          <Text
-            size={12}
-            color={mode === m.mode ? '#FFFFFF' : theme['c-font']}
-            style={styles.modeLabel}
-          >{m.label}</Text>
-        </TouchableOpacity>
-      ))}
+      {MODES.map(m => {
+        const active = mode === m.mode
+        return (
+          <TouchableOpacity
+            key={m.mode}
+            style={{
+              ...styles.modeBtn,
+              backgroundColor: active ? theme['c-primary'] : theme['c-primary-alpha-900'],
+              borderColor: active ? theme['c-primary'] : theme['c-primary-alpha-700'],
+            }}
+            activeOpacity={0.7}
+            onPress={() => { handleSelect(m.mode) }}
+          >
+            <Icon name={m.icon} size={15} color={active ? '#FFFFFF' : theme['c-450']} />
+            <Text
+              size={12}
+              color={active ? '#FFFFFF' : theme['c-font']}
+              style={styles.modeLabel}
+            >{m.label}</Text>
+          </TouchableOpacity>
+        )
+      })}
     </View>
   )
 })
@@ -99,53 +84,61 @@ const ColorSwatch = memo(({ color, name, active, onPress }: {
         ...styles.swatch,
         backgroundColor: color,
         borderWidth: active ? 3 : 0,
-        borderColor: theme['c-primary'],
+        borderColor: active ? theme['c-font'] : 'transparent',
       }}>
         {active ? <Icon name='check' size={18} color='#FFFFFF' /> : null}
       </View>
-      <Text size={10} color={theme['c-450']} style={styles.swatchLabel}>{name}</Text>
+      <Text size={10} color={active ? theme['c-font'] : theme['c-450']} style={styles.swatchLabel}>{name}</Text>
     </TouchableOpacity>
   )
 })
 
 const MaterialYouColors = memo(() => {
   const theme = useTheme()
-  const currentThemeId = useSettingValue('theme.id')
+  const useSeed = useSettingValue('theme.useSeed')
+  const seedColor = useSettingValue('theme.seedColor')
   const isAutoTheme = useSettingValue('common.isAutoTheme')
-  const darkId = useSettingValue('theme.darkId')
-  const lightId = useSettingValue('theme.lightId')
+  const isDark = isAutoTheme ? themeState.shouldUseDarkColors : themeState.theme.isDark
 
-  const activeId = isAutoTheme ? (themeState.theme.isDark ? darkId : lightId) : currentThemeId
+  const handleSelect = useCallback((hex: string) => {
+    setSeedColor(hex, isDark)
+  }, [isDark])
 
-  const handleSelectColor = useCallback((colorId: string, darkThemeId: string, lightThemeId: string) => {
-    const targetId = themeState.theme.isDark ? darkThemeId : lightThemeId
-    updateSetting({
-      'theme.id': targetId,
-      'theme.darkId': darkThemeId,
-      'theme.lightId': lightThemeId,
-    })
-    void getTheme().then(t => {
-      if (t.id !== themeState.theme.id) applyTheme(t)
-    })
-  }, [])
+  const handleReset = useCallback(() => {
+    disableSeedTheme(isDark ? 'emo' : 'emo_light')
+  }, [isDark])
 
   return (
     <View>
-      <Text size={11} color={theme['c-450']} style={styles.colorTitle}>Material You 主题色</Text>
+      <View style={styles.colorHead}>
+        <Text size={11} color={theme['c-450']}>主题色</Text>
+        {useSeed
+          ? (
+            <TouchableOpacity onPress={handleReset} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Text size={11} color={theme['c-primary-font']}>恢复默认</Text>
+            </TouchableOpacity>
+            )
+          : null}
+      </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.swatchRow}>
-        {PRESET_COLORS.map(c => (
+        {SEED_COLORS.map(c => (
           <ColorSwatch
-            key={c.id}
-            color={c.color}
+            key={c.hex}
+            color={c.hex}
             name={c.name}
-            active={activeId === c.darkId || activeId === c.lightId || activeId === c.id}
-            onPress={() => { handleSelectColor(c.id, c.darkId, c.lightId) }}
+            active={useSeed && seedColor.toLowerCase() === c.hex.toLowerCase()}
+            onPress={() => { handleSelect(c.hex) }}
           />
         ))}
       </ScrollView>
+      <Text size={10} color={theme['c-400']} style={styles.hint}>
+        选择后将从该颜色自动派生整套配色，明亮与暗黑模式各自适配
+      </Text>
     </View>
   )
 })
+
+export { ThemeModeSelector, MaterialYouColors }
 
 export default memo(() => {
   return (
@@ -171,7 +164,7 @@ const styles = createStyle({
     alignItems: 'center',
     justifyContent: 'center',
     height: 36,
-    paddingLeft: 14,
+    paddingLeft: 12,
     paddingRight: 14,
     borderRadius: 18,
     borderWidth: 1,
@@ -180,15 +173,19 @@ const styles = createStyle({
     marginLeft: 6,
     fontWeight: '500',
   },
-  colorTitle: {
+  colorHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingLeft: 14,
-    paddingTop: 8,
-    paddingBottom: 6,
+    paddingRight: 14,
+    paddingTop: 6,
+    paddingBottom: 8,
   },
   swatchRow: {
     paddingLeft: 14,
     paddingRight: 8,
-    paddingBottom: 14,
+    paddingBottom: 6,
   },
   swatchWrap: {
     alignItems: 'center',
@@ -208,5 +205,11 @@ const styles = createStyle({
   },
   swatchLabel: {
     marginTop: 5,
+  },
+  hint: {
+    paddingLeft: 14,
+    paddingRight: 14,
+    paddingBottom: 12,
+    lineHeight: 15,
   },
 })

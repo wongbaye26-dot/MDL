@@ -99,7 +99,7 @@ const handleAutoSave = async(playMusicInfo: LX.Player.PlayMusicInfo) => {
   // 去重：检查下载列表中是否已有该歌曲（任意音质）
   const musicId = musicInfo.id
   const exists = downloadState.list.some(task =>
-    task.metadata.musicInfo.id === musicId
+    task.metadata.musicInfo.id === musicId,
   )
   if (exists) return
 
@@ -108,7 +108,7 @@ const handleAutoSave = async(playMusicInfo: LX.Player.PlayMusicInfo) => {
     const { getLocalMusicList } = await import('@/core/localMusic')
     const localList = await getLocalMusicList()
     const localExists = localList.some(item =>
-      item.name === musicInfo.name && item.singer === musicInfo.singer
+      item.name === musicInfo.name && item.singer === musicInfo.singer,
     )
     if (localExists) return
   } catch {}

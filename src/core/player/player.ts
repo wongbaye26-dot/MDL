@@ -104,9 +104,9 @@ const getMusicPlayUrl = async(musicInfo: LX.Music.MusicInfo | LX.Download.ListIt
       const { getLocalMusicList } = await import('@/core/localMusic')
       const localList = await getLocalMusicList()
       const localMatch = localList.find(item =>
-        item.name === musicInfo.name && item.singer === musicInfo.singer
+        item.name === musicInfo.name && item.singer === musicInfo.singer,
       )
-      if (localMatch && localMatch.meta.filePath) {
+      if (localMatch?.meta.filePath) {
         const RNFS = await import('react-native-fs')
         const exists = await RNFS.exists(localMatch.meta.filePath)
         if (exists) {
