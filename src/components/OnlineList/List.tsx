@@ -33,6 +33,7 @@ export interface ListProps {
   rowType?: RowInfoType
   viewMode?: 'list' | 'card'
   showRank?: boolean
+  ListEmptyComponent?: FlatListType['ListEmptyComponent']
 }
 export interface ListType {
   setList: (list: LX.Music.MusicInfoOnline[], isAppend: boolean, showSource: boolean) => void
@@ -59,6 +60,7 @@ const List = forwardRef<ListType, ListProps>(({
   rowType,
   viewMode = 'list',
   showRank,
+  ListEmptyComponent,
 }, ref) => {
   // const t = useI18n()
   const theme = useTheme()
@@ -256,6 +258,7 @@ const List = forwardRef<ListType, ListProps>(({
       onEndReached={handleLoadMore}
       progressViewOffset={progressViewOffset}
       ListHeaderComponent={ListHeaderComponent}
+      ListEmptyComponent={currentList.length ? null : (status === 'end' || status === 'error' ? ListEmptyComponent : null)}
       refreshControl={refreshControl}
       ListFooterComponent={footerComponent}
     />

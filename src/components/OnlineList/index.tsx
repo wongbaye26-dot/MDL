@@ -24,6 +24,8 @@ export interface OnlineListProps {
   showRank?: boolean
   /** 隐藏「列表/卡片」切换栏 */
   hideModeBar?: boolean
+  /** 列表为空且加载结束时的占位视图 */
+  ListEmptyComponent?: ListProps['ListEmptyComponent']
 }
 export interface OnlineListType {
   setList: (list: LX.Music.MusicInfoOnline[], isAppend?: boolean, showSource?: boolean) => void
@@ -40,6 +42,7 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
   rowType,
   showRank,
   hideModeBar,
+  ListEmptyComponent,
 }, ref) => {
   const listRef = useRef<ListType>(null)
   const multipleModeBarRef = useRef<MultipleModeBarType>(null)
@@ -125,6 +128,7 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
           rowType={rowType}
           viewMode={viewMode}
           showRank={showRank}
+          ListEmptyComponent={ListEmptyComponent}
         />
         <MultipleModeBar
           ref={multipleModeBarRef}

@@ -22,7 +22,7 @@ interface SearchInfo {
   searchType: 'music' | 'songlist'
 }
 
-export default () => {
+export default ({ onClose }: { onClose: () => void }) => {
   const headerBarRef = useRef<HeaderBarType>(null)
   const searchTipListRef = useRef<TipListType>(null)
   const listRef = useRef<ListType>(null)
@@ -49,9 +49,17 @@ export default () => {
     })
 
     const handleTypeChange = (type: SearchType) => {
+      const sources = type === 'songlist' ? searchSonglistState.sources : searchMusicState.sources
+      let source = searchInfo.current.source
+      if (!(sources as readonly string[]).includes(source)) {
+        source = type === 'songlist' ? 'kw' : 'all'
+        searchInfo.current.source = source
+        void saveSearchSetting({ source })
+      }
       searchInfo.current.searchType = type
+      headerBarRef.current?.setSourceList(sources, source)
       void saveSearchSetting({ type })
-      listRef.current?.loadList(searchState.searchText, searchInfo.current.source, type)
+      listRef.current?.loadList(searchState.searchText, source, type)
     }
     global.app_event.on('searchTypeChanged', handleTypeChange)
 
@@ -101,6 +109,7 @@ export default () => {
     <View style={styles.container}>
       <HeaderBar
         ref={headerBarRef}
+        onClose={onClose}
         onSourceChange={handleSourceChange}
         onTipSearch={handleTipSearch}
         onSearch={handleSearch}

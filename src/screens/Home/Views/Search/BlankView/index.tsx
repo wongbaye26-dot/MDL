@@ -48,7 +48,7 @@ export default forwardRef<BlankViewType, BlankViewProps>(({ onSearch }, ref) => 
     visible
       ? isShowHotSearch || isShowHistorySearch
         ? (
-            <ScrollView>
+            <ScrollView keyboardShouldPersistTaps='always'>
               <View style={styles.content}>
                 { isShowHotSearch ? <HotSearch ref={hotSearchRef} onSearch={onSearch} /> : null }
                 { isShowHistorySearch ? <HistorySearch ref={historySearchRef} onSearch={onSearch} /> : null }
@@ -68,10 +68,9 @@ export default forwardRef<BlankViewType, BlankViewProps>(({ onSearch }, ref) => 
 
 const styles = createStyle({
   content: {
-    // paddingTop: 15,
-    paddingBottom: 15,
-    paddingLeft: 15,
-    paddingRight: 15,
+    paddingBottom: 24,
+    paddingLeft: 16,
+    paddingRight: 16,
   },
   welcome: {
     flex: 1,

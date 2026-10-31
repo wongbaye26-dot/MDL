@@ -13,9 +13,10 @@ export interface ChipProps {
   size?: 'sm' | 'md'
   icon?: string
   onPress?: () => void
+  onLongPress?: () => void
 }
 
-export default ({ label, active = false, soft = false, size = 'md', icon, onPress }: ChipProps) => {
+export default ({ label, active = false, soft = false, size = 'md', icon, onPress, onLongPress }: ChipProps) => {
   const theme = useTheme()
   const isSm = size === 'sm'
   const backgroundColor = active
@@ -32,6 +33,7 @@ export default ({ label, active = false, soft = false, size = 'md', icon, onPres
     <TouchableOpacity
       activeOpacity={0.8}
       onPress={onPress}
+      onLongPress={onLongPress}
       style={{ ...(isSm ? styles.chipSm : styles.chipMd), backgroundColor, borderColor }}
     >
       { icon ? <Icon name={icon} size={isSm ? 10 : 11} color={color} style={styles.icon} /> : null }
