@@ -88,12 +88,14 @@ const findLine = (lines: Line[], timeMs: number) => {
 /**
  * 歌词行。飞牛：当前行纯白 + 加粗 + 字号放大，其余行统一半透明白（没有距离渐隐）。
  */
-const LyricLine = memo(({ text, active, ratio, size, wordByWord }: {
+const LyricLine = memo(({ text, active, ratio, size, wordByWord, activeColor }: {
   text: string
   active: boolean
   ratio: number
   size: number
   wordByWord: boolean
+  /** 当前行高亮色：跟随主题（Material You 主色） */
+  activeColor: string
 }) => {
   if (!active) {
     return (
@@ -110,8 +112,8 @@ const LyricLine = memo(({ text, active, ratio, size, wordByWord }: {
     return (
       <Text
         size={u(size)}
-        color='#FFFFFF'
-        style={{ ...styles.lyricLine, fontWeight: '600' }}
+        color={activeColor}
+        style={{ ...styles.lyricLine, ...styles.lyricActive }}
         numberOfLines={1}
       >{text || ' '}</Text>
     )
@@ -124,7 +126,7 @@ const LyricLine = memo(({ text, active, ratio, size, wordByWord }: {
       style={styles.lyricLine}
       numberOfLines={1}
     >
-      <Text size={u(size)} color='#FFFFFF' style={styles.lyricActive}>{text.slice(0, shown)}</Text>
+      <Text size={u(size)} color={activeColor} style={styles.lyricActive}>{text.slice(0, shown)}</Text>
       {text.slice(shown)}
     </Text>
   )
@@ -169,6 +171,14 @@ export default () => {
   }, [])
 
   const lyricSize = LYRIC_SIZES[sizeIndex]
+  /*
+    播放器页底色永远是深色（封面糊底），所以强调色要挑一档在深底上够亮的：
+    亮色主题的 c-primary 偏暗，往白提一档（light-300）；暗色主题的主色本身已经提亮过，直接用。
+    进度条填充、播放键、当前歌词行都用它，这样 Material You 的种子色能真正落到播放器上。
+  */
+  const accent = theme.isDark ? theme['c-primary'] : theme['c-primary-light-300']
+  // 上下压暗也带上种子色相：纯黑会显得和主题无关，用「最暗的那一档主色」做遮罩
+  const scrimTint = theme.isDark ? theme['c-primary-light-1000'] : theme['c-primary-dark-900']
 
   // ── 布局常量（全部来自飞牛 1080x2340 实测，真 dp） ──
   const coverTop = height * COVER_TOP_RATIO
@@ -503,10 +513,10 @@ export default () => {
       {/* 压暗：顶部给状态栏/标题，底部给控制区 */}
       <View pointerEvents='none' style={styles.bgDim} />
       <View pointerEvents='none' style={styles.scrimTop}>
-        <RNImage source={FADE_TOP} resizeMode='stretch' style={styles.bgImg} />
+        <RNImage source={FADE_TOP} resizeMode='stretch' tintColor={scrimTint} style={styles.bgImg} />
       </View>
       <View pointerEvents='none' style={styles.scrimBottom}>
-        <RNImage source={FADE_BOTTOM} resizeMode='stretch' style={styles.bgImg} />
+        <RNImage source={FADE_BOTTOM} resizeMode='stretch' tintColor={scrimTint} style={styles.bgImg} />
       </View>
 
       {/* 舞台：上倒影 + 封面（四边柔化）+ 下倒影，全部铺到屏幕边缘 */}
@@ -566,6 +576,7 @@ export default () => {
                             active
                             ratio={currentRatio}
                             wordByWord={isWordByWord}
+                            activeColor={accent}
                           />
                         </TouchableOpacity>
                           )
@@ -593,6 +604,7 @@ export default () => {
                                   active={index === currentLine}
                                   ratio={index === currentLine ? currentRatio : 0}
                                   wordByWord={isWordByWord}
+                                  activeColor={accent}
                                 />
                               </TouchableOpacity>
                             ))
@@ -673,6 +685,7 @@ export default () => {
               value={currentTime}
               max={maxTime}
               height={6}
+              fillColor={accent}
               onSeek={handleSeek}
               onPreview={setSeekPreview}
             />
@@ -703,7 +716,7 @@ export default () => {
             onPressOut={() => { pressPlay(1) }}
           >
             <Animated.View style={{ transform: [{ scale: playBtnScale }] }}>
-              <Icon name={isPlay ? 'pause' : 'play'} size={u(53)} color='#FFFFFF' />
+              <Icon name={isPlay ? 'pause' : 'play'} size={u(53)} color={accent} />
             </Animated.View>
           </TouchableOpacity>
           <TouchableOpacity style={styles.ctrlBtnBig} onPress={() => { void playNext() }} activeOpacity={0.6}>
@@ -795,7 +808,7 @@ const styles = {
     right: 0,
     top: 0,
     bottom: 0,
-    backgroundColor: 'rgba(10,8,14,0.18)',
+    backgroundColor: 'rgba(10,8,14,0.20)',
   },
   scrimTop: {
     position: 'absolute' as const,
@@ -811,7 +824,8 @@ const styles = {
     right: 0,
     bottom: 0,
     height: 430,
-    opacity: 0.5,
+    // 飞牛实测控制区亮度约 116，太亮的话主题强调色（进度条/播放键）会糊掉
+    opacity: 0.88,
   },
 
   stage: { position: 'absolute' as const, left: 0, right: 0, top: 0, bottom: 0 },
@@ -864,7 +878,13 @@ const styles = {
   },
   lyricRow: { height: LYRIC_LINE_H, justifyContent: 'center' as const },
   lyricLine: { textAlign: 'center' as const },
-  lyricActive: { fontWeight: '600' as const },
+  lyricActive: {
+    fontWeight: '600' as const,
+    // 主题色在亮封面上会偏淡，压一层柔和阴影保证可读
+    textShadowColor: 'rgba(0,0,0,0.42)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 12,
+  },
   lyricEmpty: { flex: 1, alignItems: 'center' as const, justifyContent: 'center' as const },
   lyricEmptyText: { marginTop: 10 },
 
