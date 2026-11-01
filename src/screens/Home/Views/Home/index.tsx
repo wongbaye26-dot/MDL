@@ -6,9 +6,9 @@ import { Icon } from '@/components/common/Icon'
 import Image from '@/components/common/Image'
 import PicImage from '@/components/common/PicImage'
 import DorpDownMenu from '@/components/common/DorpDownMenu'
+import PageHeader, { HeaderButton } from '@/components/common/PageHeader'
 import { useTheme } from '@/store/theme/hook'
 import { useDownloadList } from '@/store/download'
-import { useStatusbarHeight } from '@/store/common/hook'
 import { useI18n } from '@/lang'
 import playerState from '@/store/player/state'
 import commonState from '@/store/common/state'
@@ -89,7 +89,6 @@ const RecentRow = ({ musicInfo, onPlay, onMenu }: {
 
 export default () => {
   const theme = useTheme()
-  const statusBarHeight = useStatusbarHeight()
   const downloadList = useDownloadList()
   const [searchVisible, setSearchVisible] = useState(false)
   const [modal, setModal] = useState<ModalType>(null)
@@ -172,17 +171,11 @@ export default () => {
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={{ paddingTop: statusBarHeight + 12, paddingBottom: NAV_BAR_SPACE }}>
-        <View style={styles.header}>
-          <Text size={21} style={styles.brand}>EMO音乐</Text>
-          <TouchableOpacity
-            style={{ ...styles.searchBtn, backgroundColor: theme['c-primary-alpha-900'] }}
-            activeOpacity={0.8}
-            onPress={() => { setSearchVisible(true) }}
-          >
-            <Icon name='search-2' size={21} color={theme['c-font']} />
-          </TouchableOpacity>
-        </View>
+      <ScrollView contentContainerStyle={{ paddingBottom: NAV_BAR_SPACE }}>
+        <PageHeader
+          title='EMO音乐'
+          right={<HeaderButton icon='search-2' onPress={() => { setSearchVisible(true) }} />}
+        />
 
         <ScrollView
           horizontal
@@ -352,25 +345,6 @@ const styles = createStyle({
   headerAction: {
     width: 44,
     height: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingLeft: 16,
-    paddingRight: 16,
-    paddingBottom: 14,
-  },
-  brand: {
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  searchBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
   },

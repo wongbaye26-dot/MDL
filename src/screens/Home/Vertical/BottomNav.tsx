@@ -181,14 +181,16 @@ export default memo(() => {
         {...(swipeEnabled ? panResponder.panHandlers : null)}
         style={{
           ...styles.bar,
-          backgroundColor: isDark ? 'rgba(26,20,36,0.42)' : 'rgba(255,255,255,0.40)',
-          borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.80)',
+          backgroundColor: isDark ? 'rgba(24,18,34,0.20)' : 'rgba(255,255,255,0.12)',
+          borderColor: isDark ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.72)',
           shadowColor: isDark ? '#000000' : '#6E6285',
         }}>
         {/* 真高斯模糊：把胶囊背后的列表内容抓成位图做一次模糊 */}
+        {/* 胶囊本体只留很淡的一层底色，主要靠这层模糊「抓」背后内容，
+            之前底色 0.40 + tint 0.55 叠起来接近实心，玻璃感全没了 */}
         <Glass
-          blurRadius={20}
-          tint={isDark ? 'rgba(22,17,32,0.52)' : 'rgba(255,255,255,0.55)'}
+          blurRadius={24}
+          tint={isDark ? 'rgba(20,15,30,0.30)' : 'rgba(255,255,255,0.20)'}
           radius={32}
         />
         {

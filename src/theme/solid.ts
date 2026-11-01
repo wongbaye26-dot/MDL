@@ -103,3 +103,14 @@ export const getSolidBackground = (theme: LX.ActiveTheme): string => {
   solidCache.set(key, solid)
   return solid
 }
+
+/**
+ * 按背景色亮度挑一个能看清的前景色。
+ * 主色实心按钮上的文字/图标不能写死白色：浅色主题（比如粉、黄）下白字会糊掉。
+ */
+export const contrastOn = (bg: string, dark = '#1A1526', light = '#FFFFFF'): string => {
+  const rgba = parseColor(bg)
+  if (!rgba) return light
+  const lum = (0.299 * rgba[0] + 0.587 * rgba[1] + 0.114 * rgba[2]) / 255
+  return lum > 0.62 ? dark : light
+}

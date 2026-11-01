@@ -19,6 +19,7 @@ import SlideInView from '@/components/common/SlideInView'
 import Grid from './Grid'
 import { NAV_BAR_SPACE } from '@/config/constant'
 import { getSolidBackground } from '@/theme/solid'
+import { PAGE_HEADER_H } from '@/components/common/PageHeader'
 
 const getSection = (id: SettingScreenIds) => {
   switch (id) {
@@ -45,6 +46,9 @@ export default () => {
     setActiveId(id)
   }, [])
 
+  // 子页是整屏详情页：往上盖住「我的」页头（高度 = 状态栏 + 页头本体）
+  const overlayTop = -(statusBarHeight + PAGE_HEADER_H)
+
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.list}>
@@ -54,13 +58,13 @@ export default () => {
       {
         activeId
           ? (
-              <View style={[StyleSheet.absoluteFill, { zIndex: 200, elevation: 24 }]}>
+              <View style={[StyleSheet.absoluteFill, { top: overlayTop, zIndex: 200, elevation: 24 }]}>
                 <SlideInView style={{ ...styles.modal, backgroundColor: getSolidBackground(theme) }}>
                   <View style={{ ...styles.modalHeader, height: 52 + statusBarHeight, paddingTop: statusBarHeight }}>
                     <TouchableOpacity style={styles.modalBack} onPress={() => { setActiveId(null) }}>
                       <Icon name='chevron-left-2' size={20} color={theme['c-font']} />
                     </TouchableOpacity>
-                    <Text size={17} style={styles.modalTitle}>{t(`setting_${activeId}` as 'setting_basic')}</Text>
+                    <Text size={19} style={styles.modalTitle}>{t(`setting_${activeId}` as 'setting_basic')}</Text>
                   </View>
                   <ScrollView
                     contentContainerStyle={styles.modalContent}

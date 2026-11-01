@@ -35,13 +35,11 @@ const getStatusColor = (task: LX.Download.ListItem) => {
 
 export default memo(({
   task,
-  index,
   onShowMenu,
   onToggle,
   onOpen,
 }: {
   task: LX.Download.ListItem
-  index: number
   onShowMenu: (task: LX.Download.ListItem, position: { x: number, y: number, w: number, h: number }) => void
   onToggle: (task: LX.Download.ListItem) => void
   onOpen: (task: LX.Download.ListItem) => void
@@ -64,7 +62,6 @@ export default memo(({
 
   return (
     <View style={{ ...styles.card, backgroundColor: theme['c-primary-alpha-900'], borderColor: theme['c-primary-alpha-800'] }}>
-      <Text size={11} color={theme['c-350']} style={styles.index}>{index + 1}</Text>
       <TouchableOpacity
         style={styles.coverWrap}
         activeOpacity={0.8}
@@ -129,32 +126,27 @@ const styles = createStyle({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginLeft: 14,
-    marginRight: 14,
+    marginLeft: 16,
+    marginRight: 16,
     marginBottom: 10,
     paddingLeft: 10,
-    paddingRight: 4,
+    paddingRight: 2,
     paddingTop: 10,
     paddingBottom: 10,
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 0.5,
-  },
-  index: {
-    width: 22,
-    textAlign: 'center',
-    fontWeight: '600',
   },
   coverWrap: {
     width: 46,
     height: 46,
-    borderRadius: 10,
+    borderRadius: 9,
     overflow: 'hidden',
     marginRight: 12,
   },
   cover: {
     width: 46,
     height: 46,
-    borderRadius: 10,
+    borderRadius: 9,
   },
   coverMask: {
     ...StyleSheet.absoluteFillObject,
@@ -198,8 +190,8 @@ const styles = createStyle({
     borderRadius: 2,
   },
   moreButton: {
-    width: 36,
-    height: 36,
+    width: 40,
+    height: 40,
     justifyContent: 'center',
     alignItems: 'center',
   },

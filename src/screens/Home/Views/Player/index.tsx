@@ -232,20 +232,25 @@ export default () => {
     },
   }), [panY, closeWithSlideDown])
 
-  // 歌词模式：本地时钟插值，保证逐字进度连续变化（不再是 500ms 一跳）
+  /*
+    歌词页时间轴：以播放器真实位置为基准，两次采样之间用 rAF 插值。
+    之前 baseAt 初始化成 0，第一帧算出 est = 0 + Date.now()/1000 ≈ 1.7e9 秒，
+    findLine 直接返回最后一行 —— 所以一进歌词页就滚到末尾，而且和音频对不上。
+    现在基准用当前进度初始化、采样缩到 250ms、切歌时重建，并把插值上限夹到 2s。
+  */
   useEffect(() => {
     if (mode !== 'lyric') return
     let stopped = false
     let rafId = 0
-    let basePos = 0 // 最近一次真实播放位置（秒）
-    let baseAt = 0 // 取到该位置时的本地时间戳
+    let basePos = progress.nowPlayTime
+    let baseAt = Date.now()
     let lastFetch = 0
     let lastEmitted = -1
 
     const syncPosition = () => {
       lastFetch = Date.now()
       void getPosition().then(t => {
-        if (stopped) return
+        if (stopped || !Number.isFinite(t) || t < 0) return
         basePos = t
         baseAt = Date.now()
       }).catch(() => {})
@@ -253,13 +258,12 @@ export default () => {
 
     const tick = () => {
       if (stopped) return
-      if (Date.now() - lastFetch > 600) syncPosition()
+      if (Date.now() - lastFetch > 250) syncPosition()
+      // 只信「采样之后经过的时间」，并且封顶 2s：从后台切回来时不会一次跳掉整首歌
+      const elapsed = Math.min(2000, Math.max(0, Date.now() - baseAt)) / 1000
       // 暂停时不推进插值，避免进度条自己往前走
-      const est = playerState.isPlay
-        ? basePos + (Date.now() - baseAt) / 1000
-        : basePos
-      // 只在变化超过 25ms 时提交，约 40fps，足够平滑且不浪费渲染
-      if (est - lastEmitted >= 0.025) {
+      const est = playerState.isPlay ? basePos + elapsed : basePos
+      if (Math.abs(est - lastEmitted) >= 0.02) {
         lastEmitted = est
         setNow(est)
       }
@@ -272,7 +276,7 @@ export default () => {
       stopped = true
       if (rafId) cancelAnimationFrame(rafId)
     }
-  }, [mode])
+  }, [mode, musicInfo.id])
 
   useEffect(() => {
     setCollected(getListMusicSync(LIST_IDS.LOVE).some(m => m.id === musicInfo.id))
@@ -435,10 +439,18 @@ export default () => {
     scrollRef.current?.scrollTo({ y: index * LYRIC_LINE_H, animated })
   }, [])
 
+  /** 上一次高亮的行，用来判断「跳太远」 */
+  const prevLineRef = useRef(-1)
+  // 换歌后行数据整个换掉，重置基准
+  useEffect(() => { prevLineRef.current = -1 }, [lines])
+
   useEffect(() => {
     if (mode !== 'lyric') return
-    scrollToLine(currentLine, true)
-  }, [currentLine, mode, scrollToLine])
+    // 跳太远（切歌、拖动进度）时直接定位，不要从上一首的位置一路滚过去
+    const far = prevLineRef.current < 0 || Math.abs(currentLine - prevLineRef.current) > 5
+    scrollToLine(currentLine, !far)
+    prevLineRef.current = currentLine
+  }, [currentLine, mode, scrollToLine, lines])
 
   const pic = musicInfo.pic
 

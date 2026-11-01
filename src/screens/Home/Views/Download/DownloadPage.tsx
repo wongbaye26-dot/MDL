@@ -14,7 +14,8 @@ import settingState from '@/store/setting/state'
 import { playList } from '@/core/player/player'
 import { getListMusicSync } from '@/utils/listManage'
 import { LIST_IDS, NAV_BAR_SPACE } from '@/config/constant'
-import Toolbar from './Toolbar'
+import PageHeader, { HeaderButton } from '@/components/common/PageHeader'
+import ActionBar from './ActionBar'
 import TaskItem from './TaskItem'
 import TaskMenu, { type TaskMenuType, type TaskMenuAction } from './TaskMenu'
 import PageModal from '../../Vertical/PageModal'
@@ -118,20 +119,27 @@ export default () => {
     toast('已清空已完成任务')
   }, [])
 
-  const renderItem = useCallback(({ item, index }: { item: LX.Download.ListItem, index: number }) => (
-    <TaskItem task={item} index={index} onShowMenu={handleShowMenu} onToggle={handleToggle} onOpen={handleOpen} />
+  const renderItem = useCallback(({ item }: { item: LX.Download.ListItem }) => (
+    <TaskItem task={item} onShowMenu={handleShowMenu} onToggle={handleToggle} onOpen={handleOpen} />
   ), [handleShowMenu, handleToggle, handleOpen])
 
   const keyExtractor = useCallback((item: LX.Download.ListItem) => item.id, [])
 
   return (
     <View style={styles.container}>
-      <Toolbar
-        stats={stats}
+      <PageHeader
+        title='下载中心'
+        subtitle={`共 ${stats.total} 首 · 已完成 ${stats.completed} · 下载中 ${stats.running}`}
+        right={<HeaderButton icon='folder-music' onPress={() => { setLocalVisible(true) }} />}
+      />
+
+      <ActionBar
+        canStart={stats.total > 0}
+        canPause={stats.running > 0}
+        canClear={stats.completed > 0}
         onStartAll={handleStartAll}
         onPauseAll={handlePauseAll}
         onClearCompleted={handleClearCompleted}
-        onOpenLocal={() => { setLocalVisible(true) }}
       />
 
       <View style={styles.filterRow}>
@@ -188,11 +196,11 @@ const styles = createStyle({
     alignItems: 'center',
     paddingLeft: 16,
     paddingRight: 16,
-    paddingTop: 10,
-    paddingBottom: 4,
+    paddingTop: 12,
+    paddingBottom: 6,
   },
   listContent: {
-    paddingTop: 6,
+    paddingTop: 4,
     paddingBottom: NAV_BAR_SPACE,
   },
   empty: {

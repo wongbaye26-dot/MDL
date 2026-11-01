@@ -33,13 +33,13 @@ export default memo(() => {
     <View style={styles.wrap}>
       <View style={{
         ...styles.card,
-        backgroundColor: theme.isDark ? 'rgba(32,26,44,0.44)' : 'rgba(255,255,255,0.48)',
-        borderColor: theme.isDark ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.85)',
+        backgroundColor: theme.isDark ? 'rgba(26,20,36,0.20)' : 'rgba(255,255,255,0.14)',
+        borderColor: theme.isDark ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.78)',
       }}>
         {/* 真高斯模糊 */}
         <Glass
-          blurRadius={16}
-          tint={theme.isDark ? 'rgba(30,24,42,0.55)' : 'rgba(255,255,255,0.58)'}
+          blurRadius={22}
+          tint={theme.isDark ? 'rgba(22,16,32,0.32)' : 'rgba(255,255,255,0.22)'}
           radius={18}
         />
         <TouchableOpacity style={styles.infoArea} activeOpacity={0.75} onPress={openDetail}>

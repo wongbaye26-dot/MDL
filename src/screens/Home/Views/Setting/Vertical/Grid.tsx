@@ -131,7 +131,6 @@ export default ({ onPress }: { onPress: (id: SettingScreenIds) => void }) => {
         preview={previews[last]}
         onPress={onPress}
       />
-      <Text size={10} color={theme['c-350']} style={styles.footer}>EMO 音乐 · 深夜下载 · 情绪收藏</Text>
     </View>
   )
 }
@@ -193,11 +192,5 @@ const styles = createStyle({
     flexShrink: 1,
     marginLeft: 12,
     marginRight: 8,
-  },
-  footer: {
-    textAlign: 'center',
-    marginTop: 6,
-    marginBottom: 4,
-    letterSpacing: 0.4,
   },
 })
