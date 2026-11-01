@@ -14,13 +14,12 @@ import Text from '@/components/common/Text'
 import PicImage from '@/components/common/PicImage'
 import MarqueeText from '@/components/common/MarqueeText'
 import { Icon } from '@/components/common/Icon'
-import Slider from '@react-native-community/slider'
 import { useTheme } from '@/store/theme/hook'
 import { usePlayerMusicInfo, useIsPlay, useProgress } from '@/store/player/hook'
 import { useStatusbarHeight } from '@/store/common/hook'
 import { useWindowSize } from '@/utils/hooks'
 import { useSettingValue } from '@/store/setting/hook'
-import { createStyle, toast } from '@/utils/tools'
+import { toast } from '@/utils/tools'
 import { useLrcSet, useLrcPlay, type Line } from '@/plugins/lyric'
 import playerState from '@/store/player/state'
 import { collectMusic, playList, playNext, playPrev, togglePlay, uncollectMusic } from '@/core/player/player'
@@ -31,6 +30,9 @@ import { LIST_IDS } from '@/config/constant'
 import { setNavActiveId, updateSetting } from '@/core/common'
 import { formatSize, formatSampleRate, QUALITY_LABEL, QUALITY_DESC } from '@/core/download/utils'
 import DownloadQualityModal, { type DownloadQualityModalType } from '@/components/DownloadQualityModal'
+import Stage, { COVER_TOP_RATIO, COVER_H_RATIO } from './Stage'
+import SeekBar from './SeekBar'
+import { u } from './metrics'
 
 const PLAY_MODES = ['listLoop', 'random', 'singleLoop', 'list'] as const
 type PlayMode = typeof PLAY_MODES[number]
@@ -47,13 +49,18 @@ const MODE_LABEL: Record<PlayMode, string> = {
   list: '顺序播放',
 }
 
-const LYRIC_SIZES = [15, 17, 19, 22]
+/** 歌词字号（当前行）。非当前行 = 当前行 / 1.14（飞牛实测 19.5 : 17.1） */
+const LYRIC_SIZES = [17.5, 20, 22.5, 25.5]
+const LYRIC_NORMAL_RATIO = 1.14
 
+/** 歌词行高：飞牛实测 112.6px / 2.625 = 42.9dp */
+const LYRIC_LINE_H = 42.9
 /**
- * 渐变遮罩用预渲染的 alpha 渐变 PNG，而不是堆几十层色块。
- * 色块堆叠在低端机上会出现明显横带（截图里的灰色条纹），
- * 一张 8x256 的渐变图缩放后是完全平滑的，性能也更好。
+ * 底部整块高度：信息行 44 + 24 + 进度 48 + 32 + 控制 56 + 32 = 236
+ * 飞牛实测：信息行 655.6、进度 723.4、控制 803.4、底部留白 32
  */
+const BOTTOM_BLOCK_H = 236
+
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const FADE_BOTTOM = require('@/resources/images/fade-bottom.png')
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -77,24 +84,23 @@ const findLine = (lines: Line[], timeMs: number) => {
   return index
 }
 
-const LyricLine = memo(({ text, active, ratio, size, wordByWord, activeColor, distance = 0 }: {
+/**
+ * 歌词行。飞牛：当前行纯白 + 加粗 + 字号放大，其余行统一半透明白（没有距离渐隐）。
+ */
+const LyricLine = memo(({ text, active, ratio, size, wordByWord }: {
   text: string
   active: boolean
   ratio: number
   size: number
   wordByWord: boolean
-  /** 当前行高亮色（主题色） */
-  activeColor: string
-  /** 距离当前行几行：越远越淡（模拟飞牛的景深效果） */
-  distance?: number
 }) => {
   if (!active) {
     return (
       <Text
-        size={size}
-        color='rgba(255,255,255,0.55)'
-        style={{ ...styles.lyricLine, lineHeight: size * 1.5, opacity: Math.max(0.14, 0.62 - distance * 0.11) }}
-        numberOfLines={2}
+        size={u(size / LYRIC_NORMAL_RATIO)}
+        color='rgba(255,255,255,0.38)'
+        style={styles.lyricLine}
+        numberOfLines={1}
       >{text || ' '}</Text>
     )
   }
@@ -102,22 +108,22 @@ const LyricLine = memo(({ text, active, ratio, size, wordByWord, activeColor, di
   if (!wordByWord) {
     return (
       <Text
-        size={size}
-        color={activeColor}
-        style={{ ...styles.lyricLine, lineHeight: size * 1.5, fontWeight: '600' }}
-        numberOfLines={2}
+        size={u(size)}
+        color='#FFFFFF'
+        style={{ ...styles.lyricLine, fontWeight: '600' }}
+        numberOfLines={1}
       >{text || ' '}</Text>
     )
   }
   const shown = Math.min(text.length, Math.ceil(text.length * Math.max(0, Math.min(1, ratio))))
   return (
     <Text
-      size={size}
-      color='rgba(255,255,255,0.45)'
-      style={{ ...styles.lyricLine, lineHeight: size * 1.5 }}
-      numberOfLines={2}
+      size={u(size)}
+      color='rgba(255,255,255,0.32)'
+      style={styles.lyricLine}
+      numberOfLines={1}
     >
-      <Text size={size} color={activeColor} style={styles.lyricActive}>{text.slice(0, shown)}</Text>
+      <Text size={u(size)} color='#FFFFFF' style={styles.lyricActive}>{text.slice(0, shown)}</Text>
       {text.slice(shown)}
     </Text>
   )
@@ -131,12 +137,13 @@ export default () => {
   const progress = useProgress()
   const lines = useLrcSet()
   const lrcPlay = useLrcPlay()
-  const { height } = useWindowSize()
+  const { height, width } = useWindowSize()
   const playMode = (useSettingValue('player.togglePlayMethod') ?? 'listLoop') as PlayMode
 
   const [mode, setMode] = useState<'cover' | 'lyric'>('cover')
   const [sizeIndex, setSizeIndex] = useState(1)
   const [now, setNow] = useState(0)
+  const [seekPreview, setSeekPreview] = useState<number | null>(null)
   const [collected, setCollected] = useState(false)
   const [queueVisible, setQueueVisible] = useState(false)
   const [detailVisible, setDetailVisible] = useState(false)
@@ -161,6 +168,18 @@ export default () => {
 
   const lyricSize = LYRIC_SIZES[sizeIndex]
 
+  // ── 布局常量（全部来自飞牛 1080x2340 实测，真 dp） ──
+  const coverTop = height * COVER_TOP_RATIO
+  const coverH = height * COVER_H_RATIO
+  const bottomTop = height - BOTTOM_BLOCK_H
+  /** 封面态：封面下方的当前歌词行区域 */
+  const stripTop = coverTop + coverH
+  const stripH = bottomTop - stripTop
+  /** 歌词页：歌词列表区域 */
+  const lyricAreaH = bottomTop - coverTop
+  // 必须是稳定引用：每次渲染新建对象会让 ScrollView 重新应用样式
+  const lyricContentStyle = useMemo(() => ({ paddingLeft: 20, paddingRight: 20 }), [])
+
   // 下拉返回：拖动封面页下滑关闭，带跟手位移动画
   const panY = useRef(new Animated.Value(0)).current
   const modeRef = useRef(mode)
@@ -168,7 +187,7 @@ export default () => {
   const heightRef = useRef(height)
   heightRef.current = height
 
-  const closeWithSlideDown = useCallback((fromY: number) => {
+  const closeWithSlideDown = useCallback(() => {
     Animated.timing(panY, {
       toValue: heightRef.current,
       duration: 200,
@@ -177,7 +196,6 @@ export default () => {
       panY.setValue(0)
       setNavActiveId('nav_home')
     })
-    void fromY
   }, [panY])
 
   const lyricScrollY = useRef(0)
@@ -197,7 +215,7 @@ export default () => {
     },
     onPanResponderRelease: (_, g) => {
       if (g.dy > 70 || g.vy > 0.45) {
-        closeWithSlideDown(g.dy)
+        closeWithSlideDown()
       } else {
         Animated.spring(panY, {
           toValue: 0,
@@ -280,7 +298,9 @@ export default () => {
   }, [])
 
   const handleSeek = useCallback((time: number) => {
+    setSeekPreview(null)
     setNowPlayTime(time)
+    setNow(time)
     void setCurrentTime(time)
   }, [])
 
@@ -315,7 +335,7 @@ export default () => {
     void playList(listId, index)
   }, [])
 
-  const currentTime = progress.nowPlayTime
+  const currentTime = seekPreview ?? progress.nowPlayTime
   const maxTime = progress.maxPlayTime
 
   const audioMeta = useMemo(() => {
@@ -394,7 +414,7 @@ export default () => {
     return queueVisible ? getListMusicSync(playerState.playInfo.playerListId) : []
   }, [queueVisible])
 
-  const timeMs = (mode === 'lyric' ? now : currentTime) * 1000
+  const timeMs = (mode === 'lyric' ? now : progress.nowPlayTime) * 1000
   const currentLine = useMemo(() => findLine(lines, timeMs), [lines, timeMs])
   const currentRatio = useMemo(() => {
     if (currentLine < 0) return 0
@@ -404,24 +424,19 @@ export default () => {
   }, [currentLine, lines, timeMs, maxTime])
 
   const scrollRef = useRef<ScrollView>(null)
-  const lineOffsets = useRef<number[]>([])
-  const lyricAreaH = useRef(0)
-  // 歌词换歌后行高/偏移会变，等内容布局完再对齐一次
-  const [contentTick, setContentTick] = useState(0)
+  /** 行高固定 + 上下等长 spacer，当前行居中就是滚到 index * 行高 */
+  const currentLineRef = useRef(currentLine)
+  currentLineRef.current = currentLine
+
+  const scrollToLine = useCallback((index: number, animated: boolean) => {
+    if (index < 0) return
+    scrollRef.current?.scrollTo({ y: index * LYRIC_LINE_H, animated })
+  }, [])
 
   useEffect(() => {
-    // 换歌：清掉上一首的行偏移，避免新歌词按旧坐标滚动（对不齐的根因）
-    lineOffsets.current = []
-  }, [lines])
-
-  useEffect(() => {
-    if (mode !== 'lyric' || currentLine < 0) return
-    const offset = lineOffsets.current[currentLine]
-    if (offset == null) return
-    // 当前行垂直居中（飞牛也是居中高亮）
-    const areaH = lyricAreaH.current || height * 0.6
-    scrollRef.current?.scrollTo({ y: Math.max(0, offset - areaH / 2 + 22), animated: true })
-  }, [currentLine, mode, height, contentTick])
+    if (mode !== 'lyric') return
+    scrollToLine(currentLine, true)
+  }, [currentLine, mode, scrollToLine])
 
   const pic = musicInfo.pic
 
@@ -454,276 +469,225 @@ export default () => {
       style={{ ...styles.container, transform: [{ translateY: panY }] }}
       {...panResponder.panHandlers}
     >
-      {/* 背景：整屏模糊封面 */}
+      {/* 背景：整屏模糊封面（歌词页更糊，飞牛是整片柔光） */}
       <View pointerEvents='none' style={styles.bgBlur}>
         {
           pic
-            ? <RNImage source={{ uri: pic }} blurRadius={mode === 'lyric' ? 46 : 30} style={styles.bgImg} resizeMode='cover' />
+            ? <RNImage source={{ uri: pic }} blurRadius={mode === 'lyric' ? 55 : 34} style={styles.bgImg} resizeMode='cover' />
             : <View style={[styles.bgImg, { backgroundColor: '#17141C' }]} />
         }
       </View>
+      {/* 压暗：顶部给状态栏/标题，底部给控制区 */}
       <View pointerEvents='none' style={styles.bgDim} />
-
-      {/*
-        舞台：顶部倒影(10.9%) + 封面(51.5%) + 底部倒影(37.6%)，比例按飞牛实测。
-        倒影是封面的镜像 + 高斯模糊，一直铺到屏幕顶/底，所以看不到边框。
-      */}
-      <View pointerEvents='none' style={[styles.stage, mode === 'lyric' ? styles.stageHidden : null]}>
-        <View style={styles.refTop}>
-          {
-            pic
-              ? (
-                <View style={styles.refTopInner}>
-                  <RNImage source={{ uri: pic }} blurRadius={38} resizeMode='cover' style={styles.refImg} />
-                </View>
-                )
-              : null
-          }
-        </View>
-
-        <Animated.View style={{ ...styles.coverBox, opacity: coverAnim }}>
-          {
-            pic
-              ? <RNImage source={{ uri: pic }} resizeMode='contain' style={styles.coverImg} />
-              : <View style={styles.coverEmpty}><Icon name='album' size={64} color='rgba(255,255,255,0.14)' /></View>
-          }
-          {/* 封面上下边的柔化带（飞牛：上 20%、下 26%），左右弱化 5% */}
-          {
-            pic
-              ? (
-                <>
-                  <View style={[styles.edgeStrip, styles.edgeTop]}>
-                    <RNImage source={{ uri: pic }} blurRadius={26} resizeMode='contain' style={styles.edgeImgH} />
-                  </View>
-                  <View style={[styles.edgeStrip, styles.edgeBottom]}>
-                    <RNImage source={{ uri: pic }} blurRadius={26} resizeMode='contain' style={[styles.edgeImgH, styles.edgeImgBottom]} />
-                  </View>
-                  <View style={[styles.edgeStripV, styles.edgeLeft]}>
-                    <RNImage source={{ uri: pic }} blurRadius={22} resizeMode='contain' style={styles.edgeImgV} />
-                  </View>
-                  <View style={[styles.edgeStripV, styles.edgeRight]}>
-                    <RNImage source={{ uri: pic }} blurRadius={22} resizeMode='contain' style={[styles.edgeImgV, styles.edgeImgRight]} />
-                  </View>
-                </>
-                )
-              : null
-          }
-        </Animated.View>
-
-        <View style={styles.refBottom}>
-          {
-            pic
-              ? (
-                <View style={styles.refBottomInner}>
-                  <RNImage source={{ uri: pic }} blurRadius={38} resizeMode='cover' style={styles.refImg} />
-                </View>
-                )
-              : null
-          }
-        </View>
+      <View pointerEvents='none' style={styles.scrimTop}>
+        <RNImage source={FADE_TOP} resizeMode='stretch' style={styles.bgImg} />
+      </View>
+      <View pointerEvents='none' style={styles.scrimBottom}>
+        <RNImage source={FADE_BOTTOM} resizeMode='stretch' style={styles.bgImg} />
       </View>
 
-      {/* 内容层：间距按飞牛实测（标题 655、进度 723、按键 803、底部 32） */}
-      <View style={{ flex: 1, paddingTop: statusBarHeight }}>
-        <View style={styles.topBar}>
-          <TouchableOpacity
-            style={styles.topBtn}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            onPress={() => { setNavActiveId('nav_home') }}
-          >
-            <Icon name='chevron-down' size={26} color='rgba(255,255,255,0.94)' />
-          </TouchableOpacity>
-          {
-            mode === 'lyric'
-              ? (
-                <View style={styles.topTitle}>
-                  <Text size={15} color='rgba(255,255,255,0.95)' numberOfLines={1} style={styles.topTitleName}>{musicInfo.name || '未在播放'}</Text>
-                  <Text size={11} color='rgba(255,255,255,0.6)' numberOfLines={1} style={styles.topTitleSinger}>{musicInfo.singer}</Text>
-                </View>
-                )
-              : <View style={{ flex: 1 }} />
-          }
-          <View style={styles.topBtn} />
-        </View>
+      {/* 舞台：上倒影 + 封面（四边柔化）+ 下倒影，全部铺到屏幕边缘 */}
+      <Animated.View pointerEvents='none' style={[styles.stage, { opacity: coverAnim }]}>
+        <Stage pic={pic} width={width} height={height} hidden={mode === 'lyric'} />
+      </Animated.View>
 
+      {/* 顶栏：返回键 + （歌词页）居中的歌名/歌手 */}
+      <View style={[styles.header, { top: statusBarHeight + 8 }]}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          onPress={() => { setNavActiveId('nav_home') }}
+        >
+          <Icon name='chevron-down' size={u(26)} color='rgba(255,255,255,0.94)' />
+        </TouchableOpacity>
         {
-          mode === 'cover'
+          mode === 'lyric'
             ? (
-              <>
-                <TouchableOpacity activeOpacity={1} style={styles.flexArea} onPress={handleToggleMode} />
-                <View style={styles.lyricStrip}>
-                  <Text size={17} color='rgba(255,255,255,0.9)' numberOfLines={2} style={styles.nowLyric}>
-                    {lrcPlay.text || ' '}
-                  </Text>
-                </View>
-              </>
-              )
-            : (
-              <View style={styles.lyricArea} onLayout={e => { lyricAreaH.current = e.nativeEvent.layout.height }}>
-                <View pointerEvents='none' style={styles.lyricFadeTop}>
-                  <RNImage source={FADE_TOP} resizeMode='stretch' style={styles.bgImg} />
-                </View>
-                <View pointerEvents='none' style={styles.lyricFadeBottom}>
-                  <RNImage source={FADE_BOTTOM} resizeMode='stretch' style={styles.bgImg} />
-                </View>
-                {
-                  lines.length
-                    ? (
-                        isSingleLine
-                          ? (
-                          <TouchableOpacity activeOpacity={0.9} style={styles.singleLineArea} onPress={handleToggleMode}>
-                            <LyricLine
-                              text={currentLine >= 0 ? lines[currentLine].text : ''}
-                              size={lyricSize + 5}
-                              active
-                              ratio={currentRatio}
-                              wordByWord={isWordByWord}
-                              activeColor={theme['c-primary']}
-                            />
-                          </TouchableOpacity>
-                            )
-                          : (
-                          <ScrollView
-                            ref={scrollRef}
-                            showsVerticalScrollIndicator={false}
-                            contentContainerStyle={styles.lyricContent}
-                            scrollEventThrottle={32}
-                            onScroll={e => { lyricScrollY.current = e.nativeEvent.contentOffset.y }}
-                            onContentSizeChange={() => { setContentTick(v => v + 1) }}
-                          >
-                            {
-                              lines.map((line, index) => (
-                                <TouchableOpacity
-                                  key={`${index}_${line.time}`}
-                                  activeOpacity={0.8}
-                                  onPress={handleToggleMode}
-                                  onLayout={e => { lineOffsets.current[index] = e.nativeEvent.layout.y }}
-                                >
-                                  <LyricLine
-                                    text={line.text}
-                                    size={lyricSize}
-                                    active={index === currentLine}
-                                    ratio={index === currentLine ? currentRatio : 0}
-                                    wordByWord={isWordByWord}
-                                    activeColor={theme['c-primary']}
-                                    distance={index === currentLine ? 0 : Math.abs(index - currentLine)}
-                                  />
-                                </TouchableOpacity>
-                              ))
-                            }
-                          </ScrollView>
-                            )
-                      )
-                    : (
-                      <TouchableOpacity activeOpacity={0.8} style={styles.lyricEmpty} onPress={handleToggleMode}>
-                        <Icon name='comment-text-outline' size={30} color='rgba(255,255,255,0.4)' />
-                        <Text size={12} color='rgba(255,255,255,0.55)' style={styles.lyricEmptyText}>暂无歌词 · 点击返回</Text>
-                      </TouchableOpacity>
-                      )
-                }
+              <View pointerEvents='none' style={styles.headerTitle}>
+                <Text size={u(15)} color='rgba(255,255,255,0.96)' numberOfLines={1} style={styles.headerName}>{musicInfo.name || '未在播放'}</Text>
+                <Text size={u(11)} color='rgba(255,255,255,0.62)' numberOfLines={1} style={styles.headerSinger}>{musicInfo.singer}</Text>
               </View>
               )
+            : null
         }
+      </View>
 
-        {/* 封面态：歌名/歌手 + 下载/收藏/更多；歌词态：字号/收藏/更多（飞牛底栏结构） */}
+      {
+        mode === 'cover'
+          ? (
+            <>
+              {/* 封面 + 封面下方当前歌词，整块可点切歌词（飞牛点击区 16..395dp） */}
+              <TouchableOpacity
+                activeOpacity={1}
+                style={{ position: 'absolute', left: 16, right: 16, top: coverTop, height: bottomTop - coverTop }}
+                onPress={handleToggleMode}
+              />
+              <View pointerEvents='none' style={[styles.lyricStrip, { top: stripTop, height: stripH }]}>
+                <Text size={u(16)} color='rgba(255,255,255,0.95)' numberOfLines={1} style={styles.nowLyric}>
+                  {lrcPlay.text || ' '}
+                </Text>
+              </View>
+            </>
+            )
+          : (
+            <View style={{ position: 'absolute', left: 0, right: 0, top: coverTop, height: lyricAreaH }}>
+              {
+                lines.length
+                  ? (
+                      isSingleLine
+                        ? (
+                        <TouchableOpacity activeOpacity={0.9} style={styles.singleLineArea} onPress={handleToggleMode}>
+                          <LyricLine
+                            text={currentLine >= 0 ? lines[currentLine].text : ''}
+                            size={lyricSize + 4}
+                            active
+                            ratio={currentRatio}
+                            wordByWord={isWordByWord}
+                          />
+                        </TouchableOpacity>
+                          )
+                        : (
+                        <ScrollView
+                          ref={scrollRef}
+                          showsVerticalScrollIndicator={false}
+                          contentContainerStyle={lyricContentStyle}
+                          scrollEventThrottle={32}
+                          onScroll={e => { lyricScrollY.current = e.nativeEvent.contentOffset.y }}
+                          onContentSizeChange={() => { scrollToLine(currentLineRef.current, false) }}
+                        >
+                          <View style={{ height: lyricAreaH / 2 - LYRIC_LINE_H / 2 }} />
+                          {
+                            lines.map((line, index) => (
+                              <TouchableOpacity
+                                key={`${index}_${line.time}`}
+                                activeOpacity={0.85}
+                                style={styles.lyricRow}
+                                onPress={handleToggleMode}
+                              >
+                                <LyricLine
+                                  text={line.text}
+                                  size={lyricSize}
+                                  active={index === currentLine}
+                                  ratio={index === currentLine ? currentRatio : 0}
+                                  wordByWord={isWordByWord}
+                                />
+                              </TouchableOpacity>
+                            ))
+                          }
+                          <View style={{ height: lyricAreaH / 2 - LYRIC_LINE_H / 2 }} />
+                        </ScrollView>
+                          )
+                    )
+                  : (
+                    <TouchableOpacity activeOpacity={0.8} style={styles.lyricEmpty} onPress={handleToggleMode}>
+                      <Icon name='comment-text-outline' size={u(30)} color='rgba(255,255,255,0.4)' />
+                      <Text size={u(12)} color='rgba(255,255,255,0.38)' style={styles.lyricEmptyText}>暂无歌词 · 点击返回</Text>
+                    </TouchableOpacity>
+                    )
+              }
+            </View>
+            )
+      }
+
+      {/* 底部整块：信息行/工具行 + 进度 + 五个主控键（尺寸全部按飞牛实测） */}
+      <View style={[styles.bottomBlock, { top: bottomTop }]}>
         {
           mode === 'cover'
             ? (
-              <View style={styles.infoBlock}>
+              <View style={styles.infoRow}>
                 <TouchableOpacity style={styles.titleText} activeOpacity={0.75} onPress={handleToggleMode}>
                   <MarqueeText
                     text={musicInfo.name || '未在播放'}
-                    size={21}
+                    size={u(18)}
                     color='#FFFFFF'
                     style={styles.songName}
                   />
-                  <Text size={12} color='rgba(255,255,255,0.66)' numberOfLines={1} style={styles.songSinger}>{musicInfo.singer}</Text>
+                  <Text size={u(12)} color='rgba(255,255,255,0.66)' numberOfLines={1} style={styles.songSinger}>{musicInfo.singer}</Text>
                 </TouchableOpacity>
-                {
-                  autoSaveEnabled
-                    ? null
-                    : (
-                      <TouchableOpacity style={styles.iconBtn} onPress={handleDownload} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-                        <Icon name='download-2' size={21} color='rgba(255,255,255,0.92)' />
-                      </TouchableOpacity>
-                      )
-                }
-                <TouchableOpacity style={styles.iconBtn} onPress={handleToggleCollect} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-                  <Icon
-                    name={collected ? 'love' : 'heart-outline'}
-                    size={23}
-                    color={collected ? '#FF3B5C' : 'rgba(255,255,255,0.92)'}
-                  />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.iconBtn} onPress={() => { setDetailVisible(true) }} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-                  <Icon name='dots-vertical' size={20} color='rgba(255,255,255,0.92)' />
-                </TouchableOpacity>
+                <View style={styles.infoActions}>
+                  {
+                    autoSaveEnabled
+                      ? null
+                      : (
+                        <TouchableOpacity style={styles.iconBtn} onPress={handleDownload} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                          <Icon name='download-2' size={u(21)} color='rgba(255,255,255,0.92)' />
+                        </TouchableOpacity>
+                        )
+                  }
+                  <TouchableOpacity style={styles.iconBtn} onPress={handleToggleCollect} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                    <Icon
+                      name={collected ? 'love' : 'heart-outline'}
+                      size={u(26)}
+                      color={collected ? '#FF3B5C' : 'rgba(255,255,255,0.92)'}
+                    />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.iconBtn} onPress={() => { setDetailVisible(true) }} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                    <Icon name='dots-vertical' size={u(24)} color='rgba(255,255,255,0.92)' />
+                  </TouchableOpacity>
+                </View>
               </View>
               )
             : (
-              <View style={styles.lyricTools}>
-                <TouchableOpacity style={styles.iconBtn} onPress={handleSizeChange} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-                  <Icon name='format-size' size={20} color='rgba(255,255,255,0.85)' />
+              <View style={styles.toolRow}>
+                <TouchableOpacity style={styles.toolBtn} onPress={handleSizeChange} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                  <Icon name='format-size' size={u(21)} color='rgba(255,255,255,0.88)' />
                 </TouchableOpacity>
-                <View style={styles.lyricToolsRight}>
+                <View style={styles.infoActions}>
                   <TouchableOpacity style={styles.iconBtn} onPress={handleToggleCollect} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-                    <Icon name={collected ? 'love' : 'heart-outline'} size={22} color={collected ? '#FF3B5C' : 'rgba(255,255,255,0.9)'} />
+                    <Icon name={collected ? 'love' : 'heart-outline'} size={u(26)} color={collected ? '#FF3B5C' : 'rgba(255,255,255,0.9)'} />
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.iconBtn} onPress={() => { setDetailVisible(true) }} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-                    <Icon name='dots-vertical' size={20} color='rgba(255,255,255,0.9)' />
+                    <Icon name='dots-vertical' size={u(24)} color='rgba(255,255,255,0.9)' />
                   </TouchableOpacity>
                 </View>
               </View>
               )
         }
 
-        {/* 进度条 + 时间（飞牛：条 6dp，时间在条下两侧，中间音频信息） */}
         <View style={styles.progressBlock}>
-          <Slider
-            value={currentTime}
-            minimumValue={0}
-            maximumValue={maxTime || 1}
-            minimumTrackTintColor='rgba(255,255,255,0.98)'
-            maximumTrackTintColor='rgba(255,255,255,0.32)'
-            thumbTintColor='#FFFFFF'
-            style={styles.slider}
-            onSlidingComplete={handleSeek}
-          />
+          <View style={styles.seekWrap}>
+            <SeekBar
+              value={currentTime}
+              max={maxTime}
+              height={6}
+              onSeek={handleSeek}
+              onPreview={setSeekPreview}
+            />
+          </View>
           <View style={styles.timeRow}>
-            <Text size={11} color='rgba(255,255,255,0.72)' style={styles.timeText}>{formatTime(currentTime)}</Text>
+            <Text size={u(11)} color='rgba(255,255,255,0.78)' style={styles.timeText}>{formatTime(currentTime)}</Text>
             {
               audioMeta
-                ? <Text size={10} color='rgba(255,255,255,0.5)' numberOfLines={1} style={styles.timeCenter}>{audioMeta}</Text>
+                ? <Text size={u(10.5)} color='rgba(255,255,255,0.54)' numberOfLines={1} style={styles.timeCenter}>{audioMeta}</Text>
                 : <View style={styles.timeCenter} />
             }
-            <Text size={11} color='rgba(255,255,255,0.72)' style={styles.timeText}>{formatTime(maxTime)}</Text>
+            <Text size={u(11)} color='rgba(255,255,255,0.78)' style={styles.timeText}>{formatTime(maxTime)}</Text>
           </View>
         </View>
 
-        {/* 五个主控键：两端贴边，外侧 48dp、内侧 56dp */}
         <View style={styles.controls}>
           <TouchableOpacity style={styles.ctrlBtn} onPress={handleCycleMode} activeOpacity={0.6}>
-            <Icon name={MODE_ICON[playMode]} size={22} color='rgba(255,255,255,0.9)' />
+            <Icon name={MODE_ICON[playMode]} size={u(21)} color='rgba(255,255,255,0.9)' />
           </TouchableOpacity>
           <TouchableOpacity style={styles.ctrlBtnBig} onPress={() => { void playPrev() }} activeOpacity={0.6}>
-            <Icon name='prevMusic' size={32} color='#FFFFFF' />
+            <Icon name='prevMusic' size={u(39)} color='#FFFFFF' />
           </TouchableOpacity>
           <TouchableOpacity
-            style={styles.playBtn}
+            style={styles.ctrlBtnBig}
             onPress={togglePlay}
             activeOpacity={0.75}
             onPressIn={() => { pressPlay(0.9) }}
             onPressOut={() => { pressPlay(1) }}
           >
             <Animated.View style={{ transform: [{ scale: playBtnScale }] }}>
-              <Icon name={isPlay ? 'pause' : 'play'} size={44} color='#FFFFFF' />
+              <Icon name={isPlay ? 'pause' : 'play'} size={u(53)} color='#FFFFFF' />
             </Animated.View>
           </TouchableOpacity>
           <TouchableOpacity style={styles.ctrlBtnBig} onPress={() => { void playNext() }} activeOpacity={0.6}>
-            <Icon name='nextMusic' size={32} color='#FFFFFF' />
+            <Icon name='nextMusic' size={u(39)} color='#FFFFFF' />
           </TouchableOpacity>
           <TouchableOpacity style={styles.ctrlBtn} onPress={() => { setQueueVisible(true) }} activeOpacity={0.6}>
-            <Icon name='playlist-music' size={25} color='rgba(255,255,255,0.9)' />
+            <Icon name='playlist-music' size={u(23)} color='rgba(255,255,255,0.9)' />
           </TouchableOpacity>
         </View>
       </View>
@@ -732,9 +696,9 @@ export default () => {
         <TouchableOpacity style={styles.modalMask} activeOpacity={1} onPress={() => { setQueueVisible(false) }}>
           <View style={{ ...styles.queueSheet, backgroundColor: theme['c-content-background'] }}>
             <View style={styles.queueHead}>
-              <Text size={14} style={styles.queueTitle}>播放队列 · {queue.length}</Text>
+              <Text size={u(14)} style={styles.queueTitle}>播放队列 · {queue.length}</Text>
               <TouchableOpacity onPress={() => { setQueueVisible(false) }}>
-                <Icon name='close' size={18} color={theme['c-450']} />
+                <Icon name='close' size={u(18)} color={theme['c-450']} />
               </TouchableOpacity>
             </View>
             <ScrollView style={styles.queueList}>
@@ -746,15 +710,15 @@ export default () => {
                     activeOpacity={0.6}
                     onPress={() => { handlePlayFromQueue(index) }}
                   >
-                    <Text size={12} color={theme['c-450']} style={styles.queueIndex}>{index + 1}</Text>
+                    <Text size={u(12)} color={theme['c-450']} style={styles.queueIndex}>{index + 1}</Text>
                     <PicImage musicInfo={item} listId={playerState.playInfo.playerListId} style={styles.queueCover} />
                     <View style={styles.queueInfo}>
-                      <Text size={13} numberOfLines={1}>{item.name}</Text>
-                      <Text size={10} color={theme['c-450']} numberOfLines={1} style={styles.queueSinger}>{item.singer}</Text>
+                      <Text size={u(13)} numberOfLines={1}>{item.name}</Text>
+                      <Text size={u(10)} color={theme['c-450']} numberOfLines={1} style={styles.queueSinger}>{item.singer}</Text>
                     </View>
                     {
                       item.id === musicInfo.id
-                        ? <Icon name='volume-high' size={15} color={theme['c-primary-font']} />
+                        ? <Icon name='volume-high' size={u(15)} color={theme['c-primary-font']} />
                         : null
                     }
                   </TouchableOpacity>
@@ -768,12 +732,12 @@ export default () => {
       <Modal visible={detailVisible} transparent animationType='fade' onRequestClose={() => { setDetailVisible(false) }}>
         <TouchableOpacity style={styles.modalMask} activeOpacity={1} onPress={() => { setDetailVisible(false) }}>
           <View style={{ ...styles.detailSheet, backgroundColor: theme['c-content-background'] }}>
-            <Text size={14} style={styles.queueTitle}>歌曲详情</Text>
+            <Text size={u(14)} style={styles.queueTitle}>歌曲详情</Text>
             {
               detailRows.map(row => (
                 <View key={row.label} style={styles.detailRow}>
-                  <Text size={12} color={theme['c-450']} style={styles.detailLabel}>{row.label}</Text>
-                  <Text size={12} numberOfLines={2} style={styles.detailValue}>{row.value}</Text>
+                  <Text size={u(12)} color={theme['c-450']} style={styles.detailLabel}>{row.label}</Text>
+                  <Text size={u(12)} numberOfLines={2} style={styles.detailValue}>{row.value}</Text>
                 </View>
               ))
             }
@@ -786,387 +750,196 @@ export default () => {
   )
 }
 
-const styles = createStyle({
+/**
+ * 这里刻意不用 createStyle：它会把数值按 375x667 设计稿放大（本机 1.097），
+ * 而下面的数字都是飞牛真机实测的真 dp，必须原样生效才能 1:1 对齐。
+ */
+const styles = {
   container: {
     flex: 1,
-    width: '100%',
+    width: '100%' as const,
     backgroundColor: '#0B0810',
   },
   /*
     注意：绝对定位的 <Image> 只写 left/right 时，RN 会按图片自身像素宽渲染
     （fade PNG 只有 8px → 21px 一条）。所有绝对定位的图片都外包一层 View。
   */
-  bgBlur: {
-    position: 'absolute',
-    left: -40,
-    right: -40,
-    top: -40,
-    bottom: -40,
-  },
-  bgImg: {
-    width: '100%',
-    height: '100%',
-  },
+  bgBlur: { position: 'absolute' as const, left: -40, right: -40, top: -40, bottom: -40 },
+  bgImg: { width: '100%' as const, height: '100%' as const },
   bgDim: {
-    position: 'absolute',
+    position: 'absolute' as const,
     left: 0,
     right: 0,
     top: 0,
     bottom: 0,
-    backgroundColor: 'rgba(12,10,18,0.18)',
+    backgroundColor: 'rgba(10,8,14,0.18)',
   },
-
-  /* 舞台：顶部倒影 10.9% / 封面 51.5% / 底部倒影 37.6%（飞牛实测） */
-  stage: {
-    position: 'absolute',
+  scrimTop: {
+    position: 'absolute' as const,
     left: 0,
     right: 0,
     top: 0,
-    bottom: 0,
-  },
-  // 歌词页只留模糊背景，封面与倒影隐藏（和飞牛一致）
-  stageHidden: {
-    opacity: 0,
-  },
-  refTop: {
-    flex: 109,
-    overflow: 'hidden',
-  },
-  refTopInner: {
-    position: 'absolute',
-    left: '7%',
-    right: '7%',
-    bottom: 0,
-    // 与封面同宽同高（封面宽 86% → 高 = 宽 / 0.769）
-    aspectRatio: 0.769,
-    transform: [{ scaleY: -1 }],
-    opacity: 0.55,
-  },
-  refBottom: {
-    flex: 376,
-    overflow: 'hidden',
-  },
-  refBottomInner: {
-    position: 'absolute',
-    left: '7%',
-    right: '7%',
-    top: 0,
-    aspectRatio: 0.769,
-    transform: [{ scaleY: -1 }],
-    opacity: 0.55,
-  },
-  refImg: {
-    width: '100%',
-    height: '100%',
-  },
-  coverBox: {
-    width: '86%',
-    height: '51.5%',
-    alignSelf: 'center',
-  },
-  coverImg: {
-    width: '100%',
-    height: '100%',
-  },
-  coverEmpty: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  // 四边柔化：上下强（飞牛 20%/26%），左右弱
-  edgeStrip: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    height: '20%',
-    overflow: 'hidden',
-  },
-  edgeTop: {
-    top: 0,
-    opacity: 0.7,
-  },
-  edgeBottom: {
-    bottom: 0,
-    height: '26%',
-    opacity: 0.7,
-  },
-  edgeStripV: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    width: '5%',
-    overflow: 'hidden',
-  },
-  edgeLeft: {
-    left: 0,
+    height: 190,
     opacity: 0.34,
   },
-  edgeRight: {
-    right: 0,
-    opacity: 0.34,
-  },
-  edgeImgH: {
-    position: 'absolute',
+  scrimBottom: {
+    position: 'absolute' as const,
     left: 0,
-    top: 0,
-    width: '100%',
-    aspectRatio: 0.769,
-  },
-  edgeImgBottom: {
-    top: undefined,
+    right: 0,
     bottom: 0,
-  },
-  edgeImgV: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    height: '100%',
-    aspectRatio: 0.769,
-  },
-  edgeImgRight: {
-    left: undefined,
-    right: 0,
+    height: 430,
+    opacity: 0.5,
   },
 
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  stage: { position: 'absolute' as const, left: 0, right: 0, top: 0, bottom: 0 },
+
+  header: {
+    position: 'absolute' as const,
+    left: 0,
+    right: 0,
+    height: 40,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
     paddingLeft: 16,
-    paddingRight: 8,
-    height: 44,
+    paddingRight: 16,
   },
-  topBtn: {
-    width: 32,
-    height: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  topTitle: {
-    flex: 1,
-    alignItems: 'center',
-    paddingHorizontal: 8,
-  },
-  topTitleName: {
-    fontWeight: '600',
-  },
-  topTitleSinger: {
-    marginTop: 2,
-  },
-  flexArea: {
-    flex: 1,
-  },
-
-  lyricArea: {
-    flex: 1,
-  },
-  lyricFadeTop: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
+  backBtn: { width: 32, height: 32, justifyContent: 'center' as const, alignItems: 'center' as const },
+  headerTitle: {
+    position: 'absolute' as const,
+    left: 60,
+    right: 60,
     top: 0,
-    height: 70,
-    zIndex: 2,
+    bottom: 0,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
   },
-  lyricFadeBottom: {
-    position: 'absolute',
+  headerName: { fontWeight: '600' as const, lineHeight: 20 },
+  headerSinger: { lineHeight: 16 },
+
+  /* 封面态：封面下方的当前歌词行（飞牛 588.6..605.7） */
+  lyricStrip: {
+    position: 'absolute' as const,
     left: 0,
     right: 0,
-    bottom: 0,
-    height: 90,
-    zIndex: 2,
-    transform: [{ scaleY: -1 }],
-  },
-  singleLineArea: {
-    flex: 1,
-    justifyContent: 'center',
+    justifyContent: 'center' as const,
     paddingLeft: 24,
     paddingRight: 24,
-  },
-  lyricContent: {
-    paddingLeft: 24,
-    paddingRight: 24,
-    paddingTop: 40,
-    paddingBottom: 60,
-  },
-  lyricLine: {
-    textAlign: 'center',
-    paddingTop: 9,
-    paddingBottom: 9,
-  },
-  lyricActive: {
-    fontWeight: '600',
-  },
-  lyricEmpty: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  lyricEmptyText: {
-    marginTop: 10,
-  },
-
-  /* 封面态当前歌词：紧贴封面下方，占 44dp（飞牛 605..649） */
-  lyricStrip: {
-    height: 44,
-    justifyContent: 'center',
-    paddingLeft: 24,
-    paddingRight: 24,
-    marginBottom: 6,
   },
   nowLyric: {
     lineHeight: 22,
+    marginBottom: 17,
+    textShadowColor: 'rgba(0,0,0,0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 8,
   },
 
-  /* 信息区：655..699（标题 24 + 歌手 20） */
-  infoBlock: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingLeft: 24,
-    paddingRight: 8,
+  singleLineArea: {
+    flex: 1,
+    justifyContent: 'center' as const,
+    paddingLeft: 20,
+    paddingRight: 20,
+  },
+  lyricRow: { height: LYRIC_LINE_H, justifyContent: 'center' as const },
+  lyricLine: { textAlign: 'center' as const },
+  lyricActive: { fontWeight: '600' as const },
+  lyricEmpty: { flex: 1, alignItems: 'center' as const, justifyContent: 'center' as const },
+  lyricEmptyText: { marginTop: 10 },
+
+  bottomBlock: {
+    position: 'absolute' as const,
+    left: 0,
+    right: 0,
+    height: BOTTOM_BLOCK_H,
+  },
+  /* 信息行：655.6..699.4（高 44） */
+  infoRow: {
     height: 44,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    paddingLeft: 24,
+    paddingRight: 16,
   },
-  titleText: {
-    flexGrow: 1,
-    flexShrink: 1,
-    paddingRight: 6,
-  },
-  songName: {
-    fontWeight: '700',
-    letterSpacing: 0.2,
-  },
-  songSinger: {
-    marginTop: 2,
-  },
+  titleText: { flexGrow: 1, flexShrink: 1, paddingRight: 8 },
+  songName: { fontWeight: '600' as const },
+  songSinger: { lineHeight: 20 },
+  infoActions: { flexDirection: 'row' as const, alignItems: 'center' as const },
   iconBtn: {
     width: 40,
     height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    marginLeft: 12,
   },
-  lyricTools: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingLeft: 16,
-    paddingRight: 8,
+  toolRow: {
     height: 44,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
+    paddingLeft: 16,
+    paddingRight: 16,
   },
-  lyricToolsRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
+  toolBtn: { width: 44, height: 44, justifyContent: 'center' as const, alignItems: 'center' as const },
 
-  /* 进度：723..771（条 6dp） */
-  progressBlock: {
-    paddingLeft: 24,
-    paddingRight: 24,
-    height: 48,
-    justifyContent: 'center',
-    marginTop: 24,
-  },
-  slider: {
-    width: '100%',
-    height: 26,
-  },
+  /* 进度：723.4..771.4（高 48），轨道 6dp、中心在块内 25.2 */
+  progressBlock: { height: 48, marginTop: 24, paddingLeft: 24, paddingRight: 24 },
+  // SeekBar 高 38（轨道 6 + 上下各 16 触摸区），轨道中心在 19 → top 6.2 让中心落在块内 25.2
+  seekWrap: { position: 'absolute' as const, left: 24, right: 24, top: 6.2 },
   timeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: -2,
+    position: 'absolute' as const,
+    left: 24,
+    right: 24,
+    top: 28.2,
+    height: 19.8,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
   },
-  timeText: {
-    flexShrink: 0,
-    minWidth: 42,
-    fontVariant: ['tabular-nums'],
-  },
+  timeText: { flexShrink: 0, minWidth: 40, fontVariant: ['tabular-nums'] as const },
   timeCenter: {
     flexGrow: 1,
     flexShrink: 1,
-    textAlign: 'center',
+    textAlign: 'center' as const,
     paddingLeft: 10,
     paddingRight: 10,
   },
 
-  /* 控制：803..859（高 56），两端贴边 */
+  /* 控制：803.4..859.4（高 56），两端贴边、无左右 padding */
   controls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
     height: 56,
     marginTop: 32,
     marginBottom: 32,
   },
-  ctrlBtn: {
-    width: 48,
-    height: 48,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  ctrlBtnBig: {
-    width: 56,
-    height: 56,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  playBtn: {
-    width: 56,
-    height: 56,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  ctrlBtn: { width: 48, height: 48, justifyContent: 'center' as const, alignItems: 'center' as const },
+  ctrlBtnBig: { width: 56, height: 56, justifyContent: 'center' as const, alignItems: 'center' as const },
 
-  modalMask: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.45)',
-  },
-  queueSheet: {
-    maxHeight: '60%',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingBottom: 20,
-  },
+  modalMask: { flex: 1, justifyContent: 'flex-end' as const, backgroundColor: 'rgba(0,0,0,0.45)' },
+  queueSheet: { maxHeight: '60%' as const, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: 20 },
   queueHead: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
     paddingLeft: 18,
     paddingRight: 18,
     paddingTop: 16,
     paddingBottom: 12,
   },
-  queueTitle: {
-    fontWeight: '600',
-  },
-  queueList: {
-    paddingLeft: 8,
-    paddingRight: 8,
-  },
+  queueTitle: { fontWeight: '600' as const },
+  queueList: { paddingLeft: 8, paddingRight: 8 },
   queueRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
     paddingLeft: 10,
     paddingRight: 10,
     paddingTop: 8,
     paddingBottom: 8,
   },
-  queueIndex: {
-    width: 26,
-  },
-  queueCover: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    marginRight: 10,
-  },
-  queueInfo: {
-    flexGrow: 1,
-    flexShrink: 1,
-  },
-  queueSinger: {
-    marginTop: 2,
-  },
+  queueIndex: { width: 26 },
+  queueCover: { width: 36, height: 36, borderRadius: 8, marginRight: 10 },
+  queueInfo: { flexGrow: 1, flexShrink: 1 },
+  queueSinger: { marginTop: 2 },
   detailSheet: {
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
@@ -1175,16 +948,7 @@ const styles = createStyle({
     paddingTop: 18,
     paddingBottom: 28,
   },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginTop: 12,
-  },
-  detailLabel: {
-    width: 62,
-  },
-  detailValue: {
-    flexGrow: 1,
-    flexShrink: 1,
-  },
-})
+  detailRow: { flexDirection: 'row' as const, alignItems: 'flex-start' as const, marginTop: 12 },
+  detailLabel: { width: 62 },
+  detailValue: { flexGrow: 1, flexShrink: 1 },
+}
