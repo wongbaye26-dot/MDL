@@ -6,6 +6,8 @@ import { formatPlayTime } from '@/utils'
 
 /** 持久化存储键 */
 const STORAGE_KEY = 'local_music_list'
+/** 用户额外添加的扫描目录 */
+const DIRS_KEY = 'local_music_dirs'
 /** 支持的音频扩展名 */
 const AUDIO_EXT = new Set(['mp3', 'flac', 'm4a', 'aac', 'wav', 'ogg', 'ape', 'wma', 'opus', 'dsf', 'dff'])
 /** 递归扫描的最大层级 */
@@ -113,16 +115,41 @@ const buildMusicInfo = async(file: DirEntry): Promise<LX.Music.MusicInfoLocal> =
 export interface ScanResult {
   list: LX.Music.MusicInfoLocal[]
   dir: string
+  /** 这次实际扫描的所有根目录 */
+  dirs: string[]
+}
+
+/** 用户额外添加的扫描目录（不含默认下载目录） */
+export const getExtraDirs = async(): Promise<string[]> => {
+  const dirs = await getData<string[]>(DIRS_KEY)
+  return Array.isArray(dirs) ? dirs : []
+}
+
+export const setExtraDirs = async(dirs: string[]) => {
+  await saveData(DIRS_KEY, [...new Set(dirs.filter(Boolean))])
+}
+
+/** 全部扫描根目录：默认下载目录 + 用户添加的 */
+export const getScanDirs = async(): Promise<string[]> => {
+  let base = ''
+  try {
+    base = await getSavePath()
+  } catch {}
+  const extra = await getExtraDirs()
+  return [...new Set([base, ...extra].filter(Boolean))]
 }
 
 /**
  * 扫描下载目录下的本地音频文件
  * @param onProgress 每解析完一首回调，参数为已解析数量
  */
-export const scanLocalMusic = async(onProgress?: (count: number) => void): Promise<ScanResult> => {
-  const dir = await getSavePath()
+export const scanLocalMusic = async(
+  onProgress?: (count: number) => void,
+  roots?: string[],
+): Promise<ScanResult> => {
+  const dirs = roots?.length ? roots : await getScanDirs()
   const files: DirEntry[] = []
-  await walk(dir, 0, files)
+  for (const dir of dirs) await walk(dir, 0, files)
 
   const list: LX.Music.MusicInfoLocal[] = []
   const seen = new Set<string>()
@@ -136,7 +163,7 @@ export const scanLocalMusic = async(onProgress?: (count: number) => void): Promi
   list.sort((a, b) => a.name.localeCompare(b.name, 'zh-Hans-CN'))
   cachedList = list
   await saveData(STORAGE_KEY, list)
-  return { list, dir }
+  return { list, dir: dirs[0] ?? '', dirs }
 }
 
 /** 扫描结果的总大小（字节） */

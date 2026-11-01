@@ -11,6 +11,7 @@ import java.util.List;
 
 import cn.toside.music.mobile.cache.CachePackage;
 import cn.toside.music.mobile.crypto.CryptoPackage;
+import cn.toside.music.mobile.dirpicker.DirectoryPickerPackage;
 import cn.toside.music.mobile.download.DownloadPackage;
 import cn.toside.music.mobile.lyric.LyricPackage;
 import cn.toside.music.mobile.userApi.UserApiPackage;
@@ -37,6 +38,7 @@ public class MainApplication extends NavigationApplication {
           packages.add(new CryptoPackage());
           packages.add(new UserApiPackage());
           packages.add(new DownloadPackage());
+          packages.add(new DirectoryPickerPackage());
           return packages;
         }
 

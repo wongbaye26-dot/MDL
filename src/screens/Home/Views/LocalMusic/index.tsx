@@ -26,7 +26,8 @@ import { useTheme } from '@/store/theme/hook'
 import { contrastOn } from '@/theme/solid'
 import { createStyle, toast } from '@/utils/tools'
 import { formatSize, formatSampleRate } from '@/core/download/utils'
-import { getLocalMusicList, scanLocalMusic, getTotalSize, deleteLocalMusic, updateLocalMusicMeta } from '@/core/localMusic'
+import { getLocalMusicList, scanLocalMusic, getTotalSize, deleteLocalMusic, updateLocalMusicMeta, getScanDirs, getExtraDirs, setExtraDirs } from '@/core/localMusic'
+import { pickDirectory, isDirectoryPickerSupported } from '@/utils/directoryPicker'
 import { readPic } from '@/utils/localMediaMetadata'
 import { overwriteListMusics } from '@/core/list'
 import listAction from '@/store/list/action'
@@ -94,6 +95,10 @@ export default ({ onClose }: { onClose?: () => void }) => {
   const [scanning, setScanning] = useState(false)
   const [progress, setProgress] = useState(0)
   const [inited, setInited] = useState(false)
+  /** 全部扫描根目录（默认下载目录 + 用户添加的） */
+  const [dirs, setDirs] = useState<string[]>([])
+  const [dirModal, setDirModal] = useState(false)
+  const dirsRef = useRef<string[]>([])
   /** 浏览层级：最近添加 / 专辑 / 艺人 / 文件夹树 / 全部歌曲 */
   const [tab, setTab] = useState<'recent' | 'album' | 'artist' | 'folder' | 'song'>('recent')
   /** 专辑 / 艺人的二级页 */
@@ -116,10 +121,11 @@ export default ({ onClose }: { onClose?: () => void }) => {
     try {
       const result = await scanLocalMusic(count => {
         if (mountedRef.current) setProgress(count)
-      })
+      }, dirsRef.current.length ? dirsRef.current : undefined)
       if (!mountedRef.current) return
       setList(result.list)
       setDir(result.dir)
+      setDirs(result.dirs)
       toast(result.list.length ? `扫描完成，共 ${result.list.length} 首` : '没有找到音频文件')
     } catch {
       if (mountedRef.current) toast('扫描失败，请检查目录权限')
@@ -130,6 +136,14 @@ export default ({ onClose }: { onClose?: () => void }) => {
       }
     }
   }, [scanning])
+
+  useEffect(() => {
+    void getScanDirs().then(list => {
+      if (!mountedRef.current) return
+      dirsRef.current = list
+      setDirs(list)
+    })
+  }, [])
 
   useEffect(() => {
     void getLocalMusicList().then(cached => {
@@ -341,6 +355,41 @@ export default ({ onClose }: { onClose?: () => void }) => {
     toast('已加入稍后播放')
   }, [])
 
+  /** 添加一个扫描目录（系统目录选择器） */
+  const handleAddDir = useCallback(async() => {
+    try {
+      const picked = await pickDirectory()
+      if (!picked) return
+      const extra = await getExtraDirs()
+      if (extra.includes(picked.path)) {
+        toast('这个文件夹已经在扫描列表里了')
+        return
+      }
+      await setExtraDirs([...extra, picked.path])
+      const next = await getScanDirs()
+      dirsRef.current = next
+      setDirs(next)
+      toast(`已添加「${picked.name}」，开始扫描…`)
+      setDirModal(false)
+      setScanning(false)
+      void handleScan()
+    } catch (e) {
+      toast((e as Error)?.message ?? '选择文件夹失败')
+    }
+  }, [handleScan])
+
+  /** 移除一个额外目录（默认下载目录不能删） */
+  const handleRemoveDir = useCallback(async(path: string) => {
+    const extra = await getExtraDirs()
+    await setExtraDirs(extra.filter(d => d !== path))
+    const next = await getScanDirs()
+    dirsRef.current = next
+    setDirs(next)
+    toast('已移除，重新扫描中…')
+    setScanning(false)
+    void handleScan()
+  }, [handleScan])
+
   const handleDelete = useCallback(async(item: LX.Music.MusicInfoLocal, deleteFile: boolean) => {
     await deleteLocalMusic(item, deleteFile)
     const newList = await getLocalMusicList()
@@ -459,22 +508,35 @@ export default ({ onClose }: { onClose?: () => void }) => {
       }}>
         <View style={styles.scanInfo}>
           <View style={styles.scanTitleRow}>
-            <Icon name='folder' size={13} color={theme['c-primary-light-200']} />
-            <Text size={12} numberOfLines={1} style={styles.scanTitle}>{dir || '下载目录'}</Text>
+            <Icon name='folder-multiple' size={13} color={theme['c-primary-light-200']} />
+            <Text size={12} numberOfLines={1} style={styles.scanTitle}>
+              {dirs.length > 1 ? `${dirs.length} 个文件夹` : (dir || '下载目录')}
+            </Text>
           </View>
-          <Text size={11} color={theme['c-450']} style={styles.scanMeta}>
-            {scanning
-              ? `扫描中，已找到 ${progress} 首…`
-              : `${list.length} 首 · ${totalSize}`}
+          <Text size={11} color={theme['c-450']} numberOfLines={1} style={styles.scanMeta}>
+            {scanning ? `扫描中，已找到 ${progress} 首…` : `${list.length} 首 · ${totalSize}`}
           </Text>
         </View>
         <TouchableOpacity
-          style={{ ...styles.scanBtn, backgroundColor: theme['c-primary'], opacity: scanning ? 0.6 : 1 }}
+          style={{
+            ...styles.scanBtn,
+            backgroundColor: theme['c-primary-alpha-800'],
+            borderWidth: 0.5,
+            borderColor: theme['c-primary-alpha-600'],
+          }}
+          activeOpacity={0.8}
+          onPress={() => { setDirModal(true) }}
+        >
+          <Icon name='folder-cog' size={12} color={theme['c-primary']} />
+          <Text size={11} color={theme['c-primary']} style={styles.scanBtnText}>文件夹</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={{ ...styles.scanBtn, backgroundColor: theme['c-primary'], opacity: scanning ? 0.6 : 1, marginLeft: 8 }}
           disabled={scanning}
           onPress={() => { void handleScan() }}
         >
-          <Icon name='refresh' size={12} color='#FFFFFF' />
-          <Text size={11} color='#FFFFFF' style={styles.scanBtnText}>{scanning ? '扫描中' : '重新扫描'}</Text>
+          <Icon name='refresh' size={12} color={contrastOn(theme['c-primary'])} />
+          <Text size={11} color={contrastOn(theme['c-primary'])} style={styles.scanBtnText}>{scanning ? '扫描中' : '扫描'}</Text>
         </TouchableOpacity>
       </View>
 
@@ -578,6 +640,59 @@ export default ({ onClose }: { onClose?: () => void }) => {
         onClose={() => { setEditingItem(null) }}
         onSave={handleSaveEdit}
       />
+
+      {/* 扫描文件夹管理 */}
+      <Modal visible={dirModal} transparent animationType='slide' onRequestClose={() => { setDirModal(false) }}>
+        <TouchableOpacity
+          style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' }}
+          activeOpacity={1}
+          onPress={() => { setDirModal(false) }}
+        >
+          <View
+            style={{ ...editStyles.sheet, backgroundColor: theme['c-content-background'] }}
+            onStartShouldSetResponder={() => true}
+          >
+            <Text size={15} style={editStyles.title}>扫描文件夹</Text>
+            {
+              dirs.map((d, i) => (
+                <View key={d} style={styles.dirRow}>
+                  <Icon name='folder' size={16} color={theme['c-primary']} />
+                  <View style={styles.dirInfo}>
+                    <Text size={13} numberOfLines={1}>{baseNameOf(d) || d}</Text>
+                    <Text size={10} color={theme['c-450']} numberOfLines={1} style={styles.dirPath}>{d}</Text>
+                  </View>
+                  {
+                    i === 0
+                      ? <Text size={10} color={theme['c-450']}>默认</Text>
+                      : (
+                        <TouchableOpacity onPress={() => { void handleRemoveDir(d) }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                          <Icon name='close-circle' size={18} color={theme['c-450']} />
+                        </TouchableOpacity>
+                        )
+                  }
+                </View>
+              ))
+            }
+            {
+              isDirectoryPickerSupported
+                ? (
+                  <TouchableOpacity
+                    style={{ ...styles.addDirBtn, backgroundColor: theme['c-primary'] }}
+                    activeOpacity={0.85}
+                    onPress={() => { void handleAddDir() }}
+                  >
+                    <Icon name='folder-plus' size={14} color={contrastOn(theme['c-primary'])} />
+                    <Text size={13} color={contrastOn(theme['c-primary'])} style={styles.addDirText}>添加文件夹</Text>
+                  </TouchableOpacity>
+                  )
+                : <Text size={11} color={theme['c-450']} style={styles.dirTip}>当前版本不支持选择目录</Text>
+            }
+            <Text size={10} color={theme['c-450']} style={styles.dirTip}>
+              添加的目录会和默认下载目录一起扫描；如果提示目录不可读，请在系统设置里给本应用「音乐和音频」权限。
+            </Text>
+          </View>
+        </TouchableOpacity>
+      </Modal>
       </View>
     </Animated.View>
   )
@@ -903,6 +1018,37 @@ const styles = createStyle({
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  dirRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: 10,
+    paddingBottom: 10,
+  },
+  dirInfo: {
+    flexGrow: 1,
+    flexShrink: 1,
+    marginLeft: 10,
+    marginRight: 10,
+  },
+  dirPath: {
+    marginTop: 2,
+  },
+  addDirBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 44,
+    borderRadius: 22,
+    marginTop: 12,
+  },
+  addDirText: {
+    marginLeft: 6,
+    fontWeight: '600',
+  },
+  dirTip: {
+    marginTop: 10,
+    lineHeight: 16,
   },
   listContent: {
     paddingTop: 10,
