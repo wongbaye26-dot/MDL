@@ -5,10 +5,13 @@ import Text from './Text'
 import { Icon } from './Icon'
 import { useTheme } from '@/store/theme/hook'
 import { useStatusbarHeight } from '@/store/common/hook'
+import { useHorizontalMode } from '@/utils/hooks'
 import { createStyle } from '@/utils/tools'
 
 /** 头部除状态栏以外的高度（有副标题时的固定值），全屏覆盖的子页要用它算偏移 */
 export const PAGE_HEADER_H = 72
+/** 横屏紧凑版的高度 */
+export const PAGE_HEADER_COMPACT_H = 56
 
 /**
  * 统一的页面头部（首页 / 下载中心 / 我的 共用）。
@@ -27,14 +30,23 @@ export default memo(({
   right?: ReactNode
 }) => {
   const statusBarHeight = useStatusbarHeight()
+  // 横屏高度只有 400 出头，页头占 72dp 太奢侈，整体收紧一档
+  const compact = useHorizontalMode()
 
   return (
-    <View style={{ ...styles.container, height: statusBarHeight + PAGE_HEADER_H, paddingTop: statusBarHeight + 12 }}>
+    <View
+      style={{
+        ...styles.container,
+        height: statusBarHeight + (compact ? PAGE_HEADER_COMPACT_H : PAGE_HEADER_H),
+        paddingTop: statusBarHeight + (compact ? 8 : 12),
+        paddingBottom: compact ? 10 : 14,
+      }}
+    >
       <View style={styles.row}>
-        {logo ? <Image source={logo} style={styles.logo} /> : null}
+        {logo ? <Image source={logo} style={compact ? styles.logoCompact : styles.logo} /> : null}
         <View style={styles.textArea}>
-          <Text size={21} numberOfLines={1} style={styles.title}>{title}</Text>
-          {subtitle ? <Text size={11} numberOfLines={1} style={styles.subtitle}>{subtitle}</Text> : null}
+          <Text size={compact ? 19 : 21} numberOfLines={1} style={styles.title}>{title}</Text>
+          {subtitle ? <Text size={compact ? 10.5 : 11} numberOfLines={1} style={styles.subtitle}>{subtitle}</Text> : null}
         </View>
         {right ? <View style={styles.right}>{right}</View> : null}
       </View>
@@ -77,6 +89,12 @@ const styles = createStyle({
     height: 40,
     borderRadius: 13,
     marginRight: 12,
+  },
+  logoCompact: {
+    width: 34,
+    height: 34,
+    borderRadius: 11,
+    marginRight: 10,
   },
   textArea: {
     flexGrow: 1,
