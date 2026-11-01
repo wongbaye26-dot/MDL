@@ -1,6 +1,5 @@
 import { forwardRef, memo, useEffect, useImperativeHandle, useState } from 'react'
 import { View } from 'react-native'
-import { BorderWidths } from '@/theme'
 import ButtonBar from './ActionBar'
 import { useNavigationComponentDidAppear } from '@/navigation'
 import { NAV_SHEAR_NATIVE_IDS } from '@/config/constant'
@@ -13,7 +12,7 @@ import { useListInfo } from './state'
 import { useAnimateOnecNumber } from '@/utils/hooks/useAnimateNumber'
 import { useStatusbarHeight } from '@/store/common/hook'
 
-const IMAGE_WIDTH = scaleSizeW(70)
+const IMAGE_WIDTH = scaleSizeW(76)
 
 const CountText = memo(({ count }: { count: string }) => {
   const [animFade] = useAnimateOnecNumber(0, 1, 250, false)
@@ -49,7 +48,7 @@ const Pic = ({ componentId, playCount, imgUrl }: {
 
   return (
     <View style={{ ...styles.listItemImg, width: IMAGE_WIDTH, height: IMAGE_WIDTH }}>
-      <Image nativeID={`${NAV_SHEAR_NATIVE_IDS.songlistDetail_pic}_to_${info.id}`} url={pic} style={{ flex: 1, borderRadius: 4 }} />
+      <Image nativeID={`${NAV_SHEAR_NATIVE_IDS.songlistDetail_pic}_to_${info.id}`} url={pic} style={{ flex: 1, borderRadius: 16 }} />
       {
         playCount && animated ? <CountText count={playCount} /> : null
       }
@@ -84,13 +83,13 @@ export default forwardRef<HeaderType, HeaderProps>(({ componentId }: { component
   }), [])
 
   return (
-    <View style={{ ...styles.container, paddingTop: statusBarHeight, borderBottomColor: theme['c-border-background'] }}>
-      <View style={{ flexDirection: 'row', flexGrow: 0, flexShrink: 0, padding: 10 }}>
+    <View style={{ ...styles.container, paddingTop: statusBarHeight }}>
+      <View style={styles.headRow}>
         <Pic componentId={componentId} playCount={detailInfo.playCount} imgUrl={detailInfo.imgUrl} />
-        <View style={{ flexDirection: 'column', flexGrow: 1, flexShrink: 1, paddingLeft: 5 }} nativeID={NAV_SHEAR_NATIVE_IDS.songlistDetail_title}>
-          <Text size={14} numberOfLines={ 1 }>{detailInfo.name}</Text>
+        <View style={styles.infoArea} nativeID={NAV_SHEAR_NATIVE_IDS.songlistDetail_title}>
+          <Text size={19} numberOfLines={2} style={styles.name}>{detailInfo.name}</Text>
           <View style={{ flexGrow: 0, flexShrink: 1 }}>
-            <Text size={13} color={theme['c-font-label']} numberOfLines={ 4 }>{detailInfo.desc}</Text>
+            <Text size={12} color={theme['c-450']} numberOfLines={3} style={styles.desc}>{detailInfo.desc}</Text>
           </View>
         </View>
       </View>
@@ -109,7 +108,30 @@ const styles = createStyle({
   container: {
     flexDirection: 'column',
     flexWrap: 'nowrap',
-    borderBottomWidth: BorderWidths.normal,
+  },
+  headRow: {
+    flexDirection: 'row',
+    flexGrow: 0,
+    flexShrink: 0,
+    paddingLeft: 16,
+    paddingRight: 16,
+    paddingTop: 4,
+    paddingBottom: 12,
+  },
+  infoArea: {
+    flexDirection: 'column',
+    flexGrow: 1,
+    flexShrink: 1,
+    paddingLeft: 14,
+    justifyContent: 'center',
+  },
+  name: {
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  desc: {
+    marginTop: 6,
+    lineHeight: 18,
   },
   listItemImg: {
     // backgroundColor: '#eee',
@@ -138,12 +160,13 @@ const styles = createStyle({
     bottom: 0,
     left: 0,
     width: '100%',
-    fontSize: 12,
-    paddingLeft: 3,
-    paddingRight: 3,
+    fontSize: 11,
+    paddingLeft: 4,
+    paddingRight: 4,
+    paddingBottom: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     color: '#fff',
-    borderBottomLeftRadius: 4,
-    borderBottomRightRadius: 4,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
   },
 })

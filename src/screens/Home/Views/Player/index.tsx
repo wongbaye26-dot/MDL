@@ -36,6 +36,7 @@ import { formatSize, formatSampleRate, QUALITY_LABEL, QUALITY_DESC } from '@/cor
 import DownloadQualityModal, { type DownloadQualityModalType } from '@/components/DownloadQualityModal'
 import Stage, { COVER_TOP_RATIO, COVER_H_RATIO } from './Stage'
 import SeekBar from './SeekBar'
+import PlayGlyph from './PlayGlyph'
 import { u } from './metrics'
 import { getPlayerPalette } from '@/theme/playerPalette'
 
@@ -587,6 +588,8 @@ export default () => {
   */
   if (isLandscape) {
     const leftW = Math.min(boxW * 0.42, boxH + 48)
+    // 横屏 statusbarHeight 会报 0，但时钟照样浮在左上角
+    const topInset = statusBarHeight > 0 ? statusBarHeight : 20
     const coverSize = Math.max(120, Math.min(boxH - 92, leftW - 28))
     return (
       <Animated.View
@@ -642,7 +645,7 @@ export default () => {
             </Animated.View>
           </View>
 
-          <View style={{ flex: 1, paddingLeft: 6, paddingRight: 20, paddingBottom: 6 }}>
+          <View style={{ flex: 1, paddingLeft: 6, paddingRight: 20, paddingBottom: 6, paddingTop: topInset }}>
             <View style={styles.landTopRow}>
               <View style={{ flexGrow: 1, flexShrink: 1 }}>
                 <MarqueeText
@@ -723,7 +726,7 @@ export default () => {
                 <Icon name={MODE_ICON[playMode]} size={u(19)} color='rgba(255,255,255,0.9)' />
               </TouchableOpacity>
               <TouchableOpacity style={styles.ctrlBtn} onPress={() => { void playPrev() }} activeOpacity={0.6}>
-                <Icon name='prevMusic' size={u(30)} color='#FFFFFF' />
+                <Icon name='prevMusic' size={u(30)} color={accent} />
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.ctrlBtn}
@@ -733,11 +736,11 @@ export default () => {
                 onPressOut={() => { pressPlay(1) }}
               >
                 <Animated.View style={[styles.playCircleSmall, { backgroundColor: accent, transform: [{ scale: playBtnScale }] }]}>
-                  <Icon name={isPlay ? 'pause' : 'play'} size={u(42)} color={palette.onAccent} />
+                  <PlayGlyph playing={isPlay} box={18} color={palette.onAccent} />
                 </Animated.View>
               </TouchableOpacity>
               <TouchableOpacity style={styles.ctrlBtn} onPress={() => { void playNext() }} activeOpacity={0.6}>
-                <Icon name='nextMusic' size={u(30)} color='#FFFFFF' />
+                <Icon name='nextMusic' size={u(30)} color={accent} />
               </TouchableOpacity>
               <TouchableOpacity style={styles.ctrlBtn} onPress={() => { setQueueVisible(true) }} activeOpacity={0.6}>
                 <Icon name='playlist-music' size={u(20)} color='rgba(255,255,255,0.9)' />
@@ -746,12 +749,13 @@ export default () => {
           </View>
         </View>
 
+        {/* 横屏下这个按钮压在封面左上角，给一层暗色圆底才不会被封面吃掉 */}
         <TouchableOpacity
-          style={{ position: 'absolute', left: 10, top: statusBarHeight + 6, width: 32, height: 32, justifyContent: 'center', alignItems: 'center' }}
+          style={[styles.landBack, { top: topInset + 6 }]}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           onPress={() => { setNavActiveId('nav_home') }}
         >
-          <Icon name='chevron-down' size={u(24)} color='rgba(255,255,255,0.94)' />
+          <Icon name='chevron-down' size={u(22)} color='rgba(255,255,255,0.94)' />
         </TouchableOpacity>
 
         {modals}
@@ -988,7 +992,7 @@ export default () => {
             <Icon name={MODE_ICON[playMode]} size={u(21)} color='rgba(255,255,255,0.9)' />
           </TouchableOpacity>
           <TouchableOpacity style={styles.ctrlBtnBig} onPress={() => { void playPrev() }} activeOpacity={0.6}>
-            <Icon name='prevMusic' size={u(39)} color='#FFFFFF' />
+            <Icon name='prevMusic' size={u(39)} color={accent} />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.ctrlBtnBig}
@@ -998,11 +1002,11 @@ export default () => {
             onPressOut={() => { pressPlay(1) }}
           >
             <Animated.View style={[styles.playCircle, { backgroundColor: accent, transform: [{ scale: playBtnScale }] }]}>
-              <Icon name={isPlay ? 'pause' : 'play'} size={u(53)} color={palette.onAccent} />
+              <PlayGlyph playing={isPlay} box={21} color={palette.onAccent} />
             </Animated.View>
           </TouchableOpacity>
           <TouchableOpacity style={styles.ctrlBtnBig} onPress={() => { void playNext() }} activeOpacity={0.6}>
-            <Icon name='nextMusic' size={u(39)} color='#FFFFFF' />
+            <Icon name='nextMusic' size={u(39)} color={accent} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.ctrlBtn} onPress={() => { setQueueVisible(true) }} activeOpacity={0.6}>
             <Icon name='playlist-music' size={u(23)} color='rgba(255,255,255,0.9)' />
@@ -1187,6 +1191,19 @@ const styles = {
   playCircle: { width: 50, height: 50, borderRadius: 25, justifyContent: 'center' as const, alignItems: 'center' as const },
   playCircleSmall: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center' as const, alignItems: 'center' as const },
 
+  landBack: {
+    position: 'absolute' as const,
+    left: 8,
+    top: 8,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    backgroundColor: 'rgba(0,0,0,0.32)',
+    borderWidth: 0.5,
+    borderColor: 'rgba(255,255,255,0.18)',
+  },
   landTopRow: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,

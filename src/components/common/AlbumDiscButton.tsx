@@ -9,10 +9,11 @@ import { usePlayerMusicInfo, useProgress, useIsPlay } from '@/store/player/hook'
 /** 专辑封面外的分段进度环（竖屏底部胶囊 / 横屏侧栏共用） */
 const SEGMENTS = 36
 
-export const ProgressRing = ({ ratio, size, activeColor }: {
+export const ProgressRing = ({ ratio, size, activeColor, inactiveColor = 'rgba(255,255,255,0.26)' }: {
   ratio: number
   size: number
   activeColor: string
+  inactiveColor?: string
 }) => {
   const radius = size / 2 - 4
   const items = []
@@ -35,7 +36,7 @@ export const ProgressRing = ({ ratio, size, activeColor }: {
               width: 2,
               height: 5,
               borderRadius: 1,
-              backgroundColor: item.active ? activeColor : 'rgba(255,255,255,0.26)',
+              backgroundColor: item.active ? activeColor : inactiveColor,
               transform: [{ rotate: `${item.angle}deg` }, { translateY: -radius }],
             }}
           />
@@ -86,7 +87,11 @@ const Disc = ({ pic, size }: { pic?: string | null, size: number }) => {
   )
 }
 
-export default memo(({ size = 56, onPress }: { size?: number, onPress: () => void }) => {
+export default memo(({ size = 56, inactiveColor, onPress }: {
+  size?: number
+  inactiveColor?: string
+  onPress: () => void
+}) => {
   const theme = useTheme()
   const musicInfo = usePlayerMusicInfo()
   const { progress } = useProgress()
@@ -98,7 +103,7 @@ export default memo(({ size = 56, onPress }: { size?: number, onPress: () => voi
       activeOpacity={0.85}
       onPress={onPress}
     >
-      <ProgressRing ratio={progress} size={size} activeColor={theme['c-primary']} />
+      <ProgressRing ratio={progress} size={size} activeColor={theme['c-primary']} inactiveColor={inactiveColor} />
       <Disc pic={musicInfo.pic} size={discSize} />
     </TouchableOpacity>
   )

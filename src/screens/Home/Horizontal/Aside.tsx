@@ -11,7 +11,12 @@ import type { InitState } from '@/store/common/state'
 import { exitApp, setNavActiveId } from '@/core/common'
 import { useSettingValue } from '@/store/setting/hook'
 
-const NAV_WIDTH = 76
+const NAV_WIDTH = 64
+/**
+ * 横屏下系统状态栏是「浮」在应用上的：statusbarHeight 会报 0，
+ * 但时钟/信号图标照样画在左上角，所以内容要自己让出这一条。
+ */
+const LANDSCAPE_TOP_INSET = 20
 
 type IdType = InitState['navActiveId'] | 'nav_exit' | 'back_home'
 
@@ -22,9 +27,10 @@ const MENU_ICONS: Record<string, string> = {
   nav_player: 'play',
 }
 
-const MenuItem = ({ id, icon, onPress }: {
+const MenuItem = ({ id, icon, dark, onPress }: {
   id: IdType
   icon: string
+  dark: boolean
   onPress: (id: IdType) => void
 }) => {
   const activeId = useNavActiveId()
@@ -41,8 +47,10 @@ const MenuItem = ({ id, icon, onPress }: {
     >
       <Icon
         name={icon}
-        size={21}
-        color={active ? theme['c-primary'] : theme['c-font-label']}
+        size={20}
+        color={active
+          ? theme['c-primary']
+          : (dark ? 'rgba(255,255,255,0.66)' : 'rgba(30,24,40,0.58)')}
       />
     </View>
   )
@@ -57,15 +65,19 @@ const MenuItem = ({ id, icon, onPress }: {
 }
 
 /**
- * 横屏左侧导航栏。
- * 和竖屏悬浮胶囊同一套语言：圆角面板 + 主色淡底 + 选中项主色胶囊，
- * 底部放和胶囊里一样的专辑圆盘（带进度环）。
+ * 横屏左侧导航。
+ *
+ * 就是竖屏底部那颗悬浮胶囊「立起来」：同一层玻璃（Glass）、同一圈描边、
+ * 同一个选中胶囊（primary-alpha-800 + 0.8 描边 + 主色图标）、同一个专辑圆盘。
+ * 播放器页本身是深色底，这时胶囊自动切深色版本，不然一块白板压在深色播放页上。
  */
 export default memo(() => {
   const theme = useTheme()
   const statusBarHeight = useStatusbarHeight()
+  const navActiveId = useNavActiveId()
   const showBackBtn = useSettingValue('common.showBackBtn')
   const showExitBtn = useSettingValue('common.showExitBtn')
+  const dark = theme.isDark || navActiveId === 'nav_player'
 
   const handlePress = (id: IdType) => {
     switch (id) {
@@ -89,42 +101,49 @@ export default memo(() => {
     <View
       style={{
         ...styles.container,
-        marginTop: statusBarHeight > 0 ? 8 : 8,
-        backgroundColor: theme['c-primary-alpha-900'],
-        borderColor: theme['c-primary-alpha-700'],
+        marginTop: (statusBarHeight > 0 ? statusBarHeight : LANDSCAPE_TOP_INSET) + 8,
+        backgroundColor: dark ? 'rgba(26,20,32,0.55)' : theme['c-primary-alpha-900'],
+        borderColor: dark ? 'rgba(255,255,255,0.14)' : theme['c-primary-alpha-700'],
+        shadowColor: dark ? '#000000' : '#6E6285',
       }}
     >
-      <View style={{ ...styles.logoWrap, backgroundColor: theme['c-primary-alpha-900'] }}>
-        <Icon name='logo' size={22} color={theme['c-primary']} />
-      </View>
 
-      <ScrollView style={styles.menus} showsVerticalScrollIndicator={false}>
-        <View style={styles.list}>
-          {
-            NAV_MENUS.map(menu => (
-              menu.id === 'nav_player'
-                ? (
-                  <View key={menu.id} style={styles.discSlot}>
-                    <AlbumDiscButton size={54} onPress={() => { setNavActiveId('nav_player') }} />
-                  </View>
-                  )
-                : (
-                  <MenuItem
-                    key={menu.id}
-                    id={menu.id}
-                    icon={MENU_ICONS[menu.id] ?? menu.icon}
-                    onPress={handlePress}
+      <ScrollView style={styles.menus} contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
+        {
+          NAV_MENUS.map(menu => (
+            menu.id === 'nav_player'
+              ? (
+                <View key={menu.id} style={styles.discSlot}>
+                  <AlbumDiscButton
+                    size={52}
+                    inactiveColor={dark ? 'rgba(255,255,255,0.26)' : theme['c-primary-alpha-600']}
+                    onPress={() => { setNavActiveId('nav_player') }}
                   />
-                  )
-            ))
-          }
-        </View>
+                </View>
+                )
+              : (
+                <MenuItem
+                  key={menu.id}
+                  id={menu.id}
+                  dark={dark}
+                  icon={MENU_ICONS[menu.id] ?? menu.icon}
+                  onPress={handlePress}
+                />
+                )
+          ))
+        }
       </ScrollView>
 
-      <View style={styles.footer}>
-        {showBackBtn ? <MenuItem id='back_home' icon='home' onPress={handlePress} /> : null}
-        {showExitBtn ? <MenuItem id='nav_exit' icon='exit2' onPress={handlePress} /> : null}
-      </View>
+      {
+        showBackBtn || showExitBtn
+          ? (
+            <View style={styles.footer}>
+              {showBackBtn ? <MenuItem id='back_home' icon='home' dark={dark} onPress={handlePress} /> : null}
+              {showExitBtn ? <MenuItem id='nav_exit' icon='exit2' dark={dark} onPress={handlePress} /> : null}
+            </View>
+            )
+          : null
+      }
     </View>
   )
 })
@@ -134,42 +153,40 @@ const styles = createStyle({
     width: NAV_WIDTH,
     marginLeft: 8,
     marginBottom: 8,
-    borderRadius: 26,
+    borderRadius: 32,
     borderWidth: 0.5,
-    paddingTop: 12,
+    paddingTop: 10,
     paddingBottom: 10,
     alignItems: 'center',
-  },
-  logoWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 13,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 10,
+    overflow: 'hidden',
+    elevation: 14,
+    shadowOpacity: 0.26,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 8 },
   },
   menus: {
-    flex: 1,
+    flexGrow: 1,
+    flexShrink: 1,
   },
   list: {
     alignItems: 'center',
-    paddingTop: 2,
-    paddingBottom: 8,
+    paddingBottom: 2,
   },
   menuItem: {
-    width: 48,
-    height: 48,
-    marginBottom: 8,
-    borderRadius: 16,
+    width: 44,
+    height: 44,
+    marginTop: 6,
+    borderRadius: 22,
     borderWidth: 0.8,
     justifyContent: 'center',
     alignItems: 'center',
   },
   discSlot: {
-    marginTop: 4,
-    marginBottom: 4,
+    marginTop: 8,
+    marginBottom: 2,
   },
   footer: {
     alignItems: 'center',
+    paddingTop: 2,
   },
 })

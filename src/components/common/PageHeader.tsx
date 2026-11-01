@@ -22,27 +22,33 @@ export default memo(({
   title,
   subtitle,
   logo,
+  left,
   right,
 }: {
   title: string
   subtitle?: string
   logo?: ImageSourcePropType
+  /** 左侧按钮（子页面的返回键） */
+  left?: ReactNode
   right?: ReactNode
 }) => {
   const statusBarHeight = useStatusbarHeight()
   // 横屏高度只有 400 出头，页头占 72dp 太奢侈，整体收紧一档
   const compact = useHorizontalMode()
+  // 横屏下 statusbarHeight 报 0，但时钟浮在左上角，页头要自己让出一条
+  const topInset = statusBarHeight > 0 ? statusBarHeight : (compact ? 20 : 0)
 
   return (
     <View
       style={{
         ...styles.container,
-        height: statusBarHeight + (compact ? PAGE_HEADER_COMPACT_H : PAGE_HEADER_H),
-        paddingTop: statusBarHeight + (compact ? 8 : 12),
+        height: topInset + (compact ? PAGE_HEADER_COMPACT_H : PAGE_HEADER_H),
+        paddingTop: topInset + (compact ? 8 : 12),
         paddingBottom: compact ? 10 : 14,
       }}
     >
       <View style={styles.row}>
+        {left ? <View style={styles.left}>{left}</View> : null}
         {logo ? <Image source={logo} style={compact ? styles.logoCompact : styles.logo} /> : null}
         <View style={styles.textArea}>
           <Text size={compact ? 19 : 21} numberOfLines={1} style={styles.title}>{title}</Text>
@@ -95,6 +101,9 @@ const styles = createStyle({
     height: 34,
     borderRadius: 11,
     marginRight: 10,
+  },
+  left: {
+    marginRight: 6,
   },
   textArea: {
     flexGrow: 1,

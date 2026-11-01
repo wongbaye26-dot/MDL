@@ -1,19 +1,21 @@
-import { View, TouchableOpacity } from 'react-native'
+import { View } from 'react-native'
 import { Navigation } from 'react-native-navigation'
 
 import PageContent from '@/components/PageContent'
 import StatusBar from '@/components/common/StatusBar'
 import PlayerBar from '@/components/player/PlayerBar'
-import { Icon } from '@/components/common/Icon'
-import Text from '@/components/common/Text'
+import PageHeader, { HeaderButton } from '@/components/common/PageHeader'
 import { useTheme } from '@/store/theme/hook'
-import { useStatusbarHeight } from '@/store/common/hook'
 import { createStyle } from '@/utils/tools'
 import SongList from '@/screens/Home/Views/SongList'
 
+/**
+ * 歌单广场。
+ * 头部改成和首页/下载中心/我的 同一个 PageHeader（标题 21/800 + 44dp 圆形按钮），
+ * 之前是自己画的 17sp 标题 + 裸图标，和主 Tab 的头部完全是两套。
+ */
 export default ({ componentId }: { componentId: string }) => {
   const theme = useTheme()
-  const statusBarHeight = useStatusbarHeight()
 
   const handleBack = () => {
     void Navigation.pop(componentId)
@@ -22,23 +24,18 @@ export default ({ componentId }: { componentId: string }) => {
   return (
     <PageContent>
       <StatusBar />
-      <View style={{ ...styles.header, height: 52 + statusBarHeight, paddingTop: statusBarHeight }}>
-        <TouchableOpacity
-          style={styles.back}
-          onPress={handleBack}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Icon name='chevron-left-2' size={22} color={theme['c-font']} />
-        </TouchableOpacity>
-        <Text size={17} style={styles.title} numberOfLines={1}>歌单广场</Text>
-        <TouchableOpacity
-          style={styles.back}
-          onPress={() => { global.app_event.openSonglistLink() }}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Icon name='link-variant' size={19} color={theme['c-450']} />
-        </TouchableOpacity>
-      </View>
+      <PageHeader
+        title='歌单广场'
+        left={<HeaderButton icon='chevron-left-2' onPress={handleBack} size={22} />}
+        right={(
+          <HeaderButton
+            icon='link-variant'
+            size={19}
+            color={theme['c-450']}
+            onPress={() => { global.app_event.openSonglistLink() }}
+          />
+        )}
+      />
       <View style={styles.content}>
         <SongList />
       </View>
@@ -48,23 +45,6 @@ export default ({ componentId }: { componentId: string }) => {
 }
 
 const styles = createStyle({
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingLeft: 6,
-    paddingRight: 6,
-  },
-  back: {
-    width: 44,
-    height: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  title: {
-    flexGrow: 1,
-    fontWeight: '700',
-    marginLeft: 2,
-  },
   content: {
     flex: 1,
   },
