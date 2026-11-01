@@ -18,6 +18,8 @@ import Text from '@/components/common/Text'
 import Image from '@/components/common/Image'
 import { Icon } from '@/components/common/Icon'
 import DorpDownMenu from '@/components/common/DorpDownMenu'
+import Chip from '@/components/common/Chip'
+import PageHeader from '@/components/common/PageHeader'
 import Menu, { type MenuType } from '@/components/common/Menu'
 import { useTheme } from '@/store/theme/hook'
 import { createStyle, toast } from '@/utils/tools'
@@ -81,6 +83,8 @@ export default ({ onClose }: { onClose?: () => void }) => {
   const [scanning, setScanning] = useState(false)
   const [progress, setProgress] = useState(0)
   const [inited, setInited] = useState(false)
+  /** 分类方式：歌曲 / 专辑 / 歌手 / 文件夹（Poweramp 那种） */
+  const [group, setGroup] = useState<'song' | 'album' | 'artist' | 'folder'>('song')
   const mountedRef = useRef(true)
 
   useEffect(() => {
@@ -125,6 +129,55 @@ export default ({ onClose }: { onClose?: () => void }) => {
   }, [handleScan])
 
   const totalSize = useMemo(() => formatSize(getTotalSize(list)), [list])
+
+  /** id → 在原列表里的下标（分组后仍然按原列表播放） */
+  const indexOfId = useMemo(() => {
+    const map = new Map<string, number>()
+    list.forEach((item, i) => { map.set(item.id, i) })
+    return map
+  }, [list])
+
+  /** 文件夹名：取路径最后两段，够认又不至于太长 */
+  const folderOf = (path: string) => {
+    const idx = path.lastIndexOf('/')
+    if (idx <= 0) return '根目录'
+    const segs = path.slice(0, idx).split('/').filter(Boolean)
+    return segs.slice(-2).join('/') || '根目录'
+  }
+
+  /** 扁平化成 [分组头, 歌曲, 歌曲, 分组头, ...]，同一个 FlatList 直接渲染 */
+  const rows = useMemo(() => {
+    type Row =
+      | { type: 'header', key: string, title: string, count: number }
+      | { type: 'song', key: string, item: LX.Music.MusicInfoLocal, index: number }
+
+    if (group === 'song') {
+      return list.map((item, i): Row => ({ type: 'song', key: item.id, item, index: i }))
+    }
+
+    const map = new Map<string, LX.Music.MusicInfoLocal[]>()
+    for (const item of list) {
+      const key = group === 'album'
+        ? (item.meta.albumName || '未知专辑')
+        : group === 'artist'
+          ? (item.singer || '未知歌手')
+          : folderOf(item.meta.filePath)
+      const arr = map.get(key)
+      if (arr) arr.push(item)
+      else map.set(key, [item])
+    }
+
+    const out: Row[] = []
+    const keys = [...map.keys()].sort((a, b) => a.localeCompare(b, 'zh-Hans-CN'))
+    for (const key of keys) {
+      const items = map.get(key)!
+      out.push({ type: 'header', key: `h:${key}`, title: key, count: items.length })
+      for (const item of items) {
+        out.push({ type: 'song', key: item.id, item, index: indexOfId.get(item.id) ?? 0 })
+      }
+    }
+    return out
+  }, [group, list, indexOfId])
 
   // 下滑关闭：回到下载中心。
   // onClose 放进 ref：外层每次重渲染都会传新闭包，如果进 useMemo 依赖，
@@ -228,20 +281,32 @@ export default ({ onClose }: { onClose?: () => void }) => {
     toast('已更新音乐信息')
   }, [editingItem])
 
-  const renderItem = useCallback(({ item, index }: { item: LX.Music.MusicInfoLocal, index: number }) => (
-    <LocalRow
-      item={item}
-      index={index}
-      onPress={() => { void handlePlay(index) }}
-      onMenu={action => {
-        if (action === 'play') void handlePlay(index)
-        else if (action === 'playLater') handlePlayLater(item)
-        else if (action === 'delete') void handleDelete(item, false)
-        else if (action === 'deleteFile') void handleDelete(item, true)
-        else if (action === 'edit') handleEdit(item)
-      }}
-    />
-  ), [handlePlay, handlePlayLater, handleDelete, handleEdit])
+  const renderItem = useCallback(({ item: row }: { item: { type: 'header', key: string, title: string, count: number } | { type: 'song', key: string, item: LX.Music.MusicInfoLocal, index: number } }) => {
+    if (row.type === 'header') {
+      return (
+        <View style={styles.groupHeader}>
+          <Icon name={group === 'album' ? 'album' : group === 'artist' ? 'account' : 'folder'} size={12} color={theme['c-primary']} />
+          <Text size={12} numberOfLines={1} style={styles.groupTitle}>{row.title}</Text>
+          <Text size={10} color={theme['c-450']} style={styles.groupCount}>{row.count} 首</Text>
+        </View>
+      )
+    }
+    const { item, index } = row
+    return (
+      <LocalRow
+        item={item}
+        index={index}
+        onPress={() => { void handlePlay(index) }}
+        onMenu={action => {
+          if (action === 'play') void handlePlay(index)
+          else if (action === 'playLater') handlePlayLater(item)
+          else if (action === 'delete') void handleDelete(item, false)
+          else if (action === 'deleteFile') void handleDelete(item, true)
+          else if (action === 'edit') handleEdit(item)
+        }}
+      />
+    )
+  }, [group, theme, handlePlay, handlePlayLater, handleDelete, handleEdit])
 
   return (
     <Animated.View
@@ -249,6 +314,8 @@ export default ({ onClose }: { onClose?: () => void }) => {
       {...(hasClose ? panResponder.panHandlers : null)}
     >
       <View style={styles.container}>
+      {/* 作为主 Tab 用时补一个统一页头；从下载中心弹出来时不需要（那个是整屏子页） */}
+      {hasClose ? null : <PageHeader title='本地音乐' />}
       <View style={{
         ...styles.scanCard,
         backgroundColor: theme['c-primary-alpha-900'],
@@ -275,10 +342,30 @@ export default ({ onClose }: { onClose?: () => void }) => {
         </TouchableOpacity>
       </View>
 
+      <View style={styles.groupRow}>
+        {
+          ([
+            { key: 'song', label: '歌曲', icon: 'music-note' },
+            { key: 'album', label: '专辑', icon: 'album' },
+            { key: 'artist', label: '歌手', icon: 'account' },
+            { key: 'folder', label: '文件夹', icon: 'folder' },
+          ] as const).map(item => (
+            <Chip
+              key={item.key}
+              size='sm'
+              icon={item.icon}
+              label={item.label}
+              active={group === item.key}
+              onPress={() => { if (group !== item.key) setGroup(item.key) }}
+            />
+          ))
+        }
+      </View>
+
       <FlatList
-        data={list}
+        data={rows}
         renderItem={renderItem}
-        keyExtractor={item => item.id}
+        keyExtractor={row => row.key}
         contentContainerStyle={styles.listContent}
         scrollEventThrottle={32}
         onScroll={e => { scrollY.current = e.nativeEvent.contentOffset.y }}
@@ -491,7 +578,7 @@ const styles = createStyle({
     alignItems: 'center',
     marginLeft: 16,
     marginRight: 16,
-    marginTop: 8,
+    marginTop: 4,
     paddingLeft: 14,
     paddingRight: 12,
     paddingTop: 12,
@@ -526,6 +613,31 @@ const styles = createStyle({
   scanBtnText: {
     marginLeft: 5,
     fontWeight: '600',
+  },
+  groupRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingLeft: 16,
+    paddingRight: 16,
+    paddingTop: 10,
+    paddingBottom: 4,
+  },
+  groupHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingLeft: 16,
+    paddingRight: 16,
+    paddingTop: 12,
+    paddingBottom: 6,
+  },
+  groupTitle: {
+    flexGrow: 1,
+    flexShrink: 1,
+    marginLeft: 6,
+    fontWeight: '700',
+  },
+  groupCount: {
+    marginLeft: 8,
   },
   listContent: {
     paddingTop: 10,

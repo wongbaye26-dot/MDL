@@ -1,7 +1,7 @@
 {
   "name": "lx-music-mobile",
-  "version": "2.9.2",
-  "versionCode": 129,
+  "version": "3.0.3",
+  "versionCode": 133,
   "private": true,
   "scripts": {
     "dev": "react-native run-android --active-arch-only",
@@ -68,6 +68,7 @@
     "react-native-pager-view": "6.7.1",
     "react-native-quick-base64": "^2.2.2",
     "react-native-quick-md5": "^3.0.9",
+    "react-native-svg": "^14.1.0",
     "react-native-track-player": "file:../vendor/react-native-track-player",
     "react-native-vector-icons": "10.2.0"
   },

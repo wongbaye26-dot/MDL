@@ -18,6 +18,11 @@ declare global {
        * 底部导航胶囊左右滑动切歌
        */
       'common.navSwipeSwitch': boolean
+
+      /**
+       * 底部胶囊的播放进度样式：绕胶囊描边 / 封面外圈圆环 / 关闭
+       */
+      'common.navProgressStyle': 'border' | 'ring' | 'none'
     }
   }
 }

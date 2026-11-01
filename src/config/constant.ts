@@ -103,6 +103,8 @@ export const APP_PROVIDER_NAME = 'cn.toside.music.mobile.provider'
 export const NAV_MENUS = [
   { id: 'nav_home', icon: 'home' },
   { id: 'nav_download', icon: 'download-2' },
+  // 本地音乐放正中间：五个入口里它是「自己的曲库」，和在线内容分开
+  { id: 'nav_local', icon: 'folder-music' },
   { id: 'nav_mine', icon: 'setting' },
   { id: 'nav_player', icon: 'play' },
 ] as const

@@ -1,9 +1,10 @@
-import { memo, useEffect, useMemo, useRef } from 'react'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { Animated, Easing, PanResponder, View, TouchableOpacity } from 'react-native'
 
 import { Icon } from '@/components/common/Icon'
 import Image from '@/components/common/Image'
 import Glass from '@/components/common/Glass'
+import CapsuleProgress from '@/components/common/CapsuleProgress'
 import { useTheme } from '@/store/theme/hook'
 import { useNavActiveId } from '@/store/common/hook'
 import { usePlayerMusicInfo, useProgress, useIsPlay } from '@/store/player/hook'
@@ -11,23 +12,28 @@ import { NAV_MENUS } from '@/config/constant'
 import { setNavActiveId } from '@/core/common'
 import { useSettingValue } from '@/store/setting/hook'
 import { playNext, playPrev } from '@/core/player/player'
+import { contrastOn } from '@/theme/solid'
 import { createStyle } from '@/utils/tools'
 
 const MENU_ICONS: Record<string, string> = {
   nav_home: 'home-variant',
   nav_download: 'download-2',
+  nav_local: 'folder-music',
   nav_mine: 'account',
   nav_player: 'play',
 }
 
 /** 专辑封面外的分段进度环 */
 const SEGMENTS = 36
-const RING_RADIUS = 24
+const RING_SIZE = 62
+const RING_RADIUS = RING_SIZE / 2 - 4
+/** 封面直径：比之前（38）放大一圈 */
+const DISC_SIZE = 46
 
-const ProgressRing = ({ ratio, activeColor, children }: {
+const ProgressRing = ({ ratio, activeColor, inactiveColor }: {
   ratio: number
   activeColor: string
-  children: React.ReactNode
+  inactiveColor: string
 }) => {
   const items = useMemo(() => Array.from({ length: SEGMENTS }, (_, i) => ({
     key: i,
@@ -36,20 +42,19 @@ const ProgressRing = ({ ratio, activeColor, children }: {
   })), [ratio])
 
   return (
-    <View style={styles.ringWrap}>
+    <View style={styles.ringWrap} pointerEvents='none'>
       {
         items.map(item => (
           <View
             key={item.key}
             style={{
               ...styles.tick,
-              backgroundColor: item.active ? activeColor : 'rgba(255,255,255,0.26)',
+              backgroundColor: item.active ? activeColor : inactiveColor,
               transform: [{ rotate: `${item.angle}deg` }, { translateY: -RING_RADIUS }],
             }}
           />
         ))
       }
-      {children}
     </View>
   )
 }
@@ -124,24 +129,22 @@ const AlbumDisc = ({ pic }: { pic?: string | null }) => {
     ? <Image url={pic} style={styles.album} />
     : (
       <View style={{ ...styles.album, backgroundColor: 'rgba(255,255,255,0.12)' }}>
-        <Icon name='music_time' size={14} color='rgba(255,255,255,0.75)' />
+        <Icon name='music_time' size={16} color='rgba(255,255,255,0.75)' />
       </View>
       )
 
   return (
-    <View style={styles.albumInner}>
-      <Animated.View
-        style={{
-          width: 38,
-          height: 38,
-          borderRadius: 19,
-          overflow: 'hidden',
-          transform: [{ rotate: spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }],
-        }}
-      >
-        {inner}
-      </Animated.View>
-    </View>
+    <Animated.View
+      style={{
+        width: DISC_SIZE,
+        height: DISC_SIZE,
+        borderRadius: DISC_SIZE / 2,
+        overflow: 'hidden',
+        transform: [{ rotate: spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }],
+      }}
+    >
+      {inner}
+    </Animated.View>
   )
 }
 
@@ -151,6 +154,9 @@ export default memo(() => {
   const musicInfo = usePlayerMusicInfo()
   const { progress } = useProgress()
   const isDark = theme.isDark
+  const progressStyle = useSettingValue('common.navProgressStyle') ?? 'border'
+  const onPrimary = contrastOn(theme['c-primary'])
+  const [barSize, setBarSize] = useState({ w: 0, h: 0 })
 
   const openPlayer = () => {
     if (activeId !== 'nav_player') setNavActiveId('nav_player')
@@ -179,6 +185,10 @@ export default memo(() => {
     <View style={styles.wrap} pointerEvents='box-none'>
       <View
         {...(swipeEnabled ? panResponder.panHandlers : null)}
+        onLayout={e => {
+          const { width, height } = e.nativeEvent.layout
+          setBarSize(prev => (Math.abs(prev.w - width) < 0.5 && Math.abs(prev.h - height) < 0.5) ? prev : { w: width, h: height })
+        }}
         style={{
           ...styles.bar,
           backgroundColor: isDark ? 'rgba(24,18,34,0.20)' : 'rgba(255,255,255,0.12)',
@@ -191,8 +201,24 @@ export default memo(() => {
         <Glass
           blurRadius={24}
           tint={isDark ? 'rgba(20,15,30,0.30)' : 'rgba(255,255,255,0.20)'}
-          radius={32}
+          radius={34}
         />
+
+        {/* 进度样式之一：描边绕着胶囊跑 */}
+        {
+          progressStyle === 'border'
+            ? (
+              <CapsuleProgress
+                width={barSize.w}
+                height={barSize.h}
+                progress={progress}
+                color={theme['c-primary']}
+                trackColor={isDark ? 'rgba(255,255,255,0.14)' : 'rgba(30,24,40,0.10)'}
+              />
+              )
+            : null
+        }
+
         {
           NAV_MENUS.map(menu => {
             const isActive = activeId === menu.id
@@ -203,9 +229,37 @@ export default memo(() => {
             if (menu.id === 'nav_player') {
               return (
                 <TouchableOpacity key={menu.id} style={styles.item} activeOpacity={0.85} onPress={openPlayer}>
-                  <ProgressRing ratio={progress} activeColor={theme['c-primary']}>
-                    <AlbumDisc pic={musicInfo.pic} />
-                  </ProgressRing>
+                  {
+                    progressStyle === 'ring'
+                      ? (
+                        <View style={styles.discWrap}>
+                          <ProgressRing
+                            ratio={progress}
+                            activeColor={theme['c-primary']}
+                            inactiveColor={isDark ? 'rgba(255,255,255,0.24)' : 'rgba(30,24,40,0.16)'}
+                          />
+                          <AlbumDisc pic={musicInfo.pic} />
+                        </View>
+                        )
+                      : <View style={styles.discWrap}><AlbumDisc pic={musicInfo.pic} /></View>
+                  }
+                </TouchableOpacity>
+              )
+            }
+
+            // 正中间：本地音乐。做成实心主色圆 —— 曲库是这个 App 的「主入口」
+            if (menu.id === 'nav_local') {
+              return (
+                <TouchableOpacity key={menu.id} style={styles.item} activeOpacity={0.85} onPress={() => { setNavActiveId(menu.id) }}>
+                  <View
+                    style={{
+                      ...styles.localBtn,
+                      backgroundColor: theme['c-primary'],
+                      borderColor: isActive ? onPrimary : 'transparent',
+                    }}
+                  >
+                    <Icon name={MENU_ICONS[menu.id]} size={22} color={onPrimary} />
+                  </View>
                 </TouchableOpacity>
               )
             }
@@ -240,12 +294,12 @@ const styles = createStyle({
   bar: {
     flexDirection: 'row',
     alignItems: 'center',
-    width: '66%',
-    height: 64,
-    borderRadius: 32,
+    width: '78%',
+    height: 68,
+    borderRadius: 34,
     borderWidth: 0.5,
-    paddingLeft: 8,
-    paddingRight: 8,
+    paddingLeft: 6,
+    paddingRight: 6,
     // 模糊层要按胶囊形状裁切
     overflow: 'hidden',
     elevation: 14,
@@ -268,9 +322,18 @@ const styles = createStyle({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  localBtn: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    borderWidth: 1.5,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   ringWrap: {
-    width: 56,
-    height: 56,
+    position: 'absolute',
+    width: RING_SIZE,
+    height: RING_SIZE,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -280,17 +343,16 @@ const styles = createStyle({
     height: 5,
     borderRadius: 1,
   },
-  albumInner: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+  discWrap: {
+    width: RING_SIZE,
+    height: RING_SIZE,
     justifyContent: 'center',
     alignItems: 'center',
   },
   album: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: DISC_SIZE,
+    height: DISC_SIZE,
+    borderRadius: DISC_SIZE / 2,
     justifyContent: 'center',
     alignItems: 'center',
   },

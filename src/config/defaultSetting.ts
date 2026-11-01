@@ -96,6 +96,8 @@ const defaultSetting: LX.AppSetting = {
   'player.isSingleLineLyric': false,
   // 底部导航胶囊左右滑动切歌
   'common.navSwipeSwitch': true,
+  // 底部胶囊进度样式
+  'common.navProgressStyle': 'border',
 }
 
 

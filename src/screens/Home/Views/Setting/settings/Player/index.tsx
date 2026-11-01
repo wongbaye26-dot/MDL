@@ -16,6 +16,7 @@ import MaxCache from './MaxCache'
 import IsWordByWordLyric from './IsWordByWordLyric'
 import IsSingleLineLyric from './IsSingleLineLyric'
 import NavSwipeSwitch from './NavSwipeSwitch'
+import NavProgressStyle from './NavProgressStyle'
 
 export default memo(() => {
   return (
@@ -28,6 +29,7 @@ export default memo(() => {
         <PlayHighQuality />
         <NavSwipeSwitch />
       </Section>
+      <NavProgressStyle />
       <Section title='歌词'>
         <IsWordByWordLyric />
         <IsSingleLineLyric />
