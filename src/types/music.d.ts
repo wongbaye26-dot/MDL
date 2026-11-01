@@ -36,6 +36,8 @@ declare namespace LX {
       ext: string
       /** 文件修改时间（毫秒）——「最近添加」排序用 */
       mtime?: number
+      /** MediaStore 的 content:// 地址：公共目录的文件只能靠它播放（按路径打开会 EACCES） */
+      contentUri?: string
     }
 
 

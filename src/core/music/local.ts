@@ -73,6 +73,10 @@ export const getMusicUrl = async({ musicInfo, isRefresh, allowToggleSource = tru
   allowToggleSource?: boolean
 }): Promise<string> => {
   if (!isRefresh) {
+    // 公共目录（用户添加的文件夹）里的文件按路径打开会 EACCES，
+    // 必须用 MediaStore 的 content:// 地址交给播放器
+    const contentUri = musicInfo.meta.contentUri
+    if (contentUri) return contentUri
     const path = await getLocalFilePath(musicInfo)
     // console.log(path)
     if (path) return path

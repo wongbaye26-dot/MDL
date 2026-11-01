@@ -138,6 +138,7 @@ const buildMusicInfo = async(file: DirEntry): Promise<LX.Music.MusicInfoLocal> =
     interval: metadata?.interval ? formatPlayTime(metadata.interval) : null,
     meta: {
       picUrl: file.meta?.picUrl,
+      contentUri: file.meta?.contentUri,
       // readDir 可能给 Date / 秒 / 毫秒，统一成毫秒
       mtime: (() => {
         const v = file.mtime
