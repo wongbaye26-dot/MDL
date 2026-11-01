@@ -13,22 +13,25 @@ import { setNavActiveId } from '@/core/common'
 
 type IdType = InitState['navActiveId']
 
-const MENU_ICONS: Record<string, string> = {
-  nav_home: 'home-variant',
-  nav_download: 'download-2',
-  nav_mine: 'account',
-  nav_player: 'play',
+/** 和竖屏胶囊同一套：选中实心、未选中描边 */
+const MENU_ICONS: Record<string, { active: string, inactive: string }> = {
+  nav_home: { active: 'home-variant', inactive: 'home-variant-outline' },
+  nav_download: { active: 'download', inactive: 'download-outline' },
+  nav_local: { active: 'folder-music', inactive: 'folder-music-outline' },
+  nav_mine: { active: 'account', inactive: 'account-outline' },
 }
 
 const MenuItem = ({ id, icon, dark, onPress }: {
   id: IdType
-  icon: string
+  icon: string | { active: string, inactive: string }
   dark: boolean
   onPress: (id: IdType) => void
 }) => {
   const activeId = useNavActiveId()
   const theme = useTheme()
   const active = activeId === id
+  // 选中实心 / 未选中描边，和竖屏胶囊一致
+  const iconName = typeof icon === 'string' ? icon : (active ? icon.active : icon.inactive)
 
   const content = (
     <View
@@ -39,7 +42,7 @@ const MenuItem = ({ id, icon, dark, onPress }: {
       }}
     >
       <Icon
-        name={icon}
+        name={iconName}
         size={20}
         color={active
           ? theme['c-primary']

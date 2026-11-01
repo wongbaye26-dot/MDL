@@ -12,15 +12,18 @@ import { NAV_MENUS } from '@/config/constant'
 import { setNavActiveId } from '@/core/common'
 import { useSettingValue } from '@/store/setting/hook'
 import { playNext, playPrev } from '@/core/player/player'
-import { contrastOn } from '@/theme/solid'
 import { createStyle } from '@/utils/tools'
 
-const MENU_ICONS: Record<string, string> = {
-  nav_home: 'home-variant',
-  nav_download: 'download-2',
-  nav_local: 'folder-music',
-  nav_mine: 'account',
-  nav_player: 'play',
+/**
+ * 胶囊图标：选中用实心、未选中用描边 —— Material You 的标准写法，
+ * 也比「实心 + 灰」更像一套。之前本地音乐单独做成一个大实心圆，
+ * 和其它三个的视觉重量完全不一样，现在统一成同一个槽位。
+ */
+const MENU_ICONS: Record<string, { active: string, inactive: string }> = {
+  nav_home: { active: 'home-variant', inactive: 'home-variant-outline' },
+  nav_download: { active: 'download', inactive: 'download-outline' },
+  nav_local: { active: 'folder-music', inactive: 'folder-music-outline' },
+  nav_mine: { active: 'account', inactive: 'account-outline' },
 }
 
 /** 专辑封面外的分段进度环 */
@@ -155,7 +158,6 @@ export default memo(() => {
   const { progress } = useProgress()
   const isDark = theme.isDark
   const progressStyle = useSettingValue('common.navProgressStyle') ?? 'border'
-  const onPrimary = contrastOn(theme['c-primary'])
   const [barSize, setBarSize] = useState({ w: 0, h: 0 })
 
   const openPlayer = () => {
@@ -247,28 +249,11 @@ export default memo(() => {
               )
             }
 
-            // 正中间：本地音乐。做成实心主色圆 —— 曲库是这个 App 的「主入口」
-            if (menu.id === 'nav_local') {
-              return (
-                <TouchableOpacity key={menu.id} style={styles.item} activeOpacity={0.85} onPress={() => { setNavActiveId(menu.id) }}>
-                  <View
-                    style={{
-                      ...styles.localBtn,
-                      backgroundColor: theme['c-primary'],
-                      borderColor: isActive ? onPrimary : 'transparent',
-                    }}
-                  >
-                    <Icon name={MENU_ICONS[menu.id]} size={22} color={onPrimary} />
-                  </View>
-                </TouchableOpacity>
-              )
-            }
-
             return (
               <NavSlot
                 key={menu.id}
                 active={isActive}
-                icon={MENU_ICONS[menu.id] ?? menu.icon}
+                icon={MENU_ICONS[menu.id]?.[isActive ? 'active' : 'inactive'] ?? menu.icon}
                 iconColor={iconColor}
                 activeBg={theme['c-primary-alpha-800']}
                 activeBorder={theme['c-primary-alpha-500']}
@@ -319,14 +304,6 @@ const styles = createStyle({
     height: 44,
     borderRadius: 22,
     borderWidth: 0.8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  localBtn: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    borderWidth: 1.5,
     justifyContent: 'center',
     alignItems: 'center',
   },

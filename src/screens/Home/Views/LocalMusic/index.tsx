@@ -8,6 +8,7 @@ import {
   View,
   Modal,
   TextInput,
+  ScrollView,
   StyleSheet,
   type GestureResponderEvent,
   type NativeScrollEvent,
@@ -22,6 +23,7 @@ import Chip from '@/components/common/Chip'
 import PageHeader from '@/components/common/PageHeader'
 import Menu, { type MenuType } from '@/components/common/Menu'
 import { useTheme } from '@/store/theme/hook'
+import { contrastOn } from '@/theme/solid'
 import { createStyle, toast } from '@/utils/tools'
 import { formatSize, formatSampleRate } from '@/core/download/utils'
 import { getLocalMusicList, scanLocalMusic, getTotalSize, deleteLocalMusic, updateLocalMusicMeta } from '@/core/localMusic'
@@ -34,6 +36,15 @@ import { LIST_IDS, NAV_BAR_SPACE } from '@/config/constant'
 import { useWindowSize } from '@/utils/hooks'
 
 const LOCAL_LIST_ID = 'local_music'
+
+/** 浏览层级（Poweramp 那种：最近添加 / 专辑 / 艺人 / 文件夹树 / 全部） */
+const TABS = [
+  { key: 'recent', label: '最近添加', icon: 'clock-outline' },
+  { key: 'album', label: '专辑', icon: 'album' },
+  { key: 'artist', label: '艺人', icon: 'account' },
+  { key: 'folder', label: '文件夹', icon: 'folder' },
+  { key: 'song', label: '全部歌曲', icon: 'music-note' },
+] as const
 
 /** 封面提取有开销，做一层串行队列 + 内存缓存 */
 const picCache = new Map<string, string>()
@@ -83,8 +94,12 @@ export default ({ onClose }: { onClose?: () => void }) => {
   const [scanning, setScanning] = useState(false)
   const [progress, setProgress] = useState(0)
   const [inited, setInited] = useState(false)
-  /** 分类方式：歌曲 / 专辑 / 歌手 / 文件夹（Poweramp 那种） */
-  const [group, setGroup] = useState<'song' | 'album' | 'artist' | 'folder'>('song')
+  /** 浏览层级：最近添加 / 专辑 / 艺人 / 文件夹树 / 全部歌曲 */
+  const [tab, setTab] = useState<'recent' | 'album' | 'artist' | 'folder' | 'song'>('recent')
+  /** 专辑 / 艺人的二级页 */
+  const [detail, setDetail] = useState<{ type: 'album' | 'artist', title: string } | null>(null)
+  /** 文件夹树当前目录（null = 根） */
+  const [folderPath, setFolderPath] = useState<string | null>(null)
   const mountedRef = useRef(true)
 
   useEffect(() => {
@@ -137,47 +152,114 @@ export default ({ onClose }: { onClose?: () => void }) => {
     return map
   }, [list])
 
-  /** 文件夹名：取路径最后两段，够认又不至于太长 */
-  const folderOf = (path: string) => {
-    const idx = path.lastIndexOf('/')
-    if (idx <= 0) return '根目录'
-    const segs = path.slice(0, idx).split('/').filter(Boolean)
-    return segs.slice(-2).join('/') || '根目录'
+  const parentOf = (p: string) => {
+    const i = p.lastIndexOf('/')
+    return i <= 0 ? '/' : p.slice(0, i)
   }
+  const baseNameOf = (p: string) => p.slice(p.lastIndexOf('/') + 1) || p
 
-  /** 扁平化成 [分组头, 歌曲, 歌曲, 分组头, ...]，同一个 FlatList 直接渲染 */
+  /** 文件夹树：path -> { 本层歌曲, 子目录 } */
+  const folderTree = useMemo(() => {
+    const map = new Map<string, { songs: LX.Music.MusicInfoLocal[], children: Set<string> }>()
+    const ensure = (p: string) => {
+      let node = map.get(p)
+      if (!node) {
+        node = { songs: [], children: new Set() }
+        map.set(p, node)
+      }
+      return node
+    }
+    for (const item of list) {
+      const dir = parentOf(item.meta.filePath)
+      ensure(dir).songs.push(item)
+      let p = dir
+      while (p && p !== '/') {
+        const parent = parentOf(p)
+        if (parent === p) break
+        ensure(parent).children.add(p)
+        p = parent
+      }
+    }
+    return map
+  }, [list])
+
+  /** 根目录 = 层级最浅的那个 */
+  const folderRoot = useMemo(() => {
+    let root = ''
+    for (const p of folderTree.keys()) {
+      if (!root || p.split('/').length < root.split('/').length) root = p
+    }
+    return root
+  }, [folderTree])
+
+  const currentFolder = folderPath && folderTree.has(folderPath) ? folderPath : folderRoot
+
+  /** 某个目录（含子目录）下的歌曲数 */
+  const countOfFolder = useCallback((path: string) => {
+    let count = 0
+    for (const [p, node] of folderTree) {
+      if (p === path || p.startsWith(`${path}/`)) count += node.songs.length
+    }
+    return count
+  }, [folderTree])
+
   const rows = useMemo(() => {
     type Row =
-      | { type: 'header', key: string, title: string, count: number }
       | { type: 'song', key: string, item: LX.Music.MusicInfoLocal, index: number }
+      | { type: 'album', key: string, title: string, count: number, cover?: LX.Music.MusicInfoLocal }
+      | { type: 'artist', key: string, title: string, count: number }
+      | { type: 'folder', key: string, title: string, count: number, path: string }
 
-    if (group === 'song') {
-      return list.map((item, i): Row => ({ type: 'song', key: item.id, item, index: i }))
+    const toSongRow = (item: LX.Music.MusicInfoLocal): Row => ({
+      type: 'song',
+      key: item.id,
+      item,
+      index: indexOfId.get(item.id) ?? 0,
+    })
+
+    // 二级页：某张专辑 / 某个艺人的歌
+    if (detail) {
+      return list
+        .filter(it => (detail.type === 'album'
+          ? (it.meta.albumName || '未知专辑')
+          : (it.singer || '未知歌手')) === detail.title)
+        .map(toSongRow)
     }
 
+    // 最近添加：按文件修改时间倒序
+    if (tab === 'recent') {
+      return [...list].sort((a, b) => (b.meta.mtime ?? 0) - (a.meta.mtime ?? 0)).map(toSongRow)
+    }
+
+    if (tab === 'song') return list.map(toSongRow)
+
+    // 文件夹树：当前目录的子文件夹 + 本层歌曲
+    if (tab === 'folder') {
+      const node = folderTree.get(currentFolder)
+      const out: Row[] = []
+      if (node) {
+        for (const child of [...node.children].sort((a, b) => a.localeCompare(b, 'zh-Hans-CN'))) {
+          out.push({ type: 'folder', key: child, title: baseNameOf(child), count: countOfFolder(child), path: child })
+        }
+        for (const item of node.songs) out.push(toSongRow(item))
+      }
+      return out
+    }
+
+    // 专辑 / 艺人：先列分组，点进去看二级页
     const map = new Map<string, LX.Music.MusicInfoLocal[]>()
     for (const item of list) {
-      const key = group === 'album'
-        ? (item.meta.albumName || '未知专辑')
-        : group === 'artist'
-          ? (item.singer || '未知歌手')
-          : folderOf(item.meta.filePath)
+      const key = tab === 'album' ? (item.meta.albumName || '未知专辑') : (item.singer || '未知歌手')
       const arr = map.get(key)
       if (arr) arr.push(item)
       else map.set(key, [item])
     }
-
-    const out: Row[] = []
-    const keys = [...map.keys()].sort((a, b) => a.localeCompare(b, 'zh-Hans-CN'))
-    for (const key of keys) {
-      const items = map.get(key)!
-      out.push({ type: 'header', key: `h:${key}`, title: key, count: items.length })
-      for (const item of items) {
-        out.push({ type: 'song', key: item.id, item, index: indexOfId.get(item.id) ?? 0 })
-      }
-    }
-    return out
-  }, [group, list, indexOfId])
+    return [...map.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0], 'zh-Hans-CN'))
+      .map(([key, items]): Row => tab === 'album'
+        ? { type: 'album', key, title: key, count: items.length, cover: items[0] }
+        : { type: 'artist', key, title: key, count: items.length })
+  }, [detail, tab, list, indexOfId, folderTree, currentFolder, countOfFolder])
 
   // 下滑关闭：回到下载中心。
   // onClose 放进 ref：外层每次重渲染都会传新闭包，如果进 useMemo 依赖，
@@ -281,16 +363,64 @@ export default ({ onClose }: { onClose?: () => void }) => {
     toast('已更新音乐信息')
   }, [editingItem])
 
-  const renderItem = useCallback(({ item: row }: { item: { type: 'header', key: string, title: string, count: number } | { type: 'song', key: string, item: LX.Music.MusicInfoLocal, index: number } }) => {
-    if (row.type === 'header') {
+  const renderItem = useCallback(({ item: row }: { item:
+  | { type: 'song', key: string, item: LX.Music.MusicInfoLocal, index: number }
+  | { type: 'album', key: string, title: string, count: number, cover?: LX.Music.MusicInfoLocal }
+  | { type: 'artist', key: string, title: string, count: number }
+  | { type: 'folder', key: string, title: string, count: number, path: string } }) => {
+    if (row.type === 'album') {
       return (
-        <View style={styles.groupHeader}>
-          <Icon name={group === 'album' ? 'album' : group === 'artist' ? 'account' : 'folder'} size={12} color={theme['c-primary']} />
-          <Text size={12} numberOfLines={1} style={styles.groupTitle}>{row.title}</Text>
-          <Text size={10} color={theme['c-450']} style={styles.groupCount}>{row.count} 首</Text>
-        </View>
+        <TouchableOpacity
+          style={styles.groupRowItem}
+          activeOpacity={0.7}
+          onPress={() => { setDetail({ type: 'album', title: row.title }) }}
+        >
+          {row.cover ? <Cover item={row.cover} /> : <View style={styles.groupIcon}><Icon name='album' size={20} color={theme['c-primary']} /></View>}
+          <View style={styles.groupInfo}>
+            <Text size={14} numberOfLines={1}>{row.title}</Text>
+            <Text size={10} color={theme['c-450']} numberOfLines={1} style={styles.groupMeta}>{row.count} 首</Text>
+          </View>
+          <Icon name='chevron-right' size={18} color={theme['c-350']} />
+        </TouchableOpacity>
       )
     }
+    if (row.type === 'artist') {
+      return (
+        <TouchableOpacity
+          style={styles.groupRowItem}
+          activeOpacity={0.7}
+          onPress={() => { setDetail({ type: 'artist', title: row.title }) }}
+        >
+          <View style={{ ...styles.artistAvatar, backgroundColor: theme['c-primary-alpha-900'] }}>
+            <Text size={17} color={theme['c-primary']} style={styles.artistInitial}>{row.title.slice(0, 1).toUpperCase()}</Text>
+          </View>
+          <View style={styles.groupInfo}>
+            <Text size={14} numberOfLines={1}>{row.title}</Text>
+            <Text size={10} color={theme['c-450']} numberOfLines={1} style={styles.groupMeta}>{row.count} 首</Text>
+          </View>
+          <Icon name='chevron-right' size={18} color={theme['c-350']} />
+        </TouchableOpacity>
+      )
+    }
+    if (row.type === 'folder') {
+      return (
+        <TouchableOpacity
+          style={styles.groupRowItem}
+          activeOpacity={0.7}
+          onPress={() => { setFolderPath(row.path) }}
+        >
+          <View style={{ ...styles.folderIcon, backgroundColor: theme['c-primary-alpha-900'] }}>
+            <Icon name='folder' size={22} color={theme['c-primary']} />
+          </View>
+          <View style={styles.groupInfo}>
+            <Text size={14} numberOfLines={1}>{row.title}</Text>
+            <Text size={10} color={theme['c-450']} numberOfLines={1} style={styles.groupMeta}>{row.count} 首</Text>
+          </View>
+          <Icon name='chevron-right' size={18} color={theme['c-350']} />
+        </TouchableOpacity>
+      )
+    }
+
     const { item, index } = row
     return (
       <LocalRow
@@ -306,7 +436,13 @@ export default ({ onClose }: { onClose?: () => void }) => {
         }}
       />
     )
-  }, [group, theme, handlePlay, handlePlayLater, handleDelete, handleEdit])
+  }, [theme, handlePlay, handlePlayLater, handleDelete, handleEdit])
+
+  /** 二级页「播放全部」：从这一组的第一首开始播 */
+  const handlePlayGroup = useCallback(() => {
+    const first = rows.find(r => r.type === 'song')
+    if (first && first.type === 'song') void handlePlay(first.index)
+  }, [rows, handlePlay])
 
   return (
     <Animated.View
@@ -342,25 +478,76 @@ export default ({ onClose }: { onClose?: () => void }) => {
         </TouchableOpacity>
       </View>
 
-      <View style={styles.groupRow}>
-        {
-          ([
-            { key: 'song', label: '歌曲', icon: 'music-note' },
-            { key: 'album', label: '专辑', icon: 'album' },
-            { key: 'artist', label: '歌手', icon: 'account' },
-            { key: 'folder', label: '文件夹', icon: 'folder' },
-          ] as const).map(item => (
-            <Chip
-              key={item.key}
-              size='sm'
-              icon={item.icon}
-              label={item.label}
-              active={group === item.key}
-              onPress={() => { if (group !== item.key) setGroup(item.key) }}
-            />
-          ))
-        }
-      </View>
+      {
+        detail
+          ? (
+            <View style={styles.detailBar}>
+              <TouchableOpacity
+                onPress={() => { setDetail(null) }}
+                style={styles.detailBack}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Icon name='chevron-left' size={20} color={theme['c-font']} />
+              </TouchableOpacity>
+              <View style={styles.detailInfo}>
+                <Text size={15} numberOfLines={1} style={styles.detailTitle}>{detail.title}</Text>
+                <Text size={10} color={theme['c-450']} numberOfLines={1} style={styles.groupMeta}>
+                  {detail.type === 'album' ? '专辑' : '艺人'} · {rows.length} 首
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={handlePlayGroup}
+                style={{ ...styles.playAll, backgroundColor: theme['c-primary'] }}
+                activeOpacity={0.85}
+              >
+                <Icon name='play' size={12} color={contrastOn(theme['c-primary'])} />
+                <Text size={11} color={contrastOn(theme['c-primary'])} style={styles.playAllText}>播放全部</Text>
+              </TouchableOpacity>
+            </View>
+            )
+          : (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.tabScroll}
+              contentContainerStyle={styles.tabRow}
+            >
+              {
+                TABS.map(item => (
+                  <Chip
+                    key={item.key}
+                    size='sm'
+                    icon={item.icon}
+                    label={item.label}
+                    active={tab === item.key}
+                    onPress={() => {
+                      if (tab === item.key) return
+                      setTab(item.key)
+                      setFolderPath(null)
+                    }}
+                  />
+                ))
+              }
+            </ScrollView>
+            )
+      }
+
+      {
+        !detail && tab === 'folder' && currentFolder && currentFolder !== folderRoot
+          ? (
+            <View style={styles.crumbRow}>
+              <TouchableOpacity
+                onPress={() => { setFolderPath(parentOf(currentFolder)) }}
+                style={styles.crumbBack}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Icon name='arrow-up' size={15} color={theme['c-primary']} />
+              </TouchableOpacity>
+              <Text size={11} color={theme['c-450']} numberOfLines={1} style={styles.crumbText}>{currentFolder}</Text>
+            </View>
+            )
+          : null
+      }
 
       <FlatList
         data={rows}
@@ -614,30 +801,108 @@ const styles = createStyle({
     marginLeft: 5,
     fontWeight: '600',
   },
-  groupRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  tabScroll: {
+    flexGrow: 0,
+    flexShrink: 0,
+  },
+  tabRow: {
     paddingLeft: 16,
     paddingRight: 16,
     paddingTop: 10,
     paddingBottom: 4,
   },
-  groupHeader: {
+  detailBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingLeft: 6,
+    paddingRight: 16,
+    paddingTop: 8,
+    paddingBottom: 8,
+  },
+  detailBack: {
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  detailInfo: {
+    flexGrow: 1,
+    flexShrink: 1,
+    paddingRight: 8,
+  },
+  detailTitle: {
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  playAll: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 28,
+    paddingLeft: 10,
+    paddingRight: 12,
+    borderRadius: 14,
+  },
+  playAllText: {
+    marginLeft: 4,
+    fontWeight: '600',
+  },
+  crumbRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingLeft: 12,
+    paddingRight: 16,
+    paddingBottom: 2,
+  },
+  crumbBack: {
+    width: 28,
+    height: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  crumbText: {
+    flexShrink: 1,
+    marginLeft: 2,
+  },
+  groupRowItem: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingLeft: 16,
-    paddingRight: 16,
-    paddingTop: 12,
-    paddingBottom: 6,
+    paddingRight: 14,
+    paddingTop: 8,
+    paddingBottom: 8,
   },
-  groupTitle: {
+  groupInfo: {
     flexGrow: 1,
     flexShrink: 1,
-    marginLeft: 6,
-    fontWeight: '700',
+    paddingLeft: 12,
+    paddingRight: 8,
   },
-  groupCount: {
-    marginLeft: 8,
+  groupMeta: {
+    marginTop: 3,
+  },
+  groupIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  artistAvatar: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  artistInitial: {
+    fontWeight: '800',
+  },
+  folderIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   listContent: {
     paddingTop: 10,

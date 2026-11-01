@@ -34,6 +34,8 @@ declare namespace LX {
     interface MusicInfoMeta_local extends MusicInfoMetaBase {
       filePath: string
       ext: string
+      /** 文件修改时间（毫秒）——「最近添加」排序用 */
+      mtime?: number
     }
 
 

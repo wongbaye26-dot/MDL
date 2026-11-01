@@ -17,6 +17,8 @@ interface DirEntry {
   path: string
   isDirectory: boolean
   size: number
+  /** react-native-fs 的 readDir 会给，可能是 Date 也可能是秒级时间戳 */
+  mtime?: number | Date
 }
 
 /** 音频标签信息 */
@@ -94,6 +96,9 @@ const buildMusicInfo = async(file: DirEntry): Promise<LX.Music.MusicInfoLocal> =
     source: 'local',
     interval: metadata?.interval ? formatPlayTime(metadata.interval) : null,
     meta: {
+      mtime: file.mtime
+        ? (file.mtime instanceof Date ? file.mtime.getTime() : file.mtime * 1000)
+        : 0,
       songId: filePath,
       albumName: metadata?.albumName ?? '',
       filePath,
