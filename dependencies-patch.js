@@ -6,6 +6,12 @@ const path = require('node:path')
 const rootPath = path.join(__dirname, './')
 
 const patchs = [
+  // react-native-linear-gradient 2.8.3 还没适配 AGP 8，缺 namespace 会直接构建失败
+  [
+    path.join(rootPath, 'node_modules/react-native-linear-gradient/android/build.gradle'),
+    "android {\n    compileSdkVersion safeExtGet('compileSdkVersion', 31).toInteger()",
+    "android {\n    namespace 'com.BV.LinearGradient'\n    compileSdkVersion safeExtGet('compileSdkVersion', 31).toInteger()",
+  ],
 ]
 
 ;(async() => {

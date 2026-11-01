@@ -5,6 +5,7 @@ import {
   Modal,
   PanResponder,
   ScrollView,
+  StatusBar as RNStatusBar,
   TouchableOpacity,
   View,
   Image as RNImage,
@@ -16,7 +17,7 @@ import MarqueeText from '@/components/common/MarqueeText'
 import { Icon } from '@/components/common/Icon'
 import { useTheme } from '@/store/theme/hook'
 import { usePlayerMusicInfo, useIsPlay, useProgress } from '@/store/player/hook'
-import { useStatusbarHeight } from '@/store/common/hook'
+import { useStatusbarHeight, useNavActiveId } from '@/store/common/hook'
 import { useWindowSize } from '@/utils/hooks'
 import { useSettingValue } from '@/store/setting/hook'
 import { toast } from '@/utils/tools'
@@ -132,6 +133,7 @@ const LyricLine = memo(({ text, active, ratio, size, wordByWord }: {
 export default () => {
   const theme = useTheme()
   const statusBarHeight = useStatusbarHeight()
+  const navActiveId = useNavActiveId()
   const musicInfo = usePlayerMusicInfo()
   const isPlay = useIsPlay()
   const progress = useProgress()
@@ -469,6 +471,15 @@ export default () => {
       style={{ ...styles.container, transform: [{ translateY: panY }] }}
       {...panResponder.panHandlers}
     >
+      {/*
+        播放器页背景永远是深色，但全局 StatusBar 是按主题给 barStyle 的，
+        浅色主题下状态栏图标就是黑的、在封面糊底上完全看不见。
+        这里在播放器页挂一个 light-content 的 StatusBar 覆盖掉全局设置。
+      */}
+      {navActiveId === 'nav_player' ? (
+        <RNStatusBar barStyle='light-content' backgroundColor='rgba(0,0,0,0)' translucent />
+      ) : null}
+
       {/* 背景：整屏模糊封面（歌词页更糊，飞牛是整片柔光） */}
       <View pointerEvents='none' style={styles.bgBlur}>
         {
@@ -661,7 +672,7 @@ export default () => {
                 ? <Text size={u(10.5)} color='rgba(255,255,255,0.54)' numberOfLines={1} style={styles.timeCenter}>{audioMeta}</Text>
                 : <View style={styles.timeCenter} />
             }
-            <Text size={u(11)} color='rgba(255,255,255,0.78)' style={styles.timeText}>{formatTime(maxTime)}</Text>
+            <Text size={u(11)} color='rgba(255,255,255,0.78)' style={styles.timeTextRight}>{formatTime(maxTime)}</Text>
           </View>
         </View>
 
@@ -894,7 +905,9 @@ const styles = {
     alignItems: 'center' as const,
     justifyContent: 'space-between' as const,
   },
+  // 左右时间都留 40dp 最小宽度防止数字跳动；右边那个右对齐，墨迹才能正好落在进度条末端
   timeText: { flexShrink: 0, minWidth: 40, fontVariant: ['tabular-nums'] as const },
+  timeTextRight: { flexShrink: 0, minWidth: 40, textAlign: 'right' as const, fontVariant: ['tabular-nums'] as const },
   timeCenter: {
     flexGrow: 1,
     flexShrink: 1,
@@ -911,6 +924,13 @@ const styles = {
     height: 56,
     marginTop: 32,
     marginBottom: 32,
+    /*
+      按钮是 48dp，图标墨迹居中，左右各留 (48-17.5)/2=15.25dp。
+      要让「随机播放」图标左沿对齐进度条起点 24dp、播放队列图标右沿对齐终点 387.4dp，
+      行内左右各内缩 8.75 / 9.2。
+    */
+    paddingLeft: 8.75,
+    paddingRight: 9.2,
   },
   ctrlBtn: { width: 48, height: 48, justifyContent: 'center' as const, alignItems: 'center' as const },
   ctrlBtnBig: { width: 56, height: 56, justifyContent: 'center' as const, alignItems: 'center' as const },

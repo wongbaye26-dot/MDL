@@ -1,7 +1,7 @@
 {
   "name": "lx-music-mobile",
-  "version": "2.3.8",
-  "versionCode": 104,
+  "version": "2.3.9",
+  "versionCode": 105,
   "private": true,
   "scripts": {
     "dev": "react-native run-android --active-arch-only",
@@ -20,7 +20,8 @@
     "clear": "cd android && gradlew.bat clean",
     "clear:full": "git clean -fdx -e android/keystore.properties -e android/app/*.keystore",
     "build:theme": "node src/theme/themes/createThemes.js",
-    "publish": "node publish"
+    "publish": "node publish",
+    "postinstall": "node dependencies-patch.js"
   },
   "engines": {
     "node": ">= 18",
@@ -49,6 +50,7 @@
     "@react-native-clipboard/clipboard": "^1.14.3",
     "@react-native-community/blur": "^4.4.1",
     "@react-native-community/slider": "^4.5.7",
+    "@react-native-masked-view/masked-view": "^0.3.2",
     "he": "^1.2.0",
     "iconv-lite": "^0.7.3",
     "lrc-file-parser": "^2.4.2",
@@ -60,6 +62,7 @@
     "react-native-exception-handler": "^2.10.10",
     "react-native-file-system": "file:../vendor/react-native-file-system",
     "react-native-fs": "^2.20.0",
+    "react-native-linear-gradient": "^2.8.3",
     "react-native-local-media-metadata": "file:../vendor/react-native-local-media-metadata",
     "react-native-navigation": "7.39.2",
     "react-native-pager-view": "6.7.1",
