@@ -20,7 +20,15 @@ export const syncNativeTheme = (theme: LX.ActiveTheme) => {
   setWindowBackgroundColor(color)
 
   try {
-    const options = { layout: { componentBackgroundColor: color } }
+    const options = {
+      layout: {
+        componentBackgroundColor: color,
+        // 关键：不让原生层按 WindowInsets 给屏幕容器让位。
+        // 横屏时挖孔在左侧，RNN 默认会把整个屏幕往右推 96px，左边留一条窗口底色的白边；
+        // 状态栏/挖孔的留白由 RN 侧用 statusbarHeight 自己处理。
+        fitSystemWindows: false,
+      },
+    }
     Navigation.setDefaultOptions(options)
     for (const id of Object.values(commonState.componentIds)) {
       if (!id) continue

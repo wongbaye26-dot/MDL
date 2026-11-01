@@ -2,6 +2,7 @@ import { View } from 'react-native'
 import { Navigation } from 'react-native-navigation'
 
 import PageContent from '@/components/PageContent'
+import CutoutCompensator from '@/components/common/CutoutCompensator'
 import StatusBar from '@/components/common/StatusBar'
 import PlayerBar from '@/components/player/PlayerBar'
 import PageHeader, { HeaderButton } from '@/components/common/PageHeader'
@@ -22,6 +23,7 @@ export default ({ componentId }: { componentId: string }) => {
   }
 
   return (
+    <CutoutCompensator>
     <PageContent>
       <StatusBar />
       <PageHeader
@@ -41,6 +43,7 @@ export default ({ componentId }: { componentId: string }) => {
       </View>
       <PlayerBar />
     </PageContent>
+    </CutoutCompensator>
   )
 }
 

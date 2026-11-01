@@ -3,6 +3,7 @@ import { View } from 'react-native'
 
 import MusicList, { type MusicListType } from './MusicList'
 import PageContent from '@/components/PageContent'
+import CutoutCompensator from '@/components/common/CutoutCompensator'
 import StatusBar from '@/components/common/StatusBar'
 import { setComponentId } from '@/core/common'
 import { COMPONENT_IDS } from '@/config/constant'
@@ -33,6 +34,7 @@ export default ({ componentId, info }: { componentId: string, info: ListInfoItem
 
 
   return (
+    <CutoutCompensator>
     <PageContent>
       <StatusBar />
       {/* 「列表 / 卡片」切换条在列表之上，必须让出状态栏，否则会顶到时钟那一行 */}
@@ -43,6 +45,7 @@ export default ({ componentId, info }: { componentId: string, info: ListInfoItem
       </View>
       <PlayerBar />
     </PageContent>
+    </CutoutCompensator>
   )
 }
 

@@ -108,7 +108,14 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
           hideModeBar
             ? null
             : (
-              <View style={styles.modeBar}>
+              <View style={[
+                styles.modeBar,
+                // 列表滚上来会从这条栏底下穿过去，必须给实底 + 下边线，否则看起来是「分层」
+                {
+                  backgroundColor: theme['c-content-background'],
+                  borderBottomColor: theme['c-primary-alpha-900'],
+                },
+              ]}>
                 {/* 分段控件：和全站的胶囊筛选同一套 token（主色淡底 + 细描边 + 选中实心） */}
                 <View style={{
                   ...styles.segmentWrap,
@@ -199,9 +206,12 @@ const styles = createStyle({
   modeBar: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
+    alignItems: 'center',
     paddingRight: 12,
-    paddingTop: 4,
-    paddingBottom: 4,
+    paddingTop: 6,
+    paddingBottom: 6,
+    borderBottomWidth: 0.5,
+    zIndex: 2,
   },
   segmentWrap: {
     flexDirection: 'row',

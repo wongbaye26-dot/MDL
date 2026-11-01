@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useHorizontalMode } from '@/utils/hooks'
 import PageContent from '@/components/PageContent'
+import CutoutCompensator from '@/components/common/CutoutCompensator'
 import { setComponentId } from '@/core/common'
 import { COMPONENT_IDS } from '@/config/constant'
 import Vertical from './Vertical'
@@ -16,6 +17,7 @@ interface Props {
 
 export default ({ componentId }: Props) => {
   const isHorizontalMode = useHorizontalMode()
+
   useEffect(() => {
     setComponentId(COMPONENT_IDS.home, componentId)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -27,12 +29,14 @@ export default ({ componentId }: Props) => {
   }, [])
 
   return (
-    <PageContent>
-      {
-        isHorizontalMode
-          ? <Horizontal />
-          : <Vertical />
-      }
-    </PageContent>
+    <CutoutCompensator>
+      <PageContent>
+        {
+          isHorizontalMode
+            ? <Horizontal />
+            : <Vertical />
+        }
+      </PageContent>
+    </CutoutCompensator>
   )
 }

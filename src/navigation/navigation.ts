@@ -78,6 +78,9 @@ export async function pushHomeScreen() {
               },
               layout: {
                 componentBackgroundColor: theme['c-content-background'],
+                // 让内容画进状态栏/挖孔区（RN 侧自己用 statusbarHeight 让位），
+                // 否则横屏时挖孔在左侧会把整个屏幕往右挤 96px，左边留一条白边
+                fitSystemWindows: false,
               },
             },
           },
@@ -143,6 +146,7 @@ export function pushPlayDetailScreen(componentId: string, skipAnimation = false)
           },
           layout: {
             componentBackgroundColor: theme['c-content-background'],
+            fitSystemWindows: false,
           },
           animations: {
             push: skipAnimation ? {} : {
@@ -224,6 +228,7 @@ export function pushSongListScreen(componentId: string) {
           },
           layout: {
             componentBackgroundColor: theme['c-content-background'],
+            fitSystemWindows: false,
           },
         },
       },
@@ -259,6 +264,7 @@ export function pushSonglistDetailScreen(componentId: string, info: ListInfoItem
           },
           layout: {
             componentBackgroundColor: theme['c-content-background'],
+            fitSystemWindows: false,
           },
           animations: {
             push: {
@@ -392,6 +398,7 @@ export function pushCommentScreen(componentId: string) {
           },
           layout: {
             componentBackgroundColor: theme['c-content-background'],
+            fitSystemWindows: false,
           },
           animations: {
             push: {
