@@ -12,6 +12,8 @@ import {
   type LayoutChangeEvent,
 } from 'react-native'
 
+import LinearGradient from 'react-native-linear-gradient'
+
 import Text from '@/components/common/Text'
 import PicImage from '@/components/common/PicImage'
 import MarqueeText from '@/components/common/MarqueeText'
@@ -35,6 +37,7 @@ import DownloadQualityModal, { type DownloadQualityModalType } from '@/component
 import Stage, { COVER_TOP_RATIO, COVER_H_RATIO } from './Stage'
 import SeekBar from './SeekBar'
 import { u } from './metrics'
+import { getPlayerPalette } from '@/theme/playerPalette'
 
 const PLAY_MODES = ['listLoop', 'random', 'singleLoop', 'list'] as const
 type PlayMode = typeof PLAY_MODES[number]
@@ -62,11 +65,6 @@ const LYRIC_LINE_H = 42.9
  * 飞牛实测：信息行 655.6、进度 723.4、控制 803.4、底部留白 32
  */
 const BOTTOM_BLOCK_H = 236
-
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const FADE_BOTTOM = require('@/resources/images/fade-bottom.png')
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const FADE_TOP = require('@/resources/images/fade-top.png')
 
 const formatTime = (time: number) => {
   if (!time || time < 0 || !Number.isFinite(time)) return '00:00'
@@ -173,13 +171,13 @@ export default () => {
 
   const lyricSize = LYRIC_SIZES[sizeIndex]
   /*
-    播放器页底色永远是深色（封面糊底），所以强调色要挑一档在深底上够亮的：
-    亮色主题的 c-primary 偏暗，往白提一档（light-300）；暗色主题的主色本身已经提亮过，直接用。
-    进度条填充、播放键、当前歌词行都用它，这样 Material You 的种子色能真正落到播放器上。
+    播放器页底色永远是深色（封面糊底），所以不能直接用 c-primary：
+    M3 在深色表面上用 tone 80 的 primary（浅而高彩度的柔和色），
+    背景则是「带一点种子色相的中性深色」。两者都由 playerPalette 按种子色算出来，
+    换主题色时整页氛围（背景染色 + 进度条 + 播放键 + 当前歌词）一起变。
   */
-  const accent = theme.isDark ? theme['c-primary'] : theme['c-primary-light-300']
-  // 上下压暗也带上种子色相：纯黑会显得和主题无关，用「最暗的那一档主色」做遮罩
-  const scrimTint = theme.isDark ? theme['c-primary-light-1000'] : theme['c-primary-dark-900']
+  const palette = useMemo(() => getPlayerPalette(theme), [theme])
+  const accent = palette.accent
 
   /*
     横屏时播放器在左侧导航栏右边的内容区里，useWindowSize 给的是整屏宽度，
@@ -612,10 +610,13 @@ export default () => {
               : <View style={[styles.bgImg, { backgroundColor: '#17141C' }]} />
           }
         </View>
-        <View pointerEvents='none' style={styles.bgDim} />
-        <View pointerEvents='none' style={[styles.scrimBottom, { height: boxH * 0.82 }]}>
-          <RNImage source={FADE_BOTTOM} resizeMode='stretch' tintColor={scrimTint} style={styles.bgImg} />
-        </View>
+        <View pointerEvents='none' style={[styles.bgDim, { backgroundColor: palette.dim }]} />
+        <LinearGradient
+          pointerEvents='none'
+          colors={[palette.scrimAt(0.50), palette.scrimAt(0.30), palette.scrimAt(0.64)]}
+          locations={[0, 0.5, 1]}
+          style={styles.tintFull}
+        />
 
         <View style={{ flex: 1, flexDirection: 'row' }}>
           <View style={{ width: leftW, alignItems: 'center', justifyContent: 'center' }}>
@@ -655,7 +656,7 @@ export default () => {
                   color='#FFFFFF'
                   style={styles.songName}
                 />
-                <Text size={u(11)} color='rgba(255,255,255,0.66)' numberOfLines={1} style={styles.songSinger}>{musicInfo.singer}</Text>
+                <Text size={u(11)} color={palette.textSecondary} numberOfLines={1} style={styles.songSinger}>{musicInfo.singer}</Text>
               </View>
               {
                 autoSaveEnabled
@@ -667,7 +668,7 @@ export default () => {
                     )
               }
               <TouchableOpacity style={styles.iconBtnLand} onPress={handleToggleCollect} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-                <Icon name={collected ? 'love' : 'heart-outline'} size={u(22)} color={collected ? '#FF3B5C' : 'rgba(255,255,255,0.92)'} />
+                <Icon name={collected ? 'love' : 'heart-outline'} size={u(22)} color={collected ? accent : 'rgba(255,255,255,0.92)'} />
               </TouchableOpacity>
               <TouchableOpacity style={styles.iconBtnLand} onPress={() => { setDetailVisible(true) }} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
                 <Icon name='dots-vertical' size={u(20)} color='rgba(255,255,255,0.92)' />
@@ -706,18 +707,19 @@ export default () => {
                 max={maxTime}
                 height={5}
                 fillColor={accent}
+                trackColor={palette.track}
                 hitSlopY={10}
                 onSeek={handleSeek}
                 onPreview={setSeekPreview}
               />
               <View style={styles.landTimeRow}>
-                <Text size={u(10)} color='rgba(255,255,255,0.78)' style={styles.timeText}>{formatTime(currentTime)}</Text>
+                <Text size={u(10)} color={palette.textSecondary} style={styles.timeText}>{formatTime(currentTime)}</Text>
                 {
                   audioMeta
-                    ? <Text size={u(10)} color='rgba(255,255,255,0.5)' numberOfLines={1} style={styles.timeCenter}>{audioMeta}</Text>
+                    ? <Text size={u(10)} color={palette.textTertiary} numberOfLines={1} style={styles.timeCenter}>{audioMeta}</Text>
                     : <View style={styles.timeCenter} />
                 }
-                <Text size={u(10)} color='rgba(255,255,255,0.78)' style={styles.timeTextRight}>{formatTime(maxTime)}</Text>
+                <Text size={u(10)} color={palette.textSecondary} style={styles.timeTextRight}>{formatTime(maxTime)}</Text>
               </View>
             </View>
 
@@ -735,8 +737,8 @@ export default () => {
                 onPressIn={() => { pressPlay(0.9) }}
                 onPressOut={() => { pressPlay(1) }}
               >
-                <Animated.View style={{ transform: [{ scale: playBtnScale }] }}>
-                  <Icon name={isPlay ? 'pause' : 'play'} size={u(42)} color={accent} />
+                <Animated.View style={[styles.playCircleSmall, { backgroundColor: accent, transform: [{ scale: playBtnScale }] }]}>
+                  <Icon name={isPlay ? 'pause' : 'play'} size={u(42)} color={palette.onAccent} />
                 </Animated.View>
               </TouchableOpacity>
               <TouchableOpacity style={styles.ctrlBtn} onPress={() => { void playNext() }} activeOpacity={0.6}>
@@ -785,19 +787,43 @@ export default () => {
             : <View style={[styles.bgImg, { backgroundColor: '#17141C' }]} />
         }
       </View>
-      {/* 压暗：顶部给状态栏/标题，底部给控制区 */}
-      <View pointerEvents='none' style={styles.bgDim} />
-      <View pointerEvents='none' style={styles.scrimTop}>
-        <RNImage source={FADE_TOP} resizeMode='stretch' tintColor={scrimTint} style={styles.bgImg} />
-      </View>
-      <View pointerEvents='none' style={styles.scrimBottom}>
-        <RNImage source={FADE_BOTTOM} resizeMode='stretch' tintColor={scrimTint} style={styles.bgImg} />
-      </View>
+      {/* 压暗：把封面色相压向主题的表面色（低彩度 + 一点种子色相） */}
+      <View pointerEvents='none' style={[styles.bgDim, { backgroundColor: palette.dim }]} />
 
       {/* 舞台：上倒影 + 封面（四边柔化）+ 下倒影，全部铺到屏幕边缘 */}
       <Animated.View pointerEvents='none' style={[styles.stage, { opacity: coverAnim }]}>
         <Stage pic={pic} width={layoutW} height={layoutH} hidden={mode === 'lyric'} />
       </Animated.View>
+
+      {/*
+        倒影是叠在糊底上的，只压糊底染不到它 —— 所以染色层必须放在 Stage 之上。
+        两段渐变严格贴在「封面之外」的区域，封面本身一点都不会被染。
+      */}
+      {
+        mode === 'cover'
+          ? (
+            <>
+              <LinearGradient
+                pointerEvents='none'
+                colors={[palette.scrimAt(0.50), palette.scrimAt(0.05)]}
+                style={[styles.tint, { top: 0, height: coverTop }]}
+              />
+              <LinearGradient
+                pointerEvents='none'
+                colors={[palette.scrimAt(0.06), palette.scrimAt(0.68)]}
+                style={[styles.tint, { top: coverTop + coverH, bottom: 0 }]}
+              />
+            </>
+            )
+          : (
+            <LinearGradient
+              pointerEvents='none'
+              colors={[palette.scrimAt(0.54), palette.scrimAt(0.34), palette.scrimAt(0.78)]}
+              locations={[0, 0.45, 1]}
+              style={styles.tintFull}
+            />
+            )
+      }
 
       {/* 顶栏：返回键 + （歌词页）居中的歌名/歌手 */}
       <View style={[styles.header, { top: statusBarHeight + 8 }]}>
@@ -897,7 +923,7 @@ export default () => {
                     color='#FFFFFF'
                     style={styles.songName}
                   />
-                  <Text size={u(12)} color='rgba(255,255,255,0.66)' numberOfLines={1} style={styles.songSinger}>{musicInfo.singer}</Text>
+                  <Text size={u(12)} color={palette.textSecondary} numberOfLines={1} style={styles.songSinger}>{musicInfo.singer}</Text>
                 </TouchableOpacity>
                 <View style={styles.infoActions}>
                   {
@@ -913,7 +939,7 @@ export default () => {
                     <Icon
                       name={collected ? 'love' : 'heart-outline'}
                       size={u(26)}
-                      color={collected ? '#FF3B5C' : 'rgba(255,255,255,0.92)'}
+                      color={collected ? accent : 'rgba(255,255,255,0.92)'}
                     />
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.iconBtn} onPress={() => { setDetailVisible(true) }} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
@@ -929,7 +955,7 @@ export default () => {
                 </TouchableOpacity>
                 <View style={styles.infoActions}>
                   <TouchableOpacity style={styles.iconBtn} onPress={handleToggleCollect} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-                    <Icon name={collected ? 'love' : 'heart-outline'} size={u(26)} color={collected ? '#FF3B5C' : 'rgba(255,255,255,0.9)'} />
+                    <Icon name={collected ? 'love' : 'heart-outline'} size={u(26)} color={collected ? accent : 'rgba(255,255,255,0.9)'} />
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.iconBtn} onPress={() => { setDetailVisible(true) }} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
                     <Icon name='dots-vertical' size={u(24)} color='rgba(255,255,255,0.9)' />
@@ -946,18 +972,19 @@ export default () => {
               max={maxTime}
               height={6}
               fillColor={accent}
+              trackColor={palette.track}
               onSeek={handleSeek}
               onPreview={setSeekPreview}
             />
           </View>
           <View style={styles.timeRow}>
-            <Text size={u(11)} color='rgba(255,255,255,0.78)' style={styles.timeText}>{formatTime(currentTime)}</Text>
+            <Text size={u(11)} color={palette.textSecondary} style={styles.timeText}>{formatTime(currentTime)}</Text>
             {
               audioMeta
-                ? <Text size={u(10.5)} color='rgba(255,255,255,0.54)' numberOfLines={1} style={styles.timeCenter}>{audioMeta}</Text>
+                ? <Text size={u(10.5)} color={palette.textTertiary} numberOfLines={1} style={styles.timeCenter}>{audioMeta}</Text>
                 : <View style={styles.timeCenter} />
             }
-            <Text size={u(11)} color='rgba(255,255,255,0.78)' style={styles.timeTextRight}>{formatTime(maxTime)}</Text>
+            <Text size={u(11)} color={palette.textSecondary} style={styles.timeTextRight}>{formatTime(maxTime)}</Text>
           </View>
         </View>
 
@@ -975,8 +1002,8 @@ export default () => {
             onPressIn={() => { pressPlay(0.9) }}
             onPressOut={() => { pressPlay(1) }}
           >
-            <Animated.View style={{ transform: [{ scale: playBtnScale }] }}>
-              <Icon name={isPlay ? 'pause' : 'play'} size={u(53)} color={accent} />
+            <Animated.View style={[styles.playCircle, { backgroundColor: accent, transform: [{ scale: playBtnScale }] }]}>
+              <Icon name={isPlay ? 'pause' : 'play'} size={u(53)} color={palette.onAccent} />
             </Animated.View>
           </TouchableOpacity>
           <TouchableOpacity style={styles.ctrlBtnBig} onPress={() => { void playNext() }} activeOpacity={0.6}>
@@ -1017,23 +1044,8 @@ const styles = {
     bottom: 0,
     backgroundColor: 'rgba(10,8,14,0.20)',
   },
-  scrimTop: {
-    position: 'absolute' as const,
-    left: 0,
-    right: 0,
-    top: 0,
-    height: 190,
-    opacity: 0.34,
-  },
-  scrimBottom: {
-    position: 'absolute' as const,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: 430,
-    // 飞牛实测控制区亮度约 116，太亮的话主题强调色（进度条/播放键）会糊掉
-    opacity: 0.88,
-  },
+  tint: { position: 'absolute' as const, left: 0, right: 0 },
+  tintFull: { position: 'absolute' as const, left: 0, right: 0, top: 0, bottom: 0 },
 
   stage: { position: 'absolute' as const, left: 0, right: 0, top: 0, bottom: 0 },
 
@@ -1173,6 +1185,12 @@ const styles = {
   },
   ctrlBtn: { width: 48, height: 48, justifyContent: 'center' as const, alignItems: 'center' as const },
   ctrlBtnBig: { width: 56, height: 56, justifyContent: 'center' as const, alignItems: 'center' as const },
+  /*
+    播放键做成 M3 的实心圆（primary 底 + onPrimary 图标）：
+    图标墨迹本来就是 24x29dp，放进 50dp 的圆里留白刚好，位置/间距一点没动。
+  */
+  playCircle: { width: 50, height: 50, borderRadius: 25, justifyContent: 'center' as const, alignItems: 'center' as const },
+  playCircleSmall: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center' as const, alignItems: 'center' as const },
 
   landTopRow: {
     flexDirection: 'row' as const,
