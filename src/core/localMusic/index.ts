@@ -2,7 +2,7 @@ import { getData, saveData } from '@/plugins/storage'
 import { extname, readDir } from '@/utils/fs'
 import { readMetadata } from '@/utils/localMediaMetadata'
 import { getSavePath } from '@/core/download'
-import { listAudioFiles } from '@/utils/directoryPicker'
+import { listAudioFiles, readAudioMeta } from '@/utils/directoryPicker'
 import { formatPlayTime } from '@/utils'
 
 /** 持久化存储键 */
@@ -25,6 +25,8 @@ interface DirEntry {
   size: number
   /** react-native-fs 的 readDir 会给，可能是 Date 也可能是秒级时间戳 */
   mtime?: number | Date
+  /** MediaMetadataRetriever 读到的采样率/码率 */
+  audioMeta?: { duration?: number, bitrate?: number, sampleRate?: number }
   /** 来自 MediaStore 时，系统索引里已有的元数据 */
   meta?: {
     title?: string
@@ -32,6 +34,9 @@ interface DirEntry {
     album?: string
     /** 毫秒 */
     duration?: number
+    /** content://media/external/audio/albumart/<id> */
+    picUrl?: string
+    contentUri?: string
   }
 }
 
@@ -86,7 +91,18 @@ const buildMusicInfo = async(file: DirEntry): Promise<LX.Music.MusicInfoLocal> =
   const baseName = file.name.replace(/\.[^.]+$/, '')
 
   let metadata: AudioMetadata | null = null
-  if (file.meta) {
+  if (file.audioMeta) {
+    metadata = {
+      ...(file.meta ? {
+        name: file.meta.title,
+        singer: file.meta.artist,
+        albumName: file.meta.album,
+        interval: file.meta.duration ? file.meta.duration / 1000 : undefined,
+      } : {}),
+      bitrate: file.audioMeta.bitrate ? String(Math.round(file.audioMeta.bitrate / 1000)) : undefined,
+      sampleRate: file.audioMeta.sampleRate ? String(file.audioMeta.sampleRate) : undefined,
+    }
+  } else if (file.meta) {
     // 来自 MediaStore 的条目：系统索引里已经有标题/歌手/专辑/时长，
     // 而且公共目录的文件本身读不了，直接用索引里的值
     metadata = {
@@ -121,6 +137,7 @@ const buildMusicInfo = async(file: DirEntry): Promise<LX.Music.MusicInfoLocal> =
     source: 'local',
     interval: metadata?.interval ? formatPlayTime(metadata.interval) : null,
     meta: {
+      picUrl: file.meta?.picUrl,
       // readDir 可能给 Date / 秒 / 毫秒，统一成毫秒
       mtime: (() => {
         const v = file.mtime
@@ -146,24 +163,30 @@ export interface ScanResult {
   dirs: string[]
 }
 
-/** 用户额外添加的扫描目录（不含默认下载目录） */
+/**
+ * 扫描目录列表（完全由用户管理）。
+ * 首次使用时用下载目录播种一次，之后用户想删就删 —— 不再有「默认目录」的概念。
+ */
 export const getExtraDirs = async(): Promise<string[]> => {
   const dirs = await getData<string[]>(DIRS_KEY)
-  return Array.isArray(dirs) ? dirs : []
+  if (Array.isArray(dirs)) return dirs
+  let base = ''
+  try {
+    base = await getSavePath()
+  } catch {}
+  const seed = base ? [base] : []
+  await saveData(DIRS_KEY, seed)
+  return seed
 }
 
 export const setExtraDirs = async(dirs: string[]) => {
   await saveData(DIRS_KEY, [...new Set(dirs.filter(Boolean))])
 }
 
-/** 全部扫描根目录：默认下载目录 + 用户添加的 */
+/** 全部扫描根目录（就是用户管理的那份列表） */
 export const getScanDirs = async(): Promise<string[]> => {
-  let base = ''
-  try {
-    base = await getSavePath()
-  } catch {}
-  const extra = await getExtraDirs()
-  return [...new Set([base, ...extra].filter(Boolean))]
+  const dirs = await getExtraDirs()
+  return [...new Set(dirs.filter(Boolean))]
 }
 
 /**
@@ -183,6 +206,11 @@ export const scanLocalMusic = async(
       await walk(dir, 0, files)
     } else {
       const list = await listAudioFiles(dir).catch(() => [])
+      if (!list.length) {
+        // 系统还没索引这个目录（刚放进去的文件），退回文件系统扫一遍试试
+        await walk(dir, 0, files)
+        continue
+      }
       for (const item of list) {
         files.push({
           name: item.name,
@@ -190,8 +218,28 @@ export const scanLocalMusic = async(
           isDirectory: false,
           size: item.size,
           mtime: item.mtime,
-          meta: { title: item.title, artist: item.artist, album: item.album, duration: item.duration },
+          meta: {
+            title: item.title,
+            artist: item.artist,
+            album: item.album,
+            duration: item.duration,
+            picUrl: item.albumArt,
+            contentUri: item.contentUri,
+          },
         })
+      }
+      // MediaStore 里没有采样率/码率，用 MediaMetadataRetriever 逐个补（最多补 300 个，避免太慢）
+      if (list.length && list.length <= 300) {
+        for (const file of files.slice(-list.length)) {
+          const uri = file.meta?.contentUri
+          if (!uri) continue
+          const audioMeta = await readAudioMeta(uri)
+          if (!audioMeta) continue
+          file.meta!.duration = audioMeta.duration ?? file.meta!.duration
+          // 抽出来的内嵌封面优先于 albumart（后者在 Android 10+ 常常读不出来）
+          if (audioMeta.cover) file.meta!.picUrl = audioMeta.cover
+          ;(file as DirEntry & { audioMeta?: typeof audioMeta }).audioMeta = audioMeta
+        }
       }
     }
   }

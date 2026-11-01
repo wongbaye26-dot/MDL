@@ -324,7 +324,7 @@ const resolveUrl = async(task: LX.Download.ListItem, isRefresh: boolean) => {
   })
 }
 
-const ensureDir = async(path: string) => {
+export const ensureDir = async(path: string) => {
   try {
     if (!await existsFile(path)) await mkdir(path)
     if (!await existsFile(path)) return false

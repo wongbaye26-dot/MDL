@@ -8,6 +8,7 @@ import Vertical from './Vertical'
 import Horizontal from './Horizontal'
 import { navigations } from '@/navigation'
 import settingState from '@/store/setting/state'
+import { requestStartupPermissions } from '@/core/permissions'
 
 
 interface Props {
@@ -17,6 +18,11 @@ interface Props {
 
 export default ({ componentId }: Props) => {
   const isHorizontalMode = useHorizontalMode()
+
+  useEffect(() => {
+    // 首次启动申请一次「音乐和音频 / 通知」权限
+    void requestStartupPermissions()
+  }, [])
 
   useEffect(() => {
     setComponentId(COMPONENT_IDS.home, componentId)

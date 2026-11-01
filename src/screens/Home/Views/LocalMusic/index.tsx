@@ -40,11 +40,11 @@ const LOCAL_LIST_ID = 'local_music'
 
 /** 浏览层级（Poweramp 那种：最近添加 / 专辑 / 艺人 / 文件夹树 / 全部） */
 const TABS = [
-  { key: 'recent', label: '最近添加', icon: 'clock-outline' },
+  { key: 'song', label: '全部歌曲', icon: 'music-note' },
+  { key: 'folder', label: '文件夹', icon: 'folder' },
   { key: 'album', label: '专辑', icon: 'album' },
   { key: 'artist', label: '艺人', icon: 'account' },
-  { key: 'folder', label: '文件夹', icon: 'folder' },
-  { key: 'song', label: '全部歌曲', icon: 'music-note' },
+  { key: 'recent', label: '最近添加', icon: 'clock-outline' },
 ] as const
 
 /** 封面提取有开销，做一层串行队列 + 内存缓存 */
@@ -64,14 +64,18 @@ const loadPic = async(filePath: string): Promise<string> => {
 
 const Cover = ({ item }: { item: LX.Music.MusicInfoLocal }) => {
   const theme = useTheme()
-  const [uri, setUri] = useState<string | null>(() => picCache.get(item.meta.filePath) ?? null)
+  // MediaStore 条目自带 albumart 的 content:// 地址，直接用它（公共目录读不了文件）
+  const [uri, setUri] = useState<string | null>(() => item.meta.picUrl ?? picCache.get(item.meta.filePath) ?? null)
 
   useEffect(() => {
     let alive = true
     if (uri) return
-    void loadPic(item.meta.filePath).then(pic => {
-      if (alive && pic) setUri(pic)
-    })
+    // 自己下载目录里的文件才走本地提取
+    if (item.meta.filePath.includes('/Android/data/')) {
+      void loadPic(item.meta.filePath).then(pic => {
+        if (alive && pic) setUri(pic)
+      })
+    }
     return () => { alive = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item.meta.filePath])
@@ -100,7 +104,7 @@ export default ({ onClose }: { onClose?: () => void }) => {
   const [dirModal, setDirModal] = useState(false)
   const dirsRef = useRef<string[]>([])
   /** 浏览层级：最近添加 / 专辑 / 艺人 / 文件夹树 / 全部歌曲 */
-  const [tab, setTab] = useState<'recent' | 'album' | 'artist' | 'folder' | 'song'>('recent')
+  const [tab, setTab] = useState<'recent' | 'album' | 'artist' | 'folder' | 'song'>('song')
   /** 专辑 / 艺人的二级页 */
   const [detail, setDetail] = useState<{ type: 'album' | 'artist', title: string } | null>(null)
   /** 文件夹树当前目录（null = 根） */
@@ -654,22 +658,16 @@ export default ({ onClose }: { onClose?: () => void }) => {
           >
             <Text size={15} style={editStyles.title}>扫描文件夹</Text>
             {
-              dirs.map((d, i) => (
+              dirs.map(d => (
                 <View key={d} style={styles.dirRow}>
                   <Icon name='folder' size={16} color={theme['c-primary']} />
                   <View style={styles.dirInfo}>
                     <Text size={13} numberOfLines={1}>{baseNameOf(d) || d}</Text>
                     <Text size={10} color={theme['c-450']} numberOfLines={1} style={styles.dirPath}>{d}</Text>
                   </View>
-                  {
-                    i === 0
-                      ? <Text size={10} color={theme['c-450']}>默认</Text>
-                      : (
-                        <TouchableOpacity onPress={() => { void handleRemoveDir(d) }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                          <Icon name='close-circle' size={18} color={theme['c-450']} />
-                        </TouchableOpacity>
-                        )
-                  }
+                  <TouchableOpacity onPress={() => { void handleRemoveDir(d) }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Icon name='close-circle' size={18} color={theme['c-450']} />
+                  </TouchableOpacity>
                 </View>
               ))
             }

@@ -17,11 +17,27 @@ export interface AudioFileItem {
   artist?: string
   album?: string
   duration?: number
+  /** MediaStore 里的 id */
+  id?: number
+  albumId?: number
+  /** content://media/external/audio/media/<id> */
+  contentUri?: string
+  /** content://media/external/audio/albumart/<albumId> */
+  albumArt?: string
+}
+
+export interface AudioMeta {
+  duration?: number
+  bitrate?: number
+  sampleRate?: number
+  /** 内嵌封面被写到缓存目录后的本地路径 */
+  cover?: string
 }
 
 interface DirectoryPickerModule {
   pick: () => Promise<boolean>
   listAudio?: (prefix: string) => Promise<AudioFileItem[]>
+  readAudioMeta?: (contentUri: string) => Promise<AudioMeta>
 }
 
 interface PickedPayload {
@@ -66,6 +82,16 @@ const ensureListener = () => {
 export const listAudioFiles = async(prefix: string): Promise<AudioFileItem[]> => {
   if (!nativeModule?.listAudio) return []
   return nativeModule.listAudio(prefix)
+}
+
+/** 读采样率 / 码率 / 时长（通过 content:// uri，公共目录也能读） */
+export const readAudioMeta = async(contentUri: string): Promise<AudioMeta | null> => {
+  if (!nativeModule?.readAudioMeta) return null
+  try {
+    return await nativeModule.readAudioMeta(contentUri)
+  } catch {
+    return null
+  }
 }
 
 /**

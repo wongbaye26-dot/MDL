@@ -65,6 +65,8 @@ public class DirectoryPickerModule extends ReactContextBaseJavaModule {
       String normalized = prefix.endsWith("/") ? prefix.substring(0, prefix.length() - 1) : prefix;
       Uri uri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI;
       String[] projection = new String[] {
+          MediaStore.Audio.Media._ID,
+          MediaStore.Audio.Media.ALBUM_ID,
           MediaStore.Audio.Media.DATA,
           MediaStore.Audio.Media.DISPLAY_NAME,
           MediaStore.Audio.Media.SIZE,
@@ -82,20 +84,31 @@ public class DirectoryPickerModule extends ReactContextBaseJavaModule {
       WritableArray arr = Arguments.createArray();
       if (cursor != null) {
         while (cursor.moveToNext()) {
-          String path = cursor.getString(0);
+          // 列顺序：_ID, ALBUM_ID, DATA, DISPLAY_NAME, SIZE, DATE_MODIFIED, TITLE, ARTIST, ALBUM, DURATION
+          String path = cursor.getString(2);
           if (path == null) continue;
           WritableMap map = Arguments.createMap();
           map.putString("path", path);
-          map.putString("name", cursor.getString(1));
-          map.putDouble("size", cursor.getLong(2));
+          map.putString("name", cursor.getString(3));
+          map.putDouble("size", cursor.getLong(4));
           // DATE_MODIFIED 是秒
-          map.putDouble("mtime", cursor.getLong(3) * 1000.0);
+          map.putDouble("mtime", cursor.getLong(5) * 1000.0);
           // 系统索引里就有标题/歌手/专辑/时长，不用再去读文件标签
           // （分区存储下公共目录的文件是读不了的）
-          map.putString("title", cursor.getString(4));
-          map.putString("artist", cursor.getString(5));
-          map.putString("album", cursor.getString(6));
-          map.putDouble("duration", cursor.getLong(7));
+          map.putString("title", cursor.getString(6));
+          map.putString("artist", cursor.getString(7));
+          map.putString("album", cursor.getString(8));
+          map.putDouble("duration", cursor.getLong(9));
+          long id = cursor.getLong(0);
+          long albumId = cursor.getLong(1);
+          map.putDouble("id", id);
+          map.putDouble("albumId", albumId);
+          map.putString("contentUri",
+              android.content.ContentUris.withAppendedId(uri, id).toString());
+          if (albumId > 0) {
+            map.putString("albumArt",
+                "content://media/external/audio/albumart/" + albumId);
+          }
           arr.pushMap(map);
         }
       }
@@ -104,6 +117,45 @@ public class DirectoryPickerModule extends ReactContextBaseJavaModule {
       promise.reject("query_failed", e);
     } finally {
       if (cursor != null) cursor.close();
+    }
+  }
+
+  /**
+   * 读采样率 / 码率 / 时长。
+   *
+   * MediaStore 的公开字段里没有采样率和码率，而公共目录的文件又不能用路径直接打开，
+   * 所以用 MediaMetadataRetriever + content:// uri（系统授权）来读。
+   */
+  @ReactMethod
+  public void readAudioMeta(String contentUri, Promise promise) {
+    android.media.MediaMetadataRetriever retriever = new android.media.MediaMetadataRetriever();
+    try {
+      retriever.setDataSource(getReactApplicationContext(), Uri.parse(contentUri));
+      WritableMap map = Arguments.createMap();
+      String duration = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION);
+      String bitrate = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_BITRATE);
+      String sampleRate = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_SAMPLERATE);
+      if (duration != null) map.putDouble("duration", Double.parseDouble(duration));
+      if (bitrate != null) map.putDouble("bitrate", Double.parseDouble(bitrate));
+      if (sampleRate != null) map.putDouble("sampleRate", Double.parseDouble(sampleRate));
+
+      // 内嵌封面：写到缓存目录，JS 侧当普通图片路径用
+      // （content://media/external/audio/albumart 在 Android 10+ 经常读不出来）
+      byte[] picture = retriever.getEmbeddedPicture();
+      if (picture != null && picture.length > 0) {
+        java.io.File dir = new java.io.File(getReactApplicationContext().getCacheDir(), "local_cover");
+        if (!dir.exists()) dir.mkdirs();
+        java.io.File file = new java.io.File(dir, Integer.toHexString(contentUri.hashCode()) + ".img");
+        java.io.FileOutputStream out = new java.io.FileOutputStream(file);
+        out.write(picture);
+        out.close();
+        map.putString("cover", "file://" + file.getAbsolutePath());
+      }
+      promise.resolve(map);
+    } catch (Exception e) {
+      promise.reject("meta_failed", e);
+    } finally {
+      try { retriever.release(); } catch (Exception ignored) {}
     }
   }
 

@@ -66,15 +66,22 @@ export default memo(() => {
     return (list.length ? list : (['320k', '128k'] as LX.Quality[])).map(item => ({ value: item, label: QUALITY_LABEL[item] ?? item }))
   }, [])
 
-  const handleSelectPath = () => {
-    fileSelectRef.current?.show({
-      title: t('setting_download_save_path'),
-      dirOnly: true,
-      isPersist: true,
-    }, (path) => {
-      updateSetting({ 'download.savePath': path })
+  const handleSelectPath = async() => {
+    try {
+      const picked = await pickDirectory()
+      if (!picked) return
+      // 先探一下可写性：Android 11+ 公共目录默认不可写，写不进去就别设成下载目录
+      const writable = await ensureDir(picked.path).catch(() => false)
+      if (!writable) {
+        toast(`这个目录不能写入：\n${picked.path}\n请换一个目录（或使用默认目录）`)
+        return
+      }
+      updateSetting({ 'download.savePath': picked.path })
       clearSavePathCache()
-    })
+      toast(`保存目录已改为 ${picked.path}`)
+    } catch (e) {
+      toast((e as Error)?.message ?? '选择目录失败')
+    }
   }
 
   const handleResetPath = () => {
