@@ -2,12 +2,16 @@ import { getData, saveData } from '@/plugins/storage'
 import { extname, readDir } from '@/utils/fs'
 import { readMetadata } from '@/utils/localMediaMetadata'
 import { getSavePath } from '@/core/download'
+import { listAudioFiles } from '@/utils/directoryPicker'
 import { formatPlayTime } from '@/utils'
 
 /** 持久化存储键 */
 const STORAGE_KEY = 'local_music_list'
 /** 用户额外添加的扫描目录 */
 const DIRS_KEY = 'local_music_dirs'
+/** 应用自己的目录可以直接读；公共目录要走 MediaStore */
+const isAppPrivateDir = (dir: string) => dir.includes('/Android/data/') || dir.includes('/Android/obb/')
+
 /** 支持的音频扩展名 */
 const AUDIO_EXT = new Set(['mp3', 'flac', 'm4a', 'aac', 'wav', 'ogg', 'ape', 'wma', 'opus', 'dsf', 'dff'])
 /** 递归扫描的最大层级 */
@@ -21,6 +25,14 @@ interface DirEntry {
   size: number
   /** react-native-fs 的 readDir 会给，可能是 Date 也可能是秒级时间戳 */
   mtime?: number | Date
+  /** 来自 MediaStore 时，系统索引里已有的元数据 */
+  meta?: {
+    title?: string
+    artist?: string
+    album?: string
+    /** 毫秒 */
+    duration?: number
+  }
 }
 
 /** 音频标签信息 */
@@ -74,9 +86,20 @@ const buildMusicInfo = async(file: DirEntry): Promise<LX.Music.MusicInfoLocal> =
   const baseName = file.name.replace(/\.[^.]+$/, '')
 
   let metadata: AudioMetadata | null = null
-  try {
-    metadata = await readMetadata(filePath) as AudioMetadata | null
-  } catch {}
+  if (file.meta) {
+    // 来自 MediaStore 的条目：系统索引里已经有标题/歌手/专辑/时长，
+    // 而且公共目录的文件本身读不了，直接用索引里的值
+    metadata = {
+      name: file.meta.title,
+      singer: file.meta.artist,
+      albumName: file.meta.album,
+      interval: file.meta.duration ? file.meta.duration / 1000 : undefined,
+    }
+  } else {
+    try {
+      metadata = await readMetadata(filePath) as AudioMetadata | null
+    } catch {}
+  }
 
   let name = metadata?.name?.trim() ?? ''
   let singer = metadata?.singer?.trim() ?? ''
@@ -98,9 +121,13 @@ const buildMusicInfo = async(file: DirEntry): Promise<LX.Music.MusicInfoLocal> =
     source: 'local',
     interval: metadata?.interval ? formatPlayTime(metadata.interval) : null,
     meta: {
-      mtime: file.mtime
-        ? (file.mtime instanceof Date ? file.mtime.getTime() : file.mtime * 1000)
-        : 0,
+      // readDir 可能给 Date / 秒 / 毫秒，统一成毫秒
+      mtime: (() => {
+        const v = file.mtime
+        if (!v) return 0
+        if (v instanceof Date) return v.getTime()
+        return v < 1e12 ? v * 1000 : v
+      })(),
       songId: filePath,
       albumName: metadata?.albumName ?? '',
       filePath,
@@ -149,7 +176,25 @@ export const scanLocalMusic = async(
 ): Promise<ScanResult> => {
   const dirs = roots?.length ? roots : await getScanDirs()
   const files: DirEntry[] = []
-  for (const dir of dirs) await walk(dir, 0, files)
+  for (const dir of dirs) {
+    // 应用私有目录（下载目录）可以直接读文件系统；
+    // 用户额外添加的公共目录在分区存储下不能 listFiles()，必须走 MediaStore 索引。
+    if (isAppPrivateDir(dir)) {
+      await walk(dir, 0, files)
+    } else {
+      const list = await listAudioFiles(dir).catch(() => [])
+      for (const item of list) {
+        files.push({
+          name: item.name,
+          path: item.path,
+          isDirectory: false,
+          size: item.size,
+          mtime: item.mtime,
+          meta: { title: item.title, artist: item.artist, album: item.album, duration: item.duration },
+        })
+      }
+    }
+  }
 
   const list: LX.Music.MusicInfoLocal[] = []
   const seen = new Set<string>()
