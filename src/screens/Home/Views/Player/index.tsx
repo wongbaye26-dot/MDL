@@ -37,6 +37,7 @@ import DownloadQualityModal, { type DownloadQualityModalType } from '@/component
 import Stage, { COVER_TOP_RATIO, COVER_H_RATIO } from './Stage'
 import SeekBar from './SeekBar'
 import PlayGlyph from './PlayGlyph'
+import QueueCoverFlow from './QueueCoverFlow'
 import FadeMask from './FadeMask'
 import { u } from './metrics'
 import { getPlayerPalette } from '@/theme/playerPalette'
@@ -531,6 +532,21 @@ export default () => {
   /** 队列 / 详情 / 下载音质 三个弹层，横竖屏共用 */
   const modals = (
     <>
+  {
+    isLandscape
+      ? (
+        <QueueCoverFlow
+          visible={queueVisible}
+          queue={queue}
+          currentId={musicInfo.id}
+          listId={playerState.playInfo.playerListId}
+          playing={isPlay}
+          onClose={() => { setQueueVisible(false) }}
+          onPlay={handlePlayFromQueue}
+          onToggle={togglePlay}
+        />
+        )
+      : (
   <Modal visible={queueVisible} transparent animationType='slide' onRequestClose={() => { setQueueVisible(false) }}>
     <TouchableOpacity style={styles.modalMask} activeOpacity={1} onPress={() => { setQueueVisible(false) }}>
       <View style={{ ...styles.queueSheet, backgroundColor: theme['c-content-background'] }}>
@@ -567,6 +583,8 @@ export default () => {
       </View>
     </TouchableOpacity>
   </Modal>
+        )
+  }
 
   <Modal visible={detailVisible} transparent animationType='fade' onRequestClose={() => { setDetailVisible(false) }}>
     <TouchableOpacity style={styles.modalMask} activeOpacity={1} onPress={() => { setDetailVisible(false) }}>
@@ -604,6 +622,12 @@ export default () => {
         {...panResponder.panHandlers}
         onLayout={handleLayout}
       >
+        {/*
+          下滑关闭时整页会跟着手指往下走，让出来的上方区域原本是页面白底（浅色主题下就是白屏）。
+          这块深色垫片和内容一起移动，把让出来的区域涂成播放器底色，滑下去就是「沉进黑里」，
+          不会闪白。
+        */}
+        <View pointerEvents='none' style={styles.slideBackdrop} />
         {navActiveId === 'nav_player' ? (
           <RNStatusBar barStyle='light-content' backgroundColor='rgba(0,0,0,0)' translucent />
         ) : null}
@@ -771,6 +795,8 @@ export default () => {
       {...panResponder.panHandlers}
       onLayout={handleLayout}
     >
+      {/* 下滑关闭时把让出来的区域也涂成播放器底色，避免露出页面白底（浅色主题下就是白屏） */}
+      <View pointerEvents='none' style={styles.slideBackdrop} />
       {/*
         播放器页背景永远是深色，但全局 StatusBar 是按主题给 barStyle 的，
         浅色主题下状态栏图标就是黑的、在封面糊底上完全看不见。
@@ -1044,6 +1070,14 @@ const styles = {
     top: 0,
     bottom: 0,
     backgroundColor: 'rgba(10,8,14,0.20)',
+  },
+  slideBackdrop: {
+    position: 'absolute' as const,
+    left: 0,
+    right: 0,
+    top: -2400,
+    height: 2400,
+    backgroundColor: '#0B0810',
   },
   tint: { position: 'absolute' as const, left: 0, right: 0 },
   tintFull: { position: 'absolute' as const, left: 0, right: 0, top: 0, bottom: 0 },
