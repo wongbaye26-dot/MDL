@@ -4,6 +4,7 @@ import { Animated, Easing, View, TouchableOpacity } from 'react-native'
 import Text from '@/components/common/Text'
 import { Icon } from '@/components/common/Icon'
 import { createStyle } from '@/utils/tools'
+import { useHorizontalMode } from '@/utils/hooks'
 
 export interface BigCardProps {
   title: string
@@ -24,6 +25,8 @@ export interface BigCardProps {
  */
 export default ({ title, icon, color, index = 0, onPress }: BigCardProps) => {
   // 按下时卡片轻微下沉，松手回弹 —— 比单纯降低透明度更有实体感
+  // 横屏只有 411dp 高，竖屏的 196 高卡片会占掉一半屏幕，横屏收紧一档
+  const compact = useHorizontalMode()
   const scale = useRef(new Animated.Value(1)).current
   const float = useRef(new Animated.Value(0)).current
   const sweep = useRef(new Animated.Value(0)).current
@@ -65,7 +68,11 @@ export default ({ title, icon, color, index = 0, onPress }: BigCardProps) => {
     <Animated.View style={{ transform: [{ scale }] }}>
       <TouchableOpacity
         activeOpacity={0.9}
-        style={{ ...styles.card, backgroundColor: color }}
+        style={{
+          ...styles.card,
+          ...(compact ? styles.cardCompact : null),
+          backgroundColor: color,
+        }}
         onPress={onPress}
         onPressIn={() => { animate(0.955) }}
         onPressOut={() => { animate(1) }}
@@ -83,7 +90,7 @@ export default ({ title, icon, color, index = 0, onPress }: BigCardProps) => {
             ],
           }}
         >
-          <Icon name={icon} size={104} color='rgba(255,255,255,0.16)' />
+          <Icon name={icon} size={compact ? 78 : 104} color='rgba(255,255,255,0.16)' />
         </Animated.View>
 
         {/* 柔光扫过 */}
@@ -119,6 +126,15 @@ const styles = createStyle({
     paddingRight: 14,
     paddingBottom: 14,
     overflow: 'hidden',
+  },
+  cardCompact: {
+    width: 124,
+    height: 148,
+    marginRight: 10,
+    borderRadius: 16,
+    paddingLeft: 12,
+    paddingRight: 12,
+    paddingBottom: 12,
   },
   bubble: {
     position: 'absolute',

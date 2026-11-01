@@ -5,22 +5,28 @@ import MiniPlayer from '../Vertical/MiniPlayer'
 import StatusBar from '@/components/common/StatusBar'
 import Main from './Main'
 import { createStyle } from '@/utils/tools'
+import { HORIZONTAL_NAV_SPACE } from '@/config/constant'
+import { useOverlayVisible } from '@/utils/overlayLock'
 
 /**
- * 横屏布局：左侧悬浮导航栏 + 右侧内容区。
+ * 横屏布局：内容区整屏铺满，左侧导航浮在内容之上。
  *
- * 内容区不再单独渲染页头 —— 首页/下载中心/我的 各自用 PageHeader（横屏会自动切紧凑版），
- * 之前这里再画一次标题，会出现「EMO音乐」和「首页」两个标题叠在一起。
- * 迷你播放器改成悬浮在内容区底部，内容可以滚到它下面（各页面用 NAV_BAR_SPACE 留白）。
+ * 之前是 row 布局（[导航][内容]），播放器的深色底只从导航右边开始，
+ * 左边永远留一条页面底色的竖条 —— 看起来就是「播放器错位、没铺满」。
+ * 现在导航改成绝对定位的悬浮胶囊：
+ *  - 播放器页不留左内边距，封面直接铺到屏幕左边（和飞牛横版一致）；
+ *  - 其它页面用 paddingLeft 让出导航的位置，视觉和之前一样。
  */
 const styles = createStyle({
   container: {
     flex: 1,
-    flexDirection: 'row',
   },
   content: {
     flex: 1,
     overflow: 'hidden',
+  },
+  contentInset: {
+    paddingLeft: HORIZONTAL_NAV_SPACE,
   },
   miniWrap: {
     position: 'absolute',
@@ -32,17 +38,18 @@ const styles = createStyle({
 
 export default () => {
   const navActiveId = useNavActiveId()
+  const isPlayer = navActiveId === 'nav_player'
+  const overlayVisible = useOverlayVisible()
 
   return (
     <>
       <StatusBar />
       <View style={styles.container}>
-        <Aside />
-        <View style={styles.content}>
+        <View style={[styles.content, isPlayer ? null : styles.contentInset]}>
           <Main />
           {/* 播放器页自己占满整块内容区，迷你播放器会压住它的控制键 */}
           {
-            navActiveId === 'nav_player'
+            isPlayer
               ? null
               : (
                 <View style={styles.miniWrap} pointerEvents='box-none'>
@@ -51,6 +58,7 @@ export default () => {
                 )
           }
         </View>
+        {overlayVisible ? null : <Aside />}
       </View>
     </>
   )

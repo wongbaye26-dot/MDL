@@ -37,6 +37,7 @@ import DownloadQualityModal, { type DownloadQualityModalType } from '@/component
 import Stage, { COVER_TOP_RATIO, COVER_H_RATIO } from './Stage'
 import SeekBar from './SeekBar'
 import PlayGlyph from './PlayGlyph'
+import FadeMask from './FadeMask'
 import { u } from './metrics'
 import { getPlayerPalette } from '@/theme/playerPalette'
 
@@ -588,14 +589,15 @@ export default () => {
   )
 
   /*
-    横屏：左右两栏。左边是封面卡片（带阴影和进场动画），
-    右边从上到下是 歌名/歌手 + 歌词 + 进度 + 控制键 —— 歌词常驻，不用再点封面切换。
+    横屏：照飞牛的横版来 —— 封面满出血占左半屏（一直顶到屏幕左上下的边缘，
+    没有卡片边框、没有留白），右半屏是 歌名/歌手 + 歌词 + 进度 + 控制键。
+    之前封面是居中的圆角卡片，左边还留着一条导航栏的白底，所以整体看着是错位的。
   */
   if (isLandscape) {
-    const leftW = Math.min(boxW * 0.42, boxH + 48)
     // 横屏 statusbarHeight 会报 0，但时钟照样浮在左上角
     const topInset = statusBarHeight > 0 ? statusBarHeight : 20
-    const coverSize = Math.max(120, Math.min(boxH - 92, leftW - 28))
+    /** 左半屏宽度：高度够就取正方面（封面本身是方的，不裁切），否则按比例收 */
+    const coverW = Math.min(boxH, boxW * 0.48)
     return (
       <Animated.View
         style={{ ...styles.container, transform: [{ translateY: panY }] }}
@@ -616,71 +618,36 @@ export default () => {
         <View pointerEvents='none' style={[styles.bgDim, { backgroundColor: palette.dim }]} />
         <LinearGradient
           pointerEvents='none'
-          colors={[palette.scrimAt(0.50), palette.scrimAt(0.30), palette.scrimAt(0.64)]}
+          colors={[palette.scrimAt(0.42), palette.scrimAt(0.30), palette.scrimAt(0.64)]}
           locations={[0, 0.5, 1]}
           style={styles.tintFull}
         />
 
-        <View style={{ flex: 1, flexDirection: 'row' }}>
-          <View style={{ width: leftW, alignItems: 'center', justifyContent: 'center' }}>
-            {/*
-              磨砂光晕：同一张封面放大 1.18 倍再高斯模糊，垫在卡片下面。
-              竖屏的封面是「四边柔化 + 上下倒影」，横屏是卡片形态，
-              用这层模糊光晕把硬边化开，读起来才和竖屏是同一个东西。
-            */}
-            <View style={{
-              width: coverSize * 1.18,
-              height: coverSize * 1.18,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}>
-              {
-                pic
-                  ? (
-                    <RNImage
-                      source={{ uri: pic }}
-                      blurRadius={45}
-                      resizeMode='cover'
-                      style={{
-                        position: 'absolute',
-                        width: '100%',
-                        height: '100%',
-                        borderRadius: coverSize * 0.28,
-                        opacity: 0.62,
-                      }}
-                    />
-                    )
-                  : null
-              }
-            <Animated.View
-              style={{
-                width: coverSize,
-                height: coverSize,
-                borderRadius: 20,
-                overflow: 'hidden',
-                opacity: coverAnim,
-                transform: [{ scale: coverAnim.interpolate({ inputRange: [0, 1], outputRange: [1.06, 1] }) }],
-                elevation: 20,
-                shadowColor: '#000000',
-                shadowOpacity: 0.35,
-                shadowRadius: 24,
-                shadowOffset: { width: 0, height: 10 },
-              }}
-            >
-              {
-                pic
-                  ? <RNImage source={{ uri: pic }} resizeMode='cover' style={{ width: coverSize, height: coverSize }} />
-                  : (
-                    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.06)' }}>
-                      <Icon name='album' size={56} color='rgba(255,255,255,0.16)' />
-                    </View>
-                    )
-              }
-            </Animated.View>
-            </View>
-          </View>
+        {/* ── 左半屏：封面满出血，右缘柔化进背景 ── */}
+        {
+          pic
+            ? (
+              <View pointerEvents='none' style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: coverW, overflow: 'hidden' }}>
+                <RNImage source={{ uri: pic }} resizeMode='cover' style={{ width: coverW, height: boxH }} />
+                {/* 右边缘：清晰 → 糊，接缝不硬 */}
+                <FadeMask width={Math.min(96, coverW * 0.24)} height={boxH} from={1} to={0} dir='h' style={{ right: 0, top: 0 }}>
+                  <RNImage source={{ uri: pic }} resizeMode='cover' style={{ width: coverW, height: boxH }} />
+                </FadeMask>
+                {/* 上下边缘轻微压暗，保证状态栏和控制区可读 */}
+                <LinearGradient
+                  colors={['rgba(0,0,0,0.42)', 'rgba(0,0,0,0)', 'rgba(0,0,0,0)']}
+                  locations={[0, 0.22, 1]}
+                  style={{ position: 'absolute', left: 0, right: 0, top: 0, height: boxH * 0.4 }}
+                />
+              </View>
+              )
+            : null
+        }
 
-          <View style={{ flex: 1, paddingLeft: 6, paddingRight: 20, paddingBottom: 6, paddingTop: topInset }}>
+        <View style={{ flex: 1, flexDirection: 'row' }}>
+          {/* 占位：把右侧内容推到封面右边 */}
+          <View style={{ width: coverW }} />
+          <View style={{ flex: 1, paddingLeft: 20, paddingRight: 20, paddingBottom: 10, paddingTop: topInset }}>
             <View style={styles.landTopRow}>
               <View style={{ flexGrow: 1, flexShrink: 1 }}>
                 <MarqueeText

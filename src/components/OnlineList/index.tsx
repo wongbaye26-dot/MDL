@@ -10,6 +10,8 @@ import DownloadQualityModal, { type DownloadQualityModalType } from '@/component
 import { clearMusicUrl, handleDislikeMusic, handlePlay, handlePlayLater, handleShare, handleShowMusicSourceDetail } from './listAction'
 import { createStyle } from '@/utils/tools'
 import Text from '@/components/common/Text'
+import { Icon } from '@/components/common/Icon'
+import { contrastOn } from '@/theme/solid'
 import { useTheme } from '@/store/theme/hook'
 
 export interface OnlineListProps {
@@ -52,6 +54,8 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
   const downloadModalRef = useRef<DownloadQualityModalType>(null)
   const [viewMode, setViewMode] = useState<'list' | 'card'>('list')
   const theme = useTheme()
+  // 主色实心段上的字：按主色亮度自动取黑/白
+  const onPrimary = contrastOn(theme['c-primary'])
   // const loadingMaskRef = useRef<LoadingMaskType>(null)
 
   useImperativeHandle(ref, () => ({
@@ -105,12 +109,39 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
             ? null
             : (
               <View style={styles.modeBar}>
-                <TouchableOpacity onPress={() => { setViewMode('list') }} style={{ ...styles.modeBtn, backgroundColor: viewMode === 'list' ? theme['c-primary-alpha-700'] : 'rgba(0,0,0,0)' }}>
-                  <Text size={11} color={viewMode === 'list' ? theme['c-primary-light-200'] : theme['c-450']}>列表</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => { setViewMode('card') }} style={{ ...styles.modeBtn, backgroundColor: viewMode === 'card' ? theme['c-primary-alpha-700'] : 'rgba(0,0,0,0)' }}>
-                  <Text size={11} color={viewMode === 'card' ? theme['c-primary-light-200'] : theme['c-450']}>卡片</Text>
-                </TouchableOpacity>
+                {/* 分段控件：和全站的胶囊筛选同一套 token（主色淡底 + 细描边 + 选中实心） */}
+                <View style={{
+                  ...styles.segmentWrap,
+                  backgroundColor: theme['c-primary-alpha-900'],
+                  borderColor: theme['c-primary-alpha-700'],
+                }}>
+                  {
+                    ([
+                      { key: 'list', label: '列表', icon: 'format-list-bulleted' },
+                      { key: 'card', label: '卡片', icon: 'view-grid-outline' },
+                    ] as const).map(item => {
+                      const active = viewMode === item.key
+                      return (
+                        <TouchableOpacity
+                          key={item.key}
+                          activeOpacity={0.85}
+                          onPress={() => { setViewMode(item.key) }}
+                          style={{
+                            ...styles.segment,
+                            backgroundColor: active ? theme['c-primary'] : 'transparent',
+                          }}
+                        >
+                          <Icon
+                            name={item.icon}
+                            size={12}
+                            color={active ? onPrimary : theme['c-450']}
+                          />
+                          <Text size={11} color={active ? onPrimary : theme['c-450']} style={styles.segmentText}>{item.label}</Text>
+                        </TouchableOpacity>
+                      )
+                    })
+                  }
+                </View>
               </View>
               )
         }
@@ -169,15 +200,29 @@ const styles = createStyle({
     flexDirection: 'row',
     justifyContent: 'flex-end',
     paddingRight: 12,
-    paddingBottom: 2,
-  },
-  modeBtn: {
-    paddingLeft: 10,
-    paddingRight: 10,
     paddingTop: 4,
     paddingBottom: 4,
-    borderRadius: 9,
-    marginLeft: 6,
+  },
+  segmentWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 0.5,
+    paddingLeft: 2,
+    paddingRight: 2,
+  },
+  segment: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 24,
+    paddingLeft: 9,
+    paddingRight: 10,
+    borderRadius: 12,
+  },
+  segmentText: {
+    marginLeft: 4,
+    fontWeight: '600',
   },
   exitMultipleModeBtn: {
     height: 40,

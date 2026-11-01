@@ -15,9 +15,10 @@ import Text from '@/components/common/Text'
 import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
 import { useStatusbarHeight } from '@/store/common/hook'
+import { useHorizontalMode } from '@/utils/hooks'
 import SlideInView from '@/components/common/SlideInView'
 import Grid from './Grid'
-import { NAV_BAR_SPACE } from '@/config/constant'
+import { NAV_BAR_SPACE, HORIZONTAL_NAV_SPACE } from '@/config/constant'
 import { getSolidBackground } from '@/theme/solid'
 import { PAGE_HEADER_H } from '@/components/common/PageHeader'
 
@@ -48,6 +49,8 @@ export default () => {
 
   // 子页是整屏详情页：往上盖住「我的」页头（高度 = 状态栏 + 页头本体）
   const overlayTop = -(statusBarHeight + PAGE_HEADER_H)
+  // 横屏导航浮在内容之上，设置子页要往回盖住它
+  const overlayLeft = useHorizontalMode() ? -HORIZONTAL_NAV_SPACE : 0
 
   return (
     <View style={styles.container}>
@@ -58,7 +61,7 @@ export default () => {
       {
         activeId
           ? (
-              <View style={[StyleSheet.absoluteFill, { top: overlayTop, zIndex: 200, elevation: 24 }]}>
+              <View style={[StyleSheet.absoluteFill, { top: overlayTop, left: overlayLeft, zIndex: 200, elevation: 24 }]}>
                 <SlideInView style={{ ...styles.modal, backgroundColor: getSolidBackground(theme) }}>
                   <View style={{ ...styles.modalHeader, height: 52 + statusBarHeight, paddingTop: statusBarHeight }}>
                     <TouchableOpacity style={styles.modalBack} onPress={() => { setActiveId(null) }}>

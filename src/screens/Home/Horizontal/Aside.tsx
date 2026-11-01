@@ -7,7 +7,7 @@ import Glass from '@/components/common/Glass'
 import { useNavActiveId } from '@/store/common/hook'
 import { useTheme } from '@/store/theme/hook'
 import { createStyle } from '@/utils/tools'
-import { NAV_MENUS } from '@/config/constant'
+import { NAV_MENUS, HORIZONTAL_NAV_SPACE } from '@/config/constant'
 import type { InitState } from '@/store/common/state'
 import { setNavActiveId } from '@/core/common'
 
@@ -71,6 +71,7 @@ export default memo(() => {
   const dark = theme.isDark || navActiveId === 'nav_player'
 
   return (
+    <View style={styles.wrap} pointerEvents='box-none'>
     <View
       style={{
         ...styles.container,
@@ -109,14 +110,23 @@ export default memo(() => {
         ))
       }
     </View>
+    </View>
   )
 })
 
 const styles = createStyle({
+  /* 覆盖在内容之上：播放器页要能整屏铺满，导航浮在上面 */
+  wrap: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: HORIZONTAL_NAV_SPACE,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   container: {
     width: 64,
-    marginLeft: 8,
-    alignSelf: 'center',
     borderRadius: 32,
     borderWidth: 0.5,
     paddingTop: 10,

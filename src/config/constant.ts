@@ -116,6 +116,9 @@ export type NAV_ID_Type = typeof NAV_MENUS[number]['id']
  */
 export const NAV_BAR_SPACE = 104
 
+/** 横屏左侧悬浮导航占用的横向空间（胶囊 64 + 左右各 8） */
+export const HORIZONTAL_NAV_SPACE = 80
+
 export const LXM_FILE_EXT_RXP = ['json', 'lxmc', 'bin']
 export const USER_API_SOURCE_FILE_EXT_RXP = ['js']
 
