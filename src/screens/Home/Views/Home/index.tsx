@@ -25,7 +25,7 @@ import SearchModal from '../../Vertical/SearchModal'
 import PageModal from '../../Vertical/PageModal'
 import SongList from '../SongList'
 import Leaderboard from '../Leaderboard'
-import Mylist from '../Mylist'
+import Favorites from '../Mylist/Favorites'
 import LocalMusic from '../LocalMusic'
 import { useBackHandler } from '@/utils/hooks/useBackHandler'
 import UserApiEditModal, { type UserApiEditModalType } from '../Setting/settings/Basic/UserApiEditModal'
@@ -184,9 +184,10 @@ export default () => {
           contentContainerStyle={styles.cards}
         >
           {
-            CARDS.map(card => (
+            CARDS.map((card, i) => (
               <BigCard
                 key={card.key}
+                index={i}
                 title={card.title}
                 icon={card.icon}
                 color={card.color}
@@ -320,7 +321,7 @@ export default () => {
           : modal === 'leaderboard'
             ? <PageModal title='排行榜' onClose={() => { setModal(null) }}><Leaderboard /></PageModal>
             : modal === 'mylist'
-              ? <PageModal title='我的列表' onClose={() => { setModal(null) }}><Mylist /></PageModal>
+              ? <PageModal title='收藏' onClose={() => { setModal(null) }}><Favorites /></PageModal>
               : null
       }
       {

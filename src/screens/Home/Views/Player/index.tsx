@@ -88,7 +88,7 @@ const findLine = (lines: Line[], timeMs: number) => {
 /**
  * 歌词行。飞牛：当前行纯白 + 加粗 + 字号放大，其余行统一半透明白（没有距离渐隐）。
  */
-const LyricLine = memo(({ text, active, ratio, size, wordByWord, activeColor }: {
+const LyricLine = memo(({ text, active, ratio, size, wordByWord, activeColor, align = 'center' }: {
   text: string
   active: boolean
   ratio: number
@@ -96,13 +96,15 @@ const LyricLine = memo(({ text, active, ratio, size, wordByWord, activeColor }: 
   wordByWord: boolean
   /** 当前行高亮色：跟随主题（Material You 主色） */
   activeColor: string
+  /** 横屏和歌名一样左对齐，竖屏居中 */
+  align?: 'center' | 'left'
 }) => {
   if (!active) {
     return (
       <Text
         size={u(size / LYRIC_NORMAL_RATIO)}
         color='rgba(255,255,255,0.38)'
-        style={styles.lyricLine}
+        style={[styles.lyricLine, { textAlign: align }]}
         numberOfLines={1}
       >{text || ' '}</Text>
     )
@@ -113,7 +115,7 @@ const LyricLine = memo(({ text, active, ratio, size, wordByWord, activeColor }: 
       <Text
         size={u(size)}
         color={activeColor}
-        style={{ ...styles.lyricLine, ...styles.lyricActive }}
+        style={{ ...styles.lyricLine, textAlign: align, ...styles.lyricActive }}
         numberOfLines={1}
       >{text || ' '}</Text>
     )
@@ -123,7 +125,7 @@ const LyricLine = memo(({ text, active, ratio, size, wordByWord, activeColor }: 
     <Text
       size={u(size)}
       color='rgba(255,255,255,0.32)'
-      style={styles.lyricLine}
+      style={[styles.lyricLine, { textAlign: align }]}
       numberOfLines={1}
     >
       <Text size={u(size)} color={activeColor} style={styles.lyricActive}>{text.slice(0, shown)}</Text>
@@ -208,6 +210,8 @@ export default () => {
   const lyricAreaH = bottomTop - coverTop
   // 必须是稳定引用：每次渲染新建对象会让 ScrollView 重新应用样式
   const lyricContentStyle = useMemo(() => ({ paddingLeft: 20, paddingRight: 20 }), [])
+  /** 横屏：歌词左对齐到歌名那条线，不再居中 */
+  const landLyricContentStyle = useMemo(() => ({ paddingLeft: 0, paddingRight: 8 }), [])
   /** 歌词可视区高度：竖屏是算出来的，横屏是 flex 撑开的，统一用 onLayout 实测 */
   const [lyricH, setLyricH] = useState(0)
   const lyricPad = Math.max(0, (lyricH || lyricAreaH) / 2 - LYRIC_LINE_H / 2)
@@ -518,6 +522,7 @@ export default () => {
         ratio={index === currentLine ? currentRatio : 0}
         wordByWord={isWordByWord}
         activeColor={accent}
+        align={isLandscape ? 'left' : 'center'}
       />
     </TouchableOpacity>
   ))
@@ -618,6 +623,35 @@ export default () => {
 
         <View style={{ flex: 1, flexDirection: 'row' }}>
           <View style={{ width: leftW, alignItems: 'center', justifyContent: 'center' }}>
+            {/*
+              磨砂光晕：同一张封面放大 1.18 倍再高斯模糊，垫在卡片下面。
+              竖屏的封面是「四边柔化 + 上下倒影」，横屏是卡片形态，
+              用这层模糊光晕把硬边化开，读起来才和竖屏是同一个东西。
+            */}
+            <View style={{
+              width: coverSize * 1.18,
+              height: coverSize * 1.18,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}>
+              {
+                pic
+                  ? (
+                    <RNImage
+                      source={{ uri: pic }}
+                      blurRadius={45}
+                      resizeMode='cover'
+                      style={{
+                        position: 'absolute',
+                        width: '100%',
+                        height: '100%',
+                        borderRadius: coverSize * 0.28,
+                        opacity: 0.62,
+                      }}
+                    />
+                    )
+                  : null
+              }
             <Animated.View
               style={{
                 width: coverSize,
@@ -643,6 +677,7 @@ export default () => {
                     )
               }
             </Animated.View>
+            </View>
           </View>
 
           <View style={{ flex: 1, paddingLeft: 6, paddingRight: 20, paddingBottom: 6, paddingTop: topInset }}>
@@ -680,7 +715,7 @@ export default () => {
                     <ScrollView
                       ref={scrollRef}
                       showsVerticalScrollIndicator={false}
-                      contentContainerStyle={lyricContentStyle}
+                      contentContainerStyle={landLyricContentStyle}
                       scrollEventThrottle={32}
                       onScroll={e => { lyricScrollY.current = e.nativeEvent.contentOffset.y }}
                       onContentSizeChange={() => { scrollToLine(currentLineRef.current, false) }}

@@ -18,7 +18,7 @@ import MusicToggleModal, { type MusicToggleModalType } from './MusicToggleModal'
 import DownloadQualityModal, { type DownloadQualityModalType } from '@/components/DownloadQualityModal'
 
 
-export default () => {
+export default ({ hideHeader = false }: { hideHeader?: boolean } = {}) => {
   // const t = useI18n()
   const activeListRef = useRef<ActiveListType>(null)
   const listMusicSearchRef = useRef<ListMusicSearchType>(null)
@@ -133,7 +133,7 @@ export default () => {
   return (
     <View style={styles.container}>
       <View style={{ zIndex: 2 }}>
-        <ActiveList ref={activeListRef} onShowSearchBar={handleShowSearch} onScrollToTop={hancelScrollToTop} />
+        {hideHeader ? null : <ActiveList ref={activeListRef} onShowSearchBar={handleShowSearch} onScrollToTop={hancelScrollToTop} />}
         <MultipleModeBar
           ref={multipleModeBarRef}
           onSwitchMode={hancelSwitchSelectMode}

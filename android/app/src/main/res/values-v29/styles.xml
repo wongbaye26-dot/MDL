@@ -1,0 +1,9 @@
+<resources>
+    <style name="AppTheme" parent="AppThemeBase">
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+        <!-- 边到边：状态栏/导航栏透明，内容自己让位（和 RN 里的 statusbarHeight 逻辑一致） -->
+        <item name="android:enforceStatusBarContrast">false</item>
+        <item name="android:enforceNavigationBarContrast">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+    </style>
+</resources>

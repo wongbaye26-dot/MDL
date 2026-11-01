@@ -1,7 +1,7 @@
 import { forwardRef, memo, useEffect, useImperativeHandle, useState } from 'react'
 import { View } from 'react-native'
 import ButtonBar from './ActionBar'
-import { useNavigationComponentDidAppear } from '@/navigation'
+import { useNavigationComponentDidAppear, pop } from '@/navigation'
 import { NAV_SHEAR_NATIVE_IDS } from '@/config/constant'
 import { scaleSizeW } from '@/utils/pixelRatio'
 import { useTheme } from '@/store/theme/hook'
@@ -10,7 +10,7 @@ import { createStyle } from '@/utils/tools'
 import Image from '@/components/common/Image'
 import { useListInfo } from './state'
 import { useAnimateOnecNumber } from '@/utils/hooks/useAnimateNumber'
-import { useStatusbarHeight } from '@/store/common/hook'
+import { HeaderButton } from '@/components/common/PageHeader'
 
 const IMAGE_WIDTH = scaleSizeW(76)
 
@@ -71,7 +71,6 @@ export interface DetailInfo {
 }
 
 export default forwardRef<HeaderType, HeaderProps>(({ componentId }: { componentId: string }, ref) => {
-  const statusBarHeight = useStatusbarHeight()
   const theme = useTheme()
   const info = useListInfo()
   const [detailInfo, setDetailInfo] = useState<DetailInfo>({ name: '', desc: '', playCount: '', imgUrl: info.img })
@@ -83,7 +82,11 @@ export default forwardRef<HeaderType, HeaderProps>(({ componentId }: { component
   }), [])
 
   return (
-    <View style={{ ...styles.container, paddingTop: statusBarHeight }}>
+    <View style={styles.container}>
+      {/* 和主页面一致的圆形返回键；状态栏留白由外层页面统一处理 */}
+      <View style={styles.topRow}>
+        <HeaderButton icon='chevron-left-2' size={22} onPress={() => { void pop(componentId) }} />
+      </View>
       <View style={styles.headRow}>
         <Pic componentId={componentId} playCount={detailInfo.playCount} imgUrl={detailInfo.imgUrl} />
         <View style={styles.infoArea} nativeID={NAV_SHEAR_NATIVE_IDS.songlistDetail_title}>
@@ -108,6 +111,12 @@ const styles = createStyle({
   container: {
     flexDirection: 'column',
     flexWrap: 'nowrap',
+  },
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 44,
+    paddingLeft: 12,
   },
   headRow: {
     flexDirection: 'row',

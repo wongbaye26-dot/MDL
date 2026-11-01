@@ -2,11 +2,9 @@ import { memo, useRef } from 'react'
 import { View, TouchableOpacity } from 'react-native'
 
 import { createStyle } from '@/utils/tools'
-import { pop } from '@/navigation'
 import { useTheme } from '@/store/theme/hook'
 import { contrastOn } from '@/theme/solid'
 import { Icon } from '@/components/common/Icon'
-import commonState from '@/store/common/state'
 import Text from '@/components/common/Text'
 import { handleCollect, handlePlay } from './listAction'
 import songlistState from '@/store/songlist/state'
@@ -25,10 +23,6 @@ export default memo(() => {
   const info = useListInfo()
   const downloadModalRef = useRef<DownloadQualityModalType>(null)
   const onPrimary = contrastOn(theme['c-primary'])
-
-  const back = () => {
-    void pop(commonState.componentIds.songlistDetail!)
-  }
 
   const handlePlayAll = () => {
     if (!songlistState.listDetailInfo.info.name) return
@@ -73,10 +67,6 @@ export default memo(() => {
       <TouchableOpacity activeOpacity={0.8} onPress={handleDownloadAll} style={ghost}>
         <Icon name='download-2' size={14} color={theme['c-primary']} />
         <Text size={12} color={theme['c-primary']} style={styles.pillText}>{t('download_all')}</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity activeOpacity={0.7} onPress={back} style={styles.textBtn}>
-        <Text size={12} color={theme['c-450']}>{t('back')}</Text>
       </TouchableOpacity>
 
       <DownloadQualityModal ref={downloadModalRef} />

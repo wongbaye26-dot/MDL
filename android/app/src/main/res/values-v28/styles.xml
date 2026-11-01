@@ -1,0 +1,9 @@
+<resources>
+    <!--
+      刘海屏：横屏时挖孔在屏幕左侧，默认布局会把它当成黑边把内容挤到一边
+      （表现为左侧一条黑带 + 一条白线）。shortEdges 让内容画进挖孔区，实现真全屏。
+    -->
+    <style name="AppTheme" parent="AppThemeBase">
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+    </style>
+</resources>

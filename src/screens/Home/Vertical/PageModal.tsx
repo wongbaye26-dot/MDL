@@ -25,7 +25,7 @@ export default ({ title, onClose, right, children }: {
     <View style={[StyleSheet.absoluteFill, { zIndex: 200, elevation: 24 }]}>
       {/* 覆盖层必须用不透明底色：主题的 c-main-background 可能是半透明的（为了透出背景图），
           盖在首页之上时下层内容会透上来，形成鬼影 */}
-      <SlideInView style={{ ...styles.container, backgroundColor: getSolidBackground(theme) }}>
+      <SlideInView direction='up' style={{ ...styles.container, backgroundColor: getSolidBackground(theme) }}>
         <PageHeader
           title={title}
           left={<HeaderButton icon='chevron-left-2' size={22} onPress={onClose} />}

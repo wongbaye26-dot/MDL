@@ -104,9 +104,10 @@ export default forwardRef<UserApiEditModalType, {}>((props, ref) => {
           <Dialog ref={dialogRef} bgHide={false}>
             <View style={styles.content}>
               {/* <UrlInput ref={inputRef} /> */}
-              <Text size={16} style={styles.title}>{t('user_api_title')}</Text>
+              <Text size={19} style={styles.title}>{t('user_api_title')}</Text>
+              <Text size={11} color={theme['c-450']} style={styles.subtitle}>导入 LX Music 格式的自定义源脚本，支持在线链接和本地文件</Text>
               <List />
-              <View style={styles.tips}>
+              <View style={{ ...styles.tips, backgroundColor: theme['c-primary-alpha-900'], borderColor: theme['c-primary-alpha-700'] }}>
                 <Text style={styles.tipsText} size={12}>
                   {t('user_api_readme')}
                 </Text>
@@ -144,18 +145,29 @@ const styles = createStyle({
     flexDirection: 'column',
   },
   title: {
-    marginBottom: 15,
+    marginBottom: 4,
     textAlign: 'center',
-    // backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    fontWeight: '800',
+    letterSpacing: 0.4,
+  },
+  subtitle: {
+    textAlign: 'center',
+    marginBottom: 14,
+    paddingHorizontal: 12,
+    lineHeight: 16,
   },
   tips: {
-    paddingHorizontal: 7,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     marginTop: 15,
+    borderRadius: 14,
+    borderWidth: 0.5,
     flexDirection: 'row',
     flexWrap: 'wrap',
   },
   tipsText: {
-    marginTop: 8,
+    marginTop: 6,
+    lineHeight: 17,
     textAlignVertical: 'bottom',
     // lineHeight: 18,
     // backgroundColor: 'rgba(0, 0, 0, 0.2)',
