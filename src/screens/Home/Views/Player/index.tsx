@@ -27,7 +27,7 @@ import { toast } from '@/utils/tools'
 import { useLrcSet, useLrcPlay, type Line } from '@/plugins/lyric'
 import playerState from '@/store/player/state'
 import { collectMusic, playList, playNext, playPrev, togglePlay, uncollectMusic } from '@/core/player/player'
-import { setCurrentTime, getPosition, getDuration } from '@/plugins/player'
+import { setCurrentTime, getDuration } from '@/plugins/player'
 import { setNowPlayTime, setMaxplayTime } from '@/core/player/progress'
 import { getListMusicSync } from '@/utils/listManage'
 import { LIST_IDS } from '@/config/constant'
@@ -262,36 +262,32 @@ export default () => {
   }), [panY, closeWithSlideDown])
 
   /*
-    歌词页时间轴：以播放器真实位置为基准，两次采样之间用 rAF 插值。
-    之前 baseAt 初始化成 0，第一帧算出 est = 0 + Date.now()/1000 ≈ 1.7e9 秒，
-    findLine 直接返回最后一行 —— 所以一进歌词页就滚到末尾，而且和音频对不上。
-    现在基准用当前进度初始化、采样缩到 250ms、切歌时重建，并把插值上限夹到 2s。
+    歌词页时间轴：基准位置直接取 store 里的 progress.nowPlayTime（播放器每 ~500ms 推一次），
+    两次推送之间用 rAF 插值。
+
+    之前用 getPosition() 主动采样，但它在「暂停 / 本地文件刚起播」时会 reject，
+    catch 里又静默忽略 —— basePos 就永远停在 0，findLine 返回 -1，
+    表现是：进歌词页一行都不高亮、也不滚动（拖动一下进度条才正常）。
+    改成吃 store 的进度之后，暂停、拖动、切歌都会立刻把基准顶正，不需要额外兜底。
   */
+  const lrcBase = useRef({ pos: 0, at: 0 })
+  useEffect(() => {
+    lrcBase.current = { pos: progress.nowPlayTime, at: Date.now() }
+  }, [progress.nowPlayTime])
+
   useEffect(() => {
     if (mode !== 'lyric' && !isLandscape) return
     let stopped = false
     let rafId = 0
-    let basePos = progress.nowPlayTime
-    let baseAt = Date.now()
-    let lastFetch = 0
     let lastEmitted = -1
-
-    const syncPosition = () => {
-      lastFetch = Date.now()
-      void getPosition().then(t => {
-        if (stopped || !Number.isFinite(t) || t < 0) return
-        basePos = t
-        baseAt = Date.now()
-      }).catch(() => {})
-    }
 
     const tick = () => {
       if (stopped) return
-      if (Date.now() - lastFetch > 250) syncPosition()
-      // 只信「采样之后经过的时间」，并且封顶 2s：从后台切回来时不会一次跳掉整首歌
-      const elapsed = Math.min(2000, Math.max(0, Date.now() - baseAt)) / 1000
-      // 暂停时不推进插值，避免进度条自己往前走
-      const est = playerState.isPlay ? basePos + elapsed : basePos
+      const base = lrcBase.current
+      // 只信「基准之后经过的时间」，并且封顶 1.2s（比推送间隔略长）：从后台切回来不会跳掉整首歌
+      const elapsed = Math.min(1200, Math.max(0, Date.now() - base.at)) / 1000
+      // 暂停时不推进插值，避免歌词自己往前跑
+      const est = playerState.isPlay ? base.pos + elapsed : base.pos
       if (Math.abs(est - lastEmitted) >= 0.02) {
         lastEmitted = est
         setNow(est)
@@ -299,13 +295,12 @@ export default () => {
       rafId = requestAnimationFrame(tick)
     }
 
-    syncPosition()
     rafId = requestAnimationFrame(tick)
     return () => {
       stopped = true
       if (rafId) cancelAnimationFrame(rafId)
     }
-  }, [mode, isLandscape, musicInfo.id])
+  }, [mode, isLandscape])
 
   useEffect(() => {
     setCollected(getListMusicSync(LIST_IDS.LOVE).some(m => m.id === musicInfo.id))
