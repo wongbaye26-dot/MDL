@@ -41,7 +41,7 @@ const InfoRow = ({ label, value }: { label: string, value: string }) => {
   const theme = useTheme()
   return (
     <View style={styles.infoRow}>
-      <Text size={12} color={theme['c-450']}>{label}</Text>
+      <Text size={12} color={theme['c-450']} style={styles.infoLabel}>{label}</Text>
       <Text size={12} numberOfLines={1} style={styles.infoValue}>{value}</Text>
     </View>
   )
@@ -59,8 +59,8 @@ export default memo(() => {
           {/* 角标跟名称同一行：放最右边会被整个 brandInfo 挤掉宽度 */}
           <View style={styles.nameRow}>
             <Text size={20} style={styles.brandName}>EMO音乐</Text>
-            <View style={{ ...styles.versionTag, backgroundColor: theme['c-primary-alpha-800'] }}>
-              <Text size={10} color={theme['c-primary-light-200']}>v{currentVer}</Text>
+            <View style={styles.versionTag}>
+              <Text size={11} color={theme['c-primary']}>v{currentVer}</Text>
             </View>
           </View>
           <Text size={11} color={theme['c-450']} style={styles.brandDesc}>深夜下载 · 情绪收藏</Text>
@@ -179,11 +179,6 @@ const styles = createStyle({
   versionTag: {
     flexShrink: 0,
     marginLeft: 8,
-    paddingLeft: 7,
-    paddingRight: 7,
-    paddingTop: 4,
-    paddingBottom: 4,
-    borderRadius: 9,
   },
   linkRow: {
     flexDirection: 'row',
@@ -215,10 +210,14 @@ const styles = createStyle({
     paddingTop: 6,
     paddingBottom: 6,
   },
-  infoValue: {
-    // 不能 flexShrink：一压就被截成「React Nati...」
+  infoLabel: {
+    width: 76,
     flexShrink: 0,
-    marginLeft: 16,
+  },
+  infoValue: {
+    // 占满剩余宽度再右对齐：靠 flexShrink: 0 撑不开，Text 在 row 里会被压
+    flex: 1,
+    marginLeft: 12,
     textAlign: 'right',
   },
   textBlock: {

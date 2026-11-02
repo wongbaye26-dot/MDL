@@ -1,4 +1,5 @@
 import { memo } from 'react'
+import { StyleSheet, View } from 'react-native'
 
 import Text from './Text'
 import { useTheme } from '@/store/theme/hook'
@@ -6,12 +7,11 @@ import { useTheme } from '@/store/theme/hook'
 /**
  * 小标签：一行文字 + 浅色圆角底。
  *
- * 用来放「187 首」「FLAC」「44.1k」这种短信息 —— 比 `·` 分隔的纯文字更好读，
- * 也不会像长文本那样被截断成省略号。
- *
- * 注意：**直接画在 Text 上**，不套一层 View。
- * 套 View 时外层是 shrink-wrap、内层 Text 又按可用宽度算，RN 会算出一个很小的宽度，
- * 结果每个标签都被压成「05:...」。
+ * 注意两点（都是踩过的坑）：
+ * 1. **必须用 View 包 Text**：`flexShrink` 在 RN 的 Text 上不起作用，
+ *    直接给 Text 加背景时，放在 flex row 里会被压成「Material...」。
+ * 2. 外层 View 一定要 `flexShrink: 0`，否则它自己也会被压缩，
+ *    宽度算成很小、文字被裁。
  */
 export default memo(({ text, color, bg }: {
   text: string
@@ -20,23 +20,21 @@ export default memo(({ text, color, bg }: {
 }) => {
   const theme = useTheme()
   return (
-    <Text
-      size={10}
-      color={color ?? theme['c-450']}
-      style={{
-        // 放在 row 里被挤压会变成「Material...」，标签本身不该收缩
-        flexShrink: 0,
-        backgroundColor: bg ?? theme['c-primary-alpha-900'],
-        paddingLeft: 6,
-        paddingRight: 6,
-        paddingTop: 2,
-        paddingBottom: 2,
-        borderRadius: 5,
-        marginRight: 5,
-        overflow: 'hidden',
-      }}
-    >
-      {text}
-    </Text>
+    <View style={[styles.tag, { backgroundColor: bg ?? theme['c-primary-alpha-900'] }]}>
+      <Text size={10} color={color ?? theme['c-450']} numberOfLines={1}>{text}</Text>
+    </View>
   )
+})
+
+const styles = StyleSheet.create({
+  tag: {
+    flexShrink: 0,
+    flexGrow: 0,
+    paddingLeft: 6,
+    paddingRight: 6,
+    paddingTop: 2,
+    paddingBottom: 2,
+    borderRadius: 5,
+    marginRight: 5,
+  },
 })
