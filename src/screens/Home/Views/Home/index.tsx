@@ -5,11 +5,9 @@ import Text from '@/components/common/Text'
 import { Icon } from '@/components/common/Icon'
 import Image from '@/components/common/Image'
 import PicImage from '@/components/common/PicImage'
-import DorpDownMenu from '@/components/common/DorpDownMenu'
 import PageHeader, { HeaderButton } from '@/components/common/PageHeader'
 import { useTheme } from '@/store/theme/hook'
 import { useDownloadList } from '@/store/download'
-import { useI18n } from '@/lang'
 import playerState from '@/store/player/state'
 import commonState from '@/store/common/state'
 import { navigations } from '@/navigation'
@@ -17,27 +15,37 @@ import { setNavActiveId } from '@/core/common'
 import { getList } from '@/core/songlist'
 import type { ListInfoItem } from '@/store/songlist/state'
 import { createStyle } from '@/utils/tools'
-import { NAV_BAR_SPACE } from '@/config/constant'
+import { LIST_IDS, NAV_BAR_SPACE } from '@/config/constant'
 import { formatSize } from '@/core/download/utils'
-import { handlePlay, handlePlayLater } from '@/components/OnlineList/listAction'
-import DownloadQualityModal, { type DownloadQualityModalType } from '@/components/DownloadQualityModal'
+import { getLocalMusicList } from '@/core/localMusic'
+import { overwriteListMusics } from '@/core/list'
+import listAction from '@/store/list/action'
+import { playList } from '@/core/player/player'
 import SearchModal from '../../Vertical/SearchModal'
 import PageModal from '../../Vertical/PageModal'
 import SongList from '../SongList'
 import Leaderboard from '../Leaderboard'
+import CompactHero from '../Leaderboard/Vertical/CompactHero'
 import Favorites from '../Mylist/Favorites'
-import LocalMusic from '../LocalMusic'
+import LocalMusic, { type LocalTab } from '../LocalMusic'
 import { useBackHandler } from '@/utils/hooks/useBackHandler'
 import UserApiEditModal, { type UserApiEditModalType } from '../Setting/settings/Basic/UserApiEditModal'
 import BigCard from './BigCard'
+import SongRail, { RAIL_ROWS } from './SongRail'
 
 type ModalType = 'songlist' | 'leaderboard' | 'mylist' | null
+
+/** 首页横向歌曲流取多少首：4 行 × 5 列 = 20 首（最近播放固定保留最近 20 首） */
+const RAIL_LIMIT = RAIL_ROWS * 5
+/** 「最近播放」临时队列的标识（和本地音乐页共用同一套 TEMP 列表机制） */
+const RECENT_LIST_ID = 'home_recent'
+const LOCAL_RECENT_LIST_ID = 'home_local_recent'
 
 const CARDS = [
   { key: 'leaderboard', title: '排行榜', icon: 'leaderboard', color: '#8B5CF6' },
   { key: 'songlist', title: '歌单广场', icon: 'album', color: '#14B8A6' },
   { key: 'mylist', title: '收藏', icon: 'love', color: '#EC4899' },
-  { key: 'download', title: '已下载', icon: 'download-2', color: '#F59E0B' },
+  { key: 'local', title: '本地音乐', icon: 'folder-music', color: '#0EA5E9' },
   { key: 'source', title: '音源管理', icon: 'share', color: '#3B82F6' },
 ] as const
 
@@ -48,42 +56,25 @@ const toMusicInfo = (music: LX.Player.PlayMusic): LX.Music.MusicInfo => {
   return 'metadata' in music ? music.metadata.musicInfo : music
 }
 
-const SectionHead = ({ title, onPress }: { title: string, onPress?: () => void }) => {
-  const theme = useTheme()
-  return (
-    <TouchableOpacity style={styles.sectionHead} activeOpacity={0.7} onPress={onPress}>
-      <Text size={16} style={styles.sectionTitle}>{title}</Text>
-      <Icon name='chevron-right' size={16} color={theme['c-400']} style={styles.sectionArrow} />
-    </TouchableOpacity>
-  )
-}
-
-const RecentRow = ({ musicInfo, onPlay, onMenu }: {
-  musicInfo: LX.Music.MusicInfo
-  onPlay: () => void
-  onMenu: (action: string) => void
+const SectionHead = ({ title, hint, onPress }: {
+  title: string
+  /** 标题右侧的灰色小字，比如「共 182 首」 */
+  hint?: string
+  /** 不传就不显示箭头，也不可点 —— 避免出现「有箭头但点了没反应」 */
+  onPress?: () => void
 }) => {
   const theme = useTheme()
-  const t = useI18n()
-  const menus = useMemo(() => [
-    { action: 'play', label: t('play') },
-    { action: 'playLater', label: t('play_later') },
-    { action: 'download', label: t('download') },
-  ], [t])
-
   return (
-    <View style={styles.row}>
-      <TouchableOpacity style={styles.rowMain} activeOpacity={0.7} onPress={onPlay}>
-        <PicImage musicInfo={musicInfo} style={styles.rowCover} />
-        <View style={styles.rowInfo}>
-          <Text size={14} numberOfLines={1}>{musicInfo.name}</Text>
-          <Text size={11} color={theme['c-450']} numberOfLines={1} style={styles.rowSub}>{musicInfo.singer}</Text>
-        </View>
-      </TouchableOpacity>
-      <DorpDownMenu menus={menus} onPress={menu => { onMenu(menu.action) }} btnStyle={styles.moreBtn}>
-        <Icon name='dots-vertical' size={14} color={theme['c-350']} />
-      </DorpDownMenu>
-    </View>
+    <TouchableOpacity
+      style={styles.sectionHead}
+      activeOpacity={onPress ? 0.7 : 1}
+      onPress={onPress}
+      disabled={!onPress}
+    >
+      <Text size={16} style={styles.sectionTitle}>{title}</Text>
+      {onPress ? <Icon name='chevron-right' size={16} color={theme['c-400']} style={styles.sectionArrow} /> : null}
+      {hint ? <Text size={11} color={theme['c-450']} numberOfLines={1} style={styles.sectionHint}>{hint}</Text> : null}
+    </TouchableOpacity>
   )
 }
 
@@ -93,17 +84,25 @@ export default () => {
   const [searchVisible, setSearchVisible] = useState(false)
   const [modal, setModal] = useState<ModalType>(null)
   const [localVisible, setLocalVisible] = useState(false)
+  const [localTab, setLocalTab] = useState<LocalTab>('song')
   const [recommend, setRecommend] = useState<ListInfoItem[]>([])
-  const [playedList, setPlayedList] = useState<LX.Player.PlayMusicInfo[]>([])
-  const downloadModalRef = useRef<DownloadQualityModalType>(null)
+  /** 最近播放（已去重、最新的在前） */
+  const [playedMusic, setPlayedMusic] = useState<LX.Music.MusicInfo[]>([])
+  /** 本地曲库 */
+  const [localList, setLocalList] = useState<LX.Music.MusicInfoLocal[]>([])
   const userApiModalRef = useRef<UserApiEditModalType>(null)
 
-  const recent = useMemo(() => [...downloadList]
+  const recentDownload = useMemo(() => [...downloadList]
     .sort((a, b) => {
       if (a.isComplate !== b.isComplate) return a.isComplate ? 1 : -1
       return (b.createdAt ?? 0) - (a.createdAt ?? 0)
     })
     .slice(0, 3), [downloadList])
+
+  /** 最近添加歌曲：按文件修改时间倒序（和本地音乐页「最近添加」同一口径） */
+  const recentAdded = useMemo(() => [...localList]
+    .sort((a, b) => (b.meta.mtime ?? 0) - (a.meta.mtime ?? 0))
+    .slice(0, RAIL_LIMIT), [localList])
 
   useEffect(() => {
     void getList('kw', '全部', 'hot', 1)
@@ -111,21 +110,65 @@ export default () => {
       .catch(() => {})
   }, [])
 
+  // 本地曲库：先读缓存，扫描完成后再靠事件刷新
   useEffect(() => {
+    let alive = true
+    void getLocalMusicList().then(list => {
+      if (alive) setLocalList(list)
+    })
+    const handleUpdated = (list: LX.Music.MusicInfoLocal[]) => {
+      if (alive) setLocalList(list)
+    }
+    global.state_event.on('localMusicUpdated', handleUpdated)
+    return () => {
+      alive = false
+      global.state_event.off('localMusicUpdated', handleUpdated)
+    }
+  }, [])
+
+  useEffect(() => {
+    /**
+     * 只认 playPlayedListChanged：播放历史是在 addPlayedList 里 push 的，
+     * 而 playMusicInfoChanged 触发时历史可能还没写进去（首页会一直显示上一首）。
+     * 回调参数是 `{ ...array }` 展开出来的对象（没有 length），所以直接读 store 里的真数组。
+     */
     const handleUpdate = () => {
-      setPlayedList([...playerState.playedList].slice(-6).reverse())
+      const seen = new Set<string>()
+      const out: LX.Music.MusicInfo[] = []
+      const src = playerState.playedList
+      for (let i = src.length - 1; i >= 0 && out.length < RAIL_LIMIT; i--) {
+        const info = toMusicInfo(src[i].musicInfo)
+        if (seen.has(info.id)) continue
+        seen.add(info.id)
+        out.push(info)
+      }
+      setPlayedMusic(out)
     }
     handleUpdate()
-    global.state_event.on('playMusicInfoChanged', handleUpdate)
+    global.state_event.on('playPlayedListChanged', handleUpdate)
     return () => {
-      global.state_event.off('playMusicInfoChanged', handleUpdate)
+      global.state_event.off('playPlayedListChanged', handleUpdate)
     }
+  }, [])
+
+  /** 用临时播放队列播第 index 首：首页点哪首就播哪首，不动用户的「我的列表」 */
+  const playFrom = useCallback(async(list: LX.Music.MusicInfo[], index: number, listId: string) => {
+    const target = list[index]
+    if (!target) return
+    await overwriteListMusics(LIST_IDS.TEMP, list)
+    listAction.setTempListMeta({ id: listId })
+    void playList(LIST_IDS.TEMP, index)
+  }, [])
+
+  const openLocal = useCallback((tab: LocalTab = 'song') => {
+    setLocalTab(tab)
+    setLocalVisible(true)
   }, [])
 
   const handleCard = useCallback((key: CardKey) => {
     switch (key) {
-      case 'download':
-        setLocalVisible(true)
+      case 'local':
+        openLocal('song')
         break
       case 'source':
         userApiModalRef.current?.show()
@@ -136,7 +179,7 @@ export default () => {
       default:
         setModal(key)
     }
-  }, [])
+  }, [openLocal])
 
   useBackHandler(useCallback(() => {
     if (localVisible) {
@@ -153,21 +196,6 @@ export default () => {
     }
     return false
   }, [localVisible, searchVisible, modal]))
-
-  const handleMenu = useCallback((musicInfo: LX.Music.MusicInfo, action: string) => {
-    const info = musicInfo as LX.Music.MusicInfoOnline
-    switch (action) {
-      case 'play':
-        handlePlay(info)
-        break
-      case 'playLater':
-        handlePlayLater(info, [], () => {})
-        break
-      case 'download':
-        downloadModalRef.current?.show({ musicInfos: [info] })
-        break
-    }
-  }, [])
 
   return (
     <View style={styles.container}>
@@ -198,23 +226,33 @@ export default () => {
         </ScrollView>
 
         {
-          playedList.length
+          playedMusic.length
             ? (
                 <>
-                  <SectionHead title='最近播放' onPress={() => { setNavActiveId('nav_player') }} />
-                  {
-                    playedList.map(item => {
-                      const musicInfo = toMusicInfo(item.musicInfo)
-                      return (
-                        <RecentRow
-                          key={`${item.listId}_${musicInfo.id}`}
-                          musicInfo={musicInfo}
-                          onPlay={() => { handlePlay(musicInfo as LX.Music.MusicInfoOnline) }}
-                          onMenu={action => { handleMenu(musicInfo, action) }}
-                        />
-                      )
-                    })
-                  }
+                  <SectionHead title='最近播放' />
+                  <SongRail
+                    items={playedMusic}
+                    showSource
+                    onPress={index => { void playFrom(playedMusic, index, RECENT_LIST_ID) }}
+                  />
+                </>
+              )
+            : null
+        }
+
+        {
+          recentAdded.length
+            ? (
+                <>
+                  <SectionHead
+                    title='最近添加'
+                    hint={`共 ${localList.length} 首`}
+                    onPress={() => { openLocal('recent') }}
+                  />
+                  <SongRail
+                    items={recentAdded}
+                    onPress={index => { void playFrom(recentAdded, index, LOCAL_RECENT_LIST_ID) }}
+                  />
                 </>
               )
             : null
@@ -254,12 +292,12 @@ export default () => {
         }
 
         {
-          recent.length
+          recentDownload.length
             ? (
                 <>
                   <SectionHead title='最近下载' onPress={() => { setNavActiveId('nav_download') }} />
                   {
-                    recent.map(task => (
+                    recentDownload.map(task => (
                       <TouchableOpacity
                         key={task.id}
                         style={styles.row}
@@ -319,7 +357,11 @@ export default () => {
             </PageModal>
             )
           : modal === 'leaderboard'
-            ? <PageModal title='排行榜' onClose={() => { setModal(null) }}><Leaderboard /></PageModal>
+            ? (
+                <PageModal title='排行榜' onClose={() => { setModal(null) }} right={<CompactHero />}>
+                  <Leaderboard />
+                </PageModal>
+              )
             : modal === 'mylist'
               ? <PageModal title='收藏' onClose={() => { setModal(null) }}><Favorites /></PageModal>
               : null
@@ -328,12 +370,11 @@ export default () => {
         localVisible
           ? (
             <PageModal title='本地音乐' onClose={() => { setLocalVisible(false) }}>
-              <LocalMusic onClose={() => { setLocalVisible(false) }} />
+              <LocalMusic initialTab={localTab} onClose={() => { setLocalVisible(false) }} />
             </PageModal>
             )
           : null
       }
-      <DownloadQualityModal ref={downloadModalRef} />
       <UserApiEditModal ref={userApiModalRef} />
     </View>
   )
@@ -363,7 +404,7 @@ const styles = createStyle({
     paddingLeft: 16,
     paddingRight: 16,
     marginTop: 24,
-    marginBottom: 6,
+    marginBottom: 8,
   },
   sectionTitle: {
     fontWeight: '700',
@@ -371,6 +412,10 @@ const styles = createStyle({
   sectionArrow: {
     marginLeft: 2,
     marginTop: 1,
+  },
+  sectionHint: {
+    marginLeft: 'auto',
+    paddingLeft: 8,
   },
   row: {
     flexDirection: 'row',
@@ -398,12 +443,6 @@ const styles = createStyle({
   },
   rowSub: {
     marginTop: 3,
-  },
-  moreBtn: {
-    width: 34,
-    height: 34,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   downloadCoverWrap: {
     width: 46,

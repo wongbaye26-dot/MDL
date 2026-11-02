@@ -16,8 +16,8 @@ const logTools = {
       if (!isExists) await writeFile(logPath, '')
       if (this.tempLog?.length) this.writeLog(this.tempLog.map(m => `${m.time} ${m.type} ${m.text}`).join('\n----lx log----\n'))
       this.tempLog = null
-    } catch (err) {
-      console.log(err)
+    } catch {
+      // 日志文件初始化失败就算了，不能因为写日志把启动流程带崩
     }
   },
 }
@@ -105,7 +105,6 @@ if (process.env.NODE_ENV !== 'development') {
       let result = await requestStoragePermission()
       if (!result) return
       let isExists = await existsFile(logPath)
-      console.log(logPath, isExists)
       if (!isExists) await writeFile(logPath, '')
       writeLog(tempLog(m => `${m.time} ${m.type} ${m.text}`).join('\n'))
       tempLog = null

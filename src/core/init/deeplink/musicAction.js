@@ -184,7 +184,6 @@ const handleSearchPlayMusic = async({ paths, data }) => {
   if (!info.name) return
   const musicList = await searchMusic(info.name, info.singer || '', info.albumName || '', info.interval || null)
   if (musicList.length) {
-    console.log('find music:', musicList)
     const musicInfo = musicList[0]
     const isPlaying = !!playerState.playMusicInfo.musicInfo
     if (info.playLater) {
@@ -193,8 +192,6 @@ const handleSearchPlayMusic = async({ paths, data }) => {
       addTempPlayList([{ listId: LIST_IDS.PLAY_LATER, musicInfo, isTop: true }])
       if (isPlaying) playNext()
     }
-  } else {
-    console.log('msuic not found:', info)
   }
 }
 

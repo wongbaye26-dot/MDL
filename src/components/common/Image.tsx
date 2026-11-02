@@ -4,7 +4,6 @@ import { createStyle } from '@/utils/tools'
 import { type ComponentProps, memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { View, type ViewProps, StyleSheet, Image as FastImage } from 'react-native'
 // import FastImage, { type FastImageProps } from 'react-native-fast-image'
-import Text from './Text'
 import { Icon } from './Icon'
 import { useLayout } from '@/utils/hooks'
 // export type { OnLoadEvent } from 'react-native-fast-image'
@@ -15,6 +14,8 @@ export interface ImageProps extends ViewProps {
   cache?: boolean
   resizeMode?: ComponentProps<typeof FastImage>['resizeMode']
   onError?: (url: string | number) => void
+  /** 高斯模糊半径（播放队列背景等场景用） */
+  blurRadius?: number
 }
 
 
@@ -34,7 +35,7 @@ const EmptyPic = memo(({ style, nativeID }: { style: ImageProps['style'], native
   )
 })
 
-const Image = memo(({ url, cache, resizeMode = 'cover', style, onError, nativeID }: ImageProps) => {
+const Image = memo(({ url, cache, resizeMode = 'cover', style, onError, nativeID, blurRadius }: ImageProps) => {
   const [isError, setError] = useState(false)
   const handleError = useCallback(() => {
     setError(true)
@@ -63,6 +64,7 @@ const Image = memo(({ url, cache, resizeMode = 'cover', style, onError, nativeID
             }}
             onError={handleError}
             resizeMode={resizeMode}
+            blurRadius={blurRadius}
             nativeID={nativeID}
           />
         )

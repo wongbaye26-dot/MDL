@@ -11,7 +11,6 @@ import { initDeeplink } from './deeplink'
 import { setApiSource } from '@/core/apiSource'
 import { init as initDownload } from '@/core/download'
 import commonActions from '@/store/common/action'
-import settingState from '@/store/setting/state'
 import { bootLog } from '@/utils/bootLog'
 
 let isFirstPush = true

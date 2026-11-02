@@ -50,7 +50,6 @@ export const createHttpFetch = async(url, options, retryNum = 0) => {
   try {
     result = await httpFetch(url, options).promise
   } catch (err) {
-    console.log(err)
     return createHttpFetch(url, options, ++retryNum)
   }
   // console.log(result.statusCode, result.body)

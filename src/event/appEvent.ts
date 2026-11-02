@@ -1,6 +1,4 @@
-import { setNavActiveId } from '@/core/common'
 import Event from './Event'
-import commonState from '@/store/common/state'
 import { type Source as SonglistSource } from '@/store/songlist/state'
 import { type SearchType } from '@/store/search/state'
 

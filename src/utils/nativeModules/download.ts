@@ -1,4 +1,4 @@
-import { NativeEventEmitter, NativeModules } from 'react-native'
+import { NativeEventEmitter, NativeModules, type NativeModule } from 'react-native'
 
 const { DownloadModule } = NativeModules as {
   DownloadModule?: {
@@ -93,7 +93,7 @@ export const destroy = () => {
 
 export const onDownloadEvent = (handler: (event: DownloadEventPayload) => void): () => void => {
   if (!DownloadModule) return () => {}
-  const eventEmitter = new NativeEventEmitter(DownloadModule as any)
+  const eventEmitter = new NativeEventEmitter(DownloadModule as unknown as NativeModule)
   const listener = eventEmitter.addListener(EVENT_NAME, handler)
   return () => {
     listener.remove()

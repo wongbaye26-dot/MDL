@@ -1,16 +1,19 @@
-import { memo } from 'react'
-import { View, TouchableOpacity } from 'react-native'
+import { memo, useEffect, useRef, useState } from 'react'
+import { Animated, Easing, TouchableOpacity, View } from 'react-native'
 import { Navigation } from 'react-native-navigation'
+import LinearGradient from 'react-native-linear-gradient'
 
 import Text from '@/components/common/Text'
+import MarqueeText from '@/components/common/MarqueeText'
 import { Icon } from '@/components/common/Icon'
 import Glass from '@/components/common/Glass'
-import Image from '@/components/common/Image'
+import CapsuleProgress from '@/components/common/CapsuleProgress'
+import AlbumDiscSpin from '@/components/common/AlbumDiscSpin'
 import { useTheme } from '@/store/theme/hook'
 import { usePlayerMusicInfo, useIsPlay, useProgress } from '@/store/player/hook'
 import { useSettingValue } from '@/store/setting/hook'
 import { useKeyboard } from '@/utils/hooks'
-import { togglePlay } from '@/core/player/player'
+import { playNext, togglePlay } from '@/core/player/player'
 import { setNavActiveId } from '@/core/common'
 import commonState from '@/store/common/state'
 import { createStyle } from '@/utils/tools'
@@ -27,13 +30,38 @@ const openPlayerTab = () => {
   setTimeout(() => { setNavActiveId('nav_player') }, homeId ? 140 : 0)
 }
 
+const BAR_HEIGHT = 59
+const BAR_RADIUS = BAR_HEIGHT / 2
+
+/**
+ * 列表页底部的迷你播放器。
+ *
+ * 整体就是底部胶囊「横过来」：同样的高度 59、全圆角、磨砂玻璃 + 顶部高光、
+ * **没有边框**、进度走边缘光晕（和胶囊同一套 `CapsuleProgress`）。
+ * 左侧是会旋转的圆形封面（外圈进度环也跟胶囊共用 `navProgressStyle` 设置），
+ * 中间歌名歌手、右侧播放/下一曲。
+ */
 export default memo(({ isHome = false }: { isHome?: boolean }) => {
   const theme = useTheme()
   const musicInfo = usePlayerMusicInfo()
   const isPlay = useIsPlay()
   const { progress } = useProgress()
   const autoHidePlayBar = useSettingValue('common.autoHidePlayBar')
+  const progressStyle = useSettingValue('common.navProgressStyle') ?? 'border'
   const { keyboardShown } = useKeyboard()
+  const isDark = theme.isDark
+  const [barSize, setBarSize] = useState({ w: 0, h: 0 })
+
+  /** 呼吸灯：和胶囊同一份节奏 */
+  const breathe = useRef(new Animated.Value(0.62)).current
+  useEffect(() => {
+    const anim = Animated.loop(Animated.sequence([
+      Animated.timing(breathe, { toValue: 1, duration: 1900, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(breathe, { toValue: 0.62, duration: 1900, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+    ]))
+    anim.start()
+    return () => { anim.stop() }
+  }, [breathe])
 
   if (autoHidePlayBar && keyboardShown) return null
   if (!musicInfo.name) return null
@@ -43,41 +71,67 @@ export default memo(({ isHome = false }: { isHome?: boolean }) => {
 
   return (
     <View style={styles.wrap}>
-      <View style={{
-        ...styles.card,
-        // 半透明玻璃：之前用 c-primary-alpha-900（10% 透明度）几乎是镂空的，
-        // 现在给一层实心磨砂底 + 高光描边，能透出一点背景但不再“空”
-        backgroundColor: theme.isDark ? 'rgba(32,26,44,0.44)' : 'rgba(255,255,255,0.48)',
-        borderColor: theme.isDark ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.85)',
-        shadowColor: theme.isDark ? '#000000' : '#6E6285',
-      }}>
-        {/* 真高斯模糊：模糊背后的页面内容，形成磨砂玻璃 */}
+      <View
+        onLayout={e => {
+          const { width, height } = e.nativeEvent.layout
+          setBarSize(prev => (Math.abs(prev.w - width) < 0.5 && Math.abs(prev.h - height) < 0.5) ? prev : { w: width, h: height })
+        }}
+        style={{
+          ...styles.card,
+          backgroundColor: isDark ? 'rgba(22,17,30,0.34)' : 'rgba(255,255,255,0.42)',
+          shadowColor: isDark ? '#000000' : '#6E6285',
+        }}
+      >
+        {/* 磨砂玻璃：抓背后的页面内容做一次真高斯模糊 */}
         <Glass
-          blurRadius={16}
-          tint={theme.isDark ? 'rgba(30,24,42,0.55)' : 'rgba(255,255,255,0.58)'}
-          radius={26}
+          blurRadius={24}
+          tint={isDark ? 'rgba(22,17,30,0.42)' : 'rgba(255,255,255,0.34)'}
+          radius={BAR_RADIUS}
         />
+
+        {/* 玻璃反光：上半部一层自上而下的白色渐变（胶囊同款） */}
+        <LinearGradient
+          colors={isDark
+            ? ['rgba(255,255,255,0.09)', 'rgba(255,255,255,0.02)', 'rgba(255,255,255,0)']
+            : ['rgba(255,255,255,0.42)', 'rgba(255,255,255,0.10)', 'rgba(255,255,255,0)']}
+          locations={[0, 0.55, 1]}
+          style={styles.gloss}
+          pointerEvents='none'
+        />
+
+        {/* 进度：贴着胶囊边缘的一圈柔光（和底部胶囊同一个组件、同一份设置） */}
+        <CapsuleProgress
+          width={barSize.w}
+          height={barSize.h}
+          progress={progressStyle === 'border' ? ratio : 0}
+          color={theme['c-primary']}
+          breathe={breathe}
+        />
+
         <TouchableOpacity style={styles.infoArea} activeOpacity={0.75} onPress={openPlayerTab}>
-          <View style={styles.picWrap}>
-            <Image url={musicInfo.pic} style={styles.pic} />
-          </View>
+          {/* 会转的圆盘 + 外圈进度环（环的显隐跟 navProgressStyle 走） */}
+          <AlbumDiscSpin
+            progress={ratio}
+            showRing={progressStyle === 'ring'}
+            dark={isDark}
+          />
           <View style={styles.textArea}>
-            <Text size={14} numberOfLines={1} style={styles.name}>{musicInfo.name}</Text>
+            <MarqueeText
+              text={musicInfo.name}
+              size={14}
+              color={theme['c-font']}
+              style={styles.name}
+            />
             <Text size={11} color={theme['c-450']} numberOfLines={1} style={styles.singer}>{musicInfo.singer}</Text>
           </View>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.btn} activeOpacity={0.6} onPress={togglePlay}>
-          <Icon name={isPlay ? 'pause' : 'play'} color={theme['c-font']} size={24} />
+          <Icon name={isPlay ? 'pause' : 'play'} color={theme['c-primary']} size={24} />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.btn} activeOpacity={0.6} onPress={openPlayerTab}>
-          <Icon name='playlist-music' color={theme['c-font']} size={22} />
+        <TouchableOpacity style={styles.btn} activeOpacity={0.6} onPress={() => { void playNext() }}>
+          <Icon name='nextMusic' color={theme['c-primary']} size={22} />
         </TouchableOpacity>
-
-        {/* 底部细进度条 */}
-        <View style={{ ...styles.progressTrack, backgroundColor: theme['c-primary-alpha-700'] }}>
-          <View style={{ ...styles.progressBar, width: `${ratio * 100}%`, backgroundColor: theme['c-primary'] }} />
-        </View>
       </View>
     </View>
   )
@@ -94,21 +148,30 @@ const styles = createStyle({
     paddingRight: 10,
     paddingTop: 6,
     paddingBottom: 8,
+    // 和底部胶囊同宽（292），不再拉满整屏
+    alignItems: 'center',
   },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 26,
-    borderWidth: 0.5,
-    paddingLeft: 7,
+    width: '100%',
+    maxWidth: 292,
+    height: BAR_HEIGHT,
+    borderRadius: BAR_RADIUS,
+    paddingLeft: 3,
     paddingRight: 4,
-    paddingTop: 6,
-    paddingBottom: 6,
-    elevation: 10,
-    shadowOpacity: 0.22,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 6 },
+    elevation: 16,
+    shadowOpacity: 0.32,
+    shadowRadius: 26,
+    shadowOffset: { width: 0, height: 10 },
     overflow: 'hidden',
+  },
+  gloss: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    height: BAR_HEIGHT * 0.66,
   },
   infoArea: {
     flexGrow: 1,
@@ -116,45 +179,22 @@ const styles = createStyle({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  picWrap: {
-    width: 42,
-    height: 42,
-    borderRadius: 13,
-    overflow: 'hidden',
-  },
-  pic: {
-    width: 42,
-    height: 42,
-    borderRadius: 13,
-  },
   textArea: {
     flexGrow: 1,
     flexShrink: 1,
-    marginLeft: 11,
+    marginLeft: 10,
     marginRight: 6,
   },
   name: {
     fontWeight: '600',
   },
   singer: {
-    marginTop: 3,
+    marginTop: 2,
   },
   btn: {
     width: 42,
     height: 42,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  progressTrack: {
-    position: 'absolute',
-    left: 14,
-    right: 14,
-    bottom: 0,
-    height: 2,
-    borderRadius: 1,
-  },
-  progressBar: {
-    height: '100%',
-    borderRadius: 1,
   },
 })

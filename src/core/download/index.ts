@@ -10,7 +10,8 @@ import {
   pauseAll as nativePauseAll,
   type DownloadEventPayload,
 } from '@/utils/nativeModules/download'
-import { cpFile, existsFile, mkdir, stat, unlink, writeFile } from '@/utils/fs'
+import { existsFile, mkdir, stat, unlink, writeFile } from '@/utils/fs'
+import { copyFileToTree } from '@/utils/directoryPicker'
 import { writeTaskExtras } from './extras'
 import {
   buildFileName,
@@ -24,6 +25,7 @@ import {
   isSafPath,
   joinPath,
 } from './utils'
+import { log } from '@/utils/log'
 
 /** 正在下载的任务 id */
 const runningIds = new Set<string>()
@@ -34,7 +36,8 @@ let inited = false
 let unsubscribeEvent: (() => void) | null = null
 let unsubscribeAutoSave: (() => void) | null = null
 let saveTimer: ReturnType<typeof setTimeout> | null = null
-let cachedSavePath: string | null = null
+/** 目录探测的单飞 Promise（见 getSavePath） */
+let savePathPromise: Promise<string> | null = null
 
 const getTask = (id: string) => downloadAction.getTaskById(id)
 
@@ -51,7 +54,6 @@ const verifyDownloadedFile = async(path: string, expected: number): Promise<bool
     if (expected > 0 && size + 1024 < expected) return false
     return true
   } catch (err) {
-    console.log('verify download file failed', err)
     return true
   }
 }
@@ -68,13 +70,13 @@ const scheduleSave = () => {
 }
 
 export const saveNow = async() => {
-  const list = downloadState.list.map(task => ({
+  const list = downloadState.list.map((task): LX.Download.ListItem => ({
     ...task,
     speed: '',
     statusText: '',
     // 运行中的任务下次启动时视为暂停
     status: task.isComplate ? 'completed' : (task.status === 'run' ? 'pause' : task.status),
-  } as LX.Download.ListItem))
+  }))
   await saveDownloadList(list)
 }
 
@@ -102,7 +104,7 @@ export const init = async() => {
   downloadAction.setInit()
   unsubscribeEvent = onDownloadEvent(handleNativeEvent)
   // 清掉可能残留的临时文件标记
-  cachedSavePath = null
+  savePathPromise = null
   initAutoSave()
 }
 
@@ -150,7 +152,7 @@ export const dispose = () => {
   try {
     nativePauseAll()
   } catch (err) {
-    console.log(err)
+    log.error(err)
   }
   runningIds.clear()
   refreshingIds.clear()
@@ -254,13 +256,14 @@ const handleComplete = async(id: string, total: number) => {
     const savePath = await getSavePath()
     if (isSafPath(savePath)) {
       const tempPath = task.metadata.filePath
-      const targetPath = joinPath(savePath, task.metadata.fileName)
-      await cpFile(tempPath, targetPath)
+      // react-native-fs 的 copyFile 不认 content://，必须走原生的 DocumentsContract 写入
+      const targetUri = await copyFileToTree(savePath, task.metadata.fileName, tempPath)
+      if (!targetUri) throw new Error('目标目录不可写，请重新选择保存目录')
       await unlink(tempPath).catch(() => {})
-      downloadAction.updateTask(id, { metadata: { filePath: targetPath } })
+      downloadAction.updateTask(id, { metadata: { filePath: targetUri } })
     }
   } catch (err: any) {
-    console.log(err)
+    log.error(err)
     downloadAction.updateTask(id, {
       status: 'error',
       isComplate: false,
@@ -272,7 +275,16 @@ const handleComplete = async(id: string, total: number) => {
   }
 
   const latest = getTask(id)
-  if (latest) await writeTaskExtras(latest)
+  if (latest) {
+    await writeTaskExtras(latest)
+    // 下完立刻收进本地曲库（动态 import：localMusic 也引了这个模块，静态引会成环）
+    void import('@/core/localMusic').then(async({ addLocalMusicFile }) => addLocalMusicFile({
+      filePath: latest.metadata.filePath,
+      name: latest.metadata.fileName,
+      singer: latest.metadata.musicInfo.singer,
+      size: latest.total,
+    })).catch(() => {})
+  }
   scheduleSave()
   pump()
 }
@@ -339,33 +351,39 @@ export const ensureDir = async(path: string) => {
 
 /**
  * 获取实际可用的下载目录
+ *
+ * 用「单飞 Promise」缓存而不是「先查缓存变量再赋值」：
+ * 原来的写法里，多个下载任务同时启动时会各自跑一遍目录探测，
+ * 每个都在 await 之后往同一个变量赋值，谁最后写谁生效 ——
+ * 并发任务可能拿到不同的目录，文件就分散到两个地方了。
+ * 现在第一个调用负责探测，其余调用共享同一个 Promise，结果必然一致。
  */
 export const getSavePath = async() => {
-  if (cachedSavePath) return cachedSavePath
+  if (!savePathPromise) {
+    savePathPromise = resolveSavePath().catch(err => {
+      // 探测失败就把缓存清掉，下次重新来，避免把失败结果永久钉住
+      savePathPromise = null
+      throw err
+    })
+  }
+  return savePathPromise
+}
+
+const resolveSavePath = async(): Promise<string> => {
   const configured = settingState.setting['download.savePath']
   if (configured) {
-    if (isSafPath(configured)) {
-      cachedSavePath = configured
-      return configured
-    }
-    if (await ensureDir(configured)) {
-      cachedSavePath = configured
-      return configured
-    }
+    if (isSafPath(configured)) return configured
+    if (await ensureDir(configured)) return configured
   }
   const defaultPath = getDefaultSavePath()
-  if (await ensureDir(defaultPath)) {
-    cachedSavePath = defaultPath
-    return defaultPath
-  }
+  if (await ensureDir(defaultPath)) return defaultPath
   const fallbackPath = getFallbackSavePath()
   await ensureDir(fallbackPath)
-  cachedSavePath = fallbackPath
   return fallbackPath
 }
 
 export const clearSavePathCache = () => {
-  cachedSavePath = null
+  savePathPromise = null
 }
 
 /**
@@ -393,8 +411,8 @@ export const startTask = async(id: string) => {
     nativeStartTask({ id, url, path: filePath })
   } catch (err: any) {
     runningIds.delete(id)
-    console.log(err)
-    void handleError(id, -1, err?.message ?? String(err))
+    log.error(err)
+    void handleError(id, -1, String(err?.message ?? err))
   }
 }
 
@@ -422,7 +440,7 @@ export const pauseTask = (id: string) => {
   try {
     nativePauseTask(id)
   } catch (err) {
-    console.log(err)
+    log.error(err)
   }
   downloadAction.updateTask(id, { status: 'pause', speed: '', statusText: '' })
   scheduleSave()
@@ -439,7 +457,7 @@ export const removeTask = (id: string, isRemoveFile = true) => {
     try {
       nativeRemoveTask(id)
     } catch (err) {
-      console.log(err)
+      log.error(err)
     }
   }
   if (isRemoveFile && task.metadata.filePath) {
@@ -486,7 +504,7 @@ export const pauseAll = () => {
     try {
       nativePauseTask(id)
     } catch (err) {
-      console.log(err)
+      log.error(err)
     }
   }
   runningIds.clear()

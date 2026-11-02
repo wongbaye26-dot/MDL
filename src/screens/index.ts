@@ -1,5 +1,4 @@
 export { default as Home } from './Home'
-export { default as PlayDetail } from './PlayDetail'
 export { default as SongListScreen } from './SongListScreen'
 export { default as SonglistDetail } from './SonglistDetail'
 export { default as Comment } from './Comment'

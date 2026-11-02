@@ -51,7 +51,6 @@ export const setLanguage = (locale: Parameters<typeof applyLanguage>[0]) => {
 
 let isDestroying = false
 export const exitApp = (reason: string) => {
-  console.log('Handle Exit App, Reason: ' + reason)
   if (isDestroying) return
   isDestroying = true
   void Promise.all([

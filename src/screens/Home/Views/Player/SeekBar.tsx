@@ -14,6 +14,7 @@ export default memo(({
   hitSlopY = 16,
   onSeek,
   onPreview,
+  onZone,
 }: {
   value: number
   max: number
@@ -25,8 +26,11 @@ export default memo(({
   onSeek: (time: number) => void
   /** 拖动过程中回传，用于实时更新时间文字 */
   onPreview?: (time: number) => void
+  /** 上报自己在屏幕上的 y 区间（播放器要用它把这块区域从下滑手势里排除） */
+  onZone?: (top: number, bottom: number) => void
 }) => {
   const widthRef = useRef(0)
+  const boxRef = useRef<View>(null)
   const [dragRatio, setDragRatio] = useState<number | null>(null)
 
   const ratioOf = useCallback((e: GestureResponderEvent) => {
@@ -51,7 +55,13 @@ export default memo(({
   return (
     <View
       style={{ width: '100%', height: height + hitSlopY * 2, justifyContent: 'center' }}
-      onLayout={e => { widthRef.current = e.nativeEvent.layout.width }}
+      ref={boxRef}
+      onLayout={e => {
+        widthRef.current = e.nativeEvent.layout.width
+        const node = boxRef.current
+        if (!node) return
+        node.measureInWindow((_x, y, _w, h) => { onZone?.(y, y + h) })
+      }}
       onStartShouldSetResponder={() => true}
       onMoveShouldSetResponder={() => true}
       onResponderTerminationRequest={() => false}

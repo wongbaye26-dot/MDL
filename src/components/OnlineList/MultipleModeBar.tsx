@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useMemo, forwardRef, useImperativeHandle } from 'react'
+import { useState, useRef, useCallback, useEffect, useMemo, forwardRef, useImperativeHandle } from 'react'
 import { Animated, View, TouchableOpacity } from 'react-native'
 
 import Text from '@/components/common/Text'
@@ -7,6 +7,8 @@ import { useTheme } from '@/store/theme/hook'
 import { createStyle } from '@/utils/tools'
 import { BorderWidths } from '@/theme'
 import { scaleSizeH } from '@/utils/pixelRatio'
+import { useOverlayLock } from '@/utils/overlayLock'
+import { resetSelectionBar, setSelectionBar, useHasSelectionSlot } from '@/utils/selectionBar'
 
 export type SelectMode = 'single' | 'range'
 
@@ -26,6 +28,8 @@ export interface MultipleModeBarType {
 
 export default forwardRef<MultipleModeBarType, MultipleModeBarProps>(({ onSelectAll, onSwitchMode, onExitSelectMode }, ref) => {
   // const isGetDetailFailedRef = useRef(false)
+  /** 页面是否提供「标题右侧插槽」——有的话这里只同步状态，不再自己画 */
+  const hasSlot = useHasSelectionSlot()
   const [visible, setVisible] = useState(false)
   const [animatePlayed, setAnimatPlayed] = useState(true)
   const animFade = useRef(new Animated.Value(0)).current
@@ -33,6 +37,9 @@ export default forwardRef<MultipleModeBarType, MultipleModeBarProps>(({ onSelect
   const [selectMode, setSelectMode] = useState<SelectMode>('single')
   const [isSelectAll, setIsSelectAll] = useState(false)
   const theme = useTheme()
+  // 多选栏贴在屏幕最底部，会被悬浮的胶囊导航整个盖住（只露出半行字、点不到）。
+  // 多选期间把导航锁掉，和整屏子页用同一套机制。
+  useOverlayLock(visible)
 
   useImperativeHandle(ref, () => ({
     show() {
@@ -97,7 +104,7 @@ export default forwardRef<MultipleModeBarType, MultipleModeBarProps>(({ onSelect
   const animaStyle = useMemo(() => ({
     ...styles.container,
     height: MULTI_SELECT_BAR_HEIGHT,
-    // backgroundColor: theme['c-content-background'],
+    backgroundColor: theme['c-content-background'],
     borderBottomColor: theme['c-border-background'],
     opacity: animFade, // Bind opacity to animated value
     transform: [
@@ -110,6 +117,22 @@ export default forwardRef<MultipleModeBarType, MultipleModeBarProps>(({ onSelect
     setIsSelectAll(selectAll)
     onSelectAll(selectAll)
   }, [isSelectAll, onSelectAll])
+
+  // 有插槽时把状态和回调同步给 PageModal 的标题右侧
+  useEffect(() => {
+    if (!hasSlot) return
+    setSelectionBar({
+      visible,
+      isSelectAll,
+      selectMode,
+      onSelectAll: handleSelectAll,
+      onExit: onExitSelectMode,
+      onSwitchMode,
+    })
+  }, [hasSlot, visible, isSelectAll, selectMode, handleSelectAll, onExitSelectMode, onSwitchMode])
+
+  // 卸载时把插槽收掉，避免切页后标题右侧还挂着按钮
+  useEffect(() => () => { if (hasSlot) resetSelectionBar() }, [hasSlot])
 
   const component = useMemo(() => {
     return (
@@ -132,6 +155,8 @@ export default forwardRef<MultipleModeBarType, MultipleModeBarProps>(({ onSelect
     )
   }, [animaStyle, selectMode, theme, handleSelectAll, isSelectAll, onExitSelectMode, onSwitchMode])
 
+  // 有插槽时完全交给 PageModal 渲染，列表顶部不再被这条栏盖住
+  if (hasSlot) return null
   return !visible && animatePlayed ? null : component
 })
 
@@ -140,7 +165,8 @@ const styles = createStyle({
     flex: 1,
     position: 'absolute',
     left: 0,
-    bottom: 0,
+    // 浮在列表**顶部**（标题栏下方）：之前贴在屏幕最底部，长按后要伸手到最下面才能操作
+    top: 0,
     width: '100%',
     // height: 40,
     flexDirection: 'row',

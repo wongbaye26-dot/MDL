@@ -1,7 +1,7 @@
 {
   "name": "lx-music-mobile",
-  "version": "3.4.0",
-  "versionCode": 144,
+  "version": "3.5.1",
+  "versionCode": 147,
   "private": true,
   "scripts": {
     "dev": "react-native run-android --active-arch-only",
@@ -21,7 +21,14 @@
     "clear:full": "git clean -fdx -e android/keystore.properties -e android/app/*.keystore",
     "build:theme": "node src/theme/themes/createThemes.js",
     "publish": "node publish",
-    "postinstall": "node dependencies-patch.js"
+    "postinstall": "node dependencies-patch.js",
+    "smoke": "node scripts/smoke.js",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "setup:vendor": "node scripts/setup-vendor.js",
+    "vendor:check": "node scripts/check-vendor.js",
+    "release": "node scripts/release.js",
+    "release:patch": "node scripts/release.js --bump patch",
+    "keystore:info": "node scripts/keystore-info.js"
   },
   "engines": {
     "node": ">= 18",

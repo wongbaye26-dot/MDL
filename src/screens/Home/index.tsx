@@ -6,8 +6,7 @@ import { setComponentId } from '@/core/common'
 import { COMPONENT_IDS } from '@/config/constant'
 import Vertical from './Vertical'
 import Horizontal from './Horizontal'
-import { navigations } from '@/navigation'
-import settingState from '@/store/setting/state'
+import PlayerTransition from './Vertical/PlayerTransition'
 import { requestStartupPermissions } from '@/core/permissions'
 
 
@@ -26,11 +25,6 @@ export default ({ componentId }: Props) => {
 
   useEffect(() => {
     setComponentId(COMPONENT_IDS.home, componentId)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-
-    if (settingState.setting['player.startupPushPlayDetailScreen']) {
-      navigations.pushPlayDetailScreen(componentId, true)
-    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -42,6 +36,12 @@ export default ({ componentId }: Props) => {
             ? <Horizontal />
             : <Vertical />
         }
+        {/*
+          共享元素转场层必须放在 PagerView **外面**：
+          竖屏各页是 PagerView 的子页，切到播放器时整个 Home 页会被平移出屏幕，
+          转场层如果挂在里面会跟着一起飞走（实测飞行封面会跑到屏幕外）。
+        */}
+        {isHorizontalMode ? null : <PlayerTransition />}
       </PageContent>
     </CutoutCompensator>
   )

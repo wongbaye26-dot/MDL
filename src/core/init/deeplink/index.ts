@@ -26,7 +26,6 @@ const handleLinkAction = async(link: string) => {
     if (params.data) params.data = JSON.parse(decodeURIComponent(params.data))
   }
   params.paths = paths.map(p => decodeURIComponent(p))
-  console.log(params)
   switch (type) {
     case 'music':
       await handleMusicAction(action, params)
@@ -98,10 +97,8 @@ const runLinkAction = async(link: string) => {
 export const initDeeplink = async() => {
   Linking.addEventListener('url', ({ url }) => {
     void runLinkAction(url)
-    console.log('deeplink', url)
   })
   const initialUrl = await Linking.getInitialURL()
   if (initialUrl == null) return
-  console.log('deeplink', initialUrl)
   void runLinkAction(initialUrl)
 }

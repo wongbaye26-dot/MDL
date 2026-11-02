@@ -3,7 +3,6 @@ import { Navigation } from 'react-native-navigation'
 
 import {
   HOME_SCREEN,
-  PLAY_DETAIL_SCREEN,
   SONGLIST_SCREEN,
   SONGLIST_DETAIL_SCREEN,
   COMMENT_SCREEN,
@@ -87,121 +86,6 @@ export async function pushHomeScreen() {
         }],
       },
     },
-  })
-}
-export function pushPlayDetailScreen(componentId: string, skipAnimation = false) {
-  /*
-    Navigation.setDefaultOptions({
-      topBar: {
-        background: {
-          color: '#039893',
-        },
-        title: {
-          color: 'white',
-        },
-        backButton: {
-          title: '', // Remove previous screen name from back button
-          color: 'white',
-        },
-        buttonColor: 'white',
-      },
-      statusBar: {
-        style: 'light',
-      },
-      layout: {
-        orientation: ['portrait'],
-      },
-      bottomTabs: {
-        titleDisplayMode: 'alwaysShow',
-      },
-      bottomTab: {
-        textColor: 'gray',
-        selectedTextColor: 'black',
-        iconColor: 'gray',
-        selectedIconColor: 'black',
-      },
-    })
-  */
-  requestAnimationFrame(() => {
-    const theme = themeState.theme
-
-    void Navigation.push(componentId, {
-      component: {
-        name: PLAY_DETAIL_SCREEN,
-        options: {
-          topBar: {
-            visible: false,
-            height: 0,
-            drawBehind: false,
-          },
-          statusBar: {
-            drawBehind: true,
-            visible: true,
-            style: getStatusBarStyle(theme.isDark),
-            backgroundColor: 'transparent',
-          },
-          navigationBar: {
-            // visible: false,
-            backgroundColor: theme['c-content-background'],
-          },
-          layout: {
-            componentBackgroundColor: theme['c-content-background'],
-            fitSystemWindows: false,
-          },
-          animations: {
-            push: skipAnimation ? {} : {
-              sharedElementTransitions: [
-                {
-                  fromId: NAV_SHEAR_NATIVE_IDS.playDetail_pic,
-                  toId: NAV_SHEAR_NATIVE_IDS.playDetail_pic,
-                  interpolation: { type: 'spring' },
-                },
-              ],
-              elementTransitions: [
-                {
-                  id: NAV_SHEAR_NATIVE_IDS.playDetail_header,
-                  alpha: {
-                    from: 0, // We don't declare 'to' value as that is the element's current alpha value, here we're essentially animating from 0 to 1
-                    duration: 300,
-                  },
-                  translationY: {
-                    from: -32, // Animate translationY from 16dp to 0dp
-                    duration: 300,
-                  },
-                },
-                {
-                  id: NAV_SHEAR_NATIVE_IDS.playDetail_player,
-                  alpha: {
-                    from: 0, // We don't declare 'to' value as that is the element's current alpha value, here we're essentially animating from 0 to 1
-                    duration: 300,
-                  },
-                  translationY: {
-                    from: 32, // Animate translationY from 16dp to 0dp
-                    duration: 300,
-                  },
-                },
-              ],
-              // content: {
-              //   translationX: {
-              //     from: windowSizeTools.getSize().width,
-              //     to: 0,
-              //     duration: 300,
-              //   },
-              // },
-            },
-            pop: {
-              content: {
-                translationX: {
-                  from: 0,
-                  to: windowSizeTools.getSize().width,
-                  duration: 300,
-                },
-              },
-            },
-          },
-        },
-      },
-    })
   })
 }
 export function pushSongListScreen(componentId: string) {

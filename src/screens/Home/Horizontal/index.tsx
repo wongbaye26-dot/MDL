@@ -58,7 +58,8 @@ export default () => {
                 )
           }
         </View>
-        {overlayVisible ? null : <Aside />}
+        {/* 播放器页整屏铺满，左侧导航会压住封面；和竖屏一样在播放器页收起 */}
+        {isPlayer || overlayVisible ? null : <Aside />}
       </View>
     </>
   )

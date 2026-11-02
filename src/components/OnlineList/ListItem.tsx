@@ -16,13 +16,15 @@ export const ITEM_HEIGHT = scaleSizeH(LIST_ITEM_HEIGHT)
 const useQualityTag = (musicInfo: LX.Music.MusicInfoOnline) => {
   const t = useI18n()
   let info: { type: BadgeType | null, text: string } = { type: null, text: '' }
-  if (musicInfo.meta._qualitys.flac24bit) {
+  // 本地歌曲没有 _qualitys（那是音源返回的），直接访问会抛 TypeError 把整页打白
+  const qualitys = musicInfo.meta._qualitys ?? {}
+  if (qualitys.flac24bit) {
     info.type = 'secondary'
     info.text = t('quality_lossless_24bit')
-  } else if (musicInfo.meta._qualitys.flac ?? musicInfo.meta._qualitys.ape) {
+  } else if (qualitys.flac ?? qualitys.ape) {
     info.type = 'secondary'
     info.text = t('quality_lossless')
-  } else if (musicInfo.meta._qualitys['320k']) {
+  } else if (qualitys['320k']) {
     info.type = 'tertiary'
     info.text = t('quality_high_quality')
   }
@@ -111,7 +113,7 @@ export default memo(({ item, index, showSource, onPress, onLongPress, onShowMenu
           <Text numberOfLines={1}>{item.name}</Text>
           <View style={styles.listItemSingle}>
             { tagInfo.type ? <Badge type={tagInfo.type}>{tagInfo.text}</Badge> : null }
-            { showSource ? <Badge type="tertiary">{item.source}</Badge> : null }
+            { showSource ? <Badge type="tertiary">{(item.source as string) === 'local' ? '本地' : item.source}</Badge> : null }
             <Text style={styles.listItemSingleText} size={11} color={theme['c-500']} numberOfLines={1}>{singer}</Text>
           </View>
         </View>

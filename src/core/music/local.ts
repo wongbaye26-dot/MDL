@@ -15,6 +15,7 @@ import {
 import { getLocalFilePath } from '@/utils/music'
 import { readLyric, readPic } from '@/utils/localMediaMetadata'
 import { stat } from '@/utils/fs'
+import { findAudioByPath } from '@/utils/directoryPicker'
 
 const getOtherSourceByLocal = async<T>(musicInfo: LX.Music.MusicInfoLocal, handler: (infos: LX.Music.MusicInfoOnline[]) => Promise<T>) => {
   let result: LX.Music.MusicInfoOnline[] = []
@@ -74,9 +75,13 @@ export const getMusicUrl = async({ musicInfo, isRefresh, allowToggleSource = tru
 }): Promise<string> => {
   if (!isRefresh) {
     // 公共目录（用户添加的文件夹）里的文件按路径打开会 EACCES，
-    // 必须用 MediaStore 的 content:// 地址交给播放器
-    const contentUri = musicInfo.meta.contentUri
-    if (contentUri) return contentUri
+    // 必须用 MediaStore 的 content:// 地址交给播放器。
+    // 老数据没有 contentUri，就按路径反查一次。
+    const contentUri = musicInfo.meta.contentUri ?? (await findAudioByPath(musicInfo.meta.filePath))?.contentUri
+    if (contentUri) {
+      if (!musicInfo.meta.contentUri) musicInfo.meta.contentUri = contentUri
+      return contentUri
+    }
     const path = await getLocalFilePath(musicInfo)
     // console.log(path)
     if (path) return path

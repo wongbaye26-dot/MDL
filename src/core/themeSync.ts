@@ -35,6 +35,5 @@ export const syncNativeTheme = (theme: LX.ActiveTheme) => {
       Navigation.mergeOptions(id, options)
     }
   } catch (err) {
-    console.log('syncNativeTheme failed', err)
   }
 }

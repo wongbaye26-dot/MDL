@@ -3,7 +3,7 @@ import { memo, useMemo } from 'react'
 import { StyleSheet, View } from 'react-native'
 
 import SubTitle from '../../components/SubTitle'
-import CheckBox from '@/components/common/CheckBox'
+import Chip from '@/components/common/Chip'
 import { useSettingValue } from '@/store/setting/hook'
 import { useI18n } from '@/lang'
 import { updateSetting } from '@/core/common'
@@ -26,8 +26,12 @@ const Item = ({ id, name }: {
   name: string
 }) => {
   const isActive = useActive(id)
-  // const [toggleCheckBox, setToggleCheckBox] = useState(false)
-  return <CheckBox marginBottom={3} check={isActive} label={name} onChange={() => { setSourceNameType(id) }} need />
+  // 和上面的「语言」选择器同一套胶囊样式
+  return (
+    <View style={styles.chip}>
+      <Chip label={name} active={isActive} onPress={() => { setSourceNameType(id) }} />
+    </View>
+  )
 }
 
 export default memo(() => {
@@ -60,5 +64,9 @@ const styles = StyleSheet.create({
   list: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+  },
+  chip: {
+    marginRight: 8,
+    marginBottom: 6,
   },
 })

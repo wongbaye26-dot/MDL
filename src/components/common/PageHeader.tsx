@@ -1,5 +1,5 @@
-import { memo } from 'react'
-import { View, TouchableOpacity, Image, type ImageSourcePropType, type ReactNode } from 'react-native'
+import { memo, type ReactNode } from 'react'
+import { View, TouchableOpacity, Image, type ImageSourcePropType } from 'react-native'
 
 import Text from './Text'
 import { Icon } from './Icon'
@@ -26,7 +26,8 @@ export default memo(({
   right,
 }: {
   title: string
-  subtitle?: string
+  /** 字符串会按统一副标题样式渲染；传节点则原样渲染（比如一排小标签） */
+  subtitle?: string | ReactNode
   logo?: ImageSourcePropType
   /** 左侧按钮（子页面的返回键） */
   left?: ReactNode
@@ -52,7 +53,11 @@ export default memo(({
         {logo ? <Image source={logo} style={compact ? styles.logoCompact : styles.logo} /> : null}
         <View style={styles.textArea}>
           <Text size={compact ? 19 : 21} numberOfLines={1} style={styles.title}>{title}</Text>
-          {subtitle ? <Text size={compact ? 10.5 : 11} numberOfLines={1} style={styles.subtitle}>{subtitle}</Text> : null}
+          {
+            typeof subtitle === 'string'
+              ? <Text size={compact ? 10.5 : 11} numberOfLines={1} style={styles.subtitle}>{subtitle}</Text>
+              : subtitle ?? null
+          }
         </View>
         {right ? <View style={styles.right}>{right}</View> : null}
       </View>

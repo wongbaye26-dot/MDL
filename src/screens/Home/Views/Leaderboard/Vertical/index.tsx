@@ -11,7 +11,8 @@ import MusicList, { type MusicListType } from '../MusicList'
 import { handlePlay } from '../listAction'
 import { addTasks } from '@/core/download'
 import { SourceChips, BoardChips } from './Chips'
-import Hero from './Hero'
+import { resetLeaderboardHero, setLeaderboardHero } from '@/utils/leaderboardHero'
+import PlayerBar from '@/components/player/PlayerBar'
 
 export default () => {
   const musicListRef = useRef<MusicListType>(null)
@@ -103,19 +104,25 @@ export default () => {
   const sourceName = sourceList.find(s => s.action === source)?.label ?? ''
   const meta = `${count ? `共 ${count} 首` : '正在加载'}${sourceName ? ` · ${sourceName}` : ''}`
 
+  // eslint-disable-next-line @typescript-eslint/no-confusing-void-expression
+  const heroPlayAll = useCallback(() => { void handlePlayAll() }, [handlePlayAll])
+  // eslint-disable-next-line @typescript-eslint/no-confusing-void-expression
+  const heroDownloadAll = useCallback(() => { void handleDownloadAll() }, [handleDownloadAll])
+  // 标题右侧的紧凑卡片从这份状态读（标题栏在 PageModal 里，隔了几层）
+  useEffect(() => {
+    setLeaderboardHero({ name: activeName, meta, onPlayAll: heroPlayAll, onDownloadAll: heroDownloadAll })
+  }, [activeName, meta, heroPlayAll, heroDownloadAll])
+  useEffect(() => () => { resetLeaderboardHero() }, [])
+
   return (
     <View style={styles.container}>
       <SourceChips active={source} onChange={handleSourceChange} />
       <BoardChips boards={boards} activeId={activeId} onChange={handleBoardChange} />
-      <Hero
-        name={activeName}
-        meta={meta}
-        onPlayAll={handlePlayAll}
-        onDownloadAll={handleDownloadAll}
-      />
       <View style={styles.list}>
         <MusicList ref={musicListRef} onListChange={handleListChange} />
       </View>
+      {/* 迷你播放器：和歌单广场/歌单详情同一套 */}
+      <PlayerBar />
     </View>
   )
 }

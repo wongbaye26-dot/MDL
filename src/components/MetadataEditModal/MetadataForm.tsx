@@ -12,6 +12,7 @@ import { useUnmounted } from '@/utils/hooks'
 import { getLyricInfo, getPicUrl } from '@/core/music/local'
 import settingState from '@/store/setting/state'
 import { buildLyrics } from '@/utils/lrcTools'
+import { log } from '@/utils/log'
 
 export interface Metadata {
   name: string // 歌曲名
@@ -121,7 +122,7 @@ export default forwardRef<MetadataFormType, {}>((props, ref) => {
         })
       })
     }).catch((err) => {
-      console.log(err)
+      log.error(err)
       if (isUnmounted.current || path != filePath.current) return
       toast(t('metadata_edit_modal_form_match_pic_failed'))
     }).finally(() => {

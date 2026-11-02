@@ -1,5 +1,4 @@
 import { View } from 'react-native'
-import { Navigation } from 'react-native-navigation'
 
 import PageContent from '@/components/PageContent'
 import CutoutCompensator from '@/components/common/CutoutCompensator'
@@ -15,12 +14,8 @@ import SongList from '@/screens/Home/Views/SongList'
  * 头部改成和首页/下载中心/我的 同一个 PageHeader（标题 21/800 + 44dp 圆形按钮），
  * 之前是自己画的 17sp 标题 + 裸图标，和主 Tab 的头部完全是两套。
  */
-export default ({ componentId }: { componentId: string }) => {
+export default () => {
   const theme = useTheme()
-
-  const handleBack = () => {
-    void Navigation.pop(componentId)
-  }
 
   return (
     <CutoutCompensator>
@@ -28,7 +23,6 @@ export default ({ componentId }: { componentId: string }) => {
       <StatusBar />
       <PageHeader
         title='歌单广场'
-        left={<HeaderButton icon='chevron-left-2' onPress={handleBack} size={22} />}
         right={(
           <HeaderButton
             icon='link-variant'

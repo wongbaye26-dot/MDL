@@ -2,6 +2,7 @@ import { memo } from 'react'
 import { View, Image as RNImage, StyleSheet } from 'react-native'
 
 import FadeMask from './FadeMask'
+import CoverPlaceholder from '@/components/common/CoverPlaceholder'
 
 /**
  * 飞牛实测（1080x2340 @420dpi → dp）：
@@ -18,8 +19,10 @@ const SIDE_SOFT = 0.05
 /** 柔化带和倒影用同一个模糊半径，接缝处才不会出现清晰度跳变 */
 const BLUR = 26
 
-export default memo(({ pic, width, height, hidden }: {
+export default memo(({ pic, name, width, height, hidden }: {
   pic?: string
+  /** 无封面时用歌名首字做占位 */
+  name?: string
   width: number
   height: number
   hidden?: boolean
@@ -36,8 +39,8 @@ export default memo(({ pic, width, height, hidden }: {
   if (!pic) {
     return (
       <View pointerEvents='none' style={[StyleSheet.absoluteFill, { opacity: hidden ? 0 : 1 }]}>
-        <View style={{ marginTop: coverTop, height: coverH, alignItems: 'center', justifyContent: 'center' }}>
-          <View style={{ width: coverW, height: coverH, backgroundColor: 'rgba(255,255,255,0.04)' }} />
+        <View style={{ marginTop: coverTop, height: coverH }}>
+          <CoverPlaceholder name={name} width={coverW} height={coverH} radius={0} />
         </View>
       </View>
     )

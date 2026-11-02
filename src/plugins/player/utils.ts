@@ -106,7 +106,14 @@ export const isTempId = (trackId = global.lx.playerTrackId) => !trackId || tempI
 //   },
 // }
 
-const playMusic = ((fn: (musicInfo: LX.Player.PlayMusic, url: string, time: number) => void, delay = 800) => {
+/**
+ * 切歌去抖：短时间内连续两次 setResource 时，只保留最后一次。
+ *
+ * 原来延迟 800ms、判定窗口 500ms —— 用户点一下播放要愣将近一秒才出声，
+ * 这就是「点击播放键过几秒才开始」里最稳定的那一段。
+ * 缩短到 250ms：仍然能吃掉快速连点产生的重复请求，但听感上是即时的。
+ */
+const playMusic = ((fn: (musicInfo: LX.Player.PlayMusic, url: string, time: number) => void, delay = 250) => {
   let delayTimer: number | null = null
   let isDelayRun = false
   let timer: number | null = null
@@ -143,7 +150,7 @@ const playMusic = ((fn: (musicInfo: LX.Player.PlayMusic, url: string, time: numb
       delayTimer = BackgroundTimer.setTimeout(() => {
         delayTimer = null
         isDelayRun = false
-      }, 500)
+      }, 300)
     }
   }
 })((musicInfo, url, time) => {

@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { filterList, getHotComment } from './utils'
 import music from '@/utils/musicSdk'
 import List, { type ListType } from './components/List'
+import { log } from '@/utils/log'
 const limit = 15
 
 export default ({ musicInfo, onUpdateTotal }: {
@@ -23,7 +24,7 @@ export default ({ musicInfo, onUpdateTotal }: {
       }
       return commentInfo
     }).catch(async err => {
-      console.log(err)
+      log.error(err)
       if (err.message != '取消请求') {
         listInfo.current.isLoading = false
         // setIsLoading(false)

@@ -31,7 +31,9 @@ public class DirectoryPickerActivity extends Activity {
   private void launch() {
     launched = true;
     Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+    // 读写都要：读是扫描音乐，写是当下载目录用
     intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
+        | Intent.FLAG_GRANT_WRITE_URI_PERMISSION
         | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
         | Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
     try {
@@ -57,7 +59,8 @@ public class DirectoryPickerActivity extends Activity {
 
     Uri uri = data.getData();
     try {
-      getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+      getContentResolver().takePersistableUriPermission(uri,
+          Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
     } catch (Exception ignored) {}
 
     String path = toFilePath(uri);
@@ -76,7 +79,7 @@ public class DirectoryPickerActivity extends Activity {
       return;
     }
 
-    DirectoryPickerModule.emitResult(path, dir.getName(), null);
+    DirectoryPickerModule.emitResult(path, dir.getName(), uri.toString(), null);
     finish();
   }
 

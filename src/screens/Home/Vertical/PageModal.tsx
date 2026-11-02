@@ -1,12 +1,14 @@
 import { View, StyleSheet } from 'react-native'
 import SlideInView from '@/components/common/SlideInView'
-import PageHeader, { HeaderButton } from '@/components/common/PageHeader'
+import PageHeader from '@/components/common/PageHeader'
 import { useTheme } from '@/store/theme/hook'
 import { getSolidBackground } from '@/theme/solid'
 import { createStyle } from '@/utils/tools'
 import { useHorizontalMode } from '@/utils/hooks'
 import { HORIZONTAL_NAV_SPACE } from '@/config/constant'
 import { useOverlayLock } from '@/utils/overlayLock'
+import { SelectionBarSlotContext } from '@/utils/selectionBar'
+import SelectionBarSlot from '@/components/OnlineList/SelectionBarSlot'
 
 /**
  * 整屏子页（排行榜 / 收藏 / 已下载 …）。
@@ -15,9 +17,10 @@ import { useOverlayLock } from '@/utils/overlayLock'
  * 横屏自动切紧凑版）。之前是自己画的 17sp 标题 + 裸图标，所以子页和主页面
  * 一眼就能看出是两套 UI。
  */
-export default ({ title, onClose, right, children }: {
+export default ({ title, onClose: _onClose, right, children }: {
   title: string
-  onClose: () => void
+  /** 保留接口：关闭由系统返回手势触发（useBackHandler） */
+  onClose?: () => void
   /** 标题右侧的操作按钮 */
   right?: React.ReactNode
   children: React.ReactNode
@@ -39,12 +42,22 @@ export default ({ title, onClose, right, children }: {
       {/* 覆盖层必须用不透明底色：主题的 c-main-background 可能是半透明的（为了透出背景图），
           盖在首页之上时下层内容会透上来，形成鬼影 */}
       <SlideInView direction='up' style={{ ...styles.container, backgroundColor: getSolidBackground(theme) }}>
-        <PageHeader
-          title={title}
-          left={<HeaderButton icon='chevron-left-2' size={22} onPress={onClose} />}
-          right={right}
-        />
-        <View style={styles.content}>{children}</View>
+        {/*
+          提供「多选插槽」：列表的多选栏渲染到标题右侧（原来它绝对定位在列表顶部、会盖住第一行）。
+          子页里的 MultipleModeBar 检测到这个 context 就不再自己画。
+        */}
+        <SelectionBarSlotContext.Provider value>
+          <PageHeader
+            title={title}
+            right={(
+              <View style={styles.headerRight}>
+                {right}
+                <SelectionBarSlot />
+              </View>
+            )}
+          />
+          <View style={styles.content}>{children}</View>
+        </SelectionBarSlotContext.Provider>
       </SlideInView>
     </View>
   )
@@ -56,5 +69,9 @@ const styles = createStyle({
   },
   content: {
     flex: 1,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 })

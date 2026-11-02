@@ -21,7 +21,6 @@ export const httpFetch = (url, options = { method: 'get' }) => {
   const requestObj = fetchData(url, options)
   return {
     promise: requestObj.request.catch(err => {
-      console.log('出错', err.message)
       switch (err.message) {
         case 'socket hang up':
           return Promise.reject(new Error(requestMsg.unachievable))
@@ -167,8 +166,6 @@ const blobToBuffer = (blob) => {
 }
 
 const fetchData = (url, { timeout = 15000, ...options }) => {
-  console.log('---start---', url)
-
   const controller = new global.AbortController()
   let id = BackgroundTimer.setTimeout(() => {
     id = null

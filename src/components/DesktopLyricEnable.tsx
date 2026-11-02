@@ -7,6 +7,7 @@ import { toast } from '@/utils/tools'
 import { useI18n } from '@/lang'
 import { checkDesktopLyricOverlayPermission, hideDesktopLyric, openDesktopLyricOverlayPermissionActivity, showDesktopLyric } from '@/core/desktopLyric'
 import { updateSetting } from '@/core/common'
+import { log } from '@/utils/log'
 
 export interface DesktopLyricEnableType {
   setEnabled: (enabled: boolean) => void
@@ -39,7 +40,7 @@ export default forwardRef<DesktopLyricEnableType, {}>((props, ref) => {
         await checkDesktopLyricOverlayPermission()
         await showDesktopLyric()
       } catch (err) {
-        console.log(err)
+        log.error(err)
         handleShowModal()
         // return false
       }

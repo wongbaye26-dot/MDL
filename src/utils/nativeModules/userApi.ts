@@ -1,4 +1,5 @@
 import { NativeEventEmitter, NativeModules } from 'react-native'
+import { log } from '@/utils/log'
 
 const { UserApiModule } = NativeModules
 
@@ -80,14 +81,31 @@ export const onScriptAction = (handler: (event: ActionsEvent) => void): () => vo
   // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
   const eventEmitter = new NativeEventEmitter(UserApiModule)
   const eventListener = eventEmitter.addListener('api-action', event => {
-    if (event.data) event.data = JSON.parse(event.data as string)
+    // log 事件的 data 是脚本里 console.log 的原文，不是 JSON ——
+    // 直接 parse 会抛 "Unexpected character"，被全局错误处理弹成「应用出 bug 了」。
+    // 其余 action 才是 JSON；解析失败就把这条事件丢掉（不能塞 null，
+    // 下游是直接读 event.data.requestKey 的，会再崩一次）。
+    if (event.data && event.action !== 'log') {
+      try {
+        event.data = JSON.parse(event.data as string)
+      } catch (err) {
+        log.error('userApi action parse failed:', event.action, err)
+        return
+      }
+    }
     if (event.action == 'init') {
-      if (event.data.info) event.data.info = { ...loadScriptInfo, ...event.data.info }
-      else event.data.info = { ...loadScriptInfo }
+      const data = event.data ?? {}
+      data.info = data.info ? { ...loadScriptInfo, ...data.info } : { ...loadScriptInfo }
+      event.data = data
     } else if (event.action == 'showUpdateAlert') {
       if (!loadScriptInfo?.allowShowUpdateAlert) return
     }
-    handler(event as ActionsEvent)
+    // 单个事件处理失败不能把整个应用打崩（会弹全局错误框，还挡住界面）
+    try {
+      handler(event as ActionsEvent)
+    } catch (err) {
+      log.error('userApi action handle failed:', event.action, err)
+    }
   })
 
   return () => {

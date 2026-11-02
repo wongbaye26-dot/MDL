@@ -27,13 +27,15 @@ const PAGES = [
 
 const Page = ({ id, children }: { id: CommonState['navActiveId'], children: React.ReactNode }) => {
   const [visible, setVisible] = useState(commonState.navActiveId == id)
+  // children 只在首次挂载时取一次：切 Tab 不应该重建页面（否则滚动位置、播放状态都会丢）
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const component = useMemo(() => children, [])
   const opacity = useRef(new Animated.Value(1)).current
   useEffect(() => {
     if (!visible) return
     opacity.setValue(0)
     Animated.timing(opacity, { toValue: 1, duration: 200, useNativeDriver: true }).start()
-  }, [visible])
+  }, [visible, opacity])
   useEffect(() => {
     let currentId: CommonState['navActiveId'] = commonState.navActiveId
     const handleNavIdUpdate = (_id: CommonState['navActiveId']) => {
@@ -67,7 +69,8 @@ const Page = ({ id, children }: { id: CommonState['navActiveId'], children: Reac
       global.state_event.off('languageChanged', handleHide)
       global.state_event.off('configUpdated', handleConfigUpdated)
     }
-  }, [])
+    // id 是固定 prop，加上不会导致重复订阅，但能让 lint 满意
+  }, [id])
 
   return visible ? <Animated.View style={{ flex: 1, opacity }}>{component}</Animated.View> : null
 }
@@ -94,6 +97,15 @@ const Main = () => {
 
   useEffect(() => {
     const handleUpdate = (id: CommonState['navActiveId']) => {
+      /*
+        播放器页关掉 PagerView 的横向滚动。
+        原生 ViewPager 会抢走竖向拖动的触摸序列（实测播放器里的 PanResponder
+        只能收到 dy=4~7 就断了，下滑关闭完全失效）。播放器是最后一个 Tab，
+        本来也不需要左右切页，关掉没有副作用。
+      */
+      pagerViewRef.current?.setScrollEnabled(
+        id !== 'nav_player' && settingState.setting['common.homePageScroll'],
+      )
       const index = getIndex(id)
       if (activeIndexRef.current == index) return
       activeIndexRef.current = index
@@ -101,7 +113,9 @@ const Main = () => {
     }
     const handleConfigUpdate = (keys: Array<keyof LX.AppSetting>, setting: Partial<LX.AppSetting>) => {
       if (!keys.includes('common.homePageScroll')) return
-      pagerViewRef.current?.setScrollEnabled(setting['common.homePageScroll']!)
+      pagerViewRef.current?.setScrollEnabled(
+        setting['common.homePageScroll']! && commonState.navActiveId !== 'nav_player',
+      )
     }
     global.state_event.on('navActiveIdUpdated', handleUpdate)
     global.state_event.on('configUpdated', handleConfigUpdate)
@@ -109,6 +123,13 @@ const Main = () => {
       global.state_event.off('navActiveIdUpdated', handleUpdate)
       global.state_event.off('configUpdated', handleConfigUpdate)
     }
+  }, [])
+
+  // 首帧如果就落在播放器页（重启恢复），也要先把横向滚动关掉
+  useEffect(() => {
+    pagerViewRef.current?.setScrollEnabled(
+      commonState.navActiveId !== 'nav_player' && settingState.setting['common.homePageScroll'],
+    )
   }, [])
 
   const component = useMemo(() => (

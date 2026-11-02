@@ -18,17 +18,15 @@ const resetPreloadInfo = () => {
 const preloadNextMusicUrl = async(curTime: number) => {
   if (preloadMusicInfo.isLoading || curTime - preloadMusicInfo.preProgress < 3) return
   preloadMusicInfo.isLoading = true
-  console.log('preload next music url')
   const info = await getNextPlayMusicInfo()
   if (info) {
     preloadMusicInfo.info = info
     const url = await getMusicUrl({ musicInfo: info.musicInfo }).catch(() => '')
     if (url) {
-      console.log('preload url', url)
       const [cached, available] = await Promise.all([isCached(url), checkUrl(url).then(() => true).catch(() => false)])
       if (!cached && !available) {
-        const url = await getMusicUrl({ musicInfo: info.musicInfo, isRefresh: true }).catch(() => '')
-        console.log('preload url refresh', url)
+        // 只是为了让上层重新取一次地址（走刷新），结果本身不用
+        await getMusicUrl({ musicInfo: info.musicInfo, isRefresh: true }).catch(() => '')
       }
     }
   }

@@ -121,6 +121,14 @@ export class StateEvent extends Event {
   sourceNamesUpdated(names: CommonState['sourceNames']) {
     this.emit('sourceNamesUpdated', names)
   }
+
+  /**
+   * 本地曲库变化（扫描完成、删除、改标签）。
+   * 首页的「最近添加歌曲」靠它刷新，否则扫描完回到首页还是旧数据。
+   */
+  localMusicUpdated(list: LX.Music.MusicInfoLocal[]) {
+    this.emit('localMusicUpdated', list)
+  }
 }
 
 

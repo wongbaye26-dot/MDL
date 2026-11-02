@@ -8,8 +8,8 @@ import { updateSetting } from '@/core/common'
 import { createStyle } from '@/utils/tools'
 
 const STYLES = [
-  { value: 'border', label: '胶囊描边', desc: '进度沿着底部胶囊的外框跑，最贴合胶囊本身' },
-  { value: 'ring', label: '封面圆环', desc: '进度做成封面外圈的刻度环，围着专辑封面转' },
+  { value: 'border', label: '胶囊描边', desc: '进度就是胶囊的边框本身，播到哪儿亮到哪儿' },
+  { value: 'ring', label: '封面圆环', desc: '进度做成封面外圈的细圆环，围着专辑封面转' },
   { value: 'none', label: '关闭', desc: '只在播放器页显示进度，底部胶囊不显示' },
 ] as const
 

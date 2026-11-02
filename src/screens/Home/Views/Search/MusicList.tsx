@@ -3,6 +3,7 @@ import OnlineList, { type OnlineListType, type OnlineListProps } from '@/compone
 import { search } from '@/core/search/music'
 import searchMusicState, { type Source } from '@/store/search/music/state'
 import EmptyView from './EmptyView'
+import { getLocalMusicList } from '@/core/localMusic'
 
 // export type MusicListProps = Pick<OnlineListProps,
 // 'onLoadMore'
@@ -21,10 +22,19 @@ export default forwardRef<MusicListType, {}>((props, ref) => {
   useImperativeHandle(ref, () => ({
     async loadList(text, source) {
       // const listDetailInfo = searchMusicState.listDetailInfo
-      listRef.current?.setList([], false, source == 'all')
+      // 本地曲库一起搜：名字或歌手命中就排在在线结果前面（限 10 首，多了会淹掉在线结果）
+      const localMatches = text
+        ? (await getLocalMusicList())
+            .filter(m => {
+              const kw = text.toLowerCase()
+              return m.name.toLowerCase().includes(kw) || (m.singer ?? '').toLowerCase().includes(kw)
+            })
+            .slice(0, 10)
+        : []
+      listRef.current?.setList(localMatches as unknown as LX.Music.MusicInfoOnline[], false, source == 'all' || localMatches.length > 0)
       if (searchMusicState.searchText == text && searchMusicState.source == source && searchMusicState.listInfos[searchMusicState.source]!.list.length) {
         requestAnimationFrame(() => {
-          listRef.current?.setList(searchMusicState.listInfos[searchMusicState.source]!.list, false, source == 'all')
+          listRef.current?.setList([...localMatches, ...searchMusicState.listInfos[searchMusicState.source]!.list] as unknown as LX.Music.MusicInfoOnline[], false, source == 'all' || localMatches.length > 0)
         })
       } else {
         listRef.current?.setStatus('loading')
@@ -35,7 +45,7 @@ export default forwardRef<MusicListType, {}>((props, ref) => {
           // const result = setListInfo(listDetail, id, page)
           if (isUnmountedRef.current) return
           requestAnimationFrame(() => {
-            listRef.current?.setList(list, false, source == 'all')
+            listRef.current?.setList([...localMatches, ...list] as unknown as LX.Music.MusicInfoOnline[], false, source == 'all' || localMatches.length > 0)
             listRef.current?.setStatus(searchMusicState.listInfos[searchMusicState.source]!.maxPage <= page ? 'end' : 'idle')
           })
         }).catch(() => {
@@ -84,6 +94,7 @@ export default forwardRef<MusicListType, {}>((props, ref) => {
     onRefresh={handleRefresh}
     onLoadMore={handleLoadMore}
     checkHomePagerIdle
+    hideModeBar
     ListEmptyComponent={EmptyView}
   />
 })

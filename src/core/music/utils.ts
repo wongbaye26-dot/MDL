@@ -11,6 +11,7 @@ import settingState from '@/store/setting/state'
 import { requestMsg } from '@/utils/message'
 import BackgroundTimer from 'react-native-background-timer'
 import { apis } from '@/utils/musicSdk/api-source'
+import { log } from '@/utils/log'
 
 
 const getOtherSourcePromises = new Map()
@@ -253,7 +254,6 @@ export const getOnlineOtherSourceMusicUrl = async({ musicInfos, quality, onToggl
     itemQuality = quality ?? getPlayQuality(settingState.setting['player.playQuality'], musicInfo)
     if (!musicInfo.meta._qualitys[itemQuality]) continue
 
-    console.log('try toggle to: ', musicInfo.source, musicInfo.name, musicInfo.singer, musicInfo.interval)
     onToggleSource(musicInfo)
     break
   }
@@ -275,7 +275,7 @@ export const getOnlineOtherSourceMusicUrl = async({ musicInfos, quality, onToggl
     // eslint-disable-next-line @typescript-eslint/promise-function-async
   }).catch((err: any) => {
     if (err.message == requestMsg.tooManyRequests) throw err
-    console.log(err)
+    log.error(err)
     return getOnlineOtherSourceMusicUrl({ musicInfos, quality, onToggleSource, isRefresh, retryedSource })
   })
 }
@@ -332,7 +332,7 @@ export const handleGetOnlineMusicUrl = async({ musicInfo, quality, onToggleSourc
 
   const err = lastError
   return Promise.reject(err).catch(async(err: any) => {
-    console.log(err)
+    log.error(err)
     if (!allowToggleSource || err.message == requestMsg.tooManyRequests) throw err
     onToggleSource()
     // eslint-disable-next-line @typescript-eslint/promise-function-async
@@ -369,7 +369,6 @@ export const getOnlineOtherSourcePicUrl = async({ musicInfos, onToggleSource, is
     if (retryedSource.includes(musicInfo.source)) continue
     retryedSource.push(musicInfo.source)
     // if (!assertApiSupport(musicInfo.source)) continue
-    console.log('try toggle to: ', musicInfo.source, musicInfo.name, musicInfo.singer, musicInfo.interval)
     onToggleSource(musicInfo)
     break
   }
@@ -388,7 +387,7 @@ export const getOnlineOtherSourcePicUrl = async({ musicInfos, onToggleSource, is
     return { musicInfo, url, isFromCache: false }
     // eslint-disable-next-line @typescript-eslint/promise-function-async
   }).catch((err: any) => {
-    console.log(err)
+    log.error(err)
     return getOnlineOtherSourcePicUrl({ musicInfos, onToggleSource, isRefresh, retryedSource })
   })
 }
@@ -416,7 +415,7 @@ export const handleGetOnlinePicUrl = async({ musicInfo, isRefresh, onToggleSourc
   return reqPromise.then((url: string) => {
     return { musicInfo, url, isFromCache: false }
   }).catch(async(err: any) => {
-    console.log(err)
+    log.error(err)
     if (!allowToggleSource) throw err
     onToggleSource()
     // eslint-disable-next-line @typescript-eslint/promise-function-async
@@ -452,7 +451,6 @@ export const getOnlineOtherSourceLyricInfo = async({ musicInfos, onToggleSource,
     if (retryedSource.includes(musicInfo.source)) continue
     retryedSource.push(musicInfo.source)
     // if (!assertApiSupport(musicInfo.source)) continue
-    console.log('try toggle to: ', musicInfo.source, musicInfo.name, musicInfo.singer, musicInfo.interval)
     onToggleSource(musicInfo)
     break
   }
@@ -466,7 +464,7 @@ export const getOnlineOtherSourceLyricInfo = async({ musicInfos, onToggleSource,
   let reqPromise
   try {
     // TODO: remove any type
-    reqPromise = (musicSdk[musicInfo.source].getLyric(toOldMusicInfo(musicInfo)) as any).promise
+    reqPromise = musicSdk[musicInfo.source].getLyric(toOldMusicInfo(musicInfo)).promise
   } catch (err: any) {
     reqPromise = Promise.reject(err)
   }
@@ -479,7 +477,7 @@ export const getOnlineOtherSourceLyricInfo = async({ musicInfos, onToggleSource,
     } : Promise.reject(new Error('failed'))
     // eslint-disable-next-line @typescript-eslint/promise-function-async
   }).catch((err: any) => {
-    console.log(err)
+    log.error(err)
     return getOnlineOtherSourceLyricInfo({ musicInfos, onToggleSource, isRefresh, retryedSource })
   })
 }
@@ -501,7 +499,7 @@ export const handleGetOnlineLyricInfo = async({ musicInfo, onToggleSource, isRef
   let reqPromise
   try {
     // TODO: remove any type
-    reqPromise = (musicSdk[musicInfo.source].getLyric(toOldMusicInfo(musicInfo)) as any).promise
+    reqPromise = musicSdk[musicInfo.source].getLyric(toOldMusicInfo(musicInfo)).promise
   } catch (err) {
     reqPromise = Promise.reject(err)
   }
@@ -512,7 +510,7 @@ export const handleGetOnlineLyricInfo = async({ musicInfo, onToggleSource, isRef
       isFromCache: false,
     } : Promise.reject(new Error('failed'))
   }).catch(async(err: any) => {
-    console.log(err)
+    log.error(err)
     if (!allowToggleSource) throw err
 
     onToggleSource()

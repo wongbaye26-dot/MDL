@@ -29,6 +29,16 @@ export const windowSizeTools = {
     }
   },
   async init() {
+    Dimensions.addEventListener('change', ({ window }) => {
+      // 分屏、小窗、折叠屏切换都会走这里；用 window 而不是 screen，拿到的就是可用区域
+      const next = {
+        width: Math.round(window.width),
+        height: Math.round(window.height) + (StatusBar.currentHeight ?? 0),
+      }
+      if (!next.width || (next.width === this.size.width && next.height === this.size.height)) return
+      this.size = next
+      for (const handler of this.listeners) handler(next)
+    })
     // Dimensions.addEventListener('change', () => {
     //   void getWindowSize().then((size) => {
     //     if (!size.width) return

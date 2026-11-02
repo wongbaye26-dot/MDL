@@ -25,7 +25,6 @@ const init = (callback: () => void | Promise<void>) => {
     removeComponentId(componentId)
   })
   onAppLaunched(() => {
-    console.log('Register app launched listener')
     void callback()
   })
 }

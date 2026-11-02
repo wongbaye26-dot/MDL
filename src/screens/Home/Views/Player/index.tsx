@@ -28,6 +28,7 @@ import { useLrcSet, useLrcPlay, type Line } from '@/plugins/lyric'
 import playerState from '@/store/player/state'
 import { collectMusic, playList, playNext, playPrev, togglePlay, uncollectMusic } from '@/core/player/player'
 import { setCurrentTime, getDuration } from '@/plugins/player'
+import { removeListMusics } from '@/core/list'
 import { setNowPlayTime, setMaxplayTime } from '@/core/player/progress'
 import { getListMusicSync } from '@/utils/listManage'
 import { LIST_IDS } from '@/config/constant'
@@ -41,6 +42,16 @@ import QueueCoverFlow from './QueueCoverFlow'
 import FadeMask from './FadeMask'
 import { u } from './metrics'
 import { getPlayerPalette } from '@/theme/playerPalette'
+import {
+  beginClose,
+  cancelClose,
+  dragY,
+  finishClose,
+  getTransitionState,
+  resetTransition,
+  setCloseProgress,
+  subscribeTransition,
+} from '@/utils/playerTransition'
 
 const PLAY_MODES = ['listLoop', 'random', 'singleLoop', 'list'] as const
 type PlayMode = typeof PLAY_MODES[number]
@@ -218,16 +229,49 @@ export default () => {
   const [lyricH, setLyricH] = useState(0)
   const lyricPad = Math.max(0, (lyricH || lyricAreaH) / 2 - LYRIC_LINE_H / 2)
 
-  // 下拉返回：拖动封面页下滑关闭，带跟手位移动画
-  const panY = useRef(new Animated.Value(0)).current
+  /*
+    下滑关闭的位移值来自 playerTransition 模块（dragY）：
+    手势必须在 PagerView 外面识别，否则原生 ViewPager 会把竖向拖动抢走，
+    这里只负责读它做 translateY。手势逻辑在 Vertical/PlayerGestureLayer 里。
+  */
+  const panY = dragY
   const modeRef = useRef(mode)
   modeRef.current = mode
   const heightRef = useRef(layoutH)
   heightRef.current = layoutH
 
+  /*
+    共享元素转场：打开/收起期间播放器自己的封面要让位给「飞行封面」。
+    两处同时画会看到重影；而且飞行封面的终点和 Stage 完全重合，
+    所以这里隐藏后切回来是看不出接缝的。
+  */
+  const [transitionPhase, setTransitionPhase] = useState(getTransitionState().phase)
+  useEffect(() => subscribeTransition(() => {
+    setTransitionPhase(getTransitionState().phase)
+  }), [])
+  /** 这次下滑有没有成功接管共享元素（没有起点记录时不接管，退回原来的整页滑动） */
+  const closingRef = useRef(false)
+  /** 收尾动画是否已在跑（release / terminate 可能接连触发，只能收一次） */
+  const settlingRef = useRef(false)
+  /** 本次拖动是否已经开始（用来在每次新手势时重置收尾锁） */
+  const draggingRef = useRef(false)
+  const landscapeRef = useRef(isLandscape)
+  landscapeRef.current = isLandscape
+  // 页面被卸载（例如点返回键直接切走）时清掉转场状态，避免飞行封面残留
+  useEffect(() => () => { resetTransition() }, [])
+  /*
+    每次切到播放器页都把位移复位。
+    只在挂载时复位不够：PagerView 会预加载相邻页，Player 可能一直没卸载，
+    从设置页左滑过来时 dragY 还停在「上次关闭」的屏高位置，看到的就是黑屏。
+  */
+  useEffect(() => {
+    if (navActiveId !== 'nav_player') return
+    dragY.setValue(0)
+  }, [navActiveId])
+
   const closeWithSlideDown = useCallback(() => {
     Animated.timing(panY, {
-      toValue: heightRef.current,
+      toValue: heightRef.current + 80,
       duration: 200,
       useNativeDriver: true,
     }).start(() => {
@@ -237,36 +281,108 @@ export default () => {
   }, [panY])
 
   const lyricScrollY = useRef(0)
+  /*
+    进度条所在的屏幕 y 区间。下滑手势是在 capture 阶段抢的，会盖过进度条自己的
+    responder —— 拖动时手指稍微上下抖一下就被当成「下滑」抢走，表现就是「进度条拖不动」。
+    这里把这块区域排除掉。
+  */
+  const seekZoneRef = useRef({ top: 0, bottom: 0 })
+  /** 队列面板打开时，播放器不接管下滑（避免在队列里下滑把整页最小化） */
+  const queueOpenRef = useRef(false)
+  queueOpenRef.current = queueVisible
+  seekZoneRef.current = { top: bottomTop + 6, bottom: bottomTop + 62 }
 
-  // 用 capture 阶段接管：之前用 onMoveShouldSetPanResponder 会被封面/歌词的
-  // 触摸区域和歌词列表抢走，导致下滑经常没反应
-  const panResponder = useMemo(() => PanResponder.create({
-    onMoveShouldSetPanResponderCapture: (_, g) => {
-      if (g.dy <= 4) return false
-      if (Math.abs(g.dy) <= Math.abs(g.dx) * 1.1) return false
-      // 歌词列表没回到顶部时，下滑交给列表自己滚动
-      if (modeRef.current === 'lyric' && lyricScrollY.current > 2) return false
-      return true
-    },
-    onPanResponderMove: (_, g) => {
-      if (g.dy > 0) panY.setValue(g.dy)
-    },
-    onPanResponderRelease: (_, g) => {
-      if (g.dy > 70 || g.vy > 0.45) {
-        closeWithSlideDown()
-      } else {
-        Animated.spring(panY, {
-          toValue: 0,
-          useNativeDriver: true,
-          friction: 8,
-          tension: 90,
-        }).start()
+  /*
+    用 capture 阶段接管：普通冒泡会被封面/歌词的触摸区域和歌词列表抢走。
+    注意 PagerView 的横向滚动已经在 Main.tsx 里对播放器页关掉了，
+    否则原生 ViewPager 会把竖向拖动的触摸序列整段抢走（实测只能收到 dy=4~7）。
+  */
+  const panResponder = useMemo(() => {
+    /**
+     * 松手（或手势被上层取消）时的收尾。
+     * 快速滑动时系统经常直接 cancel 手势（onPanResponderTerminate），
+     * 以前 terminate 只会回弹，表现就是「快速下滑没反应」；现在两种情况统一按位移判断。
+     */
+    const settle = (g: { dy: number, vy: number }) => {
+      // release 和 terminate 可能接连触发，收尾只能做一次，否则两个动画互相打断
+      if (settlingRef.current) return
+      settlingRef.current = true
+      draggingRef.current = false
+      const shouldClose = g.dy > 70 || g.vy > 0.45
+      if (shouldClose) {
+        if (closingRef.current) {
+          // 页面继续下滑 + 封面缩回圆盘同时跑，封面落位后再切页
+          Animated.timing(panY, {
+            toValue: heightRef.current + 80,
+            duration: 260,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+          }).start()
+          finishClose(() => {
+            closingRef.current = false
+            settlingRef.current = false
+            /*
+              切页前把位移补满：panY 的 timing(260ms) 可能比封面动画(300ms) 先结束，
+              但两者独立，实际可能差几像素 —— 差这一下，屏幕底部就会露出播放器页顶部
+              那一条深色背景（用户看到的就是「最底部一块封面色」）。
+              页面已经基本移出屏幕，这里 setValue 看不出跳动。
+            */
+            // 多移 80dp：layoutH 用的是窗口高度，比页面实际高度少了底部导航条那一条，
+            // 只移 heightRef 的话最底部会露出播放器页的一条边（用户看到的那块色）
+            panY.setValue(heightRef.current + 80)
+            setNavActiveId('nav_home')
+          })
+        } else {
+          closeWithSlideDown()
+          settlingRef.current = false
+        }
+        return
       }
-    },
-    onPanResponderTerminate: () => {
-      Animated.spring(panY, { toValue: 0, useNativeDriver: true }).start()
-    },
-  }), [panY, closeWithSlideDown])
+      Animated.spring(panY, {
+        toValue: 0,
+        useNativeDriver: true,
+        friction: 8,
+        tension: 90,
+      }).start(() => { settlingRef.current = false })
+      if (closingRef.current) {
+        closingRef.current = false
+        cancelClose()
+      }
+    }
+
+    return PanResponder.create({
+      onMoveShouldSetPanResponderCapture: (_, g) => {
+        /*
+          阈值必须很小（1 而不是 4）：慢速拖动时前几个 move 的 dy 只有 1~3，
+          如果这里返回 false，下层组件会立刻抢走 responder，之后就再也不走 capture 了，
+          表现就是「快速下滑能关、慢慢滑反而没反应」。
+        */
+        if (queueOpenRef.current) return false
+        if (g.dy <= 1) return false
+        if (Math.abs(g.dy) <= Math.abs(g.dx) * 1.1) return false
+        // 起点在进度条上：交给进度条自己处理（拖动跳转）
+        if (g.y0 >= seekZoneRef.current.top && g.y0 <= seekZoneRef.current.bottom) return false
+        // 歌词列表没回到顶部时，下滑交给列表自己滚动
+        if (modeRef.current === 'lyric' && lyricScrollY.current > 2) return false
+        return true
+      },
+      onPanResponderMove: (_, g) => {
+        if (g.dy <= 0) return
+        // 新手势开始：允许下一次收尾
+        if (!draggingRef.current) {
+          draggingRef.current = true
+          settlingRef.current = false
+        }
+        panY.setValue(g.dy)
+        // 竖屏且这次是从圆盘点进来的 → 封面跟着手指缩回圆盘（真正跟手，不是播一段独立动画）
+        if (landscapeRef.current) return
+        if (!closingRef.current) closingRef.current = beginClose()
+        if (closingRef.current) setCloseProgress(1 - g.dy / heightRef.current)
+      },
+      onPanResponderRelease: (_, g) => { settle(g) },
+      onPanResponderTerminate: (_, g) => { settle(g) },
+    })
+  }, [panY, closeWithSlideDown])
 
   /*
     歌词页时间轴：基准位置直接取 store 里的 progress.nowPlayTime（播放器每 ~500ms 推一次），
@@ -419,6 +535,8 @@ export default () => {
       best ? (QUALITY_DESC[best.type] ?? QUALITY_LABEL[best.type] ?? best.type) : '',
       raw.meta.albumName || '',
     ].filter(Boolean).join(' · ')
+    // 依赖只是用来在切歌时触发重算（数据实际读自 playerState），静态分析看不出，别删
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [musicInfo.id, musicInfo.pic])
 
   const detailRows = useMemo(() => {
@@ -445,6 +563,8 @@ export default () => {
     }
     rows.push({ label: '时长', value: formatTime(maxTime) })
     return rows
+    // 同上：musicInfo.id 只是切歌信号
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [musicInfo.id, musicInfo.name, musicInfo.singer, musicInfo.album, maxTime])
 
   const queue = useMemo(() => {
@@ -529,6 +649,14 @@ export default () => {
     </TouchableOpacity>
   ))
 
+  /** 队列面板的下滑关闭：只挂在顶部拖拽条上，不影响列表滚动 */
+  const queuePan = useMemo(() => PanResponder.create({
+    onMoveShouldSetPanResponder: (_, g) => g.dy > 4 && Math.abs(g.dy) > Math.abs(g.dx),
+    onPanResponderRelease: (_, g) => {
+      if (g.dy > 60) setQueueVisible(false)
+    },
+  }), [])
+
   /** 队列 / 详情 / 下载音质 三个弹层，横竖屏共用 */
   const modals = (
     <>
@@ -538,8 +666,8 @@ export default () => {
         <QueueCoverFlow
           visible={queueVisible}
           queue={queue}
-          currentId={musicInfo.id}
-          listId={playerState.playInfo.playerListId}
+          currentId={musicInfo.id ?? undefined}
+          listId={playerState.playInfo.playerListId ?? undefined}
           playing={isPlay}
           onClose={() => { setQueueVisible(false) }}
           onPlay={handlePlayFromQueue}
@@ -550,34 +678,61 @@ export default () => {
   <Modal visible={queueVisible} transparent animationType='slide' onRequestClose={() => { setQueueVisible(false) }}>
     <TouchableOpacity style={styles.modalMask} activeOpacity={1} onPress={() => { setQueueVisible(false) }}>
       <View style={{ ...styles.queueSheet, backgroundColor: theme['c-content-background'] }}>
+        {/* 顶部拖拽条：在它上面下滑只关队列（不动播放器），列表滚动不受影响 */}
+        <View {...queuePan.panHandlers} style={styles.queueHandleWrap}>
+          <View style={{ ...styles.queueHandle, backgroundColor: theme['c-350'] }} />
+        </View>
+        {/* 顶部：左边是播放模式（点一下切换），右边清空 —— 对齐飞牛的队列面板 */}
         <View style={styles.queueHead}>
-          <Text size={u(14)} style={styles.queueTitle}>播放队列 · {queue.length}</Text>
-          <TouchableOpacity onPress={() => { setQueueVisible(false) }}>
-            <Icon name='close' size={u(18)} color={theme['c-450']} />
+          <TouchableOpacity
+            style={{ ...styles.queueModeBtn, backgroundColor: theme['c-primary-alpha-900'] }}
+            activeOpacity={0.7}
+            onPress={() => {
+              const next = PLAY_MODES[(PLAY_MODES.indexOf(playMode) + 1) % PLAY_MODES.length]
+              updateSetting({ 'player.togglePlayMethod': next })
+            }}
+          >
+            <Icon name={MODE_ICON[playMode]} size={u(15)} color={theme['c-primary']} />
+            <Text size={u(13)} color={theme['c-primary']} style={styles.queueModeText}>{MODE_LABEL[playMode]}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.queueClearBtn}
+            activeOpacity={0.7}
+            onPress={() => {
+              if (!queue.length) return
+              void removeListMusics(playerState.playInfo.playerListId ?? '', queue.map(item => item.id))
+            }}
+          >
+            <Icon name='delete-outline' size={u(15)} color={theme['c-450']} />
+            <Text size={u(13)} color={theme['c-450']} style={styles.queueModeText}>清空</Text>
           </TouchableOpacity>
         </View>
         <ScrollView style={styles.queueList}>
           {
-            queue.map((item, index) => (
-              <TouchableOpacity
-                key={`${item.id}_${index}`}
-                style={styles.queueRow}
-                activeOpacity={0.6}
-                onPress={() => { handlePlayFromQueue(index) }}
-              >
-                <Text size={u(12)} color={theme['c-450']} style={styles.queueIndex}>{index + 1}</Text>
-                <PicImage musicInfo={item} listId={playerState.playInfo.playerListId} style={styles.queueCover} />
-                <View style={styles.queueInfo}>
-                  <Text size={u(13)} numberOfLines={1}>{item.name}</Text>
-                  <Text size={u(10)} color={theme['c-450']} numberOfLines={1} style={styles.queueSinger}>{item.singer}</Text>
-                </View>
-                {
-                  item.id === musicInfo.id
-                    ? <Icon name='volume-high' size={u(15)} color={theme['c-primary-font']} />
-                    : null
-                }
-              </TouchableOpacity>
-            ))
+            queue.map((item, index) => {
+              const active = item.id === musicInfo.id
+              return (
+                <TouchableOpacity
+                  key={`${item.id}_${index}`}
+                  style={styles.queueRow}
+                  activeOpacity={0.6}
+                  onPress={() => { handlePlayFromQueue(index) }}
+                >
+                  <PicImage musicInfo={item} listId={playerState.playInfo.playerListId} style={styles.queueCover} />
+                  <View style={styles.queueInfo}>
+                    <Text size={u(13)} color={active ? theme['c-primary'] : theme['c-font']} numberOfLines={1}>{item.name}</Text>
+                    <Text size={u(10)} color={theme['c-450']} numberOfLines={1} style={styles.queueSinger}>{item.singer}</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.queueRemove}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    onPress={() => { void removeListMusics(playerState.playInfo.playerListId ?? '', [item.id]) }}
+                  >
+                    <Icon name='close' size={u(15)} color={theme['c-350']} />
+                  </TouchableOpacity>
+                </TouchableOpacity>
+              )
+            })
           }
         </ScrollView>
       </View>
@@ -614,8 +769,14 @@ export default () => {
   if (isLandscape) {
     // 横屏 statusbarHeight 会报 0，但时钟照样浮在左上角
     const topInset = statusBarHeight > 0 ? statusBarHeight : 20
-    /** 左半屏宽度：高度够就取正方面（封面本身是方的，不裁切），否则按比例收 */
-    const coverW = Math.min(boxH, boxW * 0.48)
+    /*
+      封面宽度直接取容器高度：封面本身是正方形，取 boxH 就能既不裁切、
+      又正好铺满左侧（约 46% 屏宽）。之前用 boxW*0.48 兜底，旋转时 boxW 拿到
+      中间值会让封面窄一圈，看起来就是「错位」。
+    */
+    // 用窗口高（横屏时就是屏高）而不是 onLayout 的 boxH：旋转过程中 boxH 可能还是旧值，
+    // 封面会窄一圈、右缘柔化带的位置也跟着错
+    const coverW = Math.min(height, width * 0.52)
     return (
       <Animated.View
         style={{ ...styles.container, transform: [{ translateY: panY }] }}
@@ -627,7 +788,7 @@ export default () => {
           这块深色垫片和内容一起移动，把让出来的区域涂成播放器底色，滑下去就是「沉进黑里」，
           不会闪白。
         */}
-        <View pointerEvents='none' style={styles.slideBackdrop} />
+        <View pointerEvents='none' style={[styles.slideBackdrop, transitionPhase !== 'idle' ? styles.fadeOut : null]} />
         {navActiveId === 'nav_player' ? (
           <RNStatusBar barStyle='light-content' backgroundColor='rgba(0,0,0,0)' translucent />
         ) : null}
@@ -652,16 +813,31 @@ export default () => {
           pic
             ? (
               <View pointerEvents='none' style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: coverW, overflow: 'hidden' }}>
-                <RNImage source={{ uri: pic }} resizeMode='cover' style={{ width: coverW, height: boxH }} />
-                {/* 右边缘：清晰 → 糊，接缝不硬 */}
-                <FadeMask width={Math.min(96, coverW * 0.24)} height={boxH} from={1} to={0} dir='h' style={{ right: 0, top: 0 }}>
-                  <RNImage source={{ uri: pic }} resizeMode='cover' style={{ width: coverW, height: boxH }} />
+                <RNImage source={{ uri: pic }} resizeMode='cover' style={{ width: coverW, height: '100%' }} />
+                {/*
+                  右边缘：清晰 → 糊，接缝不硬。
+                  里面的图必须往左偏 (coverW - 带宽)，才能显示「同一位置」的右边缘；
+                  不偏移的话会显示成图片的左边，看起来就是一条和封面内容对不上的重影（错位）。
+                */}
+                <FadeMask
+                  width={Math.min(96, coverW * 0.24)}
+                  height={boxH}
+                  from={1}
+                  to={0}
+                  dir='h'
+                  style={{ right: 0, top: 0 }}
+                >
+                  <RNImage
+                    source={{ uri: pic }}
+                    resizeMode='cover'
+                    style={{ position: 'absolute', top: 0, left: -(coverW - Math.min(96, coverW * 0.24)), width: coverW, height: '100%' }}
+                  />
                 </FadeMask>
                 {/* 上下边缘轻微压暗，保证状态栏和控制区可读 */}
                 <LinearGradient
                   colors={['rgba(0,0,0,0.42)', 'rgba(0,0,0,0)', 'rgba(0,0,0,0)']}
                   locations={[0, 0.22, 1]}
-                  style={{ position: 'absolute', left: 0, right: 0, top: 0, height: boxH * 0.4 }}
+                  style={{ position: 'absolute', left: 0, right: 0, top: 0, height: '40%' }}
                 />
               </View>
               )
@@ -796,7 +972,7 @@ export default () => {
       onLayout={handleLayout}
     >
       {/* 下滑关闭时把让出来的区域也涂成播放器底色，避免露出页面白底（浅色主题下就是白屏） */}
-      <View pointerEvents='none' style={styles.slideBackdrop} />
+      <View pointerEvents='none' style={[styles.slideBackdrop, transitionPhase !== 'idle' ? styles.fadeOut : null]} />
       {/*
         播放器页背景永远是深色，但全局 StatusBar 是按主题给 barStyle 的，
         浅色主题下状态栏图标就是黑的、在封面糊底上完全看不见。
@@ -819,7 +995,13 @@ export default () => {
 
       {/* 舞台：上倒影 + 封面（四边柔化）+ 下倒影，全部铺到屏幕边缘 */}
       <Animated.View pointerEvents='none' style={[styles.stage, { opacity: coverAnim }]}>
-        <Stage pic={pic} width={layoutW} height={layoutH} hidden={mode === 'lyric'} />
+        <Stage
+          pic={pic ?? undefined}
+          name={musicInfo.name}
+          width={layoutW}
+          height={layoutH}
+          hidden={mode === 'lyric' || transitionPhase !== 'idle'}
+        />
       </Animated.View>
 
       {/*
@@ -865,7 +1047,7 @@ export default () => {
           mode === 'lyric'
             ? (
               <View pointerEvents='none' style={styles.headerTitle}>
-                <Text size={u(15)} color='rgba(255,255,255,0.96)' numberOfLines={1} style={styles.headerName}>{musicInfo.name || '未在播放'}</Text>
+                <MarqueeText text={musicInfo.name || '未在播放'} size={u(15)} color='rgba(255,255,255,0.96)' style={styles.headerName} align='center' />
                 <Text size={u(11)} color='rgba(255,255,255,0.62)' numberOfLines={1} style={styles.headerSinger}>{musicInfo.singer}</Text>
               </View>
               )
@@ -1002,6 +1184,7 @@ export default () => {
               trackColor={palette.track}
               onSeek={handleSeek}
               onPreview={setSeekPreview}
+              onZone={(top, bottom) => { seekZoneRef.current = { top, bottom } }}
             />
           </View>
           <View style={styles.timeRow}>
@@ -1071,6 +1254,9 @@ const styles = {
     bottom: 0,
     backgroundColor: 'rgba(10,8,14,0.20)',
   },
+  fadeOut: {
+    opacity: 0,
+  },
   slideBackdrop: {
     position: 'absolute' as const,
     left: 0,
@@ -1101,11 +1287,12 @@ const styles = {
     right: 60,
     top: 0,
     bottom: 0,
-    alignItems: 'center' as const,
+    // 不能用 center：跑马灯的外层会按内容宽度收缩，boxWidth 永远等于文字宽度，滚不起来
+    alignItems: 'stretch' as const,
     justifyContent: 'center' as const,
   },
-  headerName: { fontWeight: '600' as const, lineHeight: 20 },
-  headerSinger: { lineHeight: 16 },
+  headerName: { fontWeight: '600' as const, lineHeight: 20, textAlign: 'center' as const },
+  headerSinger: { lineHeight: 16, textAlign: 'center' as const },
 
   /* 封面态：封面下方的当前歌词行（飞牛 588.6..605.7） */
   lyricStrip: {
@@ -1192,8 +1379,8 @@ const styles = {
     justifyContent: 'space-between' as const,
   },
   // 左右时间都留 40dp 最小宽度防止数字跳动；右边那个右对齐，墨迹才能正好落在进度条末端
-  timeText: { flexShrink: 0, minWidth: 40, fontVariant: ['tabular-nums'] as const },
-  timeTextRight: { flexShrink: 0, minWidth: 40, textAlign: 'right' as const, fontVariant: ['tabular-nums'] as const },
+  timeText: { flexShrink: 0, minWidth: 40, fontVariant: ['tabular-nums'] as Array<'tabular-nums'> },
+  timeTextRight: { flexShrink: 0, minWidth: 40, textAlign: 'right' as const, fontVariant: ['tabular-nums'] as Array<'tabular-nums'> },
   timeCenter: {
     flexGrow: 1,
     flexShrink: 1,
@@ -1272,7 +1459,18 @@ const styles = {
   },
 
   modalMask: { flex: 1, justifyContent: 'flex-end' as const, backgroundColor: 'rgba(0,0,0,0.45)' },
-  queueSheet: { maxHeight: '60%' as const, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: 20 },
+  queueSheet: { maxHeight: '78%' as const, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: 20 },
+  queueHandleWrap: {
+    alignItems: 'center' as const,
+    paddingTop: 8,
+    paddingBottom: 2,
+  },
+  queueHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    opacity: 0.5,
+  },
   queueHead: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
@@ -1283,17 +1481,33 @@ const styles = {
     paddingBottom: 12,
   },
   queueTitle: { fontWeight: '600' as const },
+  queueModeBtn: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    height: 30,
+    paddingLeft: 12,
+    paddingRight: 14,
+    borderRadius: 15,
+  },
+  queueModeText: { marginLeft: 6 },
+  queueClearBtn: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    height: 30,
+    paddingLeft: 10,
+    paddingRight: 6,
+  },
+  queueRemove: { width: 32, height: 32, justifyContent: 'center' as const, alignItems: 'center' as const },
   queueList: { paddingLeft: 8, paddingRight: 8 },
   queueRow: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     paddingLeft: 10,
     paddingRight: 10,
-    paddingTop: 8,
-    paddingBottom: 8,
+    paddingTop: 7,
+    paddingBottom: 7,
   },
-  queueIndex: { width: 26 },
-  queueCover: { width: 36, height: 36, borderRadius: 8, marginRight: 10 },
+  queueCover: { width: 44, height: 44, borderRadius: 10, marginRight: 12 },
   queueInfo: { flexGrow: 1, flexShrink: 1 },
   queueSinger: { marginTop: 2 },
   detailSheet: {

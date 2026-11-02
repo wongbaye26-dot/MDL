@@ -8,7 +8,6 @@ import {
   View,
   Modal,
   TextInput,
-  ScrollView,
   StyleSheet,
   type GestureResponderEvent,
   type NativeScrollEvent,
@@ -19,15 +18,17 @@ import Text from '@/components/common/Text'
 import Image from '@/components/common/Image'
 import { Icon } from '@/components/common/Icon'
 import DorpDownMenu from '@/components/common/DorpDownMenu'
-import Chip from '@/components/common/Chip'
+import CoverPlaceholder from '@/components/common/CoverPlaceholder'
 import PageHeader from '@/components/common/PageHeader'
+import MiniTag from '@/components/common/MiniTag'
 import Menu, { type MenuType } from '@/components/common/Menu'
 import { useTheme } from '@/store/theme/hook'
 import { contrastOn } from '@/theme/solid'
 import { createStyle, toast } from '@/utils/tools'
 import { formatSize, formatSampleRate } from '@/core/download/utils'
-import { getLocalMusicList, scanLocalMusic, getTotalSize, deleteLocalMusic, updateLocalMusicMeta, getScanDirs, getExtraDirs, setExtraDirs } from '@/core/localMusic'
-import { pickDirectory, isDirectoryPickerSupported } from '@/utils/directoryPicker'
+import { getLocalMusicList, scanLocalMusic, getTotalSize, deleteLocalMusic, updateLocalMusicMeta, getScanDirs, getExtraDirs, setExtraDirs, type ScanDir } from '@/core/localMusic'
+import { pickDirectory, isDirectoryPickerSupported, readAudioMeta } from '@/utils/directoryPicker'
+import { getData, saveData } from '@/plugins/storage'
 import { readPic } from '@/utils/localMediaMetadata'
 import { overwriteListMusics } from '@/core/list'
 import listAction from '@/store/list/action'
@@ -37,6 +38,10 @@ import { LIST_IDS, NAV_BAR_SPACE } from '@/config/constant'
 import { useWindowSize } from '@/utils/hooks'
 
 const LOCAL_LIST_ID = 'local_music'
+/** 列表/卡片偏好的存储键 */
+const VIEW_MODE_KEY = '@local_music_view_mode'
+/** 授权失效的提示色（主题里没有 warning 语义色，这里固定一个在深浅底上都读得出来的琥珀色） */
+const WARN_COLOR = '#E8A33D'
 
 /** 浏览层级（Poweramp 那种：最近添加 / 专辑 / 艺人 / 文件夹树 / 全部） */
 const TABS = [
@@ -62,36 +67,83 @@ const loadPic = async(filePath: string): Promise<string> => {
   return picQueue as Promise<string>
 }
 
+/** 确认过确实没有内嵌封面的文件，别再反复读 */
+const noCoverSet = new Set<string>()
+
 const Cover = ({ item }: { item: LX.Music.MusicInfoLocal }) => {
   const theme = useTheme()
   // MediaStore 条目自带 albumart 的 content:// 地址，直接用它（公共目录读不了文件）
   const [uri, setUri] = useState<string | null>(() => item.meta.picUrl ?? picCache.get(item.meta.filePath) ?? null)
+  /** 抽取失败/图片加载失败后标记，用来切到首字占位 */
+  const [failed, setFailed] = useState(false)
+  /** 本轮是否已经尝试过抽取，避免 effect 反复跑 */
+  const tried = useRef(false)
+  /** 加载失败后允许重新抽一次（缓存被系统清掉时能自愈） */
+  const recovered = useRef(false)
 
+  /**
+   * 惰性取封面：扫描时没抽到、或者抽出来的缓存文件已经失效，都在这里补一次。
+   * - 应用私有目录：直接读文件
+   * - 公共目录：用 SAF 文档 uri 抽内嵌封面（按路径打不开）
+   * 抽不到就记进 noCoverSet，滚动重挂载时不再重复调用原生。
+   */
   useEffect(() => {
-    let alive = true
     if (uri) return
-    // 自己下载目录里的文件才走本地提取
-    if (item.meta.filePath.includes('/Android/data/')) {
-      void loadPic(item.meta.filePath).then(pic => {
-        if (alive && pic) setUri(pic)
-      })
+    if (failed) return
+    if (tried.current) return
+    if (noCoverSet.has(item.meta.filePath)) return
+    tried.current = true
+    let alive = true
+    const done = (pic: string | null) => {
+      if (!alive) return
+      if (pic) {
+        picCache.set(item.meta.filePath, pic)
+        setUri(pic)
+        setFailed(false)
+      } else {
+        noCoverSet.add(item.meta.filePath)
+      }
     }
+    if (item.meta.filePath.includes('/Android/data/')) {
+      void loadPic(item.meta.filePath).then(pic => { done(pic || null) }).catch(() => { done(null) })
+      return () => { alive = false }
+    }
+    const contentUri = item.meta.contentUri
+    if (!contentUri) {
+      noCoverSet.add(item.meta.filePath)
+      return
+    }
+    void readAudioMeta(contentUri)
+      .then(meta => { done(meta?.cover ?? null) })
+      .catch(() => { done(null) })
     return () => { alive = false }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [item.meta.filePath])
+  }, [item.meta.filePath, item.meta.contentUri, uri, failed])
+
+  /** 图片加载失败：先给一次重新抽取的机会，再失败就落到首字占位 */
+  const handleError = () => {
+    if (!recovered.current) {
+      recovered.current = true
+      tried.current = false
+      setUri(null)
+      return
+    }
+    setFailed(true)
+  }
 
   return (
     <View style={{ ...styles.cover, backgroundColor: theme['c-primary-alpha-900'] }}>
       {
-        uri
-          ? <Image url={uri} style={styles.coverImg} />
-          : <Icon name='music_time' size={18} color={theme['c-primary-light-200']} />
+        uri && !failed
+          ? <Image url={uri} style={styles.coverImg} onError={handleError} />
+          : <CoverPlaceholder name={item.name} size={56} radius={10} />
       }
     </View>
   )
 }
 
-export default ({ onClose }: { onClose?: () => void }) => {
+export type LocalTab = 'recent' | 'album' | 'artist' | 'folder' | 'song'
+
+export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时直接落到哪个页签（首页「最近添加歌曲」进来用） */ initialTab?: LocalTab }) => {
   const theme = useTheme()
   const { height: windowHeight } = useWindowSize()
   const [list, setList] = useState<LX.Music.MusicInfoLocal[]>([])
@@ -100,15 +152,19 @@ export default ({ onClose }: { onClose?: () => void }) => {
   const [progress, setProgress] = useState(0)
   const [inited, setInited] = useState(false)
   /** 全部扫描根目录（默认下载目录 + 用户添加的） */
-  const [dirs, setDirs] = useState<string[]>([])
+  const [dirs, setDirs] = useState<ScanDir[]>([])
   const [dirModal, setDirModal] = useState(false)
-  const dirsRef = useRef<string[]>([])
+  const dirsRef = useRef<ScanDir[]>([])
   /** 浏览层级：最近添加 / 专辑 / 艺人 / 文件夹树 / 全部歌曲 */
-  const [tab, setTab] = useState<'recent' | 'album' | 'artist' | 'folder' | 'song'>('song')
+  const [tab, setTab] = useState<LocalTab>(initialTab ?? 'song')
   /** 专辑 / 艺人的二级页 */
   const [detail, setDetail] = useState<{ type: 'album' | 'artist', title: string } | null>(null)
   /** 文件夹树当前目录（null = 根） */
   const [folderPath, setFolderPath] = useState<string | null>(null)
+  /** 授权失效、需要用户重新选一次的目录 */
+  const [needAuth, setNeedAuth] = useState<ScanDir[]>([])
+  /** 歌曲行的呈现方式：列表 / 卡片（持久化，重进页面保持上次选择） */
+  const [viewMode, setViewMode] = useState<'list' | 'card'>('list')
   const mountedRef = useRef(true)
 
   useEffect(() => {
@@ -118,19 +174,43 @@ export default ({ onClose }: { onClose?: () => void }) => {
     }
   }, [])
 
+  useEffect(() => {
+    void getData<'list' | 'card'>(VIEW_MODE_KEY).then(mode => {
+      if (mode === 'list' || mode === 'card') setViewMode(mode)
+    })
+  }, [])
+
+  const changeViewMode = useCallback((mode: 'list' | 'card') => {
+    setViewMode(mode)
+    void saveData(VIEW_MODE_KEY, mode)
+  }, [])
+
   const handleScan = useCallback(async() => {
     if (scanning) return
     setScanning(true)
     setProgress(0)
     try {
-      const result = await scanLocalMusic(count => {
-        if (mountedRef.current) setProgress(count)
-      }, dirsRef.current.length ? dirsRef.current : undefined)
+      const result = await scanLocalMusic(
+        count => {
+          if (mountedRef.current) setProgress(count)
+        },
+        dirsRef.current.length ? dirsRef.current : undefined,
+        // 列表边扫边出：先出文件名兜底版，标签补齐过程中持续刷新
+        partial => {
+          if (mountedRef.current) setList(partial)
+        },
+      )
       if (!mountedRef.current) return
       setList(result.list)
       setDir(result.dir)
       setDirs(result.dirs)
-      toast(result.list.length ? `扫描完成，共 ${result.list.length} 首` : '没有找到音频文件')
+      setNeedAuth(result.needAuth)
+      if (result.needAuth.length) {
+        // 授权失效 / 从没授权过，扫出来永远是 0 首，只能让用户重选一次
+        toast(`「${result.needAuth.map(d => baseNameOf(d.path) || d.path).join('、')}」需要重新授权才能扫描`)
+      } else {
+        toast(result.list.length ? `扫描完成，共 ${result.list.length} 首` : '没有找到音频文件')
+      }
     } catch {
       if (mountedRef.current) toast('扫描失败，请检查目录权限')
     } finally {
@@ -201,26 +281,6 @@ export default ({ onClose }: { onClose?: () => void }) => {
     return map
   }, [list])
 
-  /** 根目录 = 层级最浅的那个 */
-  const folderRoot = useMemo(() => {
-    let root = ''
-    for (const p of folderTree.keys()) {
-      if (!root || p.split('/').length < root.split('/').length) root = p
-    }
-    return root
-  }, [folderTree])
-
-  const currentFolder = folderPath && folderTree.has(folderPath) ? folderPath : folderRoot
-
-  /** 某个目录（含子目录）下的歌曲数 */
-  const countOfFolder = useCallback((path: string) => {
-    let count = 0
-    for (const [p, node] of folderTree) {
-      if (p === path || p.startsWith(`${path}/`)) count += node.songs.length
-    }
-    return count
-  }, [folderTree])
-
   const rows = useMemo(() => {
     type Row =
       | { type: 'song', key: string, item: LX.Music.MusicInfoLocal, index: number }
@@ -228,11 +288,12 @@ export default ({ onClose }: { onClose?: () => void }) => {
       | { type: 'artist', key: string, title: string, count: number }
       | { type: 'folder', key: string, title: string, count: number, path: string }
 
-    const toSongRow = (item: LX.Music.MusicInfoLocal): Row => ({
+    const toSongRow = (item: LX.Music.MusicInfoLocal, position?: number): Row => ({
       type: 'song',
       key: item.id,
       item,
-      index: indexOfId.get(item.id) ?? 0,
+      // 「全部歌曲」直接用数组下标，避免排序/刷新过程中 map 与列表顺序对不上导致序号错位
+      index: position ?? indexOfId.get(item.id) ?? 0,
     })
 
     // 二级页：某张专辑 / 某个艺人的歌
@@ -241,27 +302,31 @@ export default ({ onClose }: { onClose?: () => void }) => {
         .filter(it => (detail.type === 'album'
           ? (it.meta.albumName || '未知专辑')
           : (it.singer || '未知歌手')) === detail.title)
-        .map(toSongRow)
+        .map(item => toSongRow(item))
     }
 
     // 最近添加：按文件修改时间倒序
     if (tab === 'recent') {
-      return [...list].sort((a, b) => (b.meta.mtime ?? 0) - (a.meta.mtime ?? 0)).map(toSongRow)
+      return [...list].sort((a, b) => (b.meta.mtime ?? 0) - (a.meta.mtime ?? 0)).map(item => toSongRow(item))
     }
 
-    if (tab === 'song') return list.map(toSongRow)
+    if (tab === 'song') return list.map((item, i) => toSongRow(item, i))
 
-    // 文件夹树：当前目录的子文件夹 + 本层歌曲
+    // 文件夹：只列「直接装了歌」的目录（不再逐层钻），点进去就是这一层的歌
     if (tab === 'folder') {
-      const node = folderTree.get(currentFolder)
-      const out: Row[] = []
-      if (node) {
-        for (const child of [...node.children].sort((a, b) => a.localeCompare(b, 'zh-Hans-CN'))) {
-          out.push({ type: 'folder', key: child, title: baseNameOf(child), count: countOfFolder(child), path: child })
-        }
-        for (const item of node.songs) out.push(toSongRow(item))
+      if (folderPath && folderTree.has(folderPath)) {
+        return (folderTree.get(folderPath)?.songs ?? []).map(item => toSongRow(item))
       }
-      return out
+      return [...folderTree.entries()]
+        .filter(([, node]) => node.songs.length > 0)
+        .sort((a, b) => a[0].localeCompare(b[0], 'zh-Hans-CN'))
+        .map(([path, node]): Row => ({
+          type: 'folder',
+          key: path,
+          title: baseNameOf(path),
+          count: node.songs.length,
+          path,
+        }))
     }
 
     // 专辑 / 艺人：先列分组，点进去看二级页
@@ -277,7 +342,7 @@ export default ({ onClose }: { onClose?: () => void }) => {
       .map(([key, items]): Row => tab === 'album'
         ? { type: 'album', key, title: key, count: items.length, cover: items[0] }
         : { type: 'artist', key, title: key, count: items.length })
-  }, [detail, tab, list, indexOfId, folderTree, currentFolder, countOfFolder])
+  }, [detail, tab, list, indexOfId, folderTree, folderPath])
 
   // 下滑关闭：回到下载中心。
   // onClose 放进 ref：外层每次重渲染都会传新闭包，如果进 useMemo 依赖，
@@ -365,15 +430,20 @@ export default ({ onClose }: { onClose?: () => void }) => {
       const picked = await pickDirectory()
       if (!picked) return
       const extra = await getExtraDirs()
-      if (extra.includes(picked.path)) {
+      const exist = extra.find(d => d.path === picked.path)
+      if (exist?.treeUri) {
         toast('这个文件夹已经在扫描列表里了')
         return
       }
-      await setExtraDirs([...extra, picked.path])
+      // 老版本加进来的目录只有路径、没有 SAF 授权 —— 系统不索引它就永远扫不到，
+      // 所以这里不拒绝，而是把授权补上
+      await setExtraDirs(exist
+        ? extra.map(d => d.path === picked.path ? { ...d, treeUri: picked.treeUri } : d)
+        : [...extra, { path: picked.path, treeUri: picked.treeUri }])
       const next = await getScanDirs()
       dirsRef.current = next
       setDirs(next)
-      toast(`已添加「${picked.name}」，开始扫描…`)
+      toast(`已${exist ? '重新授权' : '添加'}「${picked.name}」，开始扫描…`)
       setDirModal(false)
       setScanning(false)
       void handleScan()
@@ -385,7 +455,7 @@ export default ({ onClose }: { onClose?: () => void }) => {
   /** 移除一个额外目录（默认下载目录不能删） */
   const handleRemoveDir = useCallback(async(path: string) => {
     const extra = await getExtraDirs()
-    await setExtraDirs(extra.filter(d => d !== path))
+    await setExtraDirs(extra.filter(d => d.path !== path))
     const next = await getScanDirs()
     dirsRef.current = next
     setDirs(next)
@@ -467,7 +537,10 @@ export default ({ onClose }: { onClose?: () => void }) => {
           </View>
           <View style={styles.groupInfo}>
             <Text size={14} numberOfLines={1}>{row.title}</Text>
-            <Text size={10} color={theme['c-450']} numberOfLines={1} style={styles.groupMeta}>{row.count} 首</Text>
+            {/* 同名目录（比如两个 Download）光看名字分不清，把父目录一起带上 */}
+            <Text size={10} color={theme['c-450']} numberOfLines={1} style={styles.groupMeta}>
+              {row.count} 首 · {parentOf(row.path)}
+            </Text>
           </View>
           <Icon name='chevron-right' size={18} color={theme['c-350']} />
         </TouchableOpacity>
@@ -479,6 +552,7 @@ export default ({ onClose }: { onClose?: () => void }) => {
       <LocalRow
         item={item}
         index={index}
+        card={viewMode === 'card'}
         onPress={() => { void handlePlay(index) }}
         onMenu={action => {
           if (action === 'play') void handlePlay(index)
@@ -489,7 +563,7 @@ export default ({ onClose }: { onClose?: () => void }) => {
         }}
       />
     )
-  }, [theme, handlePlay, handlePlayLater, handleDelete, handleEdit])
+  }, [theme, handlePlay, handlePlayLater, handleDelete, handleEdit, viewMode])
 
   /** 二级页「播放全部」：从这一组的第一首开始播 */
   const handlePlayGroup = useCallback(() => {
@@ -504,35 +578,94 @@ export default ({ onClose }: { onClose?: () => void }) => {
     >
       <View style={styles.container}>
       {/* 作为主 Tab 用时补一个统一页头；从下载中心弹出来时不需要（那个是整屏子页） */}
-      {hasClose ? null : <PageHeader title='本地音乐' />}
-      <View style={{
-        ...styles.scanCard,
-        backgroundColor: theme['c-primary-alpha-900'],
-        borderColor: theme['c-primary-alpha-700'],
-      }}>
+      {hasClose ? null : (
+        <PageHeader
+          title='本地音乐'
+          subtitle={(
+            <View style={styles.headerTags}>
+              {list.length ? <MiniTag text={`${list.length} 首`} /> : null}
+              {totalSize ? <MiniTag text={totalSize} /> : null}
+            </View>
+          )}
+          right={(
+            <View style={styles.headerActions}>
+              <TouchableOpacity
+                style={{ ...styles.headerBtn, backgroundColor: theme['c-primary-alpha-900'] }}
+                activeOpacity={0.8}
+                onPress={() => { setDirModal(true) }}
+              >
+                <Icon name='folder-cog' size={20} color={theme['c-font']} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{ ...styles.headerBtn, backgroundColor: theme['c-primary-alpha-900'] }}
+                activeOpacity={0.8}
+                onPress={() => { void handleScan() }}
+              >
+                <Icon name='refresh' size={20} color={theme['c-font']} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{
+                  ...styles.headerBtn,
+                  backgroundColor: viewMode === 'list' ? theme['c-primary'] : theme['c-primary-alpha-900'],
+                }}
+                activeOpacity={0.8}
+                onPress={() => { changeViewMode('list') }}
+              >
+                <Icon name='format-list-bulleted' size={20} color={viewMode === 'list' ? contrastOn(theme['c-primary']) : theme['c-font']} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{
+                  ...styles.headerBtn,
+                  backgroundColor: viewMode === 'card' ? theme['c-primary'] : theme['c-primary-alpha-900'],
+                }}
+                activeOpacity={0.8}
+                onPress={() => { changeViewMode('card') }}
+              >
+                <Icon name='view-grid-outline' size={20} color={viewMode === 'card' ? contrastOn(theme['c-primary']) : theme['c-font']} />
+              </TouchableOpacity>
+            </View>
+          )}
+        />
+      )}
+      {
+        (scanning || needAuth.length > 0)
+          ? <View style={{
+            ...styles.scanCard,
+            backgroundColor: theme['c-primary-alpha-900'],
+            borderColor: theme['c-primary-alpha-700'],
+          }}>
         <View style={styles.scanInfo}>
-          <View style={styles.scanTitleRow}>
-            <Icon name='folder-multiple' size={13} color={theme['c-primary-light-200']} />
-            <Text size={12} numberOfLines={1} style={styles.scanTitle}>
-              {dirs.length > 1 ? `${dirs.length} 个文件夹` : (dir || '下载目录')}
-            </Text>
-          </View>
-          <Text size={11} color={theme['c-450']} numberOfLines={1} style={styles.scanMeta}>
-            {scanning ? `扫描中，已找到 ${progress} 首…` : `${list.length} 首 · ${totalSize}`}
+          <Text size={12} numberOfLines={1}>
+            {dirs.length > 1 ? `${dirs.length} 个目录` : (dir || '下载目录')}
+          </Text>
+          <Text
+            size={11}
+            color={needAuth.length ? WARN_COLOR : theme['c-450']}
+            numberOfLines={1}
+            style={styles.scanMeta}
+          >
+            {scanning
+              ? `扫描中，已找到 ${progress} 首…`
+              : needAuth.length
+                ? `${list.length} 首 · ${needAuth.length} 个文件夹需重新授权`
+                : `${list.length} 首 · ${totalSize}`}
           </Text>
         </View>
         <TouchableOpacity
           style={{
             ...styles.scanBtn,
+            ...styles.scanBtnIconOnly,
             backgroundColor: theme['c-primary-alpha-800'],
             borderWidth: 0.5,
             borderColor: theme['c-primary-alpha-600'],
           }}
+          hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
           activeOpacity={0.8}
           onPress={() => { setDirModal(true) }}
         >
-          <Icon name='folder-cog' size={12} color={theme['c-primary']} />
-          <Text size={11} color={theme['c-primary']} style={styles.scanBtnText}>文件夹</Text>
+          {/* 只放图标：「文件夹」三个字会把左边的目录数/统计挤到只剩 4 个字 */}
+          <Icon name='folder-cog' size={14} color={theme['c-primary']} />
+          {needAuth.length ? <View style={{ ...styles.warnDot, backgroundColor: WARN_COLOR }} /> : null}
         </TouchableOpacity>
         <TouchableOpacity
           style={{ ...styles.scanBtn, backgroundColor: theme['c-primary'], opacity: scanning ? 0.6 : 1, marginLeft: 8 }}
@@ -543,6 +676,8 @@ export default ({ onClose }: { onClose?: () => void }) => {
           <Text size={11} color={contrastOn(theme['c-primary'])} style={styles.scanBtnText}>{scanning ? '扫描中' : '扫描'}</Text>
         </TouchableOpacity>
       </View>
+          : null
+      }
 
       {
         detail
@@ -572,44 +707,50 @@ export default ({ onClose }: { onClose?: () => void }) => {
             </View>
             )
           : (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.tabScroll}
-              contentContainerStyle={styles.tabRow}
-            >
-              {
-                TABS.map(item => (
-                  <Chip
-                    key={item.key}
-                    size='sm'
-                    icon={item.icon}
-                    label={item.label}
-                    active={tab === item.key}
-                    onPress={() => {
-                      if (tab === item.key) return
-                      setTab(item.key)
-                      setFolderPath(null)
-                    }}
-                  />
-                ))
-              }
-            </ScrollView>
+            <View style={styles.tabBar}>
+              <View style={styles.tabRow}>
+                {
+                  TABS.map(item => {
+                    const active = tab === item.key
+                    return (
+                      <TouchableOpacity
+                        key={item.key}
+                        activeOpacity={0.8}
+                        style={{
+                          ...styles.tabItem,
+                          backgroundColor: active ? theme['c-primary'] : theme['c-primary-alpha-900'],
+                          borderColor: active ? theme['c-primary'] : theme['c-primary-alpha-700'],
+                        }}
+                        onPress={() => {
+                          if (active) return
+                          setTab(item.key)
+                          setFolderPath(null)
+                        }}
+                      >
+                        <Text size={11} color={active ? contrastOn(theme['c-primary']) : theme['c-450']} numberOfLines={1}>
+                          {item.label}
+                        </Text>
+                      </TouchableOpacity>
+                    )
+                  })
+                }
+              </View>
+            </View>
             )
       }
 
       {
-        !detail && tab === 'folder' && currentFolder && currentFolder !== folderRoot
+        !detail && tab === 'folder' && folderPath
           ? (
             <View style={styles.crumbRow}>
               <TouchableOpacity
-                onPress={() => { setFolderPath(parentOf(currentFolder)) }}
+                onPress={() => { setFolderPath(null) }}
                 style={styles.crumbBack}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <Icon name='arrow-up' size={15} color={theme['c-primary']} />
+                <Icon name='chevron-left' size={16} color={theme['c-primary']} />
               </TouchableOpacity>
-              <Text size={11} color={theme['c-450']} numberOfLines={1} style={styles.crumbText}>{currentFolder}</Text>
+              <Text size={11} color={theme['c-450']} numberOfLines={1} style={styles.crumbText}>{folderPath}</Text>
             </View>
             )
           : null
@@ -620,6 +761,14 @@ export default ({ onClose }: { onClose?: () => void }) => {
         renderItem={renderItem}
         keyExtractor={row => row.key}
         contentContainerStyle={styles.listContent}
+        /*
+          FlatList 默认只渲染 10 条（initialNumToRender 默认值），列表长了就会出现
+          「只显示 10 首、往下滑是空的」—— 这个列表最多几百条，直接一次渲染完。
+        */
+        initialNumToRender={Math.max(20, rows.length)}
+        maxToRenderPerBatch={Math.max(20, rows.length)}
+        windowSize={41}
+        removeClippedSubviews={false}
         scrollEventThrottle={32}
         onScroll={e => { scrollY.current = e.nativeEvent.contentOffset.y }}
         onScrollEndDrag={handleScrollEndDrag}
@@ -658,18 +807,40 @@ export default ({ onClose }: { onClose?: () => void }) => {
           >
             <Text size={15} style={editStyles.title}>扫描文件夹</Text>
             {
-              dirs.map(d => (
-                <View key={d} style={styles.dirRow}>
-                  <Icon name='folder' size={16} color={theme['c-primary']} />
-                  <View style={styles.dirInfo}>
-                    <Text size={13} numberOfLines={1}>{baseNameOf(d) || d}</Text>
-                    <Text size={10} color={theme['c-450']} numberOfLines={1} style={styles.dirPath}>{d}</Text>
-                  </View>
-                  <TouchableOpacity onPress={() => { void handleRemoveDir(d) }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                    <Icon name='close-circle' size={18} color={theme['c-450']} />
+              dirs.map(d => {
+                const invalid = needAuth.some(n => n.path === d.path)
+                return (
+                  <TouchableOpacity
+                    key={d.path}
+                    style={styles.dirRow}
+                    activeOpacity={invalid ? 0.6 : 1}
+                    disabled={!invalid}
+                    onPress={() => { void handleAddDir() }}
+                  >
+                    <Icon
+                      name={invalid ? 'folder-alert-outline' : 'folder'}
+                      size={16}
+                      color={invalid ? WARN_COLOR : theme['c-primary']}
+                    />
+                    <View style={styles.dirInfo}>
+                      <Text size={13} numberOfLines={1}>{baseNameOf(d.path) || d.path}</Text>
+                      <Text
+                        size={10}
+                        color={invalid ? WARN_COLOR : theme['c-450']}
+                        numberOfLines={1}
+                        style={styles.dirPath}
+                      >
+                        {invalid
+                          ? '授权已失效，点这里重新选择'
+                          : `${d.path}${d.treeUri ? '' : '（仅系统索引）'}`}
+                      </Text>
+                    </View>
+                    <TouchableOpacity onPress={() => { void handleRemoveDir(d.path) }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                      <Icon name='close-circle' size={18} color={theme['c-450']} />
+                    </TouchableOpacity>
                   </TouchableOpacity>
-                </View>
-              ))
+                )
+              })
             }
             {
               isDirectoryPickerSupported
@@ -696,9 +867,11 @@ export default ({ onClose }: { onClose?: () => void }) => {
   )
 }
 
-const LocalRow = ({ item, index, onPress, onMenu }: {
+const LocalRow = ({ item, index, card = false, onPress, onMenu }: {
   item: LX.Music.MusicInfoLocal
   index: number
+  /** 卡片模式：带边框底色的独立卡片（和搜索/排行榜的「卡片」同一套 token） */
+  card?: boolean
   onPress: () => void
   onMenu: (action: string) => void
 }) => {
@@ -718,34 +891,43 @@ const LocalRow = ({ item, index, onPress, onMenu }: {
     menuRef.current?.show({ x: pageX, y: pageY, w: 0, h: 0 })
   }
 
-  const meta = useMemo(() => {
-    const rate = item.meta.sampleRate
+  /** 第二行：歌手 - 专辑 */
+  const subLine = useMemo(() => {
+    return [item.singer || '未知歌手', item.meta.albumName].filter(Boolean).join(' - ')
+  }, [item])
+  /** 第三行：采样率（精简成 44.1k，小标签放得下） */
+  const rate = useMemo(() => {
+    return item.meta.sampleRate
       ? formatSampleRate(item.meta.sampleRate)
       : ''
-    return [
-      item.singer || '未知歌手',
-      item.meta.ext.toUpperCase(),
-      rate,
-      item.meta.bitrate ? `${item.meta.bitrate} kbps` : '',
-      item.interval,
-      item.meta.size ? formatSize(item.meta.size) : '',
-    ].filter(Boolean).join(' · ')
   }, [item])
 
   return (
-    <View style={styles.row}>
+    <View style={card
+      ? {
+          ...styles.cardRow,
+          backgroundColor: theme['c-primary-alpha-900'],
+          borderColor: theme['c-primary-alpha-700'],
+        }
+      : styles.row}>
       <TouchableOpacity
-        style={styles.rowMain}
+        style={card ? styles.cardMain : styles.rowMain}
         activeOpacity={0.7}
         onPress={onPress}
         onLongPress={handleLongPress}
         delayLongPress={320}
       >
-        <Text size={11} color={theme['c-350']} style={styles.index}>{index + 1}</Text>
+        {card ? null : <Text size={11} color={theme['c-350']} style={styles.index}>{index + 1}</Text>}
         <Cover item={item} />
         <View style={styles.info}>
-          <Text size={14} numberOfLines={1}>{item.name}</Text>
-          <Text size={10} color={theme['c-450']} numberOfLines={1} style={styles.meta}>{meta}</Text>
+          <Text size={15} numberOfLines={1} style={styles.name}>{item.name}</Text>
+          <Text size={11.5} color={theme['c-450']} numberOfLines={1} style={styles.meta}>{subLine}</Text>
+          <View style={styles.thirdRow}>
+            {item.interval ? <MiniTag text={item.interval} /> : null}
+            <MiniTag text={item.meta.ext.toUpperCase()} />
+            {rate ? <MiniTag text={rate} /> : null}
+            {item.meta.bitrate ? <MiniTag text={`${item.meta.bitrate}kbps`} /> : null}
+          </View>
         </View>
       </TouchableOpacity>
       <DorpDownMenu menus={menus} onPress={menu => { onMenu(menu.action) }} btnStyle={styles.moreBtn}>
@@ -870,6 +1052,23 @@ const editStyles = StyleSheet.create({
 })
 
 const styles = createStyle({
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerTags: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 5,
+  },
+  headerBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    marginLeft: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   container: {
     flex: 1,
   },
@@ -887,22 +1086,19 @@ const styles = createStyle({
     borderWidth: 0.5,
   },
   scanInfo: {
+    // flexBasis: 0 + minWidth: 0 才能让中间那行文字真正让位，
+    // 否则 auto 基准宽度会把右边的两个按钮顶出屏幕
     flexGrow: 1,
     flexShrink: 1,
+    flexBasis: 0,
+    minWidth: 0,
     paddingRight: 10,
-  },
-  scanTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  scanTitle: {
-    marginLeft: 6,
-    flexShrink: 1,
   },
   scanMeta: {
     marginTop: 5,
   },
   scanBtn: {
+    flexShrink: 0,
     flexDirection: 'row',
     alignItems: 'center',
     height: 28,
@@ -910,19 +1106,95 @@ const styles = createStyle({
     paddingRight: 12,
     borderRadius: 14,
   },
+  /** 纯图标按钮：正方形，给左边的文字让出宽度 */
+  scanBtnIconOnly: {
+    paddingLeft: 8,
+    paddingRight: 8,
+    width: 30,
+    justifyContent: 'center',
+  },
   scanBtnText: {
     marginLeft: 5,
     fontWeight: '600',
   },
-  tabScroll: {
-    flexGrow: 0,
+  /** 「文件夹」按钮上的授权失效小红点 */
+  warnDot: {
+    position: 'absolute',
+    top: 3,
+    right: 5,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  /** 页签 + 列表/卡片分段控件同处一行 */
+  tabBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  segmentWrap: {
     flexShrink: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 4,
+    marginRight: 16,
+    borderRadius: 14,
+    borderWidth: 0.5,
+    padding: 2,
+  },
+  segment: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 24,
+    paddingLeft: 8,
+    paddingRight: 9,
+    borderRadius: 12,
+  },
+  segmentText: {
+    marginLeft: 3,
+    fontWeight: '600',
+  },
+  cardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 14,
+    marginRight: 14,
+    marginTop: 5,
+    marginBottom: 5,
+    paddingRight: 6,
+    borderRadius: 14,
+    borderWidth: 0.5,
+  },
+  cardMain: {
+    flexGrow: 1,
+    flexShrink: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingLeft: 10,
+    paddingTop: 8,
+    paddingBottom: 8,
+  },
+  tabScroll: {
+    // 和右侧的「列表/卡片」同处一行，所以要能横向伸缩
+    flexGrow: 1,
+    flexShrink: 1,
+  },
+  tabItem: {
+    flex: 1,
+    height: 28,
+    marginHorizontal: 2,
+    borderRadius: 14,
+    borderWidth: 0.5,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   tabRow: {
-    paddingLeft: 16,
-    paddingRight: 16,
-    paddingTop: 10,
-    paddingBottom: 4,
+    flexDirection: 'row',
+    flex: 1,
+    alignItems: 'center',
+    paddingLeft: 12,
+    paddingRight: 12,
+    paddingTop: 8,
+    paddingBottom: 6,
   },
   detailBar: {
     flexDirection: 'row',
@@ -1073,8 +1345,8 @@ const styles = createStyle({
     fontWeight: '600',
   },
   cover: {
-    width: 48,
-    height: 48,
+    width: 56,
+    height: 56,
     borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
@@ -1088,6 +1360,18 @@ const styles = createStyle({
   },
   info: {
     flexGrow: 1,
+    flexShrink: 1,
+  },
+  name: {
+    fontWeight: '600',
+  },
+  thirdRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 3,
+  },
+  third: {
+    marginLeft: 4,
     flexShrink: 1,
   },
   meta: {

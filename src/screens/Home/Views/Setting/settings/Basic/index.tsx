@@ -7,7 +7,6 @@ import Language from './Language'
 import FontSize from './FontSize'
 import ShareType from './ShareType'
 import IsStartupAutoPlay from './IsStartupAutoPlay'
-import IsStartupPushPlayDetailScreen from './IsStartupPushPlayDetailScreen'
 import IsHomePageScroll from './IsHomePageScroll'
 import IsAllowProgressBarSeek from './IsAllowProgressBarSeek'
 import { ThemeModeSelector, MaterialYouColors } from './ThemeSettings'
@@ -26,7 +25,6 @@ export default memo(() => {
       </Section>
       <Section title='启动与播放'>
         <IsStartupAutoPlay />
-        <IsStartupPushPlayDetailScreen />
       </Section>
       <Section title='界面'>
         <IsHomePageScroll />

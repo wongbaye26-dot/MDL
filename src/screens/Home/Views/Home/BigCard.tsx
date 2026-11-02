@@ -8,6 +8,8 @@ import { useHorizontalMode } from '@/utils/hooks'
 
 export interface BigCardProps {
   title: string
+  /** 标题下的一行小字（本地音乐用来显示「182 首 · 4.8 GB」） */
+  subtitle?: string
   icon: string
   color: string
   /** 卡片序号，用来错开动画相位（不然五张卡会整齐地一起呼吸） */
@@ -23,7 +25,7 @@ export interface BigCardProps {
  *  2. 每隔几秒一道柔光从左上扫到右下。
  * 相位按 index 错开，五张卡不会整齐划一地一起动。
  */
-export default ({ title, icon, color, index = 0, onPress }: BigCardProps) => {
+export default ({ title, subtitle, icon, color, index = 0, onPress }: BigCardProps) => {
   // 按下时卡片轻微下沉，松手回弹 —— 比单纯降低透明度更有实体感
   // 横屏只有 411dp 高，竖屏的 196 高卡片会占掉一半屏幕，横屏收紧一档
   const compact = useHorizontalMode()
@@ -110,6 +112,11 @@ export default ({ title, icon, color, index = 0, onPress }: BigCardProps) => {
           <Icon name={icon} size={15} color='#FFFFFF' />
           <Text size={15} color='#FFFFFF' style={styles.label}>{title}</Text>
         </View>
+        {
+          subtitle
+            ? <Text size={10} color='rgba(255,255,255,0.82)' numberOfLines={1} style={styles.subtitle}>{subtitle}</Text>
+            : null
+        }
       </TouchableOpacity>
     </Animated.View>
   )
@@ -174,5 +181,9 @@ const styles = createStyle({
   label: {
     marginLeft: 6,
     fontWeight: '600',
+  },
+  subtitle: {
+    marginTop: 3,
+    marginLeft: 21,
   },
 })

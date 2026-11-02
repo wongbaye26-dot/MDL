@@ -36,7 +36,7 @@ const importOldListData = async(lists: any[]) => {
         allLists.push(listInfo as LX.List.UserListInfoFull)
       }
     } catch (err) {
-      console.log(err)
+      log.error(err)
     }
   }
   const defaultList = allLists.shift()!.list
@@ -62,7 +62,7 @@ const importNewListData = async(lists: Array<LX.List.MyDefaultListInfoFull | LX.
         allLists.push(data as LX.List.UserListInfoFull)
       }
     } catch (err) {
-      console.log(err)
+      log.error(err)
     }
   }
   const defaultList = allLists.shift()!.list
@@ -173,7 +173,6 @@ const importPlayList = async(path: string) => {
 }
 
 export const handleImportList = (path: string) => {
-  console.log(path)
   toast(global.i18n.t('setting_backup_part_import_list_tip_unzip'))
   void importPlayList(path).then((skipTip) => {
     if (skipTip) return

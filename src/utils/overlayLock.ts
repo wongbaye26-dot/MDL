@@ -15,16 +15,21 @@ const listeners = new Set<() => void>()
 
 const notify = () => { listeners.forEach(fn => { fn() }) }
 
-/** 子页挂载期间调用，卸载自动释放 */
-export const useOverlayLock = () => {
+/**
+ * 子页挂载期间调用，卸载自动释放。
+ * @param active 传 false 时不占锁 —— 有些浮层组件是常驻挂载、只切渲染内容的，
+ *               直接用挂载/卸载当开关会把它永久锁住。
+ */
+export const useOverlayLock = (active = true) => {
   useEffect(() => {
+    if (!active) return
     lockCount += 1
     notify()
     return () => {
       lockCount -= 1
       notify()
     }
-  }, [])
+  }, [active])
 }
 
 /** 当前是否有整屏子页打开 */

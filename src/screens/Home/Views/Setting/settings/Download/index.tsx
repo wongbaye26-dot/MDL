@@ -10,11 +10,12 @@ import Text from '@/components/common/Text'
 import FileSelect, { type FileSelectType } from '@/components/common/FileSelect'
 import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
-import { createStyle } from '@/utils/tools'
+import { createStyle, toast } from '@/utils/tools'
 import { updateSetting } from '@/core/common'
 import { useSettingValue } from '@/store/setting/hook'
-import { QUALITYS, QUALITY_LABEL, getDefaultSavePath } from '@/core/download/utils'
-import { clearSavePathCache } from '@/core/download'
+import { QUALITYS, QUALITY_LABEL, getDefaultSavePath, getFallbackSavePath, isSafPath } from '@/core/download/utils'
+import { clearSavePathCache, ensureDir } from '@/core/download'
+import { pickDirectory, canWriteTree, treeUriToDisplayPath } from '@/utils/directoryPicker'
 
 const OptionRow = ({ label, options, value, onChange }: {
   label: string
@@ -70,18 +71,37 @@ export default memo(() => {
     try {
       const picked = await pickDirectory()
       if (!picked) return
-      // 先探一下可写性：Android 11+ 公共目录默认不可写，写不进去就别设成下载目录
-      const writable = await ensureDir(picked.path).catch(() => false)
-      if (!writable) {
-        toast(`这个目录不能写入：\n${picked.path}\n请换一个目录（或使用默认目录）`)
+      // 公共目录在 Android 11+ 一律不可写，先探一下能不能真写进去
+      if (await ensureDir(picked.path).catch(() => false)) {
+        updateSetting({ 'download.savePath': picked.path })
+        clearSavePathCache()
+        toast(`保存目录已改为 ${picked.path}`)
         return
       }
-      updateSetting({ 'download.savePath': picked.path })
-      clearSavePathCache()
-      toast(`保存目录已改为 ${picked.path}`)
+      // 直接写不进去 → 用 SAF 授权（content:// 目录树），下载完由原生复制进去
+      if (picked.treeUri && await canWriteTree(picked.treeUri)) {
+        updateSetting({ 'download.savePath': picked.treeUri })
+        clearSavePathCache()
+        toast(`保存目录已改为 ${picked.path}\n（通过授权目录写入）`)
+        return
+      }
+      toast(`这个目录系统不允许写入：\n${picked.path}\n\n可以选「应用专属目录」，或选音乐目录下新建的子文件夹`)
     } catch (e) {
       toast((e as Error)?.message ?? '选择目录失败')
     }
+  }
+
+  /** 切到两个「应用可写」的目录（公共目录在 Android 11+ 写不进去） */
+  const handleUseAppDir = async(kind: 'external' | 'private') => {
+    const path: string = kind === 'external' ? getFallbackSavePath() : getDefaultSavePath()
+    const ok = await ensureDir(path).catch(() => false)
+    if (!ok) {
+      toast('这个目录不可用，换另一个试试')
+      return
+    }
+    updateSetting({ 'download.savePath': path })
+    clearSavePathCache()
+    toast(`保存目录已改为 ${path}`)
   }
 
   const handleResetPath = () => {
@@ -95,10 +115,13 @@ export default memo(() => {
         <View style={styles.pathRow}>
           <Text size={14}>{t('setting_download_save_path')}</Text>
           <Text size={11} color={theme['c-450']} numberOfLines={2} style={styles.pathText}>
-            {savePath || `${t('setting_download_save_path_default')}: ${getDefaultSavePath()}`}
+            {savePath
+              ? (isSafPath(savePath) ? `${treeUriToDisplayPath(savePath)}（授权目录）` : savePath)
+              : `${t('setting_download_save_path_default')}: ${getDefaultSavePath()}`}
           </Text>
           <View style={styles.btnRow}>
             <Button onPress={handleSelectPath}>选择目录</Button>
+            <Button onPress={() => { void handleUseAppDir('external') }}>应用专属目录</Button>
             {savePath ? <Button onPress={handleResetPath}>恢复默认</Button> : null}
           </View>
         </View>

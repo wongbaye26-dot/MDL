@@ -12,13 +12,16 @@ export interface PermissionItem {
   android?: string
 }
 
+/** Android 版本号（iOS 上 Platform.Version 是字符串，这里统一成数字比较） */
+const androidVersion = Number(Platform.Version) || 0
+
 /** 应用实际需要的主要权限（设置页里展示用） */
 export const APP_PERMISSIONS: PermissionItem[] = [
   {
     key: 'media',
     label: '音乐和音频',
     desc: '扫描本地音乐、读取歌曲标签和封面',
-    android: Platform.Version >= 33
+    android: androidVersion >= 33
       ? 'android.permission.READ_MEDIA_AUDIO'
       : 'android.permission.READ_EXTERNAL_STORAGE',
   },
@@ -26,7 +29,7 @@ export const APP_PERMISSIONS: PermissionItem[] = [
     key: 'notification',
     label: '通知',
     desc: '显示播放控制通知、下载进度',
-    android: Platform.Version >= 33 ? 'android.permission.POST_NOTIFICATIONS' : undefined,
+    android: androidVersion >= 33 ? 'android.permission.POST_NOTIFICATIONS' : undefined,
   },
   {
     key: 'storage',

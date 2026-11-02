@@ -184,7 +184,6 @@ export default {
     try {
       musicDetail = await musicDetailApi.getList(resp.body.playlist.trackIds.map(trackId => trackId.id))
     } catch (err) {
-      console.log(err)
       if (err.message == 'try max num') {
         throw err
       } else {

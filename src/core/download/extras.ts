@@ -2,6 +2,7 @@ import settingState from '@/store/setting/state'
 import { writeMetadata, writePic } from '@/utils/localMediaMetadata'
 import { downloadFile, temporaryDirectoryPath, unlink, writeFile } from '@/utils/fs'
 import { getLyricInfo, getPicUrl } from '@/core/music/download'
+import { writeTextToSibling } from '@/utils/directoryPicker'
 import { isSafPath, joinPath } from './utils'
 
 /**
@@ -18,11 +19,18 @@ export const writeTaskExtras = async(task: LX.Download.ListItem) => {
   if (setting['download.isDownloadLyric']) {
     try {
       const lyricInfo = await getLyricInfo({ musicInfo: task, isRefresh: false })
-      const lrcPath = filePath.replace(/\.[^.]+$/, '.lrc')
       const lrc = buildLrcText(lyricInfo)
-      if (lrc) await writeFile(lrcPath, `\ufeff${lrc}`, 'utf8')
+      if (lrc) {
+        if (isSaf) {
+          // content:// 文档 uri 不能做字符串换扩展名（会生成 URL 编码的垃圾文件名），
+          // 用文件名重建，交给原生在同一个目录里写
+          const lrcName = task.metadata.fileName.replace(/\.[^.]+$/, '.lrc')
+          await writeTextToSibling(filePath, lrcName, `\ufeff${lrc}`)
+        } else {
+          await writeFile(filePath.replace(/\.[^.]+$/, '.lrc'), `\ufeff${lrc}`, 'utf8')
+        }
+      }
     } catch (err) {
-      console.log('write lyric failed', err)
     }
   }
 
@@ -36,7 +44,6 @@ export const writeTaskExtras = async(task: LX.Download.ListItem) => {
         albumName: task.metadata.musicInfo.meta.albumName ?? '',
       })
     } catch (err) {
-      console.log('write metadata failed', err)
     }
   }
 
@@ -50,7 +57,6 @@ export const writeTaskExtras = async(task: LX.Download.ListItem) => {
         await writePic(filePath, picPath)
       }
     } catch (err) {
-      console.log('write pic failed', err)
     } finally {
       if (picPath) {
         void unlink(picPath).catch(() => {})

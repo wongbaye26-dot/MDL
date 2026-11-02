@@ -1,123 +1,196 @@
-import { memo } from 'react'
-import { TouchableOpacity, View } from 'react-native'
+import { memo, useEffect, useRef, useState } from 'react'
+import { Animated, Easing, StyleSheet, TouchableOpacity, View } from 'react-native'
+import LinearGradient from 'react-native-linear-gradient'
 
 import { Icon } from '@/components/common/Icon'
 import AlbumDiscButton from '@/components/common/AlbumDiscButton'
 import Glass from '@/components/common/Glass'
+import CapsuleProgress from '@/components/common/CapsuleProgress'
 import { useNavActiveId } from '@/store/common/hook'
 import { useTheme } from '@/store/theme/hook'
-import { createStyle } from '@/utils/tools'
+import { useProgress } from '@/store/player/hook'
+import { useSettingValue } from '@/store/setting/hook'
 import { NAV_MENUS, HORIZONTAL_NAV_SPACE } from '@/config/constant'
 import type { InitState } from '@/store/common/state'
 import { setNavActiveId } from '@/core/common'
 
 type IdType = InitState['navActiveId']
 
-/** 和竖屏胶囊同一套：选中实心、未选中描边 */
-const MENU_ICONS: Record<string, { active: string, inactive: string }> = {
-  nav_home: { active: 'home-variant', inactive: 'home-variant-outline' },
-  nav_download: { active: 'download', inactive: 'download-outline' },
-  nav_local: { active: 'folder-music', inactive: 'folder-music-outline' },
-  nav_mine: { active: 'account', inactive: 'account-outline' },
+/**
+ * 横屏左侧导航 —— 就是竖屏底部那颗胶囊「立起来」。
+ *
+ * 尺寸全部对齐竖屏 BottomNav（飞牛实测值）：
+ *   宽 59（= 竖屏的高）、全圆角 29.5、圆底 52、槽位 58、图标 27、**没有边框**、
+ *   同一层磨砂玻璃 + 高光 + 边缘进度光晕。
+ *
+ * 同样不用 createStyle：它把 width 走 scaleSizeW、height 走 scaleSizeH、
+ * borderRadius 走 setSpText，三者系数不同，圆底会被拉成椭圆。
+ */
+
+const BAR_WIDTH = 59
+const BAR_RADIUS = BAR_WIDTH / 2
+/** 圆底：竖屏是 52（= 高 − 7），横屏对应「宽 − 7」 */
+const ACTIVE_SIZE = 52
+/** 槽位：竖屏 58，横屏竖向同样是 58 */
+const SLOT_SIZE = 58
+const BAR_PADDING = 1
+const ICON_SIZE = 27
+const DISC_SIZE = 48
+
+/** 四个入口统一用线性图标（和竖屏一致），选中态靠颜色 + 圆底区分 */
+const MENU_ICONS: Record<string, string> = {
+  nav_home: 'home-variant-outline',
+  nav_download: 'tray-arrow-down',
+  nav_local: 'folder-music-outline',
+  nav_mine: 'account-outline',
 }
 
-const MenuItem = ({ id, icon, dark, onPress }: {
+const MenuItem = ({ id, icon, dark, active, onPress }: {
   id: IdType
-  icon: string | { active: string, inactive: string }
+  icon: string
   dark: boolean
+  active: boolean
   onPress: (id: IdType) => void
 }) => {
-  const activeId = useNavActiveId()
   const theme = useTheme()
-  const active = activeId === id
-  // 选中实心 / 未选中描边，和竖屏胶囊一致
-  const iconName = typeof icon === 'string' ? icon : (active ? icon.active : icon.inactive)
+  const anim = useRef(new Animated.Value(active ? 1 : 0)).current
 
-  const content = (
-    <View
-      style={{
-        ...styles.menuItem,
-        backgroundColor: active ? theme['c-primary-alpha-800'] : 'transparent',
-        borderColor: active ? theme['c-primary-alpha-500'] : 'transparent',
-      }}
-    >
-      <Icon
-        name={iconName}
-        size={20}
-        color={active
-          ? theme['c-primary']
-          : (dark ? 'rgba(255,255,255,0.66)' : 'rgba(30,24,40,0.58)')}
-      />
-    </View>
-  )
-
-  if (active) return content
+  useEffect(() => {
+    Animated.spring(anim, {
+      toValue: active ? 1 : 0,
+      useNativeDriver: true,
+      friction: 9,
+      tension: 170,
+      restDisplacementThreshold: 0.001,
+      restSpeedThreshold: 0.001,
+    }).start()
+  }, [active, anim])
 
   return (
-    <TouchableOpacity activeOpacity={0.65} onPress={() => { onPress(id) }}>
-      {content}
+    <TouchableOpacity
+      style={styles.item}
+      activeOpacity={0.85}
+      onPress={() => { if (!active) onPress(id) }}
+    >
+      <Animated.View
+        pointerEvents='none'
+        style={{
+          ...styles.activeBg,
+          backgroundColor: theme['c-primary-alpha-800'],
+          opacity: anim,
+          transform: [{ scale: anim.interpolate({ inputRange: [0, 1], outputRange: [0.72, 1] }) }],
+        }}
+      />
+      <Animated.View
+        pointerEvents='none'
+        style={{ transform: [{ scale: anim.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1] }) }] }}
+      >
+        <Icon
+          name={icon}
+          rawSize={ICON_SIZE}
+          color={active ? theme['c-primary'] : (dark ? 'rgba(255,255,255,0.66)' : 'rgba(30,24,40,0.62)')}
+        />
+      </Animated.View>
     </TouchableOpacity>
   )
 }
 
-/**
- * 横屏左侧导航。
- *
- * 就是竖屏底部那颗悬浮胶囊「立起来」：同一层玻璃、同一圈描边、
- * 同一个选中胶囊、同一个专辑圆盘；高度按内容走（不再拉满整屏），
- * 垂直居中悬浮在左边，只有 4 个入口（不再放退出/回首页按钮）。
- * 播放器页本身是深色底，这时自动切深色玻璃。
- */
 export default memo(() => {
   const theme = useTheme()
   const navActiveId = useNavActiveId()
-  const dark = theme.isDark || navActiveId === 'nav_player'
+  const { progress } = useProgress()
+  const progressStyle = useSettingValue('common.navProgressStyle') ?? 'border'
+  const isDark = theme.isDark
+  /** 播放器页是深色底，导航也切深色玻璃 */
+  const dark = isDark || navActiveId === 'nav_player'
+  const [barSize, setBarSize] = useState({ w: 0, h: 0 })
+
+  /** 呼吸灯：和竖屏同一份节奏 */
+  const breathe = useRef(new Animated.Value(0.62)).current
+  useEffect(() => {
+    const anim = Animated.loop(Animated.sequence([
+      Animated.timing(breathe, { toValue: 1, duration: 1900, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(breathe, { toValue: 0.62, duration: 1900, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+    ]))
+    anim.start()
+    return () => { anim.stop() }
+  }, [breathe])
 
   return (
     <View style={styles.wrap} pointerEvents='box-none'>
-    <View
-      style={{
-        ...styles.container,
-        backgroundColor: dark ? 'rgba(24,18,34,0.20)' : 'rgba(255,255,255,0.12)',
-        borderColor: dark ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.72)',
-        shadowColor: dark ? '#000000' : '#6E6285',
-      }}
-    >
-      <Glass
-        blurRadius={24}
-        tint={dark ? 'rgba(20,15,30,0.30)' : 'rgba(255,255,255,0.20)'}
-        radius={32}
-      />
+      <View
+        onLayout={e => {
+          const { width, height } = e.nativeEvent.layout
+          setBarSize(prev => (Math.abs(prev.w - width) < 0.5 && Math.abs(prev.h - height) < 0.5) ? prev : { w: width, h: height })
+        }}
+        style={{
+          ...styles.container,
+          backgroundColor: dark ? 'rgba(22,17,30,0.34)' : 'rgba(255,255,255,0.42)',
+          shadowColor: dark ? '#000000' : '#6E6285',
+        }}
+      >
+        <Glass
+          blurRadius={24}
+          tint={dark ? 'rgba(22,17,30,0.42)' : 'rgba(255,255,255,0.34)'}
+          radius={BAR_RADIUS}
+        />
 
-      {
-        NAV_MENUS.map(menu => (
-          menu.id === 'nav_player'
-            ? (
-              <View key={menu.id} style={styles.discSlot}>
-                <AlbumDiscButton
-                  size={52}
-                  inactiveColor={dark ? 'rgba(255,255,255,0.26)' : theme['c-primary-alpha-600']}
+        {/* 玻璃反光：竖屏是「上亮下暗」，竖排胶囊对应「左亮右暗」 */}
+        <LinearGradient
+          colors={dark
+            ? ['rgba(255,255,255,0.09)', 'rgba(255,255,255,0.02)', 'rgba(255,255,255,0)']
+            : ['rgba(255,255,255,0.42)', 'rgba(255,255,255,0.10)', 'rgba(255,255,255,0)']}
+          locations={[0, 0.55, 1]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.gloss}
+          pointerEvents='none'
+        />
+
+        {/* 边缘进度光晕：没有边框，只有贴着边缘的一圈柔光 */}
+        <CapsuleProgress
+          width={barSize.w}
+          height={barSize.h}
+          progress={progressStyle === 'border' ? progress : 0}
+          color={theme['c-primary']}
+          breathe={breathe}
+        />
+
+        {
+          NAV_MENUS.map(menu => (
+            menu.id === 'nav_player'
+              ? (
+                <TouchableOpacity
+                  key={menu.id}
+                  style={styles.item}
+                  activeOpacity={0.85}
                   onPress={() => { setNavActiveId('nav_player') }}
+                >
+                  <AlbumDiscButton
+                    size={DISC_SIZE}
+                    inactiveColor={dark ? 'rgba(255,255,255,0.26)' : theme['c-primary-alpha-600']}
+                    onPress={() => { setNavActiveId('nav_player') }}
+                  />
+                </TouchableOpacity>
+                )
+              : (
+                <MenuItem
+                  key={menu.id}
+                  id={menu.id}
+                  dark={dark}
+                  active={navActiveId === menu.id}
+                  icon={MENU_ICONS[menu.id] ?? menu.icon}
+                  onPress={setNavActiveId}
                 />
-              </View>
-              )
-            : (
-              <MenuItem
-                key={menu.id}
-                id={menu.id}
-                dark={dark}
-                icon={MENU_ICONS[menu.id] ?? menu.icon}
-                onPress={setNavActiveId}
-              />
-              )
-        ))
-      }
-    </View>
+                )
+          ))
+        }
+      </View>
     </View>
   )
 })
 
-const styles = createStyle({
+const styles = StyleSheet.create({
   /* 覆盖在内容之上：播放器页要能整屏铺满，导航浮在上面 */
   wrap: {
     position: 'absolute',
@@ -129,29 +202,34 @@ const styles = createStyle({
     justifyContent: 'center',
   },
   container: {
-    width: 64,
-    borderRadius: 32,
-    borderWidth: 0.5,
-    paddingTop: 10,
-    paddingBottom: 10,
+    width: BAR_WIDTH,
+    borderRadius: BAR_RADIUS,
+    paddingTop: BAR_PADDING,
+    paddingBottom: BAR_PADDING,
     alignItems: 'center',
     overflow: 'hidden',
-    elevation: 14,
-    shadowOpacity: 0.26,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 8 },
+    elevation: 16,
+    shadowOpacity: 0.32,
+    shadowRadius: 26,
+    shadowOffset: { width: 0, height: 10 },
   },
-  menuItem: {
-    width: 44,
-    height: 44,
-    marginTop: 6,
-    borderRadius: 22,
-    borderWidth: 0.8,
+  gloss: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: BAR_WIDTH * 0.66,
+  },
+  item: {
+    width: SLOT_SIZE,
+    height: SLOT_SIZE,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  discSlot: {
-    marginTop: 8,
-    marginBottom: 2,
+  activeBg: {
+    position: 'absolute',
+    width: ACTIVE_SIZE,
+    height: ACTIVE_SIZE,
+    borderRadius: ACTIVE_SIZE / 2,
   },
 })

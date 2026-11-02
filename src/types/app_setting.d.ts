@@ -112,11 +112,6 @@ declare global {
       'player.startupAutoPlay': boolean
 
       /**
-       * 启动后打开歌曲详细界面
-       */
-      'player.startupPushPlayDetailScreen': boolean
-
-      /**
        * 切歌模式
        */
       'player.togglePlayMethod': 'listLoop' | 'random' | 'list' | 'singleLoop' | 'none'
@@ -200,36 +195,6 @@ declare global {
        * 是否启用蓝牙完整歌词
        */
       'player.isShowBluetoothFullLyric': boolean
-
-      /**
-       * 播放详情页-是否缩放当前播放的歌词行
-       */
-      // 'playDetail.isZoomActiveLrc': boolean
-
-      /**
-       * 播放详情页-是否允许通过歌词调整播放进度
-       */
-      // 'playDetail.isShowLyricProgressSetting': boolean
-
-      /**
-       * 播放详情页-歌词对齐方式
-       */
-      'playDetail.style.align': 'center' | 'left' | 'right'
-
-      /**
-       * 竖屏歌词字体大小
-       */
-      'playDetail.vertical.style.lrcFontSize': number
-
-      /**
-       * 横屏歌词字体大小
-       */
-      'playDetail.horizontal.style.lrcFontSize': number
-
-      /**
-       * 播放详情页-是否允许通过歌词调整播放进度
-       */
-      'playDetail.isShowLyricProgressSetting': boolean
 
       /**
        * 是否启用桌面歌词

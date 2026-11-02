@@ -1,8 +1,8 @@
 import { useMemo, useRef, useState, forwardRef, useImperativeHandle } from 'react'
-import { FlatList, type FlatListProps, RefreshControl, View } from 'react-native'
+import { FlatList, type FlatListProps, View } from 'react-native'
 
 // import { useMusicList } from '@/store/list/hook'
-import ListItem, { ITEM_HEIGHT } from './ListItem'
+import ListItem from './ListItem'
 import { createStyle, getRowInfo, type RowInfoType } from '@/utils/tools'
 import type { Position } from './ListMenu'
 import type { SelectMode } from './MultipleModeBar'
@@ -64,7 +64,6 @@ const List = forwardRef<ListType, ListProps>(({
   ListEmptyComponent,
 }, ref) => {
   // const t = useI18n()
-  const theme = useTheme()
   const flatListRef = useRef<FlatList>(null)
   const [currentList, setList] = useState<LX.Music.MusicInfoOnline[]>([])
   const [showSource, setShowSource] = useState(false)
@@ -204,16 +203,14 @@ const List = forwardRef<ListType, ListProps>(({
     />
   )
   const getkey: FlatListType['keyExtractor'] = item => item.id
-  const getItemLayout: FlatListType['getItemLayout'] = (data, index) => {
-    return { length: ITEM_HEIGHT, offset: ITEM_HEIGHT * index, index }
-  }
-  const refreshControl = useMemo(() => (
-    <RefreshControl
-      colors={[theme['c-primary']]}
-      // progressBackgroundColor={theme.primary}
-      refreshing={status == 'refreshing'}
-      onRefresh={onRefresh} />
-  ), [status, onRefresh, theme])
+  /**
+   * VirtualizedList 在本工程里只渲染 initialNumToRender 这一批：
+   * 之后的批次要靠 onScroll 驱动，而这里滚动事件收不到（onEndReached 也从不触发），
+   * 结果就是「列表只显示前 N 条、滚到底就黑」。
+   * 这几个列表每页 30 条、总量最多几百条，直接把初始批次设成当前列表长度，
+   * 保证整页数据都渲染出来；至少还能正常滚动和翻页。
+   */
+  const renderAll = Math.max(20, currentList.length)
   const footerComponent = useMemo(() => {
     let label: FooterLabel
     switch (status) {
@@ -245,14 +242,18 @@ const List = forwardRef<ListType, ListProps>(({
       data={currentList}
       numColumns={rowInfo.current.rowNum}
       horizontal={false}
-      maxToRenderPerBatch={4}
+      maxToRenderPerBatch={renderAll}
       // updateCellsBatchingPeriod={80}
-      windowSize={8}
-      removeClippedSubviews={true}
-      initialNumToRender={12}
+      windowSize={41}
+      // 之前开了 removeClippedSubviews：Android 上滚过一屏之后单元格会被整体回收，
+      // 又因为 getItemLayout 固定了偏移量，回收后不再重新挂载 ——
+      // 表现就是「列表滚到第 12 条之后整片黑」。关掉它，虚拟化本身仍然生效。
+      removeClippedSubviews={false}
+      initialNumToRender={renderAll}
       renderItem={renderItem}
       keyExtractor={getkey}
-      getItemLayout={viewMode === 'card' ? undefined : getItemLayout}
+      // getItemLayout 不传：行高虽固定，但横屏两列时偏移量要按列数折算，
+      // 传错会让虚拟化算出错误的内容高度（表现为滚过一屏就整片黑），交给它自己量更稳
       // onRefresh={onRefresh}
       // refreshing={refreshing}
       onEndReachedThreshold={0.5}
@@ -260,7 +261,8 @@ const List = forwardRef<ListType, ListProps>(({
       progressViewOffset={progressViewOffset}
       ListHeaderComponent={ListHeaderComponent}
       ListEmptyComponent={currentList.length ? null : (status === 'end' || status === 'error' ? ListEmptyComponent : null)}
-      refreshControl={refreshControl}
+      onRefresh={onRefresh}
+      refreshing={status == 'refreshing'}
       ListFooterComponent={footerComponent}
     />
   )

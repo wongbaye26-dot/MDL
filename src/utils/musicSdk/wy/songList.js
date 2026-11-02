@@ -102,7 +102,6 @@ export default {
       try {
         list = (await musicDetailApi.getList(body.playlist.trackIds.slice(rangeStart, limit * page).map(trackId => trackId.id))).list
       } catch (err) {
-        console.log(err)
         if (err.message == 'try max num') {
           throw err
         } else {

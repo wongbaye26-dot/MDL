@@ -106,7 +106,7 @@ export default async(setting: LX.AppSetting) => {
                       // console.log(res)
                       return { type, url: res.data.url }
                     }).catch(err => {
-                      console.log(err.message)
+                      log.error(err.message)
                       throw err
                     }),
                   }
@@ -134,7 +134,7 @@ export default async(setting: LX.AppSetting) => {
                       // console.log(res)
                       return res.data
                     }).catch(async err => {
-                      console.log(err.message)
+                      log.error(err.message)
                       return Promise.reject(err)
                     }),
                   }
@@ -162,7 +162,7 @@ export default async(setting: LX.AppSetting) => {
                       // console.log(res)
                       return res.data
                     }).catch(async err => {
-                      console.log(err.message)
+                      log.error(err.message)
                       return Promise.reject(err)
                     }),
                   }

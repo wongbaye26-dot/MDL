@@ -29,6 +29,7 @@ import { checkIgnoringBatteryOptimization, checkNotificationPermission, debounce
 import { LIST_IDS } from '@/config/constant'
 import { addListMusics, removeListMusics } from '@/core/list'
 import { addDislikeInfo } from '@/core/dislikeList'
+import { log } from '@/utils/log'
 
 // import { checkMusicFileAvailable } from '@renderer/utils/music'
 
@@ -47,7 +48,6 @@ const createDelayNextTimeout = (delay: number) => {
     timeout = BackgroundTimer.setTimeout(() => {
       timeout = null
       if (global.lx.isPlayedStop) return
-      console.log('delay next timeout timeout', delay)
       void playNext(true)
     }, delay)
   }
@@ -73,13 +73,27 @@ const diffCurrentMusicInfo = (curMusicInfo: LX.Music.MusicInfo | LX.Download.Lis
 }
 
 let cancelDelayRetry: (() => void) | null = null
-const delayRetry = async(musicInfo: LX.Music.MusicInfo | LX.Download.ListItem, isRefresh = false): Promise<string | null> => {
+/**
+ * 限流重试的退避档位（秒）。
+ *
+ * 原来是 `getRandom(2, 6)` —— 每次都要盲等 2~6 秒，用户体感就是「点了没反应」，
+ * 而且失败后没有次数上限，会一直等下去。
+ * 现在改成 1 → 2 → 4 的递增退避，最多 3 次（累计 7 秒），
+ * 首次只等 1 秒，限流不严重时基本察觉不到。
+ */
+const RETRY_DELAYS = [1, 2, 4]
+
+const delayRetry = async(
+  musicInfo: LX.Music.MusicInfo | LX.Download.ListItem,
+  isRefresh = false,
+  attempt = 0,
+): Promise<string | null> => {
   // if (cancelDelayRetry) cancelDelayRetry()
   return new Promise<string | null>((resolve, reject) => {
-    const time = getRandom(2, 6)
+    const time = RETRY_DELAYS[Math.min(attempt, RETRY_DELAYS.length - 1)]
     setStatusText(global.i18n.t('player__getting_url_delay_retry', { time }))
-    const tiemout = setTimeout(() => {
-      getMusicPlayUrl(musicInfo, isRefresh, true).then((result) => {
+    const timeout = setTimeout(() => {
+      getMusicPlayUrl(musicInfo, isRefresh, true, attempt + 1).then((result) => {
         cancelDelayRetry = null
         resolve(result)
       }).catch(async(err: any) => {
@@ -88,13 +102,18 @@ const delayRetry = async(musicInfo: LX.Music.MusicInfo | LX.Download.ListItem, i
       })
     }, time * 1000)
     cancelDelayRetry = () => {
-      clearTimeout(tiemout)
+      clearTimeout(timeout)
       cancelDelayRetry = null
       resolve(null)
     }
   })
 }
-const getMusicPlayUrl = async(musicInfo: LX.Music.MusicInfo | LX.Download.ListItem, isRefresh = false, isRetryed = false): Promise<string | null> => {
+const getMusicPlayUrl = async(
+  musicInfo: LX.Music.MusicInfo | LX.Download.ListItem,
+  isRefresh = false,
+  isRetryed = false,
+  retryAttempt = 0,
+): Promise<string | null> => {
   // this.musicInfo.url = await getMusicPlayUrl(targetSong, type)
   setStatusText(global.i18n.t('player__getting_url'))
   addLoadTimeout()
@@ -107,7 +126,7 @@ const getMusicPlayUrl = async(musicInfo: LX.Music.MusicInfo | LX.Download.ListIt
   } else {
     playerState.playQuality = getPlayQuality(
       settingState.setting['player.playQuality'],
-      musicInfo as LX.Music.MusicInfoOnline,
+      musicInfo,
     )
   }
 
@@ -155,9 +174,13 @@ const getMusicPlayUrl = async(musicInfo: LX.Music.MusicInfo | LX.Download.ListIt
       diffCurrentMusicInfo(musicInfo) ||
       err.message == requestMsg.cancelRequest) return null
 
-    if (err.message == requestMsg.tooManyRequests) return delayRetry(musicInfo, isRefresh)
+    if (err.message == requestMsg.tooManyRequests) {
+      // 退避次数用尽就认输，别无限等下去
+      if (retryAttempt >= RETRY_DELAYS.length) throw err
+      return delayRetry(musicInfo, isRefresh, retryAttempt)
+    }
 
-    if (!isRetryed) return getMusicPlayUrl(musicInfo, isRefresh, true)
+    if (!isRetryed) return getMusicPlayUrl(musicInfo, isRefresh, true, retryAttempt)
 
     throw err
   })
@@ -172,7 +195,7 @@ export const setMusicUrl = (musicInfo: LX.Music.MusicInfo | LX.Download.ListItem
     if (!url) return
     setResource(musicInfo, url, playerState.progress.nowPlayTime)
   }).catch((err: any) => {
-    console.log(err)
+    log.error(err)
     setStatusText(err.message as string)
     global.app_event.error()
     addDelayNextTimeout()
@@ -218,7 +241,7 @@ const handleRestorePlay = async(restorePlayInfo: LX.Player.SavedPlayInfo) => {
     })
     global.app_event.lyricUpdated()
   }).catch((err) => {
-    console.log(err)
+    log.error(err)
     if (musicInfo.id != playMusicInfo.musicInfo?.id) return
     setStatusText(global.i18n.t('lyric__load_error'))
   })
@@ -250,7 +273,7 @@ const debouncePlay = debounceBackgroundTimer((musicInfo: LX.Player.PlayMusic) =>
     })
     global.app_event.lyricUpdated()
   }).catch((err) => {
-    console.log(err)
+    log.error(err)
     if (musicInfo.id != playerState.playMusicInfo.musicInfo?.id) return
     setStatusText(global.i18n.t('lyric__load_error'))
   })

@@ -7,6 +7,7 @@ import { isTempId, isEmpty } from './utils'
 import { exitApp } from '@/core/common'
 import { getCurrentTrackId } from './playList'
 import { pause, play, playNext, playPrev } from '@/core/player/player'
+import { log } from '@/utils/log'
 
 let isInitialized = false
 
@@ -27,7 +28,6 @@ const handleExitApp = async(reason: string) => {
 const registerPlaybackService = async() => {
   if (isInitialized) return
 
-  console.log('reg services...')
   TrackPlayer.addEventListener(TPEvent.RemotePlay, () => {
     // console.log('remote-play')
     play()
@@ -67,7 +67,8 @@ const registerPlaybackService = async() => {
   // })
 
   TrackPlayer.addEventListener(TPEvent.PlaybackError, async(err: any) => {
-    console.log('playback-error', err)
+    // 播放错误要留痕（设置 → 其他 → 日志），否则线上出问题查不到原因
+    log.error('PlaybackError', err)
     global.app_event.error()
     global.app_event.playerError()
   })
@@ -208,7 +209,6 @@ const registerPlaybackService = async() => {
 
 export default () => {
   if (global.lx.playerStatus.isRegisteredService) return
-  console.log('handle registerPlaybackService...')
   TrackPlayer.registerPlaybackService(() => registerPlaybackService)
   global.lx.playerStatus.isRegisteredService = true
 }

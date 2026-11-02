@@ -139,7 +139,6 @@ export default {
     //   }
     // }
 
-    console.log(lrc, lrcT)
 
     return {
       lrc,

@@ -3,6 +3,7 @@ import { View, TouchableOpacity } from 'react-native'
 import Text from '@/components/common/Text'
 import { Icon } from '@/components/common/Icon'
 import Image from '@/components/common/Image'
+import CoverPlaceholder from '@/components/common/CoverPlaceholder'
 import Glass from '@/components/common/Glass'
 import { useTheme } from '@/store/theme/hook'
 import { usePlayerMusicInfo, useIsPlay, useProgress } from '@/store/player/hook'
@@ -13,11 +14,12 @@ import { setNavActiveId } from '@/core/common'
 import { getPlayerPalette } from '@/theme/playerPalette'
 import PlayGlyph from '../Views/Player/PlayGlyph'
 import { createStyle } from '@/utils/tools'
+import { contrastOn } from '@/theme/solid'
 
 /**
  * 横屏内容区底部的迷你播放器。
  *
- * 之前点它走的是 LX 老路由（pushPlayDetailScreen），会跳到旧版横屏播放页；
+ * 之前点它走的是 LX 老路由（已随旧播放器一并移除），会跳到旧版横屏播放页；
  * 现在和竖屏胶囊里的圆盘一样，直接切 nav_player（我们自己的播放器页）。
  * 视觉也换成和胶囊同一层玻璃 + 主题强调色。
  */
@@ -47,8 +49,8 @@ export default memo(() => {
         }}
       >
         <Glass
-          blurRadius={22}
-          tint={isDark ? 'rgba(20,15,30,0.30)' : 'rgba(255,255,255,0.20)'}
+          blurRadius={24}
+          tint={isDark ? 'rgba(22,17,30,0.42)' : 'rgba(255,255,255,0.34)'}
           radius={22}
         />
 
@@ -57,7 +59,11 @@ export default memo(() => {
           activeOpacity={0.75}
           onPress={openPlayer}
         >
-          <Image url={musicInfo.pic} style={styles.pic} />
+          {
+            musicInfo.pic
+              ? <Image url={musicInfo.pic} style={styles.pic} />
+              : <CoverPlaceholder name={musicInfo.name} size={38} radius={11} />
+          }
           <View style={styles.textArea}>
             <Text size={13} numberOfLines={1} style={styles.name}>{musicInfo.name}</Text>
             <Text size={11} color={theme['c-450']} numberOfLines={1} style={styles.singer}>{musicInfo.singer}</Text>
@@ -69,12 +75,12 @@ export default memo(() => {
           activeOpacity={0.8}
           onPress={togglePlay}
         >
-          <View style={{ ...styles.playCircle, backgroundColor: palette.accent }}>
-            <PlayGlyph playing={isPlay} box={14} color={palette.onAccent} />
+          <View style={{ ...styles.playCircle, backgroundColor: theme['c-primary'] }}>
+            <PlayGlyph playing={isPlay} box={15} color={contrastOn(theme['c-primary'])} />
           </View>
         </TouchableOpacity>
         <TouchableOpacity style={styles.btn} activeOpacity={0.6} onPress={() => { void playNext() }}>
-          <Icon name='nextMusic' color={palette.accent} size={18} />
+          <Icon name='nextMusic' color={theme['c-primary']} size={20} />
         </TouchableOpacity>
 
         <View style={{ ...styles.progressTrack, backgroundColor: palette.track }}>
@@ -91,11 +97,16 @@ const styles = createStyle({
     paddingRight: 10,
     paddingTop: 4,
     paddingBottom: 10,
+    // 横屏内容区很宽，播放条拉满会显得很空；收窄并居中
+    alignItems: 'center',
   },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 22,
+    width: '100%',
+    maxWidth: 360,
+    height: 59,
+    borderRadius: 29.5,
     borderWidth: 0.5,
     paddingLeft: 8,
     paddingRight: 6,

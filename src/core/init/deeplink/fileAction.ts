@@ -22,7 +22,6 @@ export const handleFileMusicAction = async(file: FileType) => {
   const info = await readMetadata(file.path)
   const isPlaying = !!playerState.playMusicInfo.musicInfo
   const musicInfo = info ? buildLocalMusicInfo(file.path, info) : buildLocalMusicInfoByFilePath(file)
-  console.log(musicInfo)
   addTempPlayList([{ listId: LIST_IDS.PLAY_LATER, musicInfo, isTop: true }])
   if (isPlaying) void playNext()
 }

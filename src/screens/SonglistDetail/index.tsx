@@ -9,6 +9,7 @@ import { setComponentId } from '@/core/common'
 import { COMPONENT_IDS } from '@/config/constant'
 import { type ListInfoItem } from '@/store/songlist/state'
 import PlayerBar from '@/components/player/PlayerBar'
+import { SelectionBarSlotContext } from '@/utils/selectionBar'
 import { useStatusbarHeight } from '@/store/common/hook'
 import { ListInfoContext } from './state'
 
@@ -38,11 +39,14 @@ export default ({ componentId, info }: { componentId: string, info: ListInfoItem
     <PageContent>
       <StatusBar />
       {/* 「列表 / 卡片」切换条在列表之上，必须让出状态栏，否则会顶到时钟那一行 */}
-      <View style={{ flex: 1, paddingTop: statusBarHeight }}>
-        <ListInfoContext.Provider value={info}>
-          <MusicList ref={musicListRef} componentId={componentId} />
-        </ListInfoContext.Provider>
-      </View>
+      {/* 多选插槽要包住整个页面：MultipleModeBar 在列表里，只包 Header 它读不到 */}
+      <SelectionBarSlotContext.Provider value>
+        <View style={{ flex: 1, paddingTop: statusBarHeight }}>
+          <ListInfoContext.Provider value={info}>
+            <MusicList ref={musicListRef} componentId={componentId} />
+          </ListInfoContext.Provider>
+        </View>
+      </SelectionBarSlotContext.Provider>
       <PlayerBar />
     </PageContent>
     </CutoutCompensator>

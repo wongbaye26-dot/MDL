@@ -10,6 +10,7 @@ import { handleCollect, handlePlay } from './listAction'
 import songlistState from '@/store/songlist/state'
 import { useI18n } from '@/lang'
 import { useListInfo } from './state'
+import { useSelectionBarVisible } from '@/utils/selectionBar'
 import DownloadQualityModal, { type DownloadQualityModalType } from '@/components/DownloadQualityModal'
 
 /**
@@ -22,6 +23,8 @@ export default memo(() => {
   const t = useI18n()
   const info = useListInfo()
   const downloadModalRef = useRef<DownloadQualityModalType>(null)
+  // 多选时把三个按钮缩成图标，给右边的多选操作腾地方
+  const selecting = useSelectionBarVisible()
   const onPrimary = contrastOn(theme['c-primary'])
 
   const handlePlayAll = () => {
@@ -31,7 +34,7 @@ export default memo(() => {
 
   const handleDownloadAll = () => {
     const musicInfos = songlistState.listDetailInfo.list
-      .filter((musicInfo): musicInfo is LX.Music.MusicInfoOnline => musicInfo.source !== 'local')
+      .filter((musicInfo): musicInfo is LX.Music.MusicInfoOnline => (musicInfo.source as string) !== 'local')
     if (!musicInfos.length) return
     downloadModalRef.current?.show({ musicInfos, title: '下载歌单全部歌曲' })
   }
@@ -53,20 +56,20 @@ export default memo(() => {
       <TouchableOpacity
         activeOpacity={0.8}
         onPress={handlePlayAll}
-        style={{ ...styles.pill, backgroundColor: theme['c-primary'] }}
+        style={{ ...(selecting ? styles.pillCompact : styles.pill), backgroundColor: theme['c-primary'] }}
       >
         <Icon name='play' size={13} color={onPrimary} />
-        <Text size={12} color={onPrimary} style={styles.pillText}>{t('play_all')}</Text>
+        {selecting ? null : <Text size={12} color={onPrimary} style={styles.pillText}>{t('play_all')}</Text>}
       </TouchableOpacity>
 
-      <TouchableOpacity activeOpacity={0.8} onPress={handleCollection} style={ghost}>
+      <TouchableOpacity activeOpacity={0.8} onPress={handleCollection} style={{ ...ghost, ...(selecting ? styles.pillCompact : null) }}>
         <Icon name='heart-outline' size={14} color={theme['c-primary']} />
-        <Text size={12} color={theme['c-primary']} style={styles.pillText}>{t('collect_songlist')}</Text>
+        {selecting ? null : <Text size={12} color={theme['c-primary']} style={styles.pillText}>{t('collect_songlist')}</Text>}
       </TouchableOpacity>
 
-      <TouchableOpacity activeOpacity={0.8} onPress={handleDownloadAll} style={ghost}>
+      <TouchableOpacity activeOpacity={0.8} onPress={handleDownloadAll} style={{ ...ghost, ...(selecting ? styles.pillCompact : null) }}>
         <Icon name='download-2' size={14} color={theme['c-primary']} />
-        <Text size={12} color={theme['c-primary']} style={styles.pillText}>{t('download_all')}</Text>
+        {selecting ? null : <Text size={12} color={theme['c-primary']} style={styles.pillText}>{t('download_all')}</Text>}
       </TouchableOpacity>
 
       <DownloadQualityModal ref={downloadModalRef} />
@@ -83,6 +86,16 @@ const styles = createStyle({
     paddingLeft: 16,
     paddingRight: 16,
     paddingBottom: 12,
+  },
+  pillCompact: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    paddingLeft: 0,
+    paddingRight: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 6,
   },
   pill: {
     flexDirection: 'row',

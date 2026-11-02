@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
-import { View, FlatList, Image } from 'react-native'
+import { View, TouchableOpacity, FlatList, Image } from 'react-native'
 import Text from '@/components/common/Text'
-import Chip from '@/components/common/Chip'
 import { useTheme } from '@/store/theme/hook'
 import { createStyle, toast } from '@/utils/tools'
 import { useDownloadList, useDownloadStats } from '@/store/download'
@@ -14,12 +13,11 @@ import settingState from '@/store/setting/state'
 import { playList } from '@/core/player/player'
 import { getListMusicSync } from '@/utils/listManage'
 import { LIST_IDS, NAV_BAR_SPACE } from '@/config/constant'
-import PageHeader, { HeaderButton } from '@/components/common/PageHeader'
-import ActionBar from './ActionBar'
+import { Icon } from '@/components/common/Icon'
+import PageHeader from '@/components/common/PageHeader'
+import MiniTag from '@/components/common/MiniTag'
 import TaskItem from './TaskItem'
 import TaskMenu, { type TaskMenuType, type TaskMenuAction } from './TaskMenu'
-import PageModal from '../../Vertical/PageModal'
-import LocalMusic from '../LocalMusic'
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const emoLogo = require('@/resources/images/emo-logo.png')
@@ -32,8 +30,7 @@ export default () => {
   const stats = useDownloadStats()
   const navActiveId = useNavActiveId()
   const menuRef = useRef<TaskMenuType>(null)
-  const [localVisible, setLocalVisible] = useState(false)
-  const [filter, setFilter] = useState<Filter>('all')
+  const [filter] = useState<Filter>('all')
 
   const runningList = useMemo(() => list.filter(task => !task.isComplate), [list])
   const doneList = useMemo(() => list.filter(task => task.isComplate), [list])
@@ -58,8 +55,7 @@ export default () => {
     void getLocalMusicList().then(localList => {
       const index = localList.findIndex(item => item.meta.filePath === task.metadata.filePath)
       if (index < 0) {
-        toast('本地列表里还没有这首歌，试试在本地音乐里重新扫描')
-        setLocalVisible(true)
+        toast('这首歌还没进本地列表，去「本地音乐」重新扫描一次')
         return
       }
       void overwriteListMusics(LIST_IDS.TEMP, localList).then(() => {
@@ -129,24 +125,39 @@ export default () => {
     <View style={styles.container}>
       <PageHeader
         title='下载中心'
-        subtitle={`共 ${stats.total} 首 · 已完成 ${stats.completed} · 下载中 ${stats.running}`}
-        right={<HeaderButton icon='folder-music' onPress={() => { setLocalVisible(true) }} />}
+        subtitle={(
+          <View style={styles.headerTags}>
+            <MiniTag text={`共 ${stats.total} 首`} />
+            <MiniTag text={`已完成 ${stats.completed}`} />
+            <MiniTag text={`下载中 ${stats.running}`} />
+          </View>
+        )}
+        right={(
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              style={{ ...styles.headerBtn, backgroundColor: theme['c-primary-alpha-900'] }}
+              activeOpacity={0.8}
+              onPress={handleStartAll}
+            >
+              <Icon name='play-circle-outline' size={20} color={theme['c-font']} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{ ...styles.headerBtn, backgroundColor: theme['c-primary-alpha-900'] }}
+              activeOpacity={0.8}
+              onPress={handlePauseAll}
+            >
+              <Icon name='pause-circle-outline' size={20} color={theme['c-font']} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{ ...styles.headerBtn, backgroundColor: theme['c-primary-alpha-900'] }}
+              activeOpacity={0.8}
+              onPress={handleClearCompleted}
+            >
+              <Icon name='delete-sweep-outline' size={20} color={theme['c-font']} />
+            </TouchableOpacity>
+          </View>
+        )}
       />
-
-      <ActionBar
-        canStart={stats.total > 0}
-        canPause={stats.running > 0}
-        canClear={stats.completed > 0}
-        onStartAll={handleStartAll}
-        onPauseAll={handlePauseAll}
-        onClearCompleted={handleClearCompleted}
-      />
-
-      <View style={styles.filterRow}>
-        <Chip soft label={`全部 ${stats.total}`} active={filter === 'all'} onPress={() => { setFilter('all') }} />
-        <Chip soft label={`下载中 ${stats.running}`} active={filter === 'running'} onPress={() => { setFilter('running') }} />
-        <Chip soft label={`已完成 ${stats.completed}`} active={filter === 'done'} onPress={() => { setFilter('done') }} />
-      </View>
 
       {
         shownList.length
@@ -174,20 +185,28 @@ export default () => {
             )
       }
       <TaskMenu ref={menuRef} onAction={handleMenuAction} />
-      {
-        localVisible
-          ? (
-            <PageModal title='本地音乐' onClose={() => { setLocalVisible(false) }}>
-              <LocalMusic onClose={() => { setLocalVisible(false) }} />
-            </PageModal>
-            )
-          : null
-      }
     </View>
   )
 }
 
 const styles = createStyle({
+  headerTags: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 5,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    marginLeft: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   container: {
     flex: 1,
   },

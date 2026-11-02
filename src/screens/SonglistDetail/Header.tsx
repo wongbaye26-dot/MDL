@@ -1,7 +1,7 @@
 import { forwardRef, memo, useEffect, useImperativeHandle, useState } from 'react'
 import { View } from 'react-native'
 import ButtonBar from './ActionBar'
-import { useNavigationComponentDidAppear, pop } from '@/navigation'
+import { useNavigationComponentDidAppear } from '@/navigation'
 import { NAV_SHEAR_NATIVE_IDS } from '@/config/constant'
 import { scaleSizeW } from '@/utils/pixelRatio'
 import { useTheme } from '@/store/theme/hook'
@@ -10,7 +10,7 @@ import { createStyle } from '@/utils/tools'
 import Image from '@/components/common/Image'
 import { useListInfo } from './state'
 import { useAnimateOnecNumber } from '@/utils/hooks/useAnimateNumber'
-import { HeaderButton } from '@/components/common/PageHeader'
+import SelectionBarSlot from '@/components/OnlineList/SelectionBarSlot'
 
 const IMAGE_WIDTH = scaleSizeW(76)
 
@@ -83,10 +83,6 @@ export default forwardRef<HeaderType, HeaderProps>(({ componentId }: { component
 
   return (
     <View style={styles.container}>
-      {/* 和主页面一致的圆形返回键；状态栏留白由外层页面统一处理 */}
-      <View style={styles.topRow}>
-        <HeaderButton icon='chevron-left-2' size={22} onPress={() => { void pop(componentId) }} />
-      </View>
       <View style={styles.headRow}>
         <Pic componentId={componentId} playCount={detailInfo.playCount} imgUrl={detailInfo.imgUrl} />
         <View style={styles.infoArea} nativeID={NAV_SHEAR_NATIVE_IDS.songlistDetail_title}>
@@ -96,7 +92,10 @@ export default forwardRef<HeaderType, HeaderProps>(({ componentId }: { component
           </View>
         </View>
       </View>
-      <ButtonBar />
+      <View style={styles.actionRow}>
+        <ButtonBar />
+        <SelectionBarSlot />
+      </View>
       {/* <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <View style={{ flexGrow: 0, flexShrink: 1, paddingTop: 5, paddingRight: 5 }}>
               <Text style={{ fontSize: 12, color: AppColors.normal20 }} numberOfLines={ 1 }>{playCount || '-'}</Text>
@@ -111,6 +110,12 @@ const styles = createStyle({
   container: {
     flexDirection: 'column',
     flexWrap: 'nowrap',
+  },
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    // 多选栏推到最右边，和左边三个按钮分开
+    justifyContent: 'space-between',
   },
   topRow: {
     flexDirection: 'row',

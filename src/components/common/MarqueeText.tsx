@@ -16,6 +16,7 @@ export default ({
   color = '#FFFFFF',
   style,
   active = true,
+  align = 'left',
 }: {
   text: string
   size?: number
@@ -23,6 +24,8 @@ export default ({
   style?: StyleProp<TextStyle>
   /** 为 false 时停在起始位置（比如暂停） */
   active?: boolean
+  /** 不滚动时的水平对齐 */
+  align?: 'left' | 'center'
 }) => {
   const [boxWidth, setBoxWidth] = useState(0)
   const [textWidth, setTextWidth] = useState(0)
@@ -62,16 +65,24 @@ export default ({
 
   return (
     <View
-      style={{ overflow: 'hidden', height: lineHeight, justifyContent: 'center' }}
+      style={{
+        overflow: 'hidden',
+        height: lineHeight,
+        justifyContent: 'center',
+        alignItems: align === 'center' ? 'center' : 'flex-start',
+      }}
       onLayout={e => { setBoxWidth(e.nativeEvent.layout.width) }}
     >
       <Animated.View
         style={{
           position: 'absolute',
           left: 0,
+          // 不滚动时撑满容器，内容才能居中；滚动时只靠 left 定位
+          right: shouldScroll ? undefined : 0,
           top: 0,
           height: lineHeight,
           justifyContent: 'center',
+          alignItems: align === 'center' ? 'center' : 'flex-start',
           transform: [{ translateX }],
         }}
       >

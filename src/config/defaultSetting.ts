@@ -16,7 +16,6 @@ const defaultSetting: LX.AppSetting = {
   'common.alwaysKeepStatusbarHeight': false,
 
   'player.startupAutoPlay': false,
-  'player.startupPushPlayDetailScreen': false,
   'player.togglePlayMethod': 'listLoop',
   'player.playQuality': '128k',
   'player.isSavePlayTime': false,
@@ -34,13 +33,6 @@ const defaultSetting: LX.AppSetting = {
   'player.isS2t': false,
   'player.isShowBluetoothLyric': false,
   'player.isShowBluetoothFullLyric': false,
-
-  // 'playDetail.isZoomActiveLrc': false,
-  // 'playDetail.isShowLyricProgressSetting': false,
-  'playDetail.style.align': 'left',
-  'playDetail.vertical.style.lrcFontSize': 210,
-  'playDetail.horizontal.style.lrcFontSize': 220,
-  'playDetail.isShowLyricProgressSetting': false,
 
   'desktopLyric.enable': false,
   'desktopLyric.isLock': false,
@@ -99,7 +91,5 @@ const defaultSetting: LX.AppSetting = {
   // 底部胶囊进度样式
   'common.navProgressStyle': 'border',
 }
-
-
 
 export default defaultSetting

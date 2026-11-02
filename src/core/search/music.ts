@@ -1,6 +1,7 @@
 import searchMusicState, { type Source } from '@/store/search/music/state'
 import searchMusicActions, { type SearchResult } from '@/store/search/music/action'
 import musicSdk from '@/utils/musicSdk'
+import { log } from '@/utils/log'
 
 export const setSource: typeof searchMusicActions['setSource'] = (source) => {
   searchMusicActions.setSource(source)
@@ -27,7 +28,7 @@ export const search = async(text: string, page: number, sourceId: Source): Promi
     for (const source of searchMusicState.sources) {
       if (source == 'all') continue
       task.push(((musicSdk[source]?.musicSearch.search(text, page, searchMusicState.listInfos.all.limit) as Promise<SearchResult>) ?? Promise.reject(new Error('source not found: ' + source))).catch((error: any) => {
-        console.log(error)
+        log.error(error)
         return {
           allPage: 1,
           limit: 30,
