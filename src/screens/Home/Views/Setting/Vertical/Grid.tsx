@@ -21,6 +21,7 @@ const META: Record<SettingScreenIds, { icon: string, color: string }> = {
   about: { icon: 'help', color: '#10B981' },
 }
 
+// 存储里的语言值是 zh_cn 这种下划线写法，映射表用的是连字符，取之前统一一下
 const LANG_LABEL: Record<string, string> = {
   'zh-cn': '简体中文',
   'zh-tw': '繁體中文',
@@ -97,7 +98,7 @@ export default ({ onPress }: { onPress: (id: SettingScreenIds) => void }) => {
   const autoSave = useSettingValue('download.autoSaveWhilePlaying')
 
   const previews: Record<SettingScreenIds, string> = {
-    basic: `${theme.name || 'EMO'} · ${LANG_LABEL[langId ?? 'zh-cn'] ?? langId ?? ''}`,
+    basic: `${theme.name || 'EMO'} · ${LANG_LABEL[(langId ?? 'zh-cn').replace('_', '-')] ?? langId ?? ''}`,
     player: `${QUALITY_LABEL[playQuality] ?? playQuality} · 逐字歌词${onOff(wordByWord)}`,
     search: `历史${onOff(showHistory)} · 热搜${onOff(showHot)}`,
     list: `专辑名${onOff(showAlbumName)} · 间隔${onOff(showInterval)}`,

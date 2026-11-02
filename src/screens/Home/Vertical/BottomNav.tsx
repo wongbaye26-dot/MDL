@@ -4,6 +4,7 @@ import Svg, { Circle } from 'react-native-svg'
 import LinearGradient from 'react-native-linear-gradient'
 
 import { Icon } from '@/components/common/Icon'
+import TabIcon, { type TabIconName } from '@/components/common/TabIcon'
 import Image from '@/components/common/Image'
 import Glass from '@/components/common/Glass'
 import CapsuleProgress from '@/components/common/CapsuleProgress'
@@ -55,13 +56,12 @@ const DISC_SIZE = 48
 /** 圆盘外的进度光环 */
 const RING_SIZE = 54
 
-/** 四个入口统一用线性图标（和参考图一致），选中态靠颜色 + 圆底区分 */
-const MENU_ICONS: Record<string, string> = {
-  nav_home: 'home-variant-outline',
-  // 参考图是「箭头 + U 形托盘」，download-outline 只有一根横线，tray-arrow-down 更贴
-  nav_download: 'tray-arrow-down',
-  nav_local: 'folder-music-outline',
-  nav_mine: 'account-outline',
+/** 四个入口用设计稿的矢量图标（48×48 线性），选中态靠颜色 + 圆底区分 */
+const MENU_ICONS: Record<string, TabIconName> = {
+  nav_home: 'home',
+  nav_download: 'download',
+  nav_local: 'folder',
+  nav_mine: 'me',
 }
 
 /**
@@ -118,7 +118,7 @@ const ProgressRing = ({ ratio, color, breathe }: {
 const NavSlot = ({ active, onPress, icon, iconColor, activeBg }: {
   active: boolean
   onPress: () => void
-  icon: string
+  icon: TabIconName
   iconColor: string
   activeBg: string
 }) => {
@@ -152,7 +152,7 @@ const NavSlot = ({ active, onPress, icon, iconColor, activeBg }: {
           transform: [{ scale: anim.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1] }) }],
         }}
       >
-        <Icon name={icon} rawSize={ICON_SIZE} color={iconColor} />
+        <TabIcon name={icon} size={ICON_SIZE} color={iconColor} />
       </Animated.View>
     </TouchableOpacity>
   )
@@ -346,7 +346,7 @@ export default memo(() => {
               <NavSlot
                 key={menu.id}
                 active={isActive}
-                icon={MENU_ICONS[menu.id] ?? menu.icon}
+                icon={MENU_ICONS[menu.id] ?? 'home'}
                 iconColor={iconColor}
                 activeBg={theme['c-primary-alpha-800']}
                 onPress={() => { if (!isActive) setNavActiveId(menu.id) }}

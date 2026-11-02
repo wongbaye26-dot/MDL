@@ -2,7 +2,7 @@ import { memo, useEffect, useRef, useState } from 'react'
 import { Animated, Easing, StyleSheet, TouchableOpacity, View } from 'react-native'
 import LinearGradient from 'react-native-linear-gradient'
 
-import { Icon } from '@/components/common/Icon'
+import TabIcon, { type TabIconName } from '@/components/common/TabIcon'
 import AlbumDiscButton from '@/components/common/AlbumDiscButton'
 import Glass from '@/components/common/Glass'
 import CapsuleProgress from '@/components/common/CapsuleProgress'
@@ -37,17 +37,17 @@ const BAR_PADDING = 1
 const ICON_SIZE = 27
 const DISC_SIZE = 48
 
-/** 四个入口统一用线性图标（和竖屏一致），选中态靠颜色 + 圆底区分 */
-const MENU_ICONS: Record<string, string> = {
-  nav_home: 'home-variant-outline',
-  nav_download: 'tray-arrow-down',
-  nav_local: 'folder-music-outline',
-  nav_mine: 'account-outline',
+/** 四个入口用设计稿的矢量图标（和竖屏同一套） */
+const MENU_ICONS: Record<string, TabIconName> = {
+  nav_home: 'home',
+  nav_download: 'download',
+  nav_local: 'folder',
+  nav_mine: 'me',
 }
 
 const MenuItem = ({ id, icon, dark, active, onPress }: {
   id: IdType
-  icon: string
+  icon: TabIconName
   dark: boolean
   active: boolean
   onPress: (id: IdType) => void
@@ -85,9 +85,9 @@ const MenuItem = ({ id, icon, dark, active, onPress }: {
         pointerEvents='none'
         style={{ transform: [{ scale: anim.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1] }) }] }}
       >
-        <Icon
+        <TabIcon
           name={icon}
-          rawSize={ICON_SIZE}
+          size={ICON_SIZE}
           color={active ? theme['c-primary'] : (dark ? 'rgba(255,255,255,0.66)' : 'rgba(30,24,40,0.62)')}
         />
       </Animated.View>
@@ -179,7 +179,7 @@ export default memo(() => {
                   id={menu.id}
                   dark={dark}
                   active={navActiveId === menu.id}
-                  icon={MENU_ICONS[menu.id] ?? menu.icon}
+                  icon={MENU_ICONS[menu.id] ?? 'home'}
                   onPress={setNavActiveId}
                 />
                 )

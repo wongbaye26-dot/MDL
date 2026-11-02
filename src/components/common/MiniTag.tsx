@@ -24,6 +24,8 @@ export default memo(({ text, color, bg }: {
       size={10}
       color={color ?? theme['c-450']}
       style={{
+        // 放在 row 里被挤压会变成「Material...」，标签本身不该收缩
+        flexShrink: 0,
         backgroundColor: bg ?? theme['c-primary-alpha-900'],
         paddingLeft: 6,
         paddingRight: 6,

@@ -56,15 +56,18 @@ export default memo(() => {
       <View style={styles.brand}>
         <Image source={emoLogo} style={styles.logo} />
         <View style={styles.brandInfo}>
-          <Text size={20} style={styles.brandName}>EMO音乐</Text>
+          {/* 角标跟名称同一行：放最右边会被整个 brandInfo 挤掉宽度 */}
+          <View style={styles.nameRow}>
+            <Text size={20} style={styles.brandName}>EMO音乐</Text>
+            <View style={{ ...styles.versionTag, backgroundColor: theme['c-primary-alpha-800'] }}>
+              <Text size={10} color={theme['c-primary-light-200']}>v{currentVer}</Text>
+            </View>
+          </View>
           <Text size={11} color={theme['c-450']} style={styles.brandDesc}>深夜下载 · 情绪收藏</Text>
           <View style={styles.brandTags}>
             <MiniTag text='本地 + 在线' />
             <MiniTag text='Material You' />
           </View>
-        </View>
-        <View style={{ ...styles.versionTag, backgroundColor: theme['c-primary-alpha-800'] }}>
-          <Text size={10} color={theme['c-primary-light-200']} numberOfLines={1}>v{currentVer}</Text>
         </View>
       </View>
 
@@ -155,6 +158,11 @@ const styles = createStyle({
   brandInfo: {
     flexGrow: 1,
     flexShrink: 1,
+    minWidth: 0,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   brandName: {
     fontWeight: '800',
@@ -170,9 +178,9 @@ const styles = createStyle({
   },
   versionTag: {
     flexShrink: 0,
-    alignSelf: 'center',
-    paddingLeft: 9,
-    paddingRight: 9,
+    marginLeft: 8,
+    paddingLeft: 7,
+    paddingRight: 7,
     paddingTop: 4,
     paddingBottom: 4,
     borderRadius: 9,
@@ -208,7 +216,8 @@ const styles = createStyle({
     paddingBottom: 6,
   },
   infoValue: {
-    flexShrink: 1,
+    // 不能 flexShrink：一压就被截成「React Nati...」
+    flexShrink: 0,
     marginLeft: 16,
     textAlign: 'right',
   },
