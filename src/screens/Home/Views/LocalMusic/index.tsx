@@ -26,7 +26,7 @@ import { useTheme } from '@/store/theme/hook'
 import { contrastOn } from '@/theme/solid'
 import { createStyle, toast } from '@/utils/tools'
 import { formatSize, formatSampleRate } from '@/core/download/utils'
-import { getLocalMusicList, scanLocalMusic, getTotalSize, deleteLocalMusic, updateLocalMusicMeta, getScanDirs, getExtraDirs, setExtraDirs, type ScanDir } from '@/core/localMusic'
+import { getLocalMusicList, scanLocalMusicInBackground, isScanning, useScanState, getTotalSize, deleteLocalMusic, updateLocalMusicMeta, getScanDirs, getExtraDirs, setExtraDirs, type ScanDir } from '@/core/localMusic'
 import { pickDirectory, isDirectoryPickerSupported, readAudioMeta } from '@/utils/directoryPicker'
 import { getData, saveData } from '@/plugins/storage'
 import { readPic } from '@/utils/localMediaMetadata'
@@ -148,8 +148,8 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
   const { height: windowHeight } = useWindowSize()
   const [list, setList] = useState<LX.Music.MusicInfoLocal[]>([])
   const [dir, setDir] = useState('')
-  const [scanning, setScanning] = useState(false)
-  const [progress, setProgress] = useState(0)
+  // 扫描状态来自 core（后台扫描，组件卸载也不中断）
+  const { scanning, progress } = useScanState()
   const [inited, setInited] = useState(false)
   /** 全部扫描根目录（默认下载目录 + 用户添加的） */
   const [dirs, setDirs] = useState<ScanDir[]>([])
@@ -186,25 +186,23 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
   }, [])
 
   const handleScan = useCallback(async() => {
-    if (scanning) return
-    setScanning(true)
-    setProgress(0)
+    if (isScanning()) return
     try {
-      const result = await scanLocalMusic(
-        count => {
-          if (mountedRef.current) setProgress(count)
-        },
+      /*
+        后台静默扫描：扫描过程完全在 core 层跑，不依赖这个组件是否挂载。
+        之前是组件里 setState + 每补完一首就推一次全量列表（186 首 = 186 次重渲染），
+        扫到一半滑到别的页就卡死黑屏。
+      */
+      const result = await scanLocalMusicInBackground(
         dirsRef.current.length ? dirsRef.current : undefined,
-        // 列表边扫边出：先出文件名兜底版，标签补齐过程中持续刷新
-        partial => {
-          if (mountedRef.current) setList(partial)
-        },
       )
+      if (!result) return
       if (!mountedRef.current) return
       setList(result.list)
       setDir(result.dir)
       setDirs(result.dirs)
       setNeedAuth(result.needAuth)
+      setInited(true)
       if (result.needAuth.length) {
         // 授权失效 / 从没授权过，扫出来永远是 0 首，只能让用户重选一次
         toast(`「${result.needAuth.map(d => baseNameOf(d.path) || d.path).join('、')}」需要重新授权才能扫描`)
@@ -213,13 +211,8 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
       }
     } catch {
       if (mountedRef.current) toast('扫描失败，请检查目录权限')
-    } finally {
-      if (mountedRef.current) {
-        setScanning(false)
-        setInited(true)
-      }
     }
-  }, [scanning])
+  }, [])
 
   useEffect(() => {
     void getScanDirs().then(list => {
@@ -445,7 +438,6 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
       setDirs(next)
       toast(`已${exist ? '重新授权' : '添加'}「${picked.name}」，开始扫描…`)
       setDirModal(false)
-      setScanning(false)
       void handleScan()
     } catch (e) {
       toast((e as Error)?.message ?? '选择文件夹失败')
@@ -460,7 +452,6 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
     dirsRef.current = next
     setDirs(next)
     toast('已移除，重新扫描中…')
-    setScanning(false)
     void handleScan()
   }, [handleScan])
 

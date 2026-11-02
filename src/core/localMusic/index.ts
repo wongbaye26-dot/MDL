@@ -1,3 +1,5 @@
+/* eslint-disable require-atomic-updates -- 扫描状态是模块级单例，只在扫描回调里整体更新 */
+import { useEffect, useState } from 'react'
 import { getData, saveData } from '@/plugins/storage'
 import { extname, readDir } from '@/utils/fs'
 import { readMetadata } from '@/utils/localMediaMetadata'
@@ -490,4 +492,84 @@ export const addLocalMusicFile = async(item: {
   cachedList = next
   await saveData(STORAGE_KEY, next)
   global.state_event?.localMusicUpdated?.(next)
+}
+
+/* ───────────────────────── 后台静默扫描 ───────────────────────── */
+
+/**
+ * 扫描状态放在模块级，而不是组件 state：
+ * 本地音乐页在 PagerView 里，切到别的页时组件会卸载，
+ * 状态跟着组件走的话「扫描中」就断了，回来还得重扫；而且扫描途中 setState
+ * 会触发整张 187 行的列表重渲染，滑动直接卡死（用户看到的「黑屏」）。
+ */
+interface ScanState {
+  scanning: boolean
+  progress: number
+}
+
+let scanState: ScanState = { scanning: false, progress: 0 }
+const scanListeners = new Set<() => void>()
+let scanEmitTimer: ReturnType<typeof setTimeout> | null = null
+
+const emitScan = () => {
+  for (const listener of scanListeners) listener()
+}
+
+/** 进度刷新节流：每 250ms 最多通知一次，别让 186 首歌打 186 次渲染 */
+const updateScanProgress = (count: number) => {
+  scanState.scanning = true
+  scanState.progress = count
+  emitScanThrottled()
+}
+
+const emitScanThrottled = () => {
+  if (scanEmitTimer) return
+  scanEmitTimer = setTimeout(() => {
+    scanEmitTimer = null
+    emitScan()
+  }, 250)
+}
+
+export const getScanState = () => scanState
+
+export const subscribeScanState = (listener: () => void) => {
+  scanListeners.add(listener)
+  return () => { scanListeners.delete(listener) }
+}
+
+/** 组件里读扫描状态 */
+export const useScanState = () => {
+  const [state, setState] = useState<ScanState>(scanState)
+  useEffect(() => subscribeScanState(() => { setState({ ...scanState }) }), [])
+  return state
+}
+
+/** 扫描中返回 false（防止重复触发） */
+export const isScanning = () => scanState.scanning
+
+/**
+ * 后台静默扫描：不依赖任何页面存活。
+ * 扫描过程中只维护模块级状态，扫完再统一通过 `localMusicUpdated` 通知外部刷新。
+ */
+export const scanLocalMusicInBackground = async(roots?: ScanDir[]): Promise<ScanResult | null> => {
+  if (scanState.scanning) return null
+  scanState = { scanning: true, progress: 0 }
+  emitScan()
+  try {
+    const result = await scanLocalMusic(
+      count => {
+        updateScanProgress(count)
+      },
+      roots,
+      // 扫描期间不往 UI 推中间列表（那才是卡死的根因），扫完一次性刷新
+    )
+    return result
+  } finally {
+    scanState = { scanning: false, progress: 0 }
+    if (scanEmitTimer) {
+      clearTimeout(scanEmitTimer)
+      scanEmitTimer = null
+    }
+    emitScan()
+  }
 }
