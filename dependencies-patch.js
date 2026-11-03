@@ -6,12 +6,6 @@ const path = require('node:path')
 const rootPath = path.join(__dirname, './')
 
 const patchs = [
-  // react-native-linear-gradient 2.8.3 还没适配 AGP 8，缺 namespace 会直接构建失败
-  [
-    path.join(rootPath, 'node_modules/react-native-linear-gradient/android/build.gradle'),
-    "android {\n    compileSdkVersion safeExtGet('compileSdkVersion', 31).toInteger()",
-    "android {\n    namespace 'com.BV.LinearGradient'\n    compileSdkVersion safeExtGet('compileSdkVersion', 31).toInteger()",
-  ],
   // 这两个 fork 的 package.json 把 types 指到了不存在的 lib/typescript/src/index.d.ts，
   // 导致 utils/fs.ts 和 localMediaMetadata.ts 整层没有类型（TS2307 + 一串隐式 any）。
   // 源码本身是 TS，直接指向 src/index.ts 即可。
@@ -185,6 +179,10 @@ const patchs = [
 ]
 
 ;(async() => {
+  // --strict：补丁没打上就以非零码退出（发版流程用）。
+  // 默认（postinstall）只警告——npm install 阶段因为一个锚点失配就中断太激进。
+  const strict = process.argv.includes('--strict')
+  const failures = []
   for (const [filePath, fromStr, toStr] of patchs) {
     const label = filePath.replace(rootPath, '')
     try {
@@ -196,14 +194,24 @@ const patchs = [
         continue
       }
       if (!file.includes(fromStr)) {
-        console.log(`Skipping ${label}（没找到锚点，可能上游改了）`)
+        failures.push(`${label}：没找到锚点（上游可能改了）`)
         continue
       }
       await fs.promises.writeFile(filePath, file.replace(fromStr, toStr))
       console.log(`Patched ${label}`)
     } catch (err) {
-      console.error(`Patch ${label} failed: ${err.message}`)
+      failures.push(`${label}：${err.message}`)
     }
+  }
+  if (failures.length) {
+    console.error('\n以下补丁未生效：')
+    for (const f of failures) console.error('  - ' + f)
+    if (strict) {
+      console.error('\n严格模式：补丁未全部生效，终止。\n')
+      process.exit(1)
+    }
+    console.error('\n（非严格模式，继续；发版请用 node dependencies-patch.js --strict）\n')
+    return
   }
   console.log('\nDependencies patch finished.\n')
 })()

@@ -54,6 +54,13 @@ const main = () => {
   const keep = Number(valueOf('--keep', '5'))
 
   if (!has('--no-build')) {
+    // 前置检查：任何一项失败就中止，别把「按钮静默消失」的包发出去
+    console.log('\n▶ 前置检查 …')
+    sh('npx tsc --noEmit -p tsconfig.json')
+    console.log('  ✓ 类型检查通过')
+    sh('node dependencies-patch.js --strict')
+    console.log('  ✓ 依赖补丁全部生效')
+
     console.log(`\n▶ 构建 v${version} …`)
     // 每次强制重打 JS bundle：增量构建有时会漏掉 JS 改动
     fs.rmSync(path.join(ROOT, 'android/app/build/generated/assets/createBundleReleaseJsAndAssets'), { recursive: true, force: true })

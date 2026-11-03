@@ -728,6 +728,7 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
               <TouchableOpacity
                 style={{ ...styles.headerBtn, backgroundColor: theme['c-primary-alpha-900'] }}
                 activeOpacity={0.8}
+                accessibilityLabel='扫描'
                 onPress={() => { void handleScan() }}
               >
                 <Icon name='refresh' size={20} color={theme['c-font']} />

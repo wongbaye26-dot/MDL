@@ -78,12 +78,12 @@ const tap = (x, y) => {
 /**
  * 底部胶囊导航的坐标按屏幕比例算。
  *
- * 胶囊高 58dp、宽 5×58+8=298dp（居中），所以：
- *  - 横向：第一个槽位中心在 (393-298)/2 + 4 + 29 ≈ 80dp → 0.205，之后每格 58dp（0.1476）
+ * 当前布局：4 个图标 Tab（27dp）+ 右侧圆盘（48dp），不再是「5×58 等宽槽位」。
+ * 下面的比例是在 1080×2340 真机上实测的图标中心（240 / 390 / 540 / 690 / 840），
+ * 按屏宽归一化。**改胶囊布局后必须重新实测这里**，否则会点到隔壁或空白。
  *  - 纵向：胶囊中线 ≈ 屏高 95%
- * 改胶囊尺寸后这里要跟着改，否则点不中（之前 0.905 就因为胶囊变矮而失效）。
  */
-const NAV_RATIO = { home: 0.205, download: 0.353, local: 0.5, mine: 0.648, player: 0.795 }
+const NAV_RATIO = { home: 0.222, download: 0.361, local: 0.5, mine: 0.639, player: 0.778 }
 const NAV_Y = 0.95
 
 /** 每个 Tab 落地后一定能看到的文字，用来确认「真的切过去了」 */
@@ -106,7 +106,12 @@ const navTo = (name, screen) => {
   for (let attempt = 0; attempt < 3; attempt++) {
     tap(screen.w * NAV_RATIO[name], screen.h * NAV_Y)
     sleep(1500)
-    if (findByText(dumpUi(), marker)) return
+    const nodes = dumpUi()
+    if (findByText(nodes, marker)) return
+    // 失败时把实际看到的文字打出来，比只报「切不到」好排查
+    if (attempt === 2) {
+      console.log(`    实际界面文本：${nodes.slice(0, 12).map(n => n.text).join(' | ') || '（空）'}`)
+    }
     // 可能停在播放器页（底部胶囊是隐藏的），点左上角收起箭头再来一次
     tap(screen.w * 0.078, screen.h * 0.073)
     sleep(900)
@@ -135,15 +140,21 @@ const dumpUi = () => {
     const raw = sh('adb shell cat /sdcard/smoke.xml', { allowFail: true })
     if (raw && raw.includes('<hierarchy')) {
       const nodes = []
-      const re = /text="([^"]*)"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/g
+      // 同时抓 text 和 content-desc：图标按钮没有文字，只能靠无障碍标签定位
+      const re = /<node[^>]*>/g
       let m
       while ((m = re.exec(raw))) {
-        const text = m[1].trim()
-        if (!text) continue
+        const tag = m[0]
+        const b = /bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/.exec(tag)
+        if (!b) continue
+        const text = (/text="([^"]*)"/.exec(tag)?.[1] ?? '').trim()
+        const desc = (/content-desc="([^"]*)"/.exec(tag)?.[1] ?? '').trim()
+        if (!text && !desc) continue
         nodes.push({
           text,
-          x: (Number(m[2]) + Number(m[4])) / 2,
-          y: (Number(m[3]) + Number(m[5])) / 2,
+          desc,
+          x: (Number(b[1]) + Number(b[3])) / 2,
+          y: (Number(b[2]) + Number(b[4])) / 2,
         })
       }
       if (nodes.length) return nodes
@@ -195,22 +206,32 @@ const caseLaunch = async(screen) => {
   if (Number(fatal) > 0) throw new Error(`logcat 里有 ${fatal} 条致命/JS 错误`)
 
   record('启动', true, `前台 = ${PKG}，界面 ${nodes.length} 个文本节点`)
+
+  // App 会恢复到上次停留的页面（常见是播放器，全屏、底部胶囊隐藏）。
+  // 后续用例都要从首页点导航，所以这里先退出来，否则整个冒烟都会「点不中」。
+  for (let i = 0; i < 4; i++) {
+    if (findByText(dumpUi(), /排行榜|歌单广场/)) return
+    tap(screen.w * 0.078, screen.h * 0.073) // 左上角收起箭头
+    sleep(900)
+  }
+  console.warn('  ⚠ 退不回首页，后续导航用例可能失败')
 }
 
 /** 2. 本地音乐扫描：能进页面、能触发扫描、扫完歌曲数 > 0 */
 const caseScan = async(screen) => {
   navTo('local', screen)
 
+  // 扫描按钮是纯图标，没有文字，靠 accessibilityLabel='扫描' 定位
   const scanBtn = await waitFor('扫描按钮出现', () => {
     const nodes = dumpUi()
-    return findByText(nodes, /^扫描$/)
+    return nodes.find(n => n.desc === '扫描')
   })
   tap(scanBtn.x, scanBtn.y)
 
   // 扫描完成后文案从「扫描中，已找到 N 首…」变成「N 首 · 大小」
   const done = await waitFor('扫描完成', () => {
     const nodes = dumpUi()
-    const hit = findByText(nodes, /^[\d,]+ 首 · /)
+    const hit = findByText(nodes, /^[\d,]+ 首/)
     return hit && !findByText(nodes, /扫描中/) ? hit : null
   }, 90000, 1500)
 

@@ -107,18 +107,41 @@ export default () => {
   /** 左起 16dp：和页面其它内边距用同一套缩放 */
   const cardsPaddingLeft = scaleSizeW(16)
   const [cardsViewport, setCardsViewport] = useState(0)
-  /** 右侧留白 = 视口宽 − 左边距 − 一个槽位（+2dp 兜底，避免浮点取整把最后一个吸附点挤出可滚范围） */
-  const cardsPaddingRight = Math.max(0, cardsViewport - cardsPaddingLeft - cardInterval + 2)
+  /**
+   * 右侧只留 16dp：之前为了让最后一张卡也能左对齐而留了一整屏空白，
+   * 滑到最右边会出现一块像「多余卡片位」的黑洞。改成滑到最后一屏时
+   * 最后一张卡贴右边距（16dp）停住，不再允许继续滑出空白。
+   */
+  const cardsPaddingRight = scaleSizeW(16)
+  /** 内容可滚动的最大距离（最后一张卡右缘贴 16dp 右边距时停住） */
+  const cardsMaxScroll = Math.max(0, cardsPaddingLeft + CARDS.length * cardInterval + cardsPaddingRight - cardsViewport)
+  /** 吸附点：前几张卡左对齐，最后一个吸附点是内容末端（无空白） */
+  const cardsSnapOffsets = useMemo(() => {
+    const offsets: number[] = [0]
+    for (let i = 1; i < CARDS.length; i++) {
+      const target = Math.min(i * cardInterval, cardsMaxScroll)
+      if (target > offsets[offsets.length - 1] + 1) offsets.push(target)
+    }
+    if (cardsMaxScroll > offsets[offsets.length - 1] + 1) offsets.push(cardsMaxScroll)
+    return offsets
+  }, [cardInterval, cardsMaxScroll])
   const handleCardsScroll = useMemo(() => Animated.event(
     [{ nativeEvent: { contentOffset: { x: cardsScrollX } } }],
     { useNativeDriver: true },
   ), [cardsScrollX])
-  /** 每张卡的滚动进度：0 = 这张卡左对齐（焦点），±1 = 左右相邻卡（按吸附步长缓存） */
-  const cardProgress = useMemo(() => CARDS.map((_, i) => cardsScrollX.interpolate({
-    inputRange: [(i - 1) * cardInterval, i * cardInterval, (i + 1) * cardInterval],
-    outputRange: [-1, 0, 1],
-    extrapolate: 'clamp',
-  })), [cardsScrollX, cardInterval])
+  /**
+   * 每张卡的滚动进度：0 = 这张卡是焦点。
+   * 焦点位置按「这张卡左对齐」算，但最后几张会被内容末端夹住（不能越过 maxScroll），
+   * 否则最后一屏没有空白，最后一张卡永远到不了 scale 1。
+   */
+  const cardProgress = useMemo(() => CARDS.map((_, i) => {
+    const target = Math.min(i * cardInterval, cardsMaxScroll)
+    return cardsScrollX.interpolate({
+      inputRange: [target - cardInterval, target, target + cardInterval],
+      outputRange: [-1, 0, 1],
+      extrapolate: 'clamp',
+    })
+  }), [cardsScrollX, cardInterval, cardsMaxScroll])
 
   const recentDownload = useMemo(() => [...downloadList]
     .sort((a, b) => {
@@ -239,7 +262,7 @@ export default () => {
           showsHorizontalScrollIndicator={false}
           style={styles.hScroll}
           contentContainerStyle={[styles.cards, { paddingLeft: cardsPaddingLeft, paddingRight: cardsPaddingRight }]}
-          snapToInterval={cardInterval}
+          snapToOffsets={cardsSnapOffsets}
           decelerationRate='fast'
           scrollEventThrottle={16}
           onScroll={handleCardsScroll}
