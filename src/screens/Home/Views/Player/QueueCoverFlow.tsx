@@ -154,13 +154,18 @@ export default memo(({
         <TouchableOpacity
           activeOpacity={0.92}
           onPress={() => {
-            if (!isActive) {
-              centerTo(index)
+            /*
+              点任意一张封面都直接播这首，并且**不退出队列页**（横屏队列就是个封面流，
+              期望是「点哪张播哪张、队列继续留着」）。
+                1. 当前正在播的中间卡 → 切播放/暂停；
+                2. 其它卡（含侧卡）→ 先居中，再立刻切歌；队列保持打开，歌名/高亮跟着更新。
+            */
+            if (isActive && isPlaying) {
+              onToggle()
               return
             }
-            // 中间卡就是正在播的那首 → 切播放/暂停；不是 → 切到这首
-            if (isPlaying) onToggle()
-            else onPlay(index)
+            centerTo(index)
+            onPlay(index)
           }}
           style={{ ...styles.cover, width: coverSize, height: coverSize }}
         >

@@ -244,12 +244,20 @@ const List = forwardRef<ListType, ListProps>(({
     )
   }, [onLoadMore, status, visibleMultiSelect])
 
+  /**
+   * 卡片模式一张卡片就是整行：横屏 rowNum 会变成 2，卡片会被塞进半宽的列里导致错位，
+   * 所以 card 模式固定 1 列；list 模式保持原有的横屏两列行为。
+   */
+  const numColumns = viewMode === 'card' ? 1 : (rowInfo.current.rowNum ?? 1)
+
   return (
     <FlatList
       ref={flatListRef}
       style={styles.list}
       data={currentList}
-      numColumns={rowInfo.current.rowNum}
+      // numColumns 在 list/card 之间切换时会变，RN 不允许动态改列数，换 key 让 FlatList 重建
+      key={`online-list-${numColumns}`}
+      numColumns={numColumns}
       horizontal={false}
       maxToRenderPerBatch={renderAll}
       // updateCellsBatchingPeriod={80}

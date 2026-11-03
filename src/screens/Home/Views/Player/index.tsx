@@ -571,6 +571,17 @@ export default () => {
     void playList(listId, index)
   }, [])
 
+  /**
+   * 横屏封面流队列里点封面：直接播这首，但**不关队列**。
+   * 竖屏底部队列仍然用上面那个（点了就收起来），两边的交互预期不一样，
+   * 所以这里单独分一个 handler —— 以前共用同一个，横屏点一下队列就直接没了。
+   */
+  const handlePlayFromLandscapeQueue = useCallback((index: number) => {
+    const listId = playerState.playInfo.playerListId
+    if (!listId) return
+    void playList(listId, index)
+  }, [])
+
   const currentTime = seekPreview ?? progress.nowPlayTime
   const maxTime = progress.maxPlayTime
 
@@ -760,7 +771,7 @@ export default () => {
           listId={playerState.playInfo.playerListId ?? undefined}
           playing={isPlay}
           onClose={() => { setQueueVisible(false) }}
-          onPlay={handlePlayFromQueue}
+          onPlay={handlePlayFromLandscapeQueue}
           onToggle={togglePlay}
         />
         )
