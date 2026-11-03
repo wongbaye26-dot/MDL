@@ -7,8 +7,10 @@
  *  - 主题切换（Material You 主色）→ 通知整体 color
  *  - 切歌 / 我的收藏列表变化 → 收藏按钮图标（实心 / 线框）
  *  - 播放模式变化 → 循环按钮图标（列表循环 / 单曲循环 / 随机 / 顺序）
+ *  - 标准媒体按钮（上一首 / 播放 / 暂停 / 下一首）统一成 Material 矢量图标（emo_media_*），
+ *    不再混用库内置 PNG，避免锁屏大播放器里图标风格不一致
  *
- * native 侧会按 settings 里的 drawable 资源名（emo_notif_*）在 app 包内用
+ * native 侧会按 settings 里的 drawable 资源名（emo_notif_* / emo_media_*）在 app 包内用
  * getIdentifier 解析图标，所以这里传的是资源名字符串而不是 require() 资源。
  */
 import { Capability, type MetadataOptions } from 'react-native-track-player'
@@ -36,16 +38,36 @@ const LOOP_ICON: Record<PlayMode | 'none', string> = {
   none: 'emo_notif_order',
 }
 
+/**
+ * 通知栏 compact / 锁屏大播放器的标准媒体按钮图标。
+ * 库默认用内置 PNG，和收藏 / 循环的 Material 矢量风格不一致；这里统一成
+ * 同一套 24dp 白色 Material 实心矢量（native getIcon 已扩展支持传资源名字符串）。
+ */
+const MEDIA_ICON_PREVIOUS = 'emo_media_previous'
+const MEDIA_ICON_PLAY = 'emo_media_play'
+const MEDIA_ICON_PAUSE = 'emo_media_pause'
+const MEDIA_ICON_NEXT = 'emo_media_next'
+
 /** 自定义按钮的文案（native 里也会兜底，这里传过去方便以后本地化） */
 const FAVORITE_TITLE = '收藏'
 const LOOP_TITLE = '播放模式'
 
-/** native 能从 Bundle 里多读到的自定义字段 */
-interface EmoNotificationOptions extends MetadataOptions {
+/**
+ * native 能从 Bundle 里多读到的自定义字段。
+ *
+ * 注意：previousIcon / playIcon / pauseIcon / nextIcon 传的是 drawable 资源名字符串
+ * （如 'emo_media_previous'），而 MetadataOptions 里同名字段类型是资源 id（number）。
+ * native 侧 getIcon 已扩展支持按 app 包资源名解析，解析失败会回退库内置图标。
+ */
+interface EmoNotificationOptions extends Omit<MetadataOptions, 'icon' | 'previousIcon' | 'playIcon' | 'pauseIcon' | 'stopIcon' | 'nextIcon' | 'rewindIcon' | 'forwardIcon'> {
   favoriteIcon?: string
   loopIcon?: string
   favoriteTitle?: string
   loopTitle?: string
+  previousIcon?: string
+  playIcon?: string
+  pauseIcon?: string
+  nextIcon?: string
 }
 
 /** 当前播放歌曲是否已在我的收藏里（与播放器页 handleToggleCollect 的判断方式一致） */
@@ -65,9 +87,9 @@ const getPlayMode = (): PlayMode | 'none' => {
   return (settingState.setting['player.togglePlayMethod'] ?? 'listLoop') as PlayMode
 }
 
-export const buildNotificationOptions = (): EmoNotificationOptions => {
+export const buildNotificationOptions = (): MetadataOptions => {
   const playMode = getPlayMode()
-  return {
+  const options: EmoNotificationOptions = {
     // 媒体会话全部能力
     capabilities: [
       Capability.Play,
@@ -105,7 +127,18 @@ export const buildNotificationOptions = (): EmoNotificationOptions => {
     loopIcon: LOOP_ICON[playMode] ?? LOOP_ICON.listLoop,
     favoriteTitle: FAVORITE_TITLE,
     loopTitle: LOOP_TITLE,
+
+    // 标准媒体按钮：显式传 app drawable 资源名，让通知 compact / 锁屏大播放器
+    // 的上一首 / 播放 / 暂停 / 下一首与收藏 / 循环使用同一套 Material 图标
+    previousIcon: MEDIA_ICON_PREVIOUS,
+    playIcon: MEDIA_ICON_PLAY,
+    pauseIcon: MEDIA_ICON_PAUSE,
+    nextIcon: MEDIA_ICON_NEXT,
   }
+
+  // 这几个字段 native 侧读的是 drawable 资源名（String），而 MetadataOptions 里
+  // 声明的是资源 id（number）；native getIcon 已扩展支持字符串，这里强转绕过 JS 类型。
+  return options as unknown as MetadataOptions
 }
 
 let isListening = false

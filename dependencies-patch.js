@@ -176,6 +176,27 @@ const patchs = [
     private Action createAction(List<Integer> caps, long action, String title, int icon) {
         if(!caps.contains((int)action)) return null;`,
   ],
+  // ---- react-native-track-player 2.1.2：标准媒体按钮也用 app drawable 资源名 ----
+  // 通知栏 / 锁屏大播放器默认用库内置 PNG（previous/play/pause/next），与收藏 / 循环的
+  // Material 矢量图标风格不一致。扩展 getIcon：options 里同名 key 是字符串
+  // （如 previousIcon='emo_media_previous'）时按 app 包资源名解析，失败回退默认图标。
+  [
+    path.join(rootPath, 'node_modules/react-native-track-player/android/src/main/java/com/guichaguri/trackplayer/service/metadata/MetadataManager.java'),
+    `    private int getIcon(Bundle options, String propertyName, int defaultIcon) {
+        if(!options.containsKey(propertyName)) return defaultIcon;
+
+        Bundle bundle = options.getBundle(propertyName);`,
+    `    private int getIcon(Bundle options, String propertyName, int defaultIcon) {
+        if(!options.containsKey(propertyName)) return defaultIcon;
+
+        // JS 直接传 drawable 资源名（如 emo_media_previous）时按 app 包资源解析，
+        // 让通知栏 / 锁屏大播放器的标准媒体按钮与收藏 / 循环按钮共用同一套 Material 矢量图标
+        if(options.get(propertyName) instanceof String) {
+            return getNamedIcon(options, propertyName, defaultIcon);
+        }
+
+        Bundle bundle = options.getBundle(propertyName);`,
+  ],
 ]
 
 ;(async() => {
