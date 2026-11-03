@@ -1,5 +1,5 @@
 import { memo, useRef } from 'react'
-import { View, TouchableOpacity } from 'react-native'
+import { View, TouchableOpacity, type GestureResponderEvent } from 'react-native'
 // import Button from '@/components/common/Button'
 import Text from '@/components/common/Text'
 import Badge, { type BadgeType } from '@/components/common/Badge'
@@ -10,6 +10,7 @@ import { useTheme } from '@/store/theme/hook'
 import { scaleSizeH } from '@/utils/pixelRatio'
 import { LIST_ITEM_HEIGHT } from '@/config/constant'
 import { createStyle, type RowInfo } from '@/utils/tools'
+import type { Position } from './ListMenu'
 
 export const ITEM_HEIGHT = scaleSizeH(LIST_ITEM_HEIGHT)
 
@@ -59,8 +60,9 @@ export default memo(({ item, index, showSource, onPress, onLongPress, onShowMenu
   index: number
   showSource?: boolean
   onPress: (item: LX.Music.MusicInfoOnline, index: number) => void
-  onLongPress: (item: LX.Music.MusicInfoOnline, index: number) => void
-  onShowMenu: (item: LX.Music.MusicInfoOnline, index: number, position: { x: number, y: number, w: number, h: number }) => void
+  /** 长按：除歌曲外还带出手指按下的屏幕位置，供悬浮菜单就近弹出 */
+  onLongPress: (item: LX.Music.MusicInfoOnline, index: number, position: Position) => void
+  onShowMenu: (item: LX.Music.MusicInfoOnline, index: number, position: Position) => void
   selectedList: LX.Music.MusicInfoOnline[]
   rowInfo: RowInfo
   isShowAlbumName: boolean
@@ -81,6 +83,18 @@ export default memo(({ item, index, showSource, onPress, onLongPress, onShowMenu
       })
     }
   }
+  /**
+   * 长按：以前是直接进多选，现在和 ⋮ 一样弹悬浮菜单，位置用手指按下的屏幕坐标
+   * （w/h 记 0，表示菜单以这个点为准定位，由 FloatingMenu 夹到屏内）。
+   */
+  const handleLongPress = (event: GestureResponderEvent) => {
+    onLongPress(item, index, {
+      x: Math.ceil(event.nativeEvent.pageX),
+      y: Math.ceil(event.nativeEvent.pageY),
+      w: 0,
+      h: 0,
+    })
+  }
   const tagInfo = useQualityTag(item)
 
   const singer = `${item.singer}${isShowAlbumName && item.meta.albumName ? ` · ${item.meta.albumName}` : ''}`
@@ -89,11 +103,18 @@ export default memo(({ item, index, showSource, onPress, onLongPress, onShowMenu
   if (viewMode === 'card') {
     return (
       <View style={{ ...styles.card, backgroundColor: isSelected ? theme['c-primary-background-hover'] : theme['c-primary-alpha-900'], borderColor: theme['c-primary-alpha-700'] }}>
-        <TouchableOpacity style={styles.cardLeft} activeOpacity={0.75} onPress={() => { onPress(item, index) }} onLongPress={() => { onLongPress(item, index) }}>
+        <TouchableOpacity style={styles.cardLeft} activeOpacity={0.75} onPress={() => { onPress(item, index) }} onLongPress={handleLongPress}>
+          {/* 卡片行也要保留名次（排行榜直接传 viewMode='card'） */}
+          { showRank ? <View style={styles.cardRank}><RankBadge index={index} /></View> : null }
           <Image url={item.meta.picUrl} style={styles.cardCover} />
           <View style={styles.cardInfo}>
             <Text size={14} numberOfLines={1} style={styles.cardName}>{item.name}</Text>
-            <Text size={11} color={theme['c-450']} numberOfLines={1} style={styles.cardSinger}>{singer}</Text>
+            {/* 音质 / 来源角标：和列表模式保持一致，切卡片后不丢信息 */}
+            <View style={styles.cardMetaRow}>
+              { tagInfo.type ? <Badge type={tagInfo.type}>{tagInfo.text}</Badge> : null }
+              { showSource ? <Badge type="tertiary">{(item.source as string) === 'local' ? '本地' : item.source}</Badge> : null }
+              <Text size={11} color={theme['c-450']} numberOfLines={1} style={styles.cardSinger}>{singer}</Text>
+            </View>
           </View>
           {isShowInterval ? <Text size={11} color={theme['c-400']} style={styles.interval}>{item.interval ?? ''}</Text> : null}
         </TouchableOpacity>
@@ -106,7 +127,7 @@ export default memo(({ item, index, showSource, onPress, onLongPress, onShowMenu
 
   return (
     <View style={{ ...styles.listItem, width: rowInfo.rowWidth, height: ITEM_HEIGHT, backgroundColor: isSelected ? theme['c-primary-background-hover'] : 'rgba(0,0,0,0)' }}>
-      <TouchableOpacity style={styles.listItemLeft} onPress={() => { onPress(item, index) }} onLongPress={() => { onLongPress(item, index) }}>
+      <TouchableOpacity style={styles.listItemLeft} onPress={() => { onPress(item, index) }} onLongPress={handleLongPress}>
         { showRank ? <RankBadge index={index} /> : null }
         <Image url={item.meta.picUrl} style={showRank ? styles.coverWithRank : styles.cover} />
         <View style={styles.itemInfo}>
@@ -202,6 +223,9 @@ const styles = createStyle({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
+    // 卡片行给固定高度：FlatList 的单元格在部分场景会把子项拉伸到整屏，
+    // 固定高度才能保证一行就是一张 68dp 的卡片（封面 52 + 上下 padding 8）。
+    height: 68,
     marginLeft: 12,
     marginRight: 12,
     marginBottom: 8,
@@ -227,11 +251,19 @@ const styles = createStyle({
     flexGrow: 1,
     flexShrink: 1,
   },
+  cardRank: {
+    marginRight: 2,
+  },
   cardName: {
     fontWeight: '600',
   },
-  cardSinger: {
+  cardMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginTop: 3,
+  },
+  cardSinger: {
+    flexShrink: 1,
   },
   interval: {
     width: 44,

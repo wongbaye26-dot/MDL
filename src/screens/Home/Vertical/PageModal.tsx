@@ -17,8 +17,10 @@ import SelectionBarSlot from '@/components/OnlineList/SelectionBarSlot'
  * 横屏自动切紧凑版）。之前是自己画的 17sp 标题 + 裸图标，所以子页和主页面
  * 一眼就能看出是两套 UI。
  */
-export default ({ title, onClose: _onClose, right, children }: {
+export default ({ title, titleRight, onClose: _onClose, right, children }: {
   title: string
+  /** 标题同一行、紧跟标题之后的节点（比如收藏页的两个页签） */
+  titleRight?: React.ReactNode
   /** 保留接口：关闭由系统返回手势触发（useBackHandler） */
   onClose?: () => void
   /** 标题右侧的操作按钮 */
@@ -49,6 +51,7 @@ export default ({ title, onClose: _onClose, right, children }: {
         <SelectionBarSlotContext.Provider value>
           <PageHeader
             title={title}
+            titleRight={titleRight}
             right={(
               <View style={styles.headerRight}>
                 {right}

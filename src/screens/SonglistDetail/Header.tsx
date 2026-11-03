@@ -10,9 +10,9 @@ import { createStyle } from '@/utils/tools'
 import Image from '@/components/common/Image'
 import { useListInfo } from './state'
 import { useAnimateOnecNumber } from '@/utils/hooks/useAnimateNumber'
-import SelectionBarSlot from '@/components/OnlineList/SelectionBarSlot'
 
-const IMAGE_WIDTH = scaleSizeW(76)
+/** 概览卡封面尺寸：和本地音乐/下载中心的卡片封面比例接近，但这里是歌单主视觉，给大一档 */
+const IMAGE_WIDTH = scaleSizeW(92)
 
 const CountText = memo(({ count }: { count: string }) => {
   const [animFade] = useAnimateOnecNumber(0, 1, 250, false)
@@ -47,8 +47,8 @@ const Pic = ({ componentId, playCount, imgUrl }: {
   })
 
   return (
-    <View style={{ ...styles.listItemImg, width: IMAGE_WIDTH, height: IMAGE_WIDTH }}>
-      <Image nativeID={`${NAV_SHEAR_NATIVE_IDS.songlistDetail_pic}_to_${info.id}`} url={pic} style={{ flex: 1, borderRadius: 16 }} />
+    <View style={{ ...styles.coverWrap, width: IMAGE_WIDTH, height: IMAGE_WIDTH }}>
+      <Image nativeID={`${NAV_SHEAR_NATIVE_IDS.songlistDetail_pic}_to_${info.id}`} url={pic} style={styles.cover} />
       {
         playCount && animated ? <CountText count={playCount} /> : null
       }
@@ -70,6 +70,13 @@ export interface DetailInfo {
   imgUrl?: string
 }
 
+/**
+ * 歌单详情顶部概览卡（列表的 ListHeaderComponent，跟着列表一起滚动）。
+ *
+ * 和本地音乐 / 下载中心同一套圆角卡片语言：封面 + 标题 + 作者/简介 +
+ * 「播放全部 / 收藏歌单 / 下载全部」胶囊按钮，整张卡用主色淡底 + 细描边。
+ * 页头的返回键/标题是固定的一行，在 index.tsx 里用 PageHeader 渲染。
+ */
 export default forwardRef<HeaderType, HeaderProps>(({ componentId }: { componentId: string }, ref) => {
   const theme = useTheme()
   const info = useListInfo()
@@ -82,92 +89,86 @@ export default forwardRef<HeaderType, HeaderProps>(({ componentId }: { component
   }), [])
 
   return (
-    <View style={styles.container}>
-      <View style={styles.headRow}>
-        <Pic componentId={componentId} playCount={detailInfo.playCount} imgUrl={detailInfo.imgUrl} />
-        <View style={styles.infoArea} nativeID={NAV_SHEAR_NATIVE_IDS.songlistDetail_title}>
-          <Text size={19} numberOfLines={2} style={styles.name}>{detailInfo.name}</Text>
-          <View style={{ flexGrow: 0, flexShrink: 1 }}>
-            <Text size={12} color={theme['c-450']} numberOfLines={3} style={styles.desc}>{detailInfo.desc}</Text>
+    <View style={styles.wrap}>
+      <View style={{
+        ...styles.card,
+        backgroundColor: theme['c-primary-alpha-900'],
+        borderColor: theme['c-primary-alpha-800'],
+      }}>
+        <View style={styles.headRow}>
+          <Pic componentId={componentId} playCount={detailInfo.playCount} imgUrl={detailInfo.imgUrl} />
+          <View style={styles.infoArea} nativeID={NAV_SHEAR_NATIVE_IDS.songlistDetail_title}>
+            <Text size={17.5} numberOfLines={2} style={styles.name}>{detailInfo.name || '歌单'}</Text>
+            {
+              info.author
+                ? <Text size={11} color={theme['c-450']} numberOfLines={1} style={styles.author}>{info.author}</Text>
+                : null
+            }
+            {
+              detailInfo.desc
+                ? <Text size={11} color={theme['c-450']} numberOfLines={3} style={styles.desc}>{detailInfo.desc}</Text>
+                : null
+            }
           </View>
         </View>
+        <View style={styles.actionRow}>
+          <ButtonBar />
+        </View>
       </View>
-      <View style={styles.actionRow}>
-        <ButtonBar />
-        <SelectionBarSlot />
-      </View>
-      {/* <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-        <View style={{ flexGrow: 0, flexShrink: 1, paddingTop: 5, paddingRight: 5 }}>
-              <Text style={{ fontSize: 12, color: AppColors.normal20 }} numberOfLines={ 1 }>{playCount || '-'}</Text>
-              <Text style={{ fontSize: 12, color: AppColors.normal30 }} numberOfLines={ 1 }>{this.props.selectListInfo.author || this.props.listDetailData.info.author}</Text>
-            </View>
-      </View> */}
     </View>
   )
 })
 
 const styles = createStyle({
-  container: {
-    flexDirection: 'column',
-    flexWrap: 'nowrap',
-  },
-  actionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    // 多选栏推到最右边，和左边三个按钮分开
-    justifyContent: 'space-between',
-  },
-  topRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: 44,
-    paddingLeft: 12,
-  },
-  headRow: {
-    flexDirection: 'row',
-    flexGrow: 0,
-    flexShrink: 0,
+  wrap: {
     paddingLeft: 16,
     paddingRight: 16,
     paddingTop: 4,
-    paddingBottom: 12,
+    paddingBottom: 10,
+  },
+  card: {
+    borderRadius: 16,
+    borderWidth: 0.5,
+    paddingLeft: 12,
+    paddingRight: 12,
+    paddingTop: 12,
+    paddingBottom: 10,
+  },
+  headRow: {
+    flexDirection: 'row',
   },
   infoArea: {
     flexDirection: 'column',
     flexGrow: 1,
     flexShrink: 1,
-    paddingLeft: 14,
+    paddingLeft: 12,
     justifyContent: 'center',
   },
   name: {
     fontWeight: '800',
     letterSpacing: 0.3,
   },
+  author: {
+    marginTop: 4,
+  },
   desc: {
     marginTop: 6,
-    lineHeight: 18,
+    lineHeight: 17,
   },
-  listItemImg: {
-    // backgroundColor: '#eee',
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  coverWrap: {
     flexGrow: 0,
     flexShrink: 0,
     overflow: 'hidden',
-    // width: 70,
-    // height: 70,
-    // ...Platform.select({
-    //   ios: {
-    //     shadowColor: '#000',
-    //     shadowOffset: {
-    //       width: 0,
-    //       height: 1,
-    //     },
-    //     shadowOpacity: 0.20,
-    //     shadowRadius: 1.41,
-    //   },
-    //   android: {
-    //     elevation: 2,
-    //   },
-    // }),
+    borderRadius: 16,
+  },
+  cover: {
+    flex: 1,
+    borderRadius: 16,
   },
   playCount: {
     position: 'absolute',
@@ -175,9 +176,9 @@ const styles = createStyle({
     left: 0,
     width: '100%',
     fontSize: 11,
-    paddingLeft: 4,
-    paddingRight: 4,
-    paddingBottom: 1,
+    paddingLeft: 5,
+    paddingRight: 5,
+    paddingBottom: 2,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     color: '#fff',
     borderBottomLeftRadius: 16,

@@ -22,6 +22,11 @@ export interface ListProps {
   onShowMenu: (musicInfo: LX.Music.MusicInfo, index: number, position: Position) => void
   onMuiltSelectMode: () => void
   onSelectAll: (isAll: boolean) => void
+  /**
+   * 只展示当前列表最后 N 首（比如收藏页的试听列表只展示最近 30 首）。
+   * 真实列表数据不动，只在展示层截断；索引会映射回真实列表位置。
+   */
+  displayLimit?: number
 }
 export interface ListType {
   setIsMultiSelectMode: (isMultiSelectMode: boolean) => void
@@ -45,7 +50,7 @@ const usePlayIndex = () => {
 }
 
 
-const List = forwardRef<ListType, ListProps>(({ onShowMenu, onMuiltSelectMode, onSelectAll }, ref) => {
+const List = forwardRef<ListType, ListProps>(({ onShowMenu, onMuiltSelectMode, onSelectAll, displayLimit }, ref) => {
   // const t = useI18n()
   const flatListRef = useRef<FlatList>(null)
   const [currentList, setList] = useState<LX.List.ListMusics>([])
@@ -60,6 +65,21 @@ const List = forwardRef<ListType, ListProps>(({ onShowMenu, onMuiltSelectMode, o
   const rowInfo = useRef(getRowInfo())
   const isShowAlbumName = useSettingValue('list.isShowAlbumName')
   const isShowInterval = useSettingValue('list.isShowInterval')
+  /**
+   * 展示层截断：currentList 始终是完整列表（播放/菜单/多选都按真实索引走），
+   * FlatList 只渲染最后 displayLimit 条，避免长列表（试听列表会积累很多歌）末尾空白。
+   */
+  const displayList = useMemo(() => {
+    if (!displayLimit || displayLimit <= 0 || currentList.length <= displayLimit) return currentList
+    return currentList.slice(currentList.length - displayLimit)
+  }, [currentList, displayLimit])
+  /** 展示索引 → 真实索引的偏移量（没截断时为 0） */
+  const displayOffset = currentList.length - displayList.length
+  /** effect 里是挂载时捕获的闭包，用 ref 取最新的 displayLimit / offset */
+  const displayLimitRef = useRef(displayLimit)
+  const displayOffsetRef = useRef(displayOffset)
+  displayLimitRef.current = displayLimit
+  displayOffsetRef.current = displayOffset
   // console.log('render music list')
 
   useImperativeHandle(ref, () => ({
@@ -76,7 +96,8 @@ const List = forwardRef<ListType, ListProps>(({ onShowMenu, onMuiltSelectMode, o
     selectAll(isAll) {
       let list: LX.List.ListMusics
       if (isAll) {
-        list = [...currentList]
+        // 只全选展示出来的条目（截断时列表里看不到的部分不参与全选）
+        list = [...displayList]
       } else {
         list = []
       }
@@ -90,7 +111,10 @@ const List = forwardRef<ListType, ListProps>(({ onShowMenu, onMuiltSelectMode, o
       void getListMusics(listState.activeListId).then((list) => {
         const index = list.findIndex(m => m.id == info.id)
         if (index < 0) return
-        flatListRef.current?.scrollToIndex({ index: Math.floor(index / (rowInfo.current.rowNum ?? 1)), viewPosition: 0.3, animated: true })
+        const displayIndex = index - displayOffsetRef.current
+        // 命中项不在展示范围内（被 displayLimit 截掉了）就不滚
+        if (displayIndex < 0) return
+        flatListRef.current?.scrollToIndex({ index: Math.floor(displayIndex / (rowInfo.current.rowNum ?? 1)), viewPosition: 0.3, animated: true })
       })
     },
     scrollToTop() {
@@ -117,16 +141,23 @@ const List = forwardRef<ListType, ListProps>(({ onShowMenu, onMuiltSelectMode, o
           requestAnimationFrame(() => {
             isUpdateingList = false
             listFirstScrollRef.current = true
+            // 展示层截断时，真实索引要减去被截掉的 offset 才是展示列表里的位置
+            const limit = displayLimitRef.current
+            const offset = limit && limit > 0 && list.length > limit ? list.length - limit : 0
             if (waitJumpListPositionRef.current) {
               waitJumpListPositionRef.current = false
               if (playerState.playMusicInfo.listId == id && playerState.playInfo.playIndex > -1) {
-                try {
-                  flatListRef.current?.scrollToIndex({ index: Math.floor(playerState.playInfo.playIndex / (rowInfo.current.rowNum ?? 1)), viewPosition: 0.3, animated: false })
-                  return
-                } catch {}
+                const displayIndex = playerState.playInfo.playIndex - offset
+                if (displayIndex >= 0) {
+                  try {
+                    flatListRef.current?.scrollToIndex({ index: Math.floor(displayIndex / (rowInfo.current.rowNum ?? 1)), viewPosition: 0.3, animated: false })
+                    return
+                  } catch {}
+                }
               }
             }
-            flatListRef.current?.scrollToOffset({ offset: position, animated: false })
+            // 截断后保存的滚动位置和展示列表对不上，直接从展示列表开头看
+            flatListRef.current?.scrollToOffset({ offset: offset > 0 ? 0 : position, animated: false })
           })
         })
       })
@@ -152,9 +183,12 @@ const List = forwardRef<ListType, ListProps>(({ onShowMenu, onMuiltSelectMode, o
         } else if (playerState.playInfo.playIndex > -1) {
           if (isUpdateingList) waitJumpListPositionRef.current = true
           else {
-            try {
-              flatListRef.current?.scrollToIndex({ index: Math.floor(playerState.playInfo.playIndex / (rowInfo.current.rowNum ?? 1)), viewPosition: 0.3, animated: true })
-            } catch {}
+            const displayIndex = playerState.playInfo.playIndex - displayOffsetRef.current
+            if (displayIndex >= 0) {
+              try {
+                flatListRef.current?.scrollToIndex({ index: Math.floor(displayIndex / (rowInfo.current.rowNum ?? 1)), viewPosition: 0.3, animated: true })
+              } catch {}
+            }
           }
         }
       })
@@ -184,8 +218,9 @@ const List = forwardRef<ListType, ListProps>(({ onShowMenu, onMuiltSelectMode, o
   }
 
   const handleUpdateSelectedList = (newList: LX.List.ListMusics) => {
-    if (selectedListRef.current.length && newList.length == currentList.length) onSelectAll(true)
-    else if (selectedListRef.current.length == currentList.length) onSelectAll(false)
+    // 截断展示时「全选」只针对展示出来的条目
+    if (selectedListRef.current.length && newList.length == displayList.length) onSelectAll(true)
+    else if (selectedListRef.current.length == displayList.length) onSelectAll(false)
     selectedListRef.current = newList
     setSelectedList(newList)
   }
@@ -253,7 +288,8 @@ const List = forwardRef<ListType, ListProps>(({ onShowMenu, onMuiltSelectMode, o
   const renderItem: FlatListType['renderItem'] = ({ item, index }) => (
     <ListItem
       item={item}
-      index={index}
+      // index 必须是真实列表索引：播放/菜单/多选都按它定位
+      index={displayOffset + index}
       activeIndex={activeIndex}
       onPress={handlePress}
       onLongPress={handleLongPress}
@@ -275,14 +311,16 @@ const List = forwardRef<ListType, ListProps>(({ onShowMenu, onMuiltSelectMode, o
       onScroll={handleScroll}
       style={styles.list}
       contentContainerStyle={{ paddingBottom: NAV_BAR_SPACE }}
-      data={currentList}
-      maxToRenderPerBatch={4}
+      data={displayList}
+      // 截断展示时行数很少（试听列表 30 行），一次挂完，避免虚拟化只渲染首批导致末尾空白
+      maxToRenderPerBatch={displayLimit ? Math.max(12, displayList.length) : 4}
       numColumns={rowInfo.current.rowNum}
       horizontal={false}
       // updateCellsBatchingPeriod={80}
-      windowSize={8}
-      removeClippedSubviews={true}
-      initialNumToRender={12}
+      // 截断展示（试听列表 30 行）时把窗口开大、关闭裁剪，保证一屏之外的行也能挂出来
+      windowSize={displayLimit ? 21 : 8}
+      removeClippedSubviews={!displayLimit}
+      initialNumToRender={displayLimit ? Math.max(12, displayList.length) : 12}
       renderItem={renderItem}
       keyExtractor={getkey}
       extraData={activeIndex}

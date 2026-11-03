@@ -53,7 +53,6 @@ export const BoardChips = ({ boards, activeId, onChange }: {
           ? boards.map(board => (
             <Chip
               key={board.id}
-              soft
               label={board.name}
               active={board.id === activeId}
               onPress={() => { if (board.id !== activeId) onChange(board.id) }}
@@ -73,13 +72,12 @@ const styles = createStyle({
   sourceRow: {
     paddingLeft: 16,
     paddingRight: 16,
-    paddingTop: 10,
+    paddingTop: 6,
   },
   boardRow: {
     paddingLeft: 16,
     paddingRight: 16,
     paddingTop: 8,
-    paddingBottom: 2,
   },
   skeleton: {
     width: 62,

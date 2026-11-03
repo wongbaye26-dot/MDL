@@ -6,7 +6,6 @@ import { getBoardsList } from '@/core/leaderboard'
 import { getLeaderboardSetting, saveLeaderboardSetting } from '@/utils/data'
 import leaderboardState, { type BoardItem } from '@/store/leaderboard/state'
 import boardState from '@/store/leaderboard/state'
-import { useSourceListI18n } from '@/components/SourceSelector'
 import MusicList, { type MusicListType } from '../MusicList'
 import { handlePlay } from '../listAction'
 import { addTasks } from '@/core/download'
@@ -14,23 +13,28 @@ import { SourceChips, BoardChips } from './Chips'
 import { resetLeaderboardHero, setLeaderboardHero } from '@/utils/leaderboardHero'
 import PlayerBar from '@/components/player/PlayerBar'
 
+/**
+ * 排行榜（横竖屏共用）。
+ *
+ * 版面分三层，和本地音乐 / 下载中心一致：
+ *   1. PageModal 的页头「排行榜」+ 右侧紧凑的播放/下载按钮（CompactHero）
+ *   2. 两排横向滚动的筛选胶囊：音源 → 榜单（都在 16 的左右边距里）
+ *   3. 歌曲列表 + 底部悬浮 PlayerBar（列表底部由 OnlineList 预留 NAV_BAR_SPACE）
+ */
 export default () => {
   const musicListRef = useRef<MusicListType>(null)
   const [source, setSource] = useState<LX.OnlineSource>(leaderboardState.sources[0] ?? 'kw')
   const [boards, setBoards] = useState<BoardItem[]>([])
   const [activeId, setActiveId] = useState('')
-  const [count, setCount] = useState(0)
   const sourceRef = useRef(source)
   const activeIdRef = useRef('')
   const requestIdRef = useRef(0)
-  const sourceList = useSourceListI18n(leaderboardState.sources)
 
   const loadBoardList = useCallback((src: LX.OnlineSource, preferId?: string) => {
     const requestId = ++requestIdRef.current
     setBoards([])
     setActiveId('')
     activeIdRef.current = ''
-    setCount(0)
     void getBoardsList(src).then(list => {
       if (requestId !== requestIdRef.current) return
       if (!list.length) {
@@ -67,13 +71,8 @@ export default () => {
   const handleBoardChange = useCallback((id: string) => {
     activeIdRef.current = id
     setActiveId(id)
-    setCount(0)
     musicListRef.current?.loadList(sourceRef.current, id)
     void saveLeaderboardSetting({ source: sourceRef.current, boardId: id })
-  }, [])
-
-  const handleListChange = useCallback((list: LX.Music.MusicInfoOnline[]) => {
-    setCount(list.length)
   }, [])
 
   const handlePlayAll = useCallback(() => {
@@ -101,25 +100,26 @@ export default () => {
   }, [])
 
   const activeName = boards.find(b => b.id === activeId)?.name ?? ''
-  const sourceName = sourceList.find(s => s.action === source)?.label ?? ''
-  const meta = `${count ? `共 ${count} 首` : '正在加载'}${sourceName ? ` · ${sourceName}` : ''}`
 
   // eslint-disable-next-line @typescript-eslint/no-confusing-void-expression
   const heroPlayAll = useCallback(() => { void handlePlayAll() }, [handlePlayAll])
   // eslint-disable-next-line @typescript-eslint/no-confusing-void-expression
   const heroDownloadAll = useCallback(() => { void handleDownloadAll() }, [handleDownloadAll])
-  // 标题右侧的紧凑卡片从这份状态读（标题栏在 PageModal 里，隔了几层）
+  // 页头右侧的紧凑按钮从这份状态读（标题栏在 PageModal 里，隔了几层）。
+  // 榜单名/歌曲数不再在标题栏重复展示，这里只同步「当前是否已选中某个榜单 + 两个操作」。
   useEffect(() => {
-    setLeaderboardHero({ name: activeName, meta, onPlayAll: heroPlayAll, onDownloadAll: heroDownloadAll })
-  }, [activeName, meta, heroPlayAll, heroDownloadAll])
+    setLeaderboardHero({ name: activeName, meta: '', onPlayAll: heroPlayAll, onDownloadAll: heroDownloadAll })
+  }, [activeName, heroPlayAll, heroDownloadAll])
   useEffect(() => () => { resetLeaderboardHero() }, [])
 
   return (
     <View style={styles.container}>
-      <SourceChips active={source} onChange={handleSourceChange} />
-      <BoardChips boards={boards} activeId={activeId} onChange={handleBoardChange} />
+      <View style={styles.filters}>
+        <SourceChips active={source} onChange={handleSourceChange} />
+        <BoardChips boards={boards} activeId={activeId} onChange={handleBoardChange} />
+      </View>
       <View style={styles.list}>
-        <MusicList ref={musicListRef} onListChange={handleListChange} />
+        <MusicList ref={musicListRef} />
       </View>
       {/* 迷你播放器：和歌单广场/歌单详情同一套；榜单本来就在首页里，转场不需要等 pop */}
       <PlayerBar isHome />
@@ -131,8 +131,12 @@ const styles = createStyle({
   container: {
     flex: 1,
   },
+  filters: {
+    paddingTop: 2,
+    paddingBottom: 6,
+  },
   list: {
     flex: 1,
-    marginTop: 8,
+    marginTop: 4,
   },
 })

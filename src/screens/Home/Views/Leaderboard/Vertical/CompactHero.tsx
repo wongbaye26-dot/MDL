@@ -1,16 +1,18 @@
 import { memo, useEffect, useReducer } from 'react'
-import { StyleSheet, TouchableOpacity, View } from 'react-native'
+import { TouchableOpacity, View } from 'react-native'
 
-import Text from '@/components/common/Text'
 import { Icon } from '@/components/common/Icon'
 import { useTheme } from '@/store/theme/hook'
+import { contrastOn } from '@/theme/solid'
+import { createStyle } from '@/utils/tools'
 import { getLeaderboardHero, subscribeLeaderboardHero } from '@/utils/leaderboardHero'
 
 /**
- * 排行榜标题右侧的紧凑「当前榜单」卡片。
+ * 排行榜页头右侧的紧凑操作组。
  *
- * 原来是标题下方一整张 Hero（名字 + 共 N 首 + 播放全部 + 下载），占掉一行高度；
- * 现在压成标题右侧一小块，列表整体上移。
+ * 之前这里是一张「当前榜单 + 共 N 首 + 播放 + 下载」的卡片，和下面两排筛选胶囊
+ * 挤在一起（榜单名在胶囊里已经高亮，状态信息重复）。现在标题右侧只留两个
+ * 38dp 圆形按钮：播放当前榜单 / 下载当前榜单；榜单名与歌曲数交给下面的胶囊。
  */
 export default memo(() => {
   const theme = useTheme()
@@ -19,68 +21,51 @@ export default memo(() => {
 
   useEffect(() => subscribeLeaderboardHero(forceUpdate), [])
 
-  if (!state.name) return null
+  // 榜单还没加载出来（name 为空）时按钮置灰不可点，避免按钮消失导致标题栏跳动
+  const enabled = !!state.name
+  const onPrimary = contrastOn(theme['c-primary'])
 
   return (
-    <View style={{
-      ...styles.card,
-      backgroundColor: theme['c-primary-alpha-900'],
-      borderColor: theme['c-primary-alpha-700'],
-    }}>
-      <View style={styles.info}>
-        <Text size={12} numberOfLines={1} style={styles.name}>{state.name}</Text>
-        <Text size={9} color={theme['c-450']} numberOfLines={1} style={styles.meta}>{state.meta}</Text>
-      </View>
+    <View style={styles.actions}>
       <TouchableOpacity
-        style={{ ...styles.btn, backgroundColor: theme['c-primary'] }}
-        activeOpacity={0.85}
+        style={{
+          ...styles.btn,
+          backgroundColor: theme['c-primary'],
+          opacity: enabled ? 1 : 0.45,
+        }}
+        activeOpacity={0.8}
+        disabled={!enabled}
         onPress={() => { state.onPlayAll?.() }}
       >
-        <Icon name='play' size={12} color='#FFFFFF' />
+        <Icon name='play' size={19} color={onPrimary} />
       </TouchableOpacity>
       <TouchableOpacity
-        style={{ ...styles.btn, ...styles.btnGhost, borderColor: theme['c-primary-alpha-600'] }}
-        activeOpacity={0.85}
+        style={{
+          ...styles.btn,
+          backgroundColor: theme['c-primary-alpha-900'],
+          opacity: enabled ? 1 : 0.45,
+        }}
+        activeOpacity={0.8}
+        disabled={!enabled}
         onPress={() => { state.onDownloadAll?.() }}
       >
-        <Icon name='download-2' size={13} color={theme['c-primary']} />
+        <Icon name='download-2' size={18} color={theme['c-font']} />
       </TouchableOpacity>
     </View>
   )
 })
 
-const styles = StyleSheet.create({
-  card: {
+const styles = createStyle({
+  actions: {
     flexDirection: 'row',
     alignItems: 'center',
-    width: 168,
-    height: 40,
-    paddingLeft: 10,
-    paddingRight: 4,
-    borderRadius: 20,
-    borderWidth: 0.5,
-  },
-  info: {
-    flexGrow: 1,
-    flexShrink: 1,
-    marginRight: 4,
-  },
-  name: {
-    fontWeight: '700',
-  },
-  meta: {
-    marginTop: 1,
   },
   btn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    marginLeft: 6,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  btnGhost: {
-    borderWidth: 0.5,
-    marginLeft: 4,
-    backgroundColor: 'transparent',
   },
 })

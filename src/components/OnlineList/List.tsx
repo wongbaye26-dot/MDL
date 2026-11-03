@@ -23,7 +23,6 @@ export type {
 
 export interface ListProps {
   onShowMenu: (musicInfo: LX.Music.MusicInfoOnline, index: number, position: Position) => void
-  onMuiltSelectMode: () => void
   onSelectAll: (isAll: boolean) => void
   onRefresh: () => void
   onLoadMore: () => void
@@ -41,6 +40,8 @@ export interface ListType {
   setIsMultiSelectMode: (isMultiSelectMode: boolean) => void
   setSelectMode: (mode: SelectMode) => void
   selectAll: (isAll: boolean) => void
+  /** 多选入口：把指定下标的歌选中（配合 setIsMultiSelectMode(true) 使用） */
+  selectItem: (index: number) => void
   getSelectedList: () => LX.Music.MusicInfoOnline[]
   getList: () => LX.Music.MusicInfoOnline[]
   setStatus: (val: Status) => void
@@ -50,7 +51,6 @@ export type Status = 'loading' | 'refreshing' | 'end' | 'error' | 'idle'
 
 const List = forwardRef<ListType, ListProps>(({
   onShowMenu,
-  onMuiltSelectMode,
   onSelectAll,
   onRefresh,
   onLoadMore,
@@ -106,6 +106,13 @@ const List = forwardRef<ListType, ListProps>(({
       }
       selectedListRef.current = list
       setSelectedList(list)
+    },
+    /** 多选入口：把指定下标的歌选中（菜单里的「多选管理」用） */
+    selectItem(index) {
+      const item = currentList[index]
+      if (!item) return
+      prevSelectIndexRef.current = index
+      handleUpdateSelectedList([item])
     },
     getSelectedList() {
       return selectedListRef.current
@@ -173,11 +180,13 @@ const List = forwardRef<ListType, ListProps>(({
     })
   }
 
-  const handleLongPress = (item: LX.Music.MusicInfoOnline, index: number) => {
+  /**
+   * 长按：不再直接进多选，改成和行尾 ⋮ 一样打开悬浮菜单（带着按下的屏幕坐标），
+   * 多选统一从菜单里的「多选管理」进入，避免长按和更多操作两个手势互相抢。
+   */
+  const handleLongPress = (item: LX.Music.MusicInfoOnline, index: number, position: Position) => {
     if (isMultiSelectModeRef.current) return
-    prevSelectIndexRef.current = index
-    handleUpdateSelectedList([item])
-    onMuiltSelectMode()
+    onShowMenu(item, index, position)
   }
 
   const handleLoadMore = () => {

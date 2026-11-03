@@ -2,7 +2,6 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Animated, Easing, Modal, ScrollView, TouchableOpacity, View } from 'react-native'
 import LinearGradient from 'react-native-linear-gradient'
 
-import Chip from '@/components/common/Chip'
 import Text from '@/components/common/Text'
 import { Icon } from '@/components/common/Icon'
 import Glass from '@/components/common/Glass'
@@ -11,7 +10,7 @@ import AlbumDiscSpin from '@/components/common/AlbumDiscSpin'
 import PicImage from '@/components/common/PicImage'
 import MusicList from './MusicList'
 import { playList, togglePlay } from '@/core/player/player'
-import { setActiveList } from '@/core/list'
+import { getListMusics, setActiveList } from '@/core/list'
 import { LIST_IDS } from '@/config/constant'
 import { measureStartRect, openPlayerWithTransition } from '@/utils/playerOpen'
 import { useTheme } from '@/store/theme/hook'
@@ -23,7 +22,10 @@ import { contrastOn } from '@/theme/solid'
 import { cleanSongName } from '@/utils/songName'
 import { createStyle } from '@/utils/tools'
 
-type Tab = 'love' | 'temp'
+export type FavoriteTab = 'love' | 'temp'
+
+/** 试听列表只展示最近多少首（真实播放队列不动，只在展示层截断） */
+export const TEMP_DISPLAY_LIMIT = 30
 
 /** 迷你播放条和底部胶囊导航同高（飞牛实测 59dp） */
 const PLAYER_BAR_HEIGHT = 59
@@ -51,8 +53,11 @@ const useListCounts = () => {
         return next.love === prev.love && next.temp === prev.temp ? prev : next
       })
     }
-    // 页面挂载时列表可能还没初始化完，等下一次事件再刷新
+    // 页面挂载时列表可能还没初始化完，先读一次真实长度，再等事件刷新
     update()
+    void Promise.all([getListMusics(LIST_IDS.LOVE), getListMusics(LIST_IDS.TEMP)])
+      .then(() => { update() })
+      .catch(() => {})
     global.app_event.on('myListMusicUpdate', update)
     return () => {
       global.app_event.off('myListMusicUpdate', update)
@@ -257,33 +262,100 @@ const QueueSheet = memo(({ visible, onClose }: { visible: boolean, onClose: () =
 })
 
 /**
- * 收藏页：「我的收藏」和「试听列表」并列成两个胶囊页签。
+ * 收藏页的两个胶囊页签。
  *
- * 样式对齐本地音乐 / 下载中心：顶部一张概览卡（标题 + 统计 + 播放全部），
- * 下面一排胶囊页签，列表沿用「我的列表」那套卡片行，
- * 底部悬浮一个和胶囊导航同材质的迷你播放器。
- *
- * 注意这是首页 PageModal 里的整屏子页，标题「收藏」由 PageModal 的 PageHeader 提供，
- * 这里不再重复画一个全屏页头，只补子页内的概览区；底部胶囊导航在子页打开期间
- * 会被外壳收起（PageModal 的 overlay lock），列表自带的 NAV_BAR_SPACE 留白
- * 正好让迷你播放器悬浮在列表最后一项下面，不会盖住内容。
+ * 现在放在 PageModal 标题「收藏」右侧同一行（PageHeader 的 titleRight），
+ * 所以做得比内容区的筛选胶囊小一号（高 28、字号 11.5），正好能塞进页头行内。
+ * 状态由 Home 持有（受控）：页头页签和下方列表共用同一份 tab，
+ * 收起再打开收藏页时也能记住上次看的是哪个列表。
  */
-export default () => {
+export const FavoriteTabs = ({ tab, onChange }: {
+  tab: FavoriteTab
+  onChange: (tab: FavoriteTab) => void
+}) => {
   const theme = useTheme()
-  const [tab, setTab] = useState<Tab>('love')
+  const items: Array<{ key: FavoriteTab, label: string }> = [
+    { key: 'love', label: '我的收藏' },
+    { key: 'temp', label: '试听列表' },
+  ]
+
+  return (
+    <View style={styles.headerTabs}>
+      {
+        items.map(item => {
+          const active = tab === item.key
+          return (
+            <TouchableOpacity
+              key={item.key}
+              style={{
+                ...styles.headerTab,
+                backgroundColor: active ? theme['c-primary'] : theme['c-primary-alpha-900'],
+                borderColor: active ? theme['c-primary'] : theme['c-primary-alpha-700'],
+              }}
+              activeOpacity={0.85}
+              onPress={() => { if (!active) onChange(item.key) }}
+            >
+              <Text
+                size={11.5}
+                // 主色实心的胶囊上按主色亮度取黑/白，浅色主题下也读得清
+                color={active ? contrastOn(theme['c-primary']) : theme['c-450']}
+                numberOfLines={1}
+              >{item.label}</Text>
+            </TouchableOpacity>
+          )
+        })
+      }
+    </View>
+  )
+}
+
+/**
+ * 收藏页：「我的收藏」和「试听列表」两个列表。
+ *
+ * 样式对齐本地音乐 / 下载中心：页头（PageModal 的 PageHeader，标题「收藏」，
+ * 两个列表的胶囊页签放在标题右侧同一行）+ 子页概览卡（标题 + 统计 + 播放全部），
+ * 列表沿用「我的列表」那套行，底部悬浮一个和胶囊导航同材质的迷你播放器。
+ *
+ * 注意这是首页 PageModal 里的整屏子页，标题和页签由外壳提供，这里只补概览区和列表；
+ * 底部胶囊导航在子页打开期间会被外壳收起（PageModal 的 overlay lock），
+ * 列表自带的 NAV_BAR_SPACE 留白正好让迷你播放器悬浮在列表最后一项下面，不会盖住内容。
+ *
+ * tab 是受控的（Home 持有状态，页头页签和这里共用），切换时照旧 setActiveList。
+ */
+export default ({ tab }: {
+  tab: FavoriteTab
+  /** 当前由 PageHeader 里的 FavoriteTabs 直接改 Home 的状态；这里保留受控签名，方便以后页内再出现切换入口 */
+  onTabChange: (tab: FavoriteTab) => void
+}) => {
+  const theme = useTheme()
   const [queueVisible, setQueueVisible] = useState(false)
   const counts = useListCounts()
   const count = tab === 'love' ? counts.love : counts.temp
   const tabTitle = tab === 'love' ? '我的收藏' : '试听列表'
 
+  /*
+    打开收藏页时不要沿用「跳到正在播放的那首」的列表：
+    MusicList 挂载时会看 global.lx.jumpMyListPosition，如果为 true 会直接加载播放队列（TEMP），
+    出现「页头写着我的收藏、列表却是试听列表」的错位。这里在子组件挂载前先清掉。
+  */
+  useMemo(() => { global.lx.jumpMyListPosition = false }, [])
+
   useEffect(() => {
-    setActiveList(tab === 'love' ? LIST_IDS.LOVE : LIST_IDS.TEMP)
+    const id = tab === 'love' ? LIST_IDS.LOVE : LIST_IDS.TEMP
+    setActiveList(id)
+    /*
+      只 setActiveList 不会让 MusicList 重新加载（它的挂载 effect 只看 mylistToggled 等事件），
+      切页签时主动通知一次，保证列表跟着页签走。
+    */
+    global.state_event.mylistToggled(id)
   }, [tab])
 
   const handlePlayAll = useCallback(() => {
     if (!count) return
-    void playList(tab === 'love' ? LIST_IDS.LOVE : LIST_IDS.TEMP, 0)
-  }, [tab, count])
+    // 试听列表只展示最近 30 首，播放全部也要从这 30 首的第一首开始
+    const offset = tab === 'temp' ? Math.max(0, counts.temp - TEMP_DISPLAY_LIMIT) : 0
+    void playList(tab === 'love' ? LIST_IDS.LOVE : LIST_IDS.TEMP, offset)
+  }, [tab, count, counts.temp])
 
   const handleOpenQueue = useCallback(() => { setQueueVisible(true) }, [])
   const handleCloseQueue = useCallback(() => { setQueueVisible(false) }, [])
@@ -306,7 +378,7 @@ export default () => {
           <Text size={10.5} color={theme['c-450']} numberOfLines={1} style={styles.overviewMeta}>
             {tab === 'love'
               ? `我的收藏 · ${count} 首 · 长按歌曲可以批量管理`
-              : `试听列表 · ${count} 首 · 临时放进来试听的歌，重启不会丢`}
+              : `试听列表 · 共 ${count} 首 · 只显示最近 ${TEMP_DISPLAY_LIMIT} 首`}
           </Text>
         </View>
         <TouchableOpacity
@@ -327,21 +399,9 @@ export default () => {
         </TouchableOpacity>
       </View>
 
-      <View style={styles.tabs}>
-        <Chip
-          label='我的收藏'
-          active={tab === 'love'}
-          onPress={() => { if (tab !== 'love') setTab('love') }}
-        />
-        <Chip
-          label='试听列表'
-          active={tab === 'temp'}
-          onPress={() => { if (tab !== 'temp') setTab('temp') }}
-        />
-      </View>
-
       <View style={styles.list}>
-        <MusicList hideHeader />
+        {/* 页签在 PageHeader 标题行内；试听列表只在展示层截断最近 30 首，真实队列不动 */}
+        <MusicList hideHeader displayLimit={tab === 'temp' ? TEMP_DISPLAY_LIMIT : undefined} />
       </View>
 
       <MiniPlayer onOpenQueue={handleOpenQueue} />
@@ -402,13 +462,20 @@ const styles = createStyle({
     marginLeft: 4,
     fontWeight: '600',
   },
-  tabs: {
+  /** 页头标题行内的两个小胶囊（高度比内容区筛选胶囊小一号，能放进 PageHeader 行内） */
+  headerTabs: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingLeft: 16,
-    paddingRight: 16,
-    paddingTop: 12,
-    paddingBottom: 2,
+  },
+  headerTab: {
+    height: 28,
+    paddingLeft: 12,
+    paddingRight: 12,
+    borderRadius: 14,
+    borderWidth: 0.5,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 6,
   },
   list: {
     flex: 1,

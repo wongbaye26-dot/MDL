@@ -26,6 +26,12 @@ export interface OnlineListProps {
   showRank?: boolean
   /** 隐藏「列表/卡片」切换栏 */
   hideModeBar?: boolean
+  /**
+   * 初始视图模式。
+   * 榜单这类需要「卡片行」的场景直接传 'card'（配合 hideModeBar 隐藏切换栏）；
+   * 不传保持原来的列表视图。注意：这是初始值，隐藏切换栏后不会再有别处改它。
+   */
+  viewMode?: 'list' | 'card'
   /** 列表为空且加载结束时的占位视图 */
   ListEmptyComponent?: ListProps['ListEmptyComponent']
 }
@@ -44,6 +50,7 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
   rowType,
   showRank,
   hideModeBar,
+  viewMode: initialViewMode = 'list',
   ListEmptyComponent,
 }, ref) => {
   const listRef = useRef<ListType>(null)
@@ -52,7 +59,8 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
   const listMusicMultiAddRef = useRef<ListAddMultiType>(null)
   const listMenuRef = useRef<ListMenuType>(null)
   const downloadModalRef = useRef<DownloadQualityModalType>(null)
-  const [viewMode, setViewMode] = useState<'list' | 'card'>('list')
+  // viewMode 默认跟父级传入的初始模式走（榜单 = 卡片行）；没有切换栏时它就固定是这个值
+  const [viewMode, setViewMode] = useState<'list' | 'card'>(initialViewMode)
   const theme = useTheme()
   // 主色实心段上的字：按主色亮度自动取黑/白
   const onPrimary = contrastOn(theme['c-primary'])
@@ -71,6 +79,11 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
   const hancelMultiSelect = () => {
     multipleModeBarRef.current?.show()
     listRef.current?.setIsMultiSelectMode(true)
+  }
+  /** 菜单「多选管理」：进入多选模式并选中当前这首（长按不再直接进多选） */
+  const handleMenuMultiSelect = (info: SelectInfo) => {
+    hancelMultiSelect()
+    listRef.current?.selectItem(info.index)
   }
   const hancelSwitchSelectMode = (mode: SelectMode) => {
     multipleModeBarRef.current?.setSwitchMode(mode)
@@ -155,7 +168,6 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
         <List
           ref={listRef}
           onShowMenu={showMenu}
-          onMuiltSelectMode={hancelMultiSelect}
           onSelectAll={isAll => multipleModeBarRef.current?.setIsSelectAll(isAll)}
           onRefresh={onRefresh}
           onLoadMore={onLoadMore}
@@ -187,6 +199,7 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
         onMusicSourceDetail={info => { void handleShowMusicSourceDetail(info.musicInfo) }}
         onRemoveCache={info => { void clearMusicUrl(info.musicInfo) }}
         onDislikeMusic={info => { void handleDislikeMusic(info.musicInfo) }}
+        onMultiSelect={handleMenuMultiSelect}
       />
       <DownloadQualityModal ref={downloadModalRef} />
       {/* <LoadingMask ref={loadingMaskRef} /> */}

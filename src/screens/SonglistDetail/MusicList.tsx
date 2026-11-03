@@ -2,6 +2,7 @@ import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'rea
 import OnlineList, { type OnlineListType, type OnlineListProps } from '@/components/OnlineList'
 import { clearListDetail, getListDetail, setListDetail, setListDetailInfo } from '@/core/songlist'
 import songlistState from '@/store/songlist/state'
+import EmptyState from '@/screens/Home/Views/SongList/components/EmptyState'
 import { handlePlay } from './listAction'
 import Header, { type HeaderType } from './Header'
 import { useListInfo } from './state'
@@ -119,6 +120,7 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
     onLoadMore={handleLoadMore}
     ListHeaderComponent={header}
     hideModeBar
+    ListEmptyComponent={<EmptyState icon='playlist-music' title='这个歌单还没有歌曲' tip='下拉可以刷新试试' />}
     // progressViewOffset={}
    />
 })

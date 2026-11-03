@@ -2,6 +2,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
 import OnlineList, { type OnlineListType, type OnlineListProps } from '@/components/OnlineList'
 import { clearListDetail, getListDetail, setListDetail, setListDetailInfo } from '@/core/leaderboard'
 import boardState from '@/store/leaderboard/state'
+import EmptyState from '@/screens/Home/Views/SongList/components/EmptyState'
 import { handlePlay } from './listAction'
 
 // export type MusicListProps = Pick<OnlineListProps,
@@ -95,6 +96,7 @@ export default forwardRef<MusicListType, MusicListProps>(({ onListChange }, ref)
     })
   }
 
+  // viewMode='card'：榜单歌曲用卡片行，长按 / ⋮ 弹出的悬浮菜单浮在卡片上更好看
   return <OnlineList
     ref={listRef}
     onPlayList={handlePlayList}
@@ -104,6 +106,8 @@ export default forwardRef<MusicListType, MusicListProps>(({ onListChange }, ref)
     rowType='medium'
     showRank
     hideModeBar
+    viewMode='card'
+    ListEmptyComponent={<EmptyState icon='leaderboard' title='这个榜单暂时没有歌曲' tip='换一个榜单或音源试试' />}
    />
 })
 

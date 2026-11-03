@@ -4,6 +4,7 @@ import { search } from '@/core/search/music'
 import searchMusicState, { type Source } from '@/store/search/music/state'
 import EmptyView from './EmptyView'
 import { getLocalMusicList } from '@/core/localMusic'
+import { deduplicationList } from '@/utils'
 
 /** 本地匹配最多拼进结果多少首：再多会把在线结果淹掉 */
 const LOCAL_MATCH_LIMIT = 10
@@ -68,17 +69,24 @@ export default forwardRef<MusicListType, {}>((props, ref) => {
   /**
    * 把本地匹配拼在在线结果前面，并同步「本地/在线」标记。
    *
-   * 加载更多（isAppend）时**不能再拼本地匹配**：OnlineList 的 append 是把传入数组
-   * 追加到当前列表末尾，当前列表开头已经有本地那批了，再拼一遍就会每翻一页
-   * 重复一遍本地 10 首。
+   * 注意：`core/search/music` 的 `search()` 每次返回的都是「累积后的整页列表」
+   * （第 2 页返回第 1、2 页合并后的结果），而 OnlineList 的 `setList` 是整体替换
+   * data（`isAppend` 只决定要不要清空多选），并不做真正的追加。
+   * 所以每次（首搜 / 刷新 / 加载更多）都要把本地匹配重新拼回最前面，
+   * 只在第一页拼、翻页只传在线部分的话，一加载更多本地结果就消失了。
+   * 这里再按 id 去一次重，避免任何来源下出现重复行。
    */
   const applyList = useCallback((
     online: LX.Music.MusicInfoOnline[],
     localMatches: LX.Music.MusicInfoLocal[],
     isAppend = false,
   ) => {
+    const merged = deduplicationList([
+      ...localMatches,
+      ...online,
+    ] as unknown as LX.Music.MusicInfoOnline[])
     listRef.current?.setList(
-      (isAppend ? online : [...localMatches, ...online]) as unknown as LX.Music.MusicInfoOnline[],
+      merged,
       isAppend,
       needShowSource(localMatches, searchInfoRef.current.source),
     )

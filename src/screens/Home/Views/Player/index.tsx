@@ -77,9 +77,9 @@ const LYRIC_NORMAL_RATIO = 1.14
 /** 歌词行高：飞牛实测 112.6px / 2.625 = 42.9dp */
 const LYRIC_LINE_H = 42.9
 /**
- * 底部整块高度：10 + 信息行 44 + 14 + 进度 58 + 22 + 控制 56 + 32 = 236
+ * 底部整块高度：10 + 信息行 44 + 14 + 进度 51 + 29 + 控制 56 + 32 = 236
  * 飞牛实测：信息行 655.6、进度 723.4、控制 803.4、底部留白 32
- * （信息行/时间行整块下移 10dp 后重新配平，进度条和控制区位置不变，总高仍 236）
+ * （时间行按飞牛收紧到贴近进度条后重新配平，进度条和控制区绝对位置都不变，总高仍 236）
  */
 const BOTTOM_BLOCK_H = 236
 
@@ -1383,15 +1383,20 @@ const styles = {
   },
   toolBtn: { width: 44, height: 44, justifyContent: 'center' as const, alignItems: 'center' as const },
 
-  /* 进度：723.4..771.4（高 48），轨道 6dp、中心在块内 25.2；高度 58 给时间行下移留位置 */
-  progressBlock: { height: 58, marginTop: 14, paddingLeft: 24, paddingRight: 24 },
+  /*
+    进度：723.4..771.4（轨道 6dp、中心在块内 25.2）。
+    时间行按飞牛再收紧：轨道底 28.2 → 时间文字墨迹之间，飞牛实测约 9.5dp，
+    这里 timeRow top 取 31.2（比上一轮的 38.2 上提 7dp），视觉间隙约 8dp。
+    高度 51 = 31.2 + 行高 19.8，刚好装下时间行；进度条本身位置不变。
+  */
+  progressBlock: { height: 51, marginTop: 14, paddingLeft: 24, paddingRight: 24 },
   // SeekBar 高 38（轨道 6 + 上下各 16 触摸区），轨道中心在 19 → top 6.2 让中心落在块内 25.2
   seekWrap: { position: 'absolute' as const, left: 24, right: 24, top: 6.2 },
   timeRow: {
     position: 'absolute' as const,
     left: 24,
     right: 24,
-    top: 38.2,
+    top: 31.2,
     height: 19.8,
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
@@ -1408,13 +1413,16 @@ const styles = {
     paddingRight: 10,
   },
 
-  /* 控制：803.4..859.4（高 56），两端贴边、无左右 padding；marginTop 22 抵掉上面下移的 10 */
+  /*
+    控制：803.4..859.4（高 56），两端贴边、无左右 padding。
+    marginTop 29 = 22 + 7：抵掉时间行上提的 7dp，控制区绝对位置不变。
+  */
   controls: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     justifyContent: 'space-between' as const,
     height: 56,
-    marginTop: 22,
+    marginTop: 29,
     marginBottom: 32,
     /*
       按钮是 48dp，图标墨迹居中，左右各留 (48-17.5)/2=15.25dp。

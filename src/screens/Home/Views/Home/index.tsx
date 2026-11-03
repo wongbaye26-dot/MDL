@@ -26,7 +26,7 @@ import PageModal from '../../Vertical/PageModal'
 import SongList from '../SongList'
 import Leaderboard from '../Leaderboard'
 import CompactHero from '../Leaderboard/Vertical/CompactHero'
-import Favorites from '../Mylist/Favorites'
+import Favorites, { FavoriteTabs, type FavoriteTab } from '../Mylist/Favorites'
 import LocalMusic, { type LocalTab } from '../LocalMusic'
 import { useBackHandler } from '@/utils/hooks/useBackHandler'
 import UserApiEditModal, { type UserApiEditModalType } from '../Setting/settings/Basic/UserApiEditModal'
@@ -77,6 +77,8 @@ export default () => {
   const downloadList = useDownloadList()
   const [searchVisible, setSearchVisible] = useState(false)
   const [modal, setModal] = useState<ModalType>(null)
+  /** 收藏页当前页签：提升到首页，PageHeader 标题行里的页签和列表共用同一份状态 */
+  const [favoriteTab, setFavoriteTab] = useState<FavoriteTab>('love')
   const [localVisible, setLocalVisible] = useState(false)
   const [localTab, setLocalTab] = useState<LocalTab>('song')
   const [recommend, setRecommend] = useState<ListInfoItem[]>([])
@@ -364,7 +366,15 @@ export default () => {
                 </PageModal>
               )
             : modal === 'mylist'
-              ? <PageModal title='收藏' onClose={() => { setModal(null) }}><Favorites /></PageModal>
+              ? (
+                <PageModal
+                  title='收藏'
+                  onClose={() => { setModal(null) }}
+                  titleRight={<FavoriteTabs tab={favoriteTab} onChange={setFavoriteTab} />}
+                >
+                  <Favorites tab={favoriteTab} onTabChange={setFavoriteTab} />
+                </PageModal>
+                )
               : null
       }
       {

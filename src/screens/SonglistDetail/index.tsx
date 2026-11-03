@@ -1,23 +1,35 @@
 import { useEffect, useRef } from 'react'
-import { View } from 'react-native'
+import { View, TouchableOpacity } from 'react-native'
 
 import MusicList, { type MusicListType } from './MusicList'
 import PageContent from '@/components/PageContent'
 import CutoutCompensator from '@/components/common/CutoutCompensator'
 import StatusBar from '@/components/common/StatusBar'
+import PageHeader from '@/components/common/PageHeader'
+import SelectionBarSlot from '@/components/OnlineList/SelectionBarSlot'
+import { Icon } from '@/components/common/Icon'
 import { setComponentId } from '@/core/common'
+import { pop } from '@/navigation'
 import { COMPONENT_IDS } from '@/config/constant'
 import { type ListInfoItem } from '@/store/songlist/state'
 import PlayerBar from '@/components/player/PlayerBar'
 import { SelectionBarSlotContext } from '@/utils/selectionBar'
-import { useStatusbarHeight } from '@/store/common/hook'
+import { useTheme } from '@/store/theme/hook'
+import { createStyle } from '@/utils/tools'
 import { ListInfoContext } from './state'
 
-
+/**
+ * 歌单详情（RNN 压栈的独立屏）。
+ *
+ * 版面：
+ *   1. 固定页头：返回 + 歌单名（PageHeader，和首页/歌单广场同一套），右侧是多选操作插槽
+ *   2. 列表里第一屏是圆角概览卡（封面/标题/作者/简介 + 播放全部/收藏/下载）
+ *   3. 歌曲列表 + 底部悬浮 PlayerBar（列表底部由 OnlineList 预留 NAV_BAR_SPACE）
+ */
 export default ({ componentId, info }: { componentId: string, info: ListInfoItem }) => {
+  const theme = useTheme()
   const musicListRef = useRef<MusicListType>(null)
   const isUnmountedRef = useRef(false)
-  const statusBarHeight = useStatusbarHeight()
 
   useEffect(() => {
     setComponentId(COMPONENT_IDS.songlistDetail, componentId)
@@ -38,10 +50,22 @@ export default ({ componentId, info }: { componentId: string, info: ListInfoItem
     <CutoutCompensator>
     <PageContent>
       <StatusBar />
-      {/* 「列表 / 卡片」切换条在列表之上，必须让出状态栏，否则会顶到时钟那一行 */}
       {/* 多选插槽要包住整个页面：MultipleModeBar 在列表里，只包 Header 它读不到 */}
       <SelectionBarSlotContext.Provider value>
-        <View style={{ flex: 1, paddingTop: statusBarHeight }}>
+        <PageHeader
+          title={info.name || '歌单'}
+          left={(
+            <TouchableOpacity
+              style={styles.backBtn}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              onPress={() => { void pop(componentId) }}
+            >
+              <Icon name='chevron-left' size={24} color={theme['c-font']} />
+            </TouchableOpacity>
+          )}
+          right={<SelectionBarSlot />}
+        />
+        <View style={styles.content}>
           <ListInfoContext.Provider value={info}>
             <MusicList ref={musicListRef} componentId={componentId} />
           </ListInfoContext.Provider>
@@ -53,14 +77,14 @@ export default ({ componentId, info }: { componentId: string, info: ListInfoItem
   )
 }
 
-// const styles = createStyle({
-//   container: {
-//     width: '100%',
-//     flex: 1,
-//     flexDirection: 'row',
-//     borderTopWidth: BorderWidths.normal,
-//   },
-//   content: {
-//     flex: 1,
-//   },
-// })
+const styles = createStyle({
+  content: {
+    flex: 1,
+  },
+  backBtn: {
+    width: 34,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+})

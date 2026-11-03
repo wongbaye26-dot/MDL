@@ -13,6 +13,13 @@ import Badge from '@/components/common/Badge'
 
 export const ITEM_HEIGHT = scaleSizeH(LIST_ITEM_HEIGHT)
 
+/** 来源标签展示名：本地歌曲显示中文「本地」，在线音源保留原来的大写缩写 */
+const SOURCE_LABELS: Record<string, string> = {
+  local: '本地',
+}
+
+const getSourceLabel = (source: string) => SOURCE_LABELS[source] ?? source.toUpperCase()
+
 
 export default memo(({ item, index, activeIndex, onPress, onShowMenu, onLongPress, selectedList, rowInfo, isShowAlbumName, isShowInterval }: {
   item: LX.Music.MusicInfo
@@ -53,7 +60,7 @@ export default memo(({ item, index, activeIndex, onPress, onShowMenu, onLongPres
           <Text color={active ? theme['c-primary-font'] : theme['c-font']} numberOfLines={1}>{item.name}</Text>
           {/* </View> */}
           <View style={styles.listItemSingle}>
-            <Badge>{item.source.toUpperCase()}</Badge>
+            <Badge>{getSourceLabel(item.source)}</Badge>
             <Text style={styles.listItemSingleText} size={11} color={active ? theme['c-primary-alpha-200'] : theme['c-500']} numberOfLines={1}>
               {singer}
             </Text>

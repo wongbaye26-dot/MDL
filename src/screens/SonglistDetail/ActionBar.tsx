@@ -14,9 +14,9 @@ import { useSelectionBarVisible } from '@/utils/selectionBar'
 import DownloadQualityModal, { type DownloadQualityModalType } from '@/components/DownloadQualityModal'
 
 /**
- * 歌单详情的操作条。
- * 和下载中心同一套胶囊：播放全部 = 主色实心，收藏/下载 = 主题色淡底幽灵胶囊，
- * 返回 = 纯文字。之前是四个等分的红字按钮，和全站都不搭。
+ * 歌单详情的操作条（嵌在顶部概览卡里）。
+ * 和下载中心同一套胶囊：播放全部 = 主色实心，收藏/下载 = 主题色淡底幽灵胶囊。
+ * 横向 padding 交给外面的卡片，这里只管按钮之间 8 的间距。
  */
 export default memo(() => {
   const theme = useTheme()
@@ -83,9 +83,7 @@ const styles = createStyle({
     alignItems: 'center',
     flexGrow: 0,
     flexShrink: 0,
-    paddingLeft: 16,
-    paddingRight: 16,
-    paddingBottom: 12,
+    paddingTop: 12,
   },
   pillCompact: {
     width: 32,

@@ -3,6 +3,7 @@ import { ScrollView, View } from 'react-native'
 
 import Chip from '@/components/common/Chip'
 import { useI18n } from '@/lang'
+import { useTheme } from '@/store/theme/hook'
 import { createStyle } from '@/utils/tools'
 import { getSongListSetting, saveSongListSetting } from '@/utils/data'
 import { getTags } from '@/core/songlist'
@@ -19,8 +20,17 @@ interface SonglistInfo {
   tagId: string
 }
 
+/**
+ * 歌单广场的内容区。
+ *
+ * 版面和排行榜 / 本地音乐对齐：左右 16，筛选区两排胶囊——
+ *   第一排是音源（sm 胶囊，横向滚动）；
+ *   第二排是「排序 + 分类」（md 胶囊，横向滚动），两组之间用一条细竖线分隔。
+ * 之前是三排（音源 / 排序 / 热门分类），把列表压得很低、页面显得空。
+ */
 export default () => {
   const t = useI18n()
+  const theme = useTheme()
   const listRef = useRef<ListType>(null)
   const openListModalRef = useRef<OpenListModalType>(null)
   const songlistInfo = useRef<SonglistInfo>({ source: 'kw', sortId: '', tagId: '' })
@@ -131,11 +141,13 @@ export default () => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.sourceRow}>
+      <View style={styles.filters}>
+        {/* 第一排：音源 */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.rowContent}
+          style={styles.hScroll}
+          contentContainerStyle={styles.sourceRow}
         >
           {
             sourceList.map(({ label, action }) => (
@@ -149,56 +161,50 @@ export default () => {
             ))
           }
         </ScrollView>
+
+        {/* 第二排：排序 + 分类（同一排横向滚动，细竖线分隔两组） */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.hScroll}
+          contentContainerStyle={styles.filterRow}
+        >
+          {
+            sorts.map(s => (
+              <Chip
+                key={s.id}
+                label={t(`songlist_${s.tid}`)}
+                active={s.id === sortId}
+                onPress={() => { if (s.id !== sortId) handleSortChange(s.id) }}
+              />
+            ))
+          }
+          <View style={{ ...styles.divider, backgroundColor: theme['c-primary-alpha-700'] }} />
+          <Chip
+            soft
+            label={t('songlist_tag_all')}
+            active={!tagId}
+            onPress={() => { if (tagId) handleTagChange('', '') }}
+          />
+          {
+            hotTags.map(tag => (
+              <Chip
+                key={tag.id}
+                soft
+                label={tag.name}
+                active={tag.id === tagId}
+                onPress={() => { if (tag.id !== tagId) handleTagChange(tag.name, tag.id) }}
+              />
+            ))
+          }
+          <Chip
+            soft
+            icon='filter-variant'
+            label={tagId ? tagName : t('songlist_tag_more')}
+            onPress={handleShowAllTags}
+          />
+        </ScrollView>
       </View>
-
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.hScroll}
-        contentContainerStyle={styles.rowContent}
-      >
-        {
-          sorts.map(s => (
-            <Chip
-              key={s.id}
-              label={t(`songlist_${s.tid}`)}
-              active={s.id === sortId}
-              onPress={() => { if (s.id !== sortId) handleSortChange(s.id) }}
-            />
-          ))
-        }
-      </ScrollView>
-
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.hScroll}
-        contentContainerStyle={styles.rowContent}
-      >
-        <Chip
-          soft
-          label={t('songlist_tag_all')}
-          active={!tagId}
-          onPress={() => { if (tagId) handleTagChange('', '') }}
-        />
-        {
-          hotTags.map(tag => (
-            <Chip
-              key={tag.id}
-              soft
-              label={tag.name}
-              active={tag.id === tagId}
-              onPress={() => { if (tag.id !== tagId) handleTagChange(tag.name, tag.id) }}
-            />
-          ))
-        }
-        <Chip
-          soft
-          icon='filter-variant'
-          label={tagId ? tagName : t('songlist_tag_more')}
-          onPress={handleShowAllTags}
-        />
-      </ScrollView>
 
       <View style={styles.list}>
         <List ref={listRef} />
@@ -213,29 +219,34 @@ const styles = createStyle({
   container: {
     flex: 1,
   },
-  sourceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  filters: {
+    paddingBottom: 6,
   },
   hScroll: {
     flexGrow: 0,
     flexShrink: 0,
   },
-  rowContent: {
+  sourceRow: {
+    paddingLeft: 16,
+    paddingRight: 16,
+    paddingTop: 2,
+  },
+  filterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingLeft: 16,
     paddingRight: 16,
     paddingTop: 8,
   },
-  openBtn: {
-    width: 34,
-    height: 26,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 8,
-    marginTop: 8,
+  divider: {
+    width: 1,
+    height: 16,
+    borderRadius: 1,
+    marginLeft: 2,
+    marginRight: 10,
   },
   list: {
     flex: 1,
-    marginTop: 8,
+    marginTop: 2,
   },
 })

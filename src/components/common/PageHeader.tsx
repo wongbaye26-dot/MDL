@@ -20,12 +20,18 @@ export const PAGE_HEADER_COMPACT_H = 56
  */
 export default memo(({
   title,
+  titleRight,
   subtitle,
   logo,
   left,
   right,
 }: {
   title: string
+  /**
+   * 标题同一行、紧跟标题之后的节点（例如收藏页的「我的收藏 / 试听列表」胶囊）。
+   * 放在标题行剩余空间里，标题本身过长时会先被省略。
+   */
+  titleRight?: ReactNode
   /** 字符串会按统一副标题样式渲染；传节点则原样渲染（比如一排小标签） */
   subtitle?: string | ReactNode
   logo?: ImageSourcePropType
@@ -52,7 +58,10 @@ export default memo(({
         {left ? <View style={styles.left}>{left}</View> : null}
         {logo ? <Image source={logo} style={compact ? styles.logoCompact : styles.logo} /> : null}
         <View style={styles.textArea}>
-          <Text size={compact ? 19 : 21} numberOfLines={1} style={styles.title}>{title}</Text>
+          <View style={styles.titleRow}>
+            <Text size={compact ? 19 : 21} numberOfLines={1} style={styles.title}>{title}</Text>
+            {titleRight ? <View style={styles.titleRight}>{titleRight}</View> : null}
+          </View>
           {
             typeof subtitle === 'string'
               ? <Text size={compact ? 10.5 : 11} numberOfLines={1} style={styles.subtitle}>{subtitle}</Text>
@@ -114,9 +123,23 @@ const styles = createStyle({
     flexGrow: 1,
     flexShrink: 1,
   },
+  /** 标题行：标题 + 紧跟其后的行内控件（titleRight） */
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   title: {
+    flexShrink: 1,
     fontWeight: '800',
     letterSpacing: 0.5,
+  },
+  titleRight: {
+    // 占满标题之后的剩余横向空间；里面的胶囊可以从左往右排
+    flexGrow: 1,
+    flexShrink: 1,
+    marginLeft: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   subtitle: {
     marginTop: 3,

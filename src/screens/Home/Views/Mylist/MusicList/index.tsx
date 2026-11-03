@@ -18,7 +18,14 @@ import MusicToggleModal, { type MusicToggleModalType } from './MusicToggleModal'
 import DownloadQualityModal, { type DownloadQualityModalType } from '@/components/DownloadQualityModal'
 
 
-export default ({ hideHeader = false }: { hideHeader?: boolean } = {}) => {
+export default ({ hideHeader = false, displayLimit }: {
+  hideHeader?: boolean
+  /**
+   * 只展示当前列表最后 N 首（比如收藏页的试听列表只展示最近 30 首）。
+   * 真实列表数据不动，只在 List 展示层截断。
+   */
+  displayLimit?: number
+} = {}) => {
   // const t = useI18n()
   const activeListRef = useRef<ActiveListType>(null)
   const listMusicSearchRef = useRef<ListMusicSearchType>(null)
@@ -149,6 +156,7 @@ export default ({ hideHeader = false }: { hideHeader?: boolean } = {}) => {
       <View style={{ flex: 1 }} onLayout={onLayout}>
         <List
           ref={listRef}
+          displayLimit={displayLimit}
           onShowMenu={showMenu}
           onMuiltSelectMode={hancelMultiSelect}
           onSelectAll={isAll => multipleModeBarRef.current?.setIsSelectAll(isAll)}

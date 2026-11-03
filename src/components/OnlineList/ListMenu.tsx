@@ -1,18 +1,19 @@
 import { useRef, useImperativeHandle, forwardRef, useState } from 'react'
 import { useI18n } from '@/lang'
-import ActionSheet, { type ActionSheetAction, type ActionSheetItem } from '@/components/common/ActionSheet'
+import FloatingMenu, { type FloatingMenuItem } from '@/components/common/FloatingMenu'
 import type { Position } from '@/components/common/Menu'
-import PicImage from '@/components/common/PicImage'
 import { hasDislike } from '@/core/dislikeList'
 import { hasMusicUrlByMusic } from '@/utils/data'
 
 /**
- * 在线歌曲「更多菜单」：共用底部 ActionSheet（Material You 配色）。
+ * 在线歌曲「更多菜单」：Material You 悬浮菜单（贴着行尾 ⋮ / 长按位置弹出的小卡片）。
  *
- * 这个组件被歌曲搜索、歌单详情、排行榜歌曲等所有 OnlineList 场景复用，
- * 所以只换菜单 UI，不动原有 action 集合：
- *   快捷卡 → 播放 / 下一首播放 / 下载
- *   操作行 → 添加到 / 复制歌名 / 歌曲来源详情 / 清除缓存 / 不喜欢
+ * 这个组件被歌曲搜索、歌单详情、排行榜歌曲等所有 OnlineList 场景复用：
+ * 只换菜单 UI / 主题色，原有 action 集合全部保留：
+ *   播放 / 下一首播放 / 下载 / 添加到 / 复制歌名 / 歌曲来源详情 / 清除缓存 / 不喜欢
+ * 另外新增「多选管理」入口（长按不再直接进多选，改由菜单进入）：
+ * 回调给 OnlineList 的 List，进入多选模式并选中当前这首歌。
+ *
  * 「清除缓存」要异步查当前歌曲有没有缓存的音源地址，查到之前置灰。
  */
 export interface SelectInfo {
@@ -31,6 +32,8 @@ export interface ListMenuProps {
   onMusicSourceDetail: (selectInfo: SelectInfo) => void
   onRemoveCache: (selectInfo: SelectInfo) => void
   onDislikeMusic: (selectInfo: SelectInfo) => void
+  /** 进入多选模式并选中当前歌曲（由 OnlineList 接线） */
+  onMultiSelect: (selectInfo: SelectInfo) => void
 }
 export interface ListMenuType {
   show: (selectInfo: SelectInfo, position: Position) => void
@@ -43,21 +46,23 @@ export type {
 export default forwardRef<ListMenuType, ListMenuProps>((props: ListMenuProps, ref) => {
   const t = useI18n()
   const [visible, setVisible] = useState(false)
-  /** 当前操作对象：关闭后保留，退场动画期间 header 不会变空 */
+  /** 当前操作对象：关闭后保留，退场动画期间内容不会变空 */
   const [selectInfo, setSelectInfo] = useState<SelectInfo | null>(null)
+  /** 触发位置（行尾 ⋮ 的矩形，或长按的手指点），真正用于悬浮菜单定位 */
+  const [position, setPosition] = useState<Position>({ x: 0, y: 0, w: 0, h: 0 })
   /** 当前歌曲是否有缓存的音源地址（决定「清除缓存」是否可点） */
   const [hasCache, setHasCache] = useState(false)
   const showIdRef = useRef(0)
 
   useImperativeHandle(ref, () => ({
-    // 旧 API 的 position 参数保留只为兼容调用方，底部 Sheet 不再需要定位
-    show(info: SelectInfo, _position: Position) {
+    show(info: SelectInfo, at: Position) {
       setSelectInfo(info)
+      setPosition(at)
       setVisible(true)
       setHasCache(false)
       const id = ++showIdRef.current
       void hasMusicUrlByMusic(info.musicInfo).then(has => {
-        // 期间又长按了别的歌：旧请求的结果不能覆盖新状态
+        // 期间又按了别的歌：旧请求的结果不能覆盖新状态
         if (id != showIdRef.current) return
         setHasCache(has)
       }).catch(() => {})
@@ -67,10 +72,9 @@ export default forwardRef<ListMenuType, ListMenuProps>((props: ListMenuProps, re
   if (!selectInfo) return null
 
   const musicInfo = selectInfo.musicInfo
-  const selectedCount = selectInfo.selectedList.length
   const close = () => { setVisible(false) }
 
-  const actions: ActionSheetAction[] = [
+  const items: FloatingMenuItem[] = [
     {
       key: 'play',
       label: t('play'),
@@ -89,9 +93,6 @@ export default forwardRef<ListMenuType, ListMenuProps>((props: ListMenuProps, re
       icon: 'download',
       onPress: () => { close(); props.onDownload(selectInfo) },
     },
-  ]
-
-  const items: ActionSheetItem[] = [
     {
       key: 'add',
       label: t('add_to'),
@@ -124,17 +125,18 @@ export default forwardRef<ListMenuType, ListMenuProps>((props: ListMenuProps, re
       disabled: hasDislike(musicInfo),
       onPress: () => { close(); props.onDislikeMusic(selectInfo) },
     },
+    {
+      key: 'multiSelect',
+      label: '多选管理',
+      icon: 'checkbox-multiple-marked-outline',
+      onPress: () => { close(); props.onMultiSelect(selectInfo) },
+    },
   ]
 
   return (
-    <ActionSheet
+    <FloatingMenu
       visible={visible}
-      header={{
-        cover: <PicImage musicInfo={musicInfo} style={{ width: 56, height: 56, borderRadius: 12 }} />,
-        title: musicInfo.name || '未知歌曲',
-        subtitle: `${musicInfo.singer || '未知歌手'}${selectedCount > 1 ? ` · 已选 ${selectedCount} 首` : ''}`,
-      }}
-      actions={actions}
+      position={position}
       items={items}
       onClose={close}
     />
