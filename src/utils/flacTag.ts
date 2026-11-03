@@ -117,6 +117,100 @@ const buildPicture = (pic: Uint8Array, mime: string): Uint8Array => {
   return new Uint8Array(out)
 }
 
+/** 头部读取上限：VORBIS_COMMENT 一定在音频帧之前，512KB 足够覆盖（PICTURE 可能很大，读不下就只取已解析到的） */
+const MAX_READ_BYTES = 512 * 1024
+
+/** UTF-8 解码（Hermes 没有 TextDecoder，这里手写，避免依赖 polyfill） */
+const utf8Decode = (bytes: Uint8Array): string => {
+  let out = ''
+  let i = 0
+  while (i < bytes.length) {
+    const b = bytes[i++]
+    if (b < 0x80) {
+      out += String.fromCharCode(b)
+    } else if (b < 0xe0) {
+      out += String.fromCharCode(((b & 0x1f) << 6) | (bytes[i++] & 0x3f))
+    } else if (b < 0xf0) {
+      out += String.fromCharCode(((b & 0x0f) << 12) | ((bytes[i++] & 0x3f) << 6) | (bytes[i++] & 0x3f))
+    } else {
+      let code = ((b & 0x07) << 18) | ((bytes[i++] & 0x3f) << 12) | ((bytes[i++] & 0x3f) << 6) | (bytes[i++] & 0x3f)
+      code -= 0x10000
+      out += String.fromCharCode(0xd800 + (code >> 10), 0xdc00 + (code & 0x3ff))
+    }
+  }
+  return out
+}
+
+/** 解析 VORBIS_COMMENT（type 4）里的 KEY=VALUE，键统一大写（Vorbis 规范是大小写不敏感） */
+const parseVorbisComment = (body: Uint8Array): Record<string, string> => {
+  const out: Record<string, string> = {}
+  let pos = 0
+  const readU32 = () => {
+    if (pos + 4 > body.length) return -1
+    const value = body[pos] | (body[pos + 1] << 8) | (body[pos + 2] << 16) | (body[pos + 3] << 24)
+    pos += 4
+    return value >>> 0
+  }
+  // vendor string 先跳过
+  const vendorLength = readU32()
+  if (vendorLength < 0 || pos + vendorLength > body.length) return out
+  pos += vendorLength
+  const count = readU32()
+  if (count < 0) return out
+  for (let i = 0; i < count; i++) {
+    const length = readU32()
+    if (length < 0 || pos + length > body.length) break
+    const str = utf8Decode(body.subarray(pos, pos + length))
+    pos += length
+    const eq = str.indexOf('=')
+    if (eq <= 0) continue
+    const key = str.slice(0, eq).toUpperCase()
+    // 同名键只取第一个（多值字段如多个 ARTIST 用首个，和大多数播放器一致）
+    if (!(key in out)) out[key] = str.slice(eq + 1)
+  }
+  return out
+}
+
+/**
+ * 只读 FLAC 头部的 VORBIS_COMMENT，返回 `{TITLE, ARTIST, ALBUM, DATE, TRACKNUMBER, DISCNUMBER, GENRE...}`。
+ *
+ * 歌曲信息页要用它回填「年份 / 曲目序号 / 光盘序号 / 风格」这些曲库模型里没存的字段。
+ * 元数据块都在文件开头，只读头部 512KB（避免整首几十 MB 都读进内存）；
+ * 头部里读不完的 PICTURE 大块直接忽略，已经解析到的 VORBIS_COMMENT 照样能用。
+ *
+ * @returns 非 FLAC / 读不到时返回 null；是 FLAC 但没有 VORBIS_COMMENT 返回空对象
+ */
+export const readFlacTags = async(filePath: string): Promise<Record<string, string> | null> => {
+  if (!filePath || filePath.startsWith('content://')) return null
+  let head: Uint8Array
+  try {
+    const info = await RNFS.stat(filePath)
+    const fileSize = Number(info.size) || 0
+    if (fileSize < 8) return null
+    const length = Math.min(MAX_READ_BYTES, fileSize)
+    head = toByteArray(await RNFS.read(filePath, length, 0, 'base64'))
+  } catch {
+    return null
+  }
+  if (head.length < 8) return null
+  // 'fLaC'
+  if (head[0] !== 0x66 || head[1] !== 0x4c || head[2] !== 0x61 || head[3] !== 0x43) return null
+  let pos = 4
+  while (pos + 4 <= head.length) {
+    const header = head[pos]
+    const isLast = (header & 0x80) !== 0
+    const type = header & 0x7f
+    const length = (head[pos + 1] << 16) + (head[pos + 2] << 8) + head[pos + 3]
+    const bodyStart = pos + 4
+    const bodyEnd = bodyStart + length
+    if (bodyEnd > head.length) break
+    if (type === 4) return parseVorbisComment(head.subarray(bodyStart, bodyEnd))
+    pos = bodyEnd
+    if (isLast) break
+  }
+  return {}
+}
+
 /**
  * 给 FLAC 写入标签与封面。
  * 保留 STREAMINFO(0) / SEEKTABLE(3) / APPLICATION(2) 等原有块；

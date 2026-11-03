@@ -1,37 +1,147 @@
-import { memo } from 'react'
-import { ScrollView, TouchableOpacity, View } from 'react-native'
+import { memo, useEffect, useState } from 'react'
+import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native'
 
 import Text from '@/components/common/Text'
+import Image from '@/components/common/Image'
+import CoverPlaceholder from '@/components/common/CoverPlaceholder'
 import { Icon } from '@/components/common/Icon'
+import { isCoverUsable, readEmbeddedCover } from '@/core/localMusic/cover'
+import { cleanSongName } from '@/utils/songName'
 import { useTheme } from '@/store/theme/hook'
 import { contrastOn } from '@/theme/solid'
 import { createStyle } from '@/utils/tools'
 
 /**
- * 音乐工具里两个区块（补封面 / 刮削标签）共用的 UI 零件。
- * 样式沿用设置页现有的卡片风格（Section + 圆角行 + 半透明主色块）。
+ * 音乐工具 UI 零件：中性卡片 + 统计块 + 按钮 + 进度条 + 汇总 chip + 带封面的预览列表。
+ *
+ * 视觉走「干净卡片」：卡片用半透明白（浅色主题）/ 半透明白光（深色主题），
+ * 不再用大块主题色铺底；主题色只出现在主按钮、进度条、关键数字上，
+ * 这样切任何主题（含深色）都不会出现刺眼的撞色。
  */
 
-/** 「缺少封面的歌曲 / 标签可补全的歌曲」这一行 */
-export const CountRow = memo(({ title, desc, count, highlight }: {
+/** 问题数字的提示色（主题里没有 warning 语义色，用这个在深浅底上都读得出来） */
+const WARN_COLOR = '#E8A33D'
+
+const cardBackground = (theme: LX.ActiveTheme) => theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.75)'
+const cardBorder = (theme: LX.ActiveTheme) => theme.isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.05)'
+const dividerColor = (theme: LX.ActiveTheme) => theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)'
+const tileBackground = (theme: LX.ActiveTheme) => theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)'
+
+/** 分区卡片：标题 + 说明 + 内容 */
+export const Card = memo(({ title, desc, right, children }: {
   title: string
-  desc: string
-  count: string | number
-  highlight?: boolean
+  desc?: string
+  /** 标题右侧的自定义内容（例如数量 badge） */
+  right?: React.ReactNode
+  children: React.ReactNode
 }) => {
   const theme = useTheme()
   return (
-    <View style={styles.row}>
-      <View style={styles.info}>
-        <Text size={14}>{title}</Text>
-        <Text size={10} color={theme['c-450']} style={styles.desc}>{desc}</Text>
+    <View style={{ ...styles.card, backgroundColor: cardBackground(theme), borderColor: cardBorder(theme) }}>
+      <View style={styles.cardHead}>
+        <View style={styles.cardTitleWrap}>
+          <Text size={14} style={styles.cardTitle}>{title}</Text>
+          {desc ? <Text size={10} color={theme['c-450']} style={styles.cardDesc}>{desc}</Text> : null}
+        </View>
+        {right}
       </View>
-      <Text size={20} color={highlight ? theme['c-primary'] : theme['c-450']} style={styles.count}>{count}</Text>
+      {children}
     </View>
   )
 })
 
-/** 进度条 + 「正在处理 n / total」 */
+export interface HeroStat {
+  key: string
+  label: string
+  value: string | number
+  /** 有问题时用警示色突出，健康数量保持普通字色 */
+  tone?: 'warning' | 'primary' | 'muted'
+}
+
+/** 曲库体检 hero：标题 + 总结 + 6 个数字块 + 扫描进度 */
+export const HeroCard = memo(({
+  title,
+  subtitle,
+  stats,
+  scanning,
+  progress,
+  onRefresh,
+  refreshDisabled,
+}: {
+  title: string
+  subtitle: string
+  stats: HeroStat[]
+  scanning: boolean
+  progress: { done: number, total: number }
+  onRefresh: () => void
+  refreshDisabled?: boolean
+}) => {
+  const theme = useTheme()
+  return (
+    <View style={{ ...styles.card, ...styles.heroCard, backgroundColor: cardBackground(theme), borderColor: cardBorder(theme) }}>
+      <View style={styles.heroHead}>
+        <View style={styles.heroTitleWrap}>
+          <Text size={17} style={styles.cardTitle}>{title}</Text>
+          <Text size={11} color={theme['c-450']} style={styles.heroSubtitle}>{subtitle}</Text>
+        </View>
+        <TouchableOpacity
+          activeOpacity={0.8}
+          disabled={refreshDisabled}
+          onPress={onRefresh}
+          style={{ ...styles.refreshBtn, backgroundColor: tileBackground(theme), opacity: refreshDisabled ? 0.5 : 1 }}
+        >
+          <Icon name='refresh' size={17} color={theme['c-450']} />
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.statsGrid}>
+        {
+          stats.map(stat => {
+            const color = stat.tone === 'warning'
+              ? WARN_COLOR
+              : stat.tone === 'primary' ? theme['c-primary'] : theme['c-font']
+            return (
+              <View key={stat.key} style={styles.statCell}>
+                <View style={{ ...styles.statTile, backgroundColor: tileBackground(theme) }}>
+                  <Text size={19} color={color} style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit>{stat.value}</Text>
+                  <Text size={10} color={theme['c-450']} style={styles.statLabel} numberOfLines={1}>{stat.label}</Text>
+                </View>
+              </View>
+            )
+          })
+        }
+      </View>
+
+      {
+        scanning
+          ? <ProgressLine label='正在体检曲库' done={progress.done} total={progress.total} />
+          : null
+      }
+    </View>
+  )
+})
+
+/** 信息行：左边标题/说明，右边数字 */
+export const InfoLine = memo(({ label, desc, value, tone }: {
+  label: string
+  desc?: string
+  value: string | number
+  tone?: 'warning' | 'primary'
+}) => {
+  const theme = useTheme()
+  const color = tone === 'warning' ? WARN_COLOR : tone === 'primary' ? theme['c-primary'] : theme['c-font']
+  return (
+    <View style={styles.infoRow}>
+      <View style={styles.infoWrap}>
+        <Text size={13.5}>{label}</Text>
+        {desc ? <Text size={10} color={theme['c-450']} style={styles.infoDesc}>{desc}</Text> : null}
+      </View>
+      <Text size={19} color={color} style={styles.infoValue}>{value}</Text>
+    </View>
+  )
+})
+
+/** 进度条：done / total + 百分比 */
 export const ProgressLine = memo(({ label, done, total }: {
   label: string
   done: number
@@ -42,10 +152,10 @@ export const ProgressLine = memo(({ label, done, total }: {
   return (
     <View style={styles.progressWrap}>
       <View style={styles.progressText}>
-        <Text size={12} color={theme['c-450']}>{label} {done} / {total}</Text>
+        <Text size={11} color={theme['c-450']}>{label} {done} / {total}</Text>
         <Text size={11} color={theme['c-450']}>{total ? `${percent}%` : ''}</Text>
       </View>
-      <View style={{ ...styles.progressTrack, backgroundColor: theme['c-primary-alpha-800'] }}>
+      <View style={{ ...styles.progressTrack, backgroundColor: dividerColor(theme) }}>
         <View style={{
           ...styles.progressBar,
           width: `${percent}%`,
@@ -56,88 +166,177 @@ export const ProgressLine = memo(({ label, done, total }: {
   )
 })
 
-/** 主操作按钮 + 重新统计按钮 */
-export const ActionRow = memo(({ label, icon, disabled, onPress, onRefresh, refreshDisabled }: {
+/** 主按钮（主色实心） */
+export const PrimaryButton = memo(({ label, icon, disabled, onPress }: {
   label: string
   icon: string
-  disabled: boolean
+  disabled?: boolean
   onPress: () => void
-  onRefresh: () => void
-  refreshDisabled?: boolean
 }) => {
   const theme = useTheme()
   const onPrimary = contrastOn(theme['c-primary'])
+  const color = disabled ? theme['c-450'] : onPrimary
   return (
-    <View style={styles.btnRow}>
-      <TouchableOpacity
-        activeOpacity={0.85}
-        disabled={disabled}
-        onPress={onPress}
-        style={{
-          ...styles.btn,
-          backgroundColor: disabled ? theme['c-primary-alpha-800'] : theme['c-primary'],
-        }}
-      >
-        <Icon name={icon} size={15} color={disabled ? theme['c-450'] : onPrimary} />
-        <Text size={13} color={disabled ? theme['c-450'] : onPrimary} style={styles.btnText}>{label}</Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        activeOpacity={0.85}
-        disabled={refreshDisabled}
-        onPress={onRefresh}
-        style={{ ...styles.refreshBtn, backgroundColor: theme['c-primary-alpha-900'] }}
-      >
-        <Icon name='refresh' size={15} color={theme['c-450']} />
-      </TouchableOpacity>
+    <TouchableOpacity
+      activeOpacity={0.85}
+      disabled={disabled}
+      onPress={onPress}
+      style={{
+        ...styles.primaryBtn,
+        backgroundColor: disabled ? tileBackground(theme) : theme['c-primary'],
+      }}
+    >
+      <Icon name={icon} size={15} color={color} />
+      <Text size={13} color={color} style={styles.btnText}>{label}</Text>
+    </TouchableOpacity>
+  )
+})
+
+/** 次要按钮（描边/浅底），用于「停止」「移除」这类危险或辅助操作 */
+export const SecondaryButton = memo(({ label, icon, disabled, danger, onPress }: {
+  label: string
+  icon: string
+  disabled?: boolean
+  danger?: boolean
+  onPress: () => void
+}) => {
+  const theme = useTheme()
+  const color = danger ? WARN_COLOR : theme['c-font']
+  return (
+    <TouchableOpacity
+      activeOpacity={0.85}
+      disabled={disabled}
+      onPress={onPress}
+      style={{
+        ...styles.primaryBtn,
+        ...styles.secondaryBtn,
+        backgroundColor: tileBackground(theme),
+        borderColor: dividerColor(theme),
+        opacity: disabled ? 0.5 : 1,
+      }}
+    >
+      <Icon name={icon} size={15} color={color} />
+      <Text size={13} color={color} style={styles.btnText}>{label}</Text>
+    </TouchableOpacity>
+  )
+})
+
+/** 按钮行：主操作 + 停止（运行中）/ 附加操作 */
+export const ButtonRow = memo(({ children }: { children: React.ReactNode }) => (
+  <View style={styles.btnRow}>{children}</View>
+))
+
+export interface SummaryChip {
+  key: string
+  label: string
+  value: string | number
+  tone?: 'warning' | 'primary' | 'muted'
+}
+
+/** 跑完以后的一排小 chip：写入 N / 未找到 N … */
+export const SummaryChips = memo(({ chips }: { chips: SummaryChip[] }) => {
+  const theme = useTheme()
+  return (
+    <View style={styles.chips}>
+      {
+        chips.map(chip => {
+          const color = chip.tone === 'warning'
+            ? WARN_COLOR
+            : chip.tone === 'primary' ? theme['c-primary'] : theme['c-450']
+          return (
+            <View key={chip.key} style={{ ...styles.chip, backgroundColor: tileBackground(theme), borderColor: dividerColor(theme) }}>
+              <Text size={10.5} color={color}>{chip.label} {chip.value}</Text>
+            </View>
+          )
+        })
+      }
     </View>
   )
 })
 
-/** 运行中的「停止」按钮（批量刮削可中止） */
-export const StopRow = memo(({ onStop, disabled }: { onStop: () => void, disabled?: boolean }) => {
+/** 空态：一排居中提示，别让卡片里空荡荡的 */
+export const EmptyState = memo(({ text, icon = 'check-circle-outline' }: { text: string, icon?: string }) => {
   const theme = useTheme()
   return (
-    <View style={styles.btnRow}>
-      <TouchableOpacity
-        activeOpacity={0.85}
-        disabled={disabled}
-        onPress={onStop}
-        style={{ ...styles.btn, backgroundColor: theme['c-primary-alpha-800'] }}
-      >
-        <Icon name='stop' size={15} color={theme['c-450']} />
-        <Text size={13} color={theme['c-450']} style={styles.btnText}>
-          {disabled ? '正在停止…' : '停止'}
-        </Text>
-      </TouchableOpacity>
+    <View style={styles.empty}>
+      <Icon name={icon} size={18} color={theme['c-450']} />
+      <Text size={12} color={theme['c-450']} style={styles.emptyText}>{text}</Text>
+    </View>
+  )
+})
+
+/** 预览行缩略图：曲库地址可用就直接显示，否则抽文件内嵌封面，失败落到首字占位块 */
+const CoverThumb = memo(({ item }: { item: LX.Music.MusicInfoLocal }) => {
+  const [uri, setUri] = useState('')
+  const [failed, setFailed] = useState(false)
+
+  useEffect(() => {
+    let alive = true
+    setFailed(false)
+    setUri('')
+    void (async() => {
+      const stored = item.meta.picUrl ?? ''
+      // 曲库里已经是可用地址（网络 / 存在的缓存文件）就直接用，省一次开文件
+      if (stored && await isCoverUsable(stored).catch(() => false)) {
+        if (alive) setUri(stored)
+        return
+      }
+      const pic = await readEmbeddedCover(item).catch(() => '')
+      if (alive) setUri(pic)
+    })()
+    return () => { alive = false }
+  }, [item])
+
+  const size = 36
+  const radius = 8
+  if (!uri || failed) {
+    return (
+      <View style={styles.thumbWrap}>
+        <CoverPlaceholder name={cleanSongName(item.name, item.singer)} size={size} radius={radius} />
+      </View>
+    )
+  }
+  return (
+    <View style={styles.thumbWrap}>
+      <Image url={uri} style={{ width: size, height: size, borderRadius: radius }} onError={() => { setFailed(true) }} />
     </View>
   )
 })
 
 export interface PreviewRow {
   key: string
+  item: LX.Music.MusicInfoLocal
   title: string
   sub?: string
+  /** 右侧小字（如「缺歌手 · 缺专辑」） */
+  tags?: string
 }
 
-/** 待处理列表（最多传 30 条，太多会把设置页拉得很长） */
+/** 待处理列表：最多传 30 条进来，太多会把设置页拉得很长；列表本身可滚动 */
 export const PreviewList = memo(({ rows }: { rows: PreviewRow[] }) => {
   const theme = useTheme()
   return (
-    <ScrollView style={styles.list} nestedScrollEnabled>
+    <ScrollView
+      style={styles.list}
+      nestedScrollEnabled
+      showsVerticalScrollIndicator={false}
+    >
       {
-        rows.map(row => (
-          <View key={row.key} style={styles.listRow}>
-            <View style={{ ...styles.dot, backgroundColor: theme['c-primary-alpha-700'] }} />
-            <Text size={12} numberOfLines={1} style={styles.listName}>{row.title}</Text>
-            {
-              row.sub
-                ? (
-                  <Text size={10} color={theme['c-450']} numberOfLines={1} style={styles.listSub}>
-                    {row.sub}
-                  </Text>
-                  )
-                : null
-            }
+        rows.map((row, index) => (
+          <View
+            key={row.key}
+            style={{
+              ...styles.listRow,
+              borderTopWidth: index > 0 ? StyleSheet.hairlineWidth : 0,
+              borderTopColor: dividerColor(theme),
+            }}
+          >
+            <CoverThumb item={row.item} />
+            <View style={styles.listInfo}>
+              <Text size={12.5} numberOfLines={1} style={styles.listTitle}>{row.title}</Text>
+              {row.sub ? <Text size={10} color={theme['c-450']} numberOfLines={1} style={styles.listSub}>{row.sub}</Text> : null}
+            </View>
+            {row.tags ? <Text size={9.5} color={WARN_COLOR} numberOfLines={1} style={styles.listTags}>{row.tags}</Text> : null}
           </View>
         ))
       }
@@ -145,97 +344,188 @@ export const PreviewList = memo(({ rows }: { rows: PreviewRow[] }) => {
   )
 })
 
-/** 跑完以后的一行小结 */
-export const SummaryBar = memo(({ text }: { text: string }) => {
-  const theme = useTheme()
-  return (
-    <View style={{ ...styles.summary, backgroundColor: theme['c-primary-alpha-900'] }}>
-      <Text size={11.5} color={theme['c-450']} style={styles.summaryText}>{text}</Text>
-    </View>
-  )
-})
-
 const styles = createStyle({
-  row: {
+  card: {
+    borderRadius: 16,
+    borderWidth: 0.5,
+    marginBottom: 14,
+    paddingTop: 14,
+    paddingBottom: 12,
+    overflow: 'hidden',
+  },
+  heroCard: {
+    paddingBottom: 6,
+  },
+  cardHead: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingLeft: 14,
+    paddingRight: 12,
+    paddingBottom: 10,
+  },
+  cardTitleWrap: {
+    flexGrow: 1,
+    flexShrink: 1,
+  },
+  cardTitle: {
+    fontWeight: '600',
+    letterSpacing: 0.2,
+  },
+  cardDesc: {
+    marginTop: 3,
+    lineHeight: 14,
+  },
+  heroHead: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingLeft: 14,
-    paddingRight: 14,
-    paddingTop: 12,
+    paddingLeft: 16,
+    paddingRight: 12,
     paddingBottom: 12,
   },
-  info: {
+  heroTitleWrap: {
     flexGrow: 1,
     flexShrink: 1,
   },
-  desc: {
+  heroSubtitle: {
     marginTop: 3,
   },
-  count: {
-    fontWeight: '700',
-  },
-  btnRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: 14,
-    marginRight: 14,
-    marginBottom: 12,
-  },
-  btn: {
-    flexGrow: 1,
-    flexShrink: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 40,
-    borderRadius: 20,
-  },
-  btnText: {
-    marginLeft: 6,
-  },
   refreshBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     marginLeft: 8,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  progressWrap: {
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingLeft: 8,
+    paddingRight: 8,
+  },
+  statCell: {
+    width: '33.33%',
+    paddingLeft: 4,
+    paddingRight: 4,
+    paddingBottom: 8,
+  },
+  statTile: {
+    borderRadius: 12,
+    paddingLeft: 10,
+    paddingRight: 8,
+    paddingTop: 8,
+    paddingBottom: 8,
+  },
+  statValue: {
+    fontWeight: '700',
+  },
+  statLabel: {
+    marginTop: 2,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingLeft: 14,
     paddingRight: 14,
-    paddingBottom: 14,
+    paddingTop: 4,
+    paddingBottom: 10,
+  },
+  infoWrap: {
+    flexGrow: 1,
+    flexShrink: 1,
+  },
+  infoDesc: {
+    marginTop: 3,
+    lineHeight: 14,
+  },
+  infoValue: {
+    fontWeight: '700',
+    marginLeft: 10,
+  },
+  progressWrap: {
+    paddingLeft: 16,
+    paddingRight: 16,
+    paddingTop: 2,
+    paddingBottom: 12,
   },
   progressText: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: 7,
   },
   progressTrack: {
-    height: 6,
-    borderRadius: 3,
+    height: 5,
+    borderRadius: 2.5,
     overflow: 'hidden',
   },
   progressBar: {
-    height: 6,
-    borderRadius: 3,
+    height: 5,
+    borderRadius: 2.5,
   },
-  summary: {
-    marginLeft: 14,
-    marginRight: 14,
-    marginBottom: 12,
+  btnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingLeft: 14,
+    paddingRight: 14,
+    paddingBottom: 6,
+  },
+  primaryBtn: {
+    flexGrow: 1,
+    flexShrink: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 38,
+    borderRadius: 19,
+    marginBottom: 8,
+  },
+  secondaryBtn: {
+    borderWidth: 0.5,
+    marginLeft: 8,
+  },
+  btnText: {
+    marginLeft: 6,
+    fontWeight: '600',
+  },
+  chips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     paddingLeft: 12,
     paddingRight: 12,
-    paddingTop: 9,
-    paddingBottom: 9,
-    borderRadius: 12,
+    paddingBottom: 6,
   },
-  summaryText: {
-    lineHeight: 17,
+  chip: {
+    borderRadius: 8,
+    borderWidth: 0.5,
+    paddingLeft: 8,
+    paddingRight: 8,
+    paddingTop: 4,
+    paddingBottom: 4,
+    marginRight: 6,
+    marginBottom: 6,
+  },
+  empty: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 12,
+    paddingBottom: 16,
+    paddingLeft: 14,
+    paddingRight: 14,
+  },
+  emptyText: {
+    marginLeft: 8,
+  },
+  thumbWrap: {
+    width: 36,
+    height: 36,
+    marginRight: 10,
+    borderRadius: 8,
+    overflow: 'hidden',
   },
   list: {
-    maxHeight: 220,
+    maxHeight: 224,
   },
   listRow: {
     flexDirection: 'row',
@@ -245,18 +535,19 @@ const styles = createStyle({
     paddingTop: 7,
     paddingBottom: 7,
   },
-  dot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-    marginRight: 8,
+  listInfo: {
+    flexGrow: 1,
+    flexShrink: 1,
   },
-  listName: {
+  listTitle: {
     flexShrink: 1,
   },
   listSub: {
+    marginTop: 2,
+  },
+  listTags: {
     flexShrink: 0,
     marginLeft: 8,
-    maxWidth: 150,
+    maxWidth: 120,
   },
 })

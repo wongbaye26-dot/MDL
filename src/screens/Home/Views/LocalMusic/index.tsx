@@ -1,43 +1,42 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, memo } from 'react'
 import {
+  Alert,
   Animated,
   FlatList,
   PanResponder,
   RefreshControl,
+  StyleSheet,
   TouchableOpacity,
   View,
   Modal,
-  TextInput,
-  StyleSheet,
-  type GestureResponderEvent,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native'
 
 import Text from '@/components/common/Text'
-import Image from '@/components/common/Image'
 import { Icon } from '@/components/common/Icon'
 import Clipboard from '@react-native-clipboard/clipboard'
-import DorpDownMenu from '@/components/common/DorpDownMenu'
-import CoverPlaceholder from '@/components/common/CoverPlaceholder'
 import PageHeader from '@/components/common/PageHeader'
 import MiniTag from '@/components/common/MiniTag'
-import Menu, { type MenuType } from '@/components/common/Menu'
+import ListMusicAdd, { type MusicAddModalType } from '@/components/MusicAddModal'
 import { useTheme } from '@/store/theme/hook'
 import { contrastOn } from '@/theme/solid'
 import { createStyle, toast } from '@/utils/tools'
 import { formatSize, formatSampleRate } from '@/core/download/utils'
-import { getLocalMusicList, getScanPartialList, subscribeScanPartialList, scanLocalMusicInBackground, isScanning, useScanState, getTotalSize, deleteLocalMusic, updateLocalMusicMeta, getScanDirs, getExtraDirs, setExtraDirs, type ScanDir } from '@/core/localMusic'
-import { readEmbeddedCover } from '@/core/localMusic/cover'
+import { getLocalMusicList, getScanPartialList, subscribeScanPartialList, scanLocalMusicInBackground, isScanning, useScanState, getTotalSize, deleteLocalMusic, getScanDirs, getExtraDirs, setExtraDirs, type ScanDir } from '@/core/localMusic'
 import { pickDirectory, isDirectoryPickerSupported } from '@/utils/directoryPicker'
 import { getData, saveData } from '@/plugins/storage'
 import { cleanSongName } from '@/utils/songName'
-import { overwriteListMusics } from '@/core/list'
+import { addListMusics, getListMusics, overwriteListMusics, removeListMusics } from '@/core/list'
 import listAction from '@/store/list/action'
+import settingState from '@/store/setting/state'
 import { playList } from '@/core/player/player'
 import { addTempPlayList } from '@/core/player/tempPlayList'
 import { LIST_IDS, NAV_BAR_SPACE } from '@/config/constant'
 import { useWindowSize } from '@/utils/hooks'
+import { CoverImage } from './cover'
+import SongActionSheet, { type SongAction } from './SongActionSheet'
+import SongInfoPage from './SongInfoPage'
 
 const LOCAL_LIST_ID = 'local_music'
 /** 列表/卡片偏好的存储键 */
@@ -90,97 +89,16 @@ const TabButton = memo(({ label, active, onPress }: {
   )
 })
 
-/** 封面提取有开销，做一层串行队列 + 内存缓存 */
-const picCache = new Map<string, string>()
-/** 同时最多跑 2 个原生抽取，切到「专辑 / 艺人」页签时不会一次压上几十个任务 */
-let activeLoads = 0
-const pendingLoads: Array<() => void> = []
-const withLimit = async<T,>(task: () => Promise<T>): Promise<T> => {
-  if (activeLoads >= 2) {
-    await new Promise<void>(resolve => { pendingLoads.push(resolve) })
-  }
-  activeLoads++
-  try {
-    return await task()
-  } finally {
-    activeLoads--
-    pendingLoads.shift()?.()
-  }
-}
-
-/** 取封面：内存缓存 → 文件内嵌（私有目录读文件 / 公共目录读 content uri） */
-const loadPic = async(item: LX.Music.MusicInfoLocal): Promise<string> => {
-  const key = item.meta.filePath
-  const cached = picCache.get(key)
-  if (cached) return cached
-  const pic = await withLimit(async() => await readEmbeddedCover(item)).catch(() => '')
-  if (pic) picCache.set(key, pic)
-  return pic
-}
-
+/**
+ * 列表里的封面：真正的实现在 ./cover（更多 Sheet、歌曲信息页也要共用同一份 picCache，
+ * 不能各写一份重复抽原生封面）。这里只是保留列表里的固定右边距。
+ */
 const Cover = ({ item, size = 56, round = false }: {
   item: LX.Music.MusicInfoLocal
   size?: number
   /** 艺人头像用圆形 */
   round?: boolean
-}) => {
-  const theme = useTheme()
-  // MediaStore 条目自带 albumart 的 content:// 地址，直接用它（公共目录读不了文件）
-  const [uri, setUri] = useState<string>(() => picCache.get(item.meta.filePath) ?? item.meta.picUrl ?? '')
-  /** 抽取失败/图片加载失败后标记，用来切到首字占位 */
-  const [failed, setFailed] = useState(false)
-  /** 本轮是否已经尝试过抽取，避免 effect 反复跑 */
-  const tried = useRef(false)
-  /** 加载失败后允许重新抽一次（缓存被系统清掉时能自愈） */
-  const recovered = useRef(false)
-  /** 上一次应用过的曲库封面，只有它变了才覆盖当前显示 */
-  const lastPicRef = useRef(item.meta.picUrl ?? '')
-
-  useEffect(() => {
-    if (uri || failed || tried.current) return
-    tried.current = true
-    let alive = true
-    void loadPic(item).then(pic => {
-      if (!alive) return
-      if (pic) setUri(pic)
-      else setFailed(true)
-    })
-    return () => { alive = false }
-  }, [item, uri, failed])
-
-  /** 曲库里的封面被补上了（音乐工具 / 联网搜索）→ 已挂载的行也要跟着换 */
-  useEffect(() => {
-    const next = item.meta.picUrl ?? ''
-    if (!next || next === lastPicRef.current) return
-    lastPicRef.current = next
-    setUri(next)
-    setFailed(false)
-    recovered.current = false
-  }, [item.meta.picUrl])
-
-  /** 图片加载失败：先给一次重新抽取的机会，再失败就落到首字占位 */
-  const handleError = () => {
-    if (!recovered.current) {
-      recovered.current = true
-      tried.current = false
-      setUri('')
-      return
-    }
-    setFailed(true)
-  }
-
-  const radius = round ? size / 2 : 10
-  const inner = size - 8
-  return (
-    <View style={{ width: size, height: size, borderRadius: radius, backgroundColor: theme['c-primary-alpha-900'], justifyContent: 'center', alignItems: 'center', marginRight: 12, overflow: 'hidden' }}>
-      {
-        uri && !failed
-          ? <Image url={uri} style={{ width: inner, height: inner, borderRadius: round ? inner / 2 : 10 }} onError={handleError} />
-          : <CoverPlaceholder name={cleanSongName(item.name, item.singer)} size={size} radius={radius} />
-      }
-    </View>
-  )
-}
+}) => <CoverImage item={item} size={size} round={round} style={{ marginRight: 12 }} />
 
 export type LocalTab = 'recent' | 'album' | 'artist' | 'folder' | 'song'
 
@@ -543,11 +461,6 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
     void playList(LIST_IDS.TEMP, index)
   }, [list])
 
-  const handlePlayLater = useCallback((item: LX.Music.MusicInfoLocal) => {
-    addTempPlayList([{ listId: '', musicInfo: item }])
-    toast('已加入稍后播放')
-  }, [])
-
   /** 添加一个扫描目录（系统目录选择器） */
   const handleAddDir = useCallback(async() => {
     try {
@@ -598,11 +511,20 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
     }
   }, [])
 
-  const [editingItem, setEditingItem] = useState<LX.Music.MusicInfoLocal | null>(null)
-
-  const handleEdit = useCallback((item: LX.Music.MusicInfoLocal) => {
-    setEditingItem(item)
-  }, [])
+  /**
+   * 「更多」Sheet / 歌曲信息页的当前歌曲。
+   *
+   * 不再用旧的 DorpDownMenu + Menu 两条弹窗路径：飞牛音乐的更多菜单是底部 Sheet，
+   * 点行尾 ⋮ 和长按都走这里（见 LocalRow 的 onMore）。
+   */
+  const [sheetItem, setSheetItem] = useState<LX.Music.MusicInfoLocal | null>(null)
+  const [sheetVisible, setSheetVisible] = useState(false)
+  /** 打开 Sheet 时异步查一次「是否已收藏」，菜单里的文案要在收藏/取消收藏之间切换 */
+  const [sheetLoved, setSheetLoved] = useState(false)
+  /** 歌曲信息页当前歌曲（null = 关闭） */
+  const [infoItem, setInfoItem] = useState<LX.Music.MusicInfoLocal | null>(null)
+  /** 「添加到歌单」弹窗（复用全局的 MusicAddModal） */
+  const musicAddRef = useRef<MusicAddModalType>(null)
 
   /**
    * 行的点击 / 菜单回调做成稳定引用，
@@ -612,19 +534,63 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
     void handlePlay(index)
   }, [handlePlay])
 
-  const handleRowMenu = useCallback((action: string, item: LX.Music.MusicInfoLocal, index: number) => {
+  const handleOpenSheet = useCallback((item: LX.Music.MusicInfoLocal) => {
+    setSheetItem(item)
+    setSheetVisible(true)
+    void getListMusics(LIST_IDS.LOVE)
+      .then(list => { setSheetLoved(list.some(music => music.id === item.id)) })
+      .catch(() => { setSheetLoved(false) })
+  }, [])
+
+  const handleSheetAction = useCallback((action: SongAction) => {
+    const item = sheetItem
+    if (!item) return
+    setSheetVisible(false)
+    const index = indexOfId.get(item.id) ?? 0
     switch (action) {
       case 'play':
         void handlePlay(index)
         break
-      case 'playLater':
-        handlePlayLater(item)
+      case 'playNext':
+        // isTop 会插到「稍后播放」列表头部，playNext 取头部 → 就是下一首播放
+        addTempPlayList([{ listId: '', musicInfo: item, isTop: true }])
+        toast('已设为下一首播放')
         break
-      case 'delete':
-        void handleDelete(item, false)
+      case 'addToPlaylist':
+        addTempPlayList([{ listId: '', musicInfo: item }])
+        toast('已加入播放列表')
         break
-      case 'deleteFile':
-        void handleDelete(item, true)
+      case 'toggleLove':
+        void (async() => {
+          try {
+            if (sheetLoved) {
+              await removeListMusics(LIST_IDS.LOVE, [item.id])
+              toast('已取消收藏')
+            } else {
+              await addListMusics(LIST_IDS.LOVE, [item], settingState.setting['list.addMusicLocationType'])
+              toast('已收藏')
+            }
+            setSheetLoved(!sheetLoved)
+          } catch {
+            toast('操作失败，请稍后重试')
+          }
+        })()
+        break
+      case 'addToSonglist':
+        musicAddRef.current?.show({ musicInfo: item, listId: '', isMove: false })
+        break
+      case 'album':
+        setTab('album')
+        setFolderPath(null)
+        setDetail({ type: 'album', title: item.meta.albumName || '未知专辑' })
+        break
+      case 'artist':
+        setTab('artist')
+        setFolderPath(null)
+        setDetail({ type: 'artist', title: item.singer || '未知歌手' })
+        break
+      case 'songInfo':
+        setInfoItem(item)
         break
       case 'showPath': {
         const path = item.meta.filePath ?? ''
@@ -633,20 +599,21 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
         toast(`路径已复制：${path}`)
         break
       }
-      case 'edit':
-        handleEdit(item)
+      case 'removeFromList':
+        void handleDelete(item, false)
+        break
+      case 'deleteFile':
+        Alert.alert(
+          '删除文件',
+          `确定删除「${cleanSongName(item.name, item.singer)}」的文件吗？此操作不可恢复。`,
+          [
+            { text: '取消', style: 'cancel' },
+            { text: '删除', style: 'destructive', onPress: () => { void handleDelete(item, true) } },
+          ],
+        )
         break
     }
-  }, [handlePlay, handlePlayLater, handleDelete, handleEdit])
-
-  const handleSaveEdit = useCallback(async(name: string, singer: string, albumName: string) => {
-    if (!editingItem) return
-    await updateLocalMusicMeta(editingItem, { name, singer, albumName })
-    const newList = await getLocalMusicList()
-    setList(newList)
-    setEditingItem(null)
-    toast('已更新音乐信息')
-  }, [editingItem])
+  }, [sheetItem, sheetLoved, indexOfId, handlePlay, handleDelete])
 
   const renderItem = useCallback(({ item: row }: { item:
   | { type: 'song', key: string, item: LX.Music.MusicInfoLocal, index: number }
@@ -722,10 +689,10 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
         index={index}
         card={viewMode === 'card'}
         onPress={handleRowPress}
-        onMenu={handleRowMenu}
+        onMore={handleOpenSheet}
       />
     )
-  }, [theme, handleRowPress, handleRowMenu, viewMode])
+  }, [theme, handleRowPress, handleOpenSheet, viewMode])
 
   /** 二级页「播放全部」：从这一组的第一首开始播 */
   const handlePlayGroup = useCallback(() => {
@@ -951,11 +918,27 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
         )}
       />
 
-      <EditMusicModal
-        item={editingItem}
-        onClose={() => { setEditingItem(null) }}
-        onSave={handleSaveEdit}
+      {/* 单曲「更多」：飞牛音乐风格底部 Sheet */}
+      <SongActionSheet
+        visible={sheetVisible}
+        item={sheetItem}
+        loved={sheetLoved}
+        onClose={() => { setSheetVisible(false); setSheetItem(null) }}
+        onAction={handleSheetAction}
       />
+
+      {/* 歌曲信息（查看 / 编辑） */}
+      <SongInfoPage
+        item={infoItem}
+        onClose={() => {
+          setInfoItem(null)
+          // 保存成功后曲库会通过 localMusicUpdated 推新数据，这里再兜一次
+          void getLocalMusicList().then(newList => { setList(newList) })
+        }}
+      />
+
+      {/* 添加到歌单 */}
+      <ListMusicAdd ref={musicAddRef} />
 
       {/* 扫描文件夹管理 */}
       <Modal visible={dirModal} transparent animationType='slide' onRequestClose={() => { setDirModal(false) }}>
@@ -1030,30 +1013,16 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
   )
 }
 
-const LocalRow = memo(({ item, index, card = false, onPress, onMenu }: {
+const LocalRow = memo(({ item, index, card = false, onPress, onMore }: {
   item: LX.Music.MusicInfoLocal
   index: number
   /** 卡片模式：带边框底色的独立卡片（和搜索/排行榜的「卡片」同一套 token） */
   card?: boolean
   onPress: (item: LX.Music.MusicInfoLocal, index: number) => void
-  onMenu: (action: string, item: LX.Music.MusicInfoLocal, index: number) => void
+  /** 打开「更多」底部 Sheet（点行尾 ⋮ 或长按整行） */
+  onMore: (item: LX.Music.MusicInfoLocal) => void
 }) => {
   const theme = useTheme()
-  const menuRef = useRef<MenuType>(null)
-  const menus = useMemo(() => [
-    { action: 'play', label: '播放' },
-    { action: 'playLater', label: '稍后播放' },
-    { action: 'edit', label: '编辑信息' },
-    { action: 'delete', label: '从列表移除' },
-    { action: 'showPath', label: '查看所在目录' },
-    { action: 'deleteFile', label: '删除文件' },
-  ], [])
-
-  const handleLongPress = (e: GestureResponderEvent) => {
-    const { pageX, pageY } = e.nativeEvent
-    // 直接用手指标记位置，让 Menu 自己夹到屏幕内（之前手动减 180 会把菜单推出屏幕左侧）
-    menuRef.current?.show({ x: pageX, y: pageY, w: 0, h: 0 })
-  }
 
   /** 歌名：标签里可能带着「歌手 - 」前缀，这里只显示歌名 */
   const songName = useMemo(() => cleanSongName(item.name, item.singer), [item.name, item.singer])
@@ -1081,7 +1050,7 @@ const LocalRow = memo(({ item, index, card = false, onPress, onMenu }: {
         style={card ? styles.cardMain : styles.rowMain}
         activeOpacity={0.7}
         onPress={() => { onPress(item, index) }}
-        onLongPress={handleLongPress}
+        onLongPress={() => { onMore(item) }}
         delayLongPress={320}
       >
         {card ? null : <Text size={11} color={theme['c-350']} style={styles.index}>{index + 1}</Text>}
@@ -1097,82 +1066,17 @@ const LocalRow = memo(({ item, index, card = false, onPress, onMenu }: {
           </View>
         </View>
       </TouchableOpacity>
-      <DorpDownMenu menus={menus} onPress={menu => { onMenu(menu.action, item, index) }} btnStyle={styles.moreBtn}>
-        <Icon name='dots-vertical' size={14} color={theme['c-350']} />
-      </DorpDownMenu>
-      <Menu ref={menuRef} menus={menus} onPress={menu => { onMenu(menu.action, item, index) }} />
+      <TouchableOpacity
+        style={styles.moreBtn}
+        activeOpacity={0.6}
+        hitSlop={{ top: 10, bottom: 10, left: 6, right: 10 }}
+        onPress={() => { onMore(item) }}
+      >
+        <Icon name='dots-vertical' size={16} color={theme['c-350']} />
+      </TouchableOpacity>
     </View>
   )
 })
-
-const EditMusicModal = ({ item, onClose, onSave }: {
-  item: LX.Music.MusicInfoLocal | null
-  onClose: () => void
-  onSave: (name: string, singer: string, albumName: string) => void
-}) => {
-  const theme = useTheme()
-  const [name, setName] = useState('')
-  const [singer, setSinger] = useState('')
-  const [albumName, setAlbumName] = useState('')
-
-  useEffect(() => {
-    if (item) {
-      setName(item.name || '')
-      setSinger(item.singer || '')
-      setAlbumName(item.meta.albumName || '')
-    }
-  }, [item])
-
-  if (!item) return null
-
-  return (
-    <Modal visible transparent animationType='slide' onRequestClose={onClose}>
-      <TouchableOpacity style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' }} activeOpacity={1} onPress={onClose}>
-        <View style={{ ...editStyles.sheet, backgroundColor: theme['c-content-background'] }} onStartShouldSetResponder={() => true}>
-          <Text size={15} style={editStyles.title}>编辑音乐信息</Text>
-          <View style={editStyles.field}>
-            <Text size={12} color={theme['c-450']} style={editStyles.label}>歌名</Text>
-            <TextInput
-              style={{ ...editStyles.input, backgroundColor: theme['c-primary-alpha-900'], color: theme['c-font'] }}
-              value={name}
-              onChangeText={setName}
-              placeholder='输入歌名'
-              placeholderTextColor={theme['c-350']}
-            />
-          </View>
-          <View style={editStyles.field}>
-            <Text size={12} color={theme['c-450']} style={editStyles.label}>歌手</Text>
-            <TextInput
-              style={{ ...editStyles.input, backgroundColor: theme['c-primary-alpha-900'], color: theme['c-font'] }}
-              value={singer}
-              onChangeText={setSinger}
-              placeholder='输入歌手'
-              placeholderTextColor={theme['c-350']}
-            />
-          </View>
-          <View style={editStyles.field}>
-            <Text size={12} color={theme['c-450']} style={editStyles.label}>专辑</Text>
-            <TextInput
-              style={{ ...editStyles.input, backgroundColor: theme['c-primary-alpha-900'], color: theme['c-font'] }}
-              value={albumName}
-              onChangeText={setAlbumName}
-              placeholder='输入专辑名'
-              placeholderTextColor={theme['c-350']}
-            />
-          </View>
-          <View style={editStyles.btnRow}>
-            <TouchableOpacity style={editStyles.btn} onPress={onClose}>
-              <Text size={14} color={theme['c-450']}>取消</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={{ ...editStyles.btn, ...editStyles.saveBtn }} onPress={() => { onSave(name, singer, albumName) }}>
-              <Text size={14} color='#FFFFFF'>保存</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </TouchableOpacity>
-    </Modal>
-  )
-}
 
 const editStyles = StyleSheet.create({
   sheet: {
@@ -1186,35 +1090,6 @@ const editStyles = StyleSheet.create({
   title: {
     fontWeight: '700',
     marginBottom: 18,
-  },
-  field: {
-    marginBottom: 14,
-  },
-  label: {
-    marginBottom: 6,
-  },
-  input: {
-    height: 42,
-    borderRadius: 10,
-    paddingLeft: 12,
-    paddingRight: 12,
-    fontSize: 14,
-  },
-  btnRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginTop: 8,
-  },
-  btn: {
-    paddingLeft: 18,
-    paddingRight: 18,
-    paddingTop: 10,
-    paddingBottom: 10,
-    borderRadius: 10,
-  },
-  saveBtn: {
-    backgroundColor: '#6C5CE7',
-    marginLeft: 10,
   },
 })
 

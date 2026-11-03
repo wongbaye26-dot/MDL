@@ -1,6 +1,6 @@
-import { getLocalMusicList, updateLocalMusicMeta, updateLocalMusicPic } from '@/core/localMusic'
+import { updateLocalMusicMeta, updateLocalMusicPic } from '@/core/localMusic'
 import { isCoverUsable, readEmbeddedCover } from '@/core/localMusic/cover'
-import { scanTagIncomplete, scrapeLocalMusic } from '@/core/localMusic/scrape'
+import { scrapeLocalMusic } from '@/core/localMusic/scrape'
 import type { TagIncompleteItem } from '@/core/localMusic/scrape'
 import { resolveWriteTargets, writeTagsToFile } from './fileWrite'
 
@@ -36,13 +36,6 @@ export interface TagScrapeCallbacks {
   onProgress: (progress: TagScrapeProgress) => void
   shouldStop: () => boolean
   isAlive: () => boolean
-}
-
-/** 扫一遍曲库，找出标签可补全的歌（不联网） */
-export const scanTags = async(isAlive: () => boolean): Promise<{ total: number, items: TagIncompleteItem[] } | null> => {
-  const list = [...await getLocalMusicList()]
-  if (!isAlive()) return null
-  return { total: list.length, items: scanTagIncomplete(list) }
 }
 
 /** 文件里或其他地方已经有能显示的封面？有就不用再下载 */

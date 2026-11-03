@@ -1,32 +1,37 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
 
-import Section from '../../components/Section'
 import { toast } from '@/utils/tools'
 import { cleanSongName } from '@/utils/songName'
-import type { TagIncompleteItem } from '@/core/localMusic/scrape'
-import { runTagScrape, scanTags, type TagScrapeSummary } from './tagScrape'
-import { ActionRow, CountRow, PreviewList, ProgressLine, StopRow, SummaryBar, type PreviewRow } from './parts'
+import type { LibraryHealth } from './health'
+import { runTagScrape, type TagScrapeSummary } from './tagScrape'
 import { acquireToolsBusy, releaseToolsBusy } from './taskLock'
+import {
+  ButtonRow,
+  Card,
+  EmptyState,
+  InfoLine,
+  PrimaryButton,
+  PreviewList,
+  ProgressLine,
+  SecondaryButton,
+  SummaryChips,
+  type PreviewRow,
+} from './parts'
 
 interface Props {
-  /** 其它区块改过曲库后 +1，触发重新统计 */
-  refreshToken: number
-  /** 本区块改过曲库后通知父级；父级会 +1 refreshToken 让两个区块各自重扫 */
+  health: LibraryHealth
+  scanning: boolean
   onChanged: () => void
 }
 
-/** 设置 → 音乐工具 → 批量刮削标签 */
-export default memo(({ refreshToken, onChanged }: Props) => {
-  const [items, setItems] = useState<TagIncompleteItem[]>([])
-  const [total, setTotal] = useState(0)
-  const [scanning, setScanning] = useState(true)
+/** 设置 → 音乐工具 → 批量刮削标签（统计来自父级曲库体检） */
+export default memo(({ health, scanning, onChanged }: Props) => {
   const [running, setRunning] = useState(false)
   const [progress, setProgress] = useState({ done: 0, total: 0 })
   const [stopping, setStopping] = useState(false)
   const [summary, setSummary] = useState<TagScrapeSummary | null>(null)
 
   const aliveRef = useRef(true)
-  const scanningRef = useRef(false)
   const runningRef = useRef(false)
   /** 用户点了停止：批量循环在每首歌开始前检查一次 */
   const stopRef = useRef(false)
@@ -36,24 +41,7 @@ export default memo(({ refreshToken, onChanged }: Props) => {
     return () => { aliveRef.current = false }
   }, [])
 
-  const scan = useCallback(async() => {
-    if (scanningRef.current || runningRef.current) return
-    scanningRef.current = true
-    setScanning(true)
-    try {
-      const result = await scanTags(() => aliveRef.current)
-      if (!aliveRef.current || !result) return
-      setTotal(result.total)
-      setItems(result.items)
-    } finally {
-      scanningRef.current = false
-      if (aliveRef.current) setScanning(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    void scan()
-  }, [scan, refreshToken])
+  const items = health.tagIncomplete
 
   const handleStart = useCallback(async() => {
     if (runningRef.current || !items.length) return
@@ -98,65 +86,70 @@ export default memo(({ refreshToken, onChanged }: Props) => {
     toast('正在停止，已处理的结果会保留')
   }, [])
 
-  const previewRows: PreviewRow[] = items.slice(0, 30).map(({ item, issues }) => ({
+  const rows: PreviewRow[] = items.slice(0, 30).map(({ item, issues }) => ({
     key: item.id,
+    item,
     title: cleanSongName(item.name, item.singer),
-    sub: issues.join(' · '),
+    sub: item.singer || '未知歌手',
+    tags: issues.join(' · '),
   }))
-  const hasItems = items.length > 0
-  const busy = scanning || running
 
-  const summaryText = summary
-    ? `${summary.stopped ? '已停止 · ' : ''}写入文件 ${summary.file} 首` +
-      `${summary.libraryOnly ? ` · 仅曲库 ${summary.libraryOnly} 首` : ''}` +
-      `${summary.notFound ? ` · 未找到 ${summary.notFound} 首` : ''}` +
-      `${summary.cover ? ` · 顺带补封面 ${summary.cover} 首` : ''}`
-    : ''
+  const chips = summary
+    ? [
+        ...(summary.stopped ? [{ key: 'stopped', label: '已停止', value: '', tone: 'warning' as const }] : []),
+        { key: 'file', label: '写入文件', value: summary.file, tone: 'primary' as const },
+        { key: 'library', label: '仅曲库', value: summary.libraryOnly },
+        { key: 'notFound', label: '未找到', value: summary.notFound, tone: summary.notFound ? 'warning' as const : 'muted' as const },
+        ...(summary.cover ? [{ key: 'cover', label: '顺带补封面', value: summary.cover }] : []),
+      ]
+    : []
 
   return (
-    <>
-      <Section title='标签刮削' desc='联网补全歌名 / 歌手 / 专辑，尽量写进音频文件'>
-        <CountRow
-          title='标签可补全的歌曲'
-          desc={scanning
-            ? '正在检查曲库…'
-            : hasItems
-              ? `共 ${total} 首，其中 ${items.length} 首可以补全`
-              : `共 ${total} 首，标签都完整`}
-          count={scanning ? '—' : items.length}
-          highlight={!scanning && hasItems}
-        />
+    <Card title='标签刮削' desc='联网核对歌名 / 歌手后写入歌名、歌手、专辑，尽量写进音频文件'>
+      <InfoLine
+        label='标签可补全的歌曲'
+        desc={scanning
+          ? '正在体检曲库…'
+          : items.length
+            ? '缺歌手 / 缺专辑 / 歌名混着歌手名；刮削会先核对，对不上不写'
+            : '标签都完整'}
+        value={scanning ? '—' : items.length}
+        tone={items.length ? 'warning' : undefined}
+      />
+
+      {running ? <ProgressLine label='正在刮削' done={progress.done} total={progress.total} /> : null}
+
+      {summary ? <SummaryChips chips={chips} /> : null}
+
+      {!scanning && rows.length ? <PreviewList rows={rows} /> : null}
+
+      {
+        !running && !scanning && !items.length
+          ? <EmptyState text='标签都完整，没有需要刮削的歌曲' />
+          : null
+      }
+
+      <ButtonRow>
         {
           running
             ? (
-              <>
-                <ProgressLine label='正在刮削' done={progress.done} total={progress.total} />
-                <StopRow onStop={handleStop} disabled={stopping} />
-              </>
+              <SecondaryButton
+                label={stopping ? '正在停止…' : '停止'}
+                icon='stop'
+                disabled={stopping}
+                onPress={handleStop}
+              />
               )
             : (
-              <ActionRow
-                label={scanning ? '正在检查曲库…' : hasItems ? '开始刮削' : '没有需要刮削的歌曲'}
+              <PrimaryButton
+                label={scanning ? '正在体检曲库…' : '开始刮削'}
                 icon='tag-multiple'
-                disabled={!hasItems || busy}
+                disabled={scanning || !items.length}
                 onPress={() => { void handleStart() }}
-                onRefresh={() => { void scan() }}
-                refreshDisabled={busy}
               />
               )
         }
-        {summary ? <SummaryBar text={summaryText} /> : null}
-      </Section>
-
-      {
-        hasItems && !running
-          ? (
-            <Section title='待刮削列表' desc='最多显示 30 首'>
-              <PreviewList rows={previewRows} />
-            </Section>
-            )
-          : null
-      }
-    </>
+      </ButtonRow>
+    </Card>
   )
 })

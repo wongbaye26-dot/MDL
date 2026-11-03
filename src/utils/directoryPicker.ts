@@ -210,6 +210,36 @@ export const writeTextToSibling = async(docUri: string, fileName: string, conten
   }
 }
 
+/**
+ * 把 content://.../document/primary%3AMusic%2Fx.flac 还原成真实磁盘路径：
+ * /storage/emulated/0/Music/x.flac。识别不出来返回 ''（不是所有 content:// 都能还原）。
+ *
+ * 用途：SAF 文档 uri 写标签/纯 JS 读写时只能走真实路径；
+ * 反过来写文件时 content:// 又比真实路径更稳，所以两个地址要能互相转换。
+ */
+export const documentUriToRealPath = (uri?: string | null): string => {
+  if (!uri || !uri.startsWith('content://')) return ''
+  try {
+    const decoded = decodeURIComponent(uri)
+    const marker = '/document/'
+    const index = decoded.indexOf(marker)
+    if (index < 0) return ''
+    const docId = decoded.slice(index + marker.length)
+    const colon = docId.indexOf(':')
+    if (colon < 0) return ''
+    const volume = docId.slice(0, colon)
+    const relative = docId.slice(colon + 1)
+    // 可移动存储卷的 volume 是 XXXX-XXXX 形式；其它都当成主存储
+    const root = /^[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}$/.test(volume)
+      ? `/storage/${volume}`
+      : '/storage/emulated/0'
+    if (!relative) return ''
+    return `${root}/${relative}`
+  } catch {
+    return ''
+  }
+}
+
 /** 把 content:// 的 tree uri 还原成给人看的路径，识别不了就原样返回 */
 export const treeUriToDisplayPath = (treeUri: string): string => {
   try {
