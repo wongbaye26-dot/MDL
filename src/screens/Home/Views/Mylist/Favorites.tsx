@@ -118,15 +118,24 @@ const MiniPlayer = memo(({ onOpenQueue }: { onOpenQueue: () => void }) => {
           const { width, height } = e.nativeEvent.layout
           setBarSize(prev => (Math.abs(prev.w - width) < 0.5 && Math.abs(prev.h - height) < 0.5) ? prev : { w: width, h: height })
         }}
-        style={{
-          ...styles.playerCard,
-          backgroundColor: isDark ? 'rgba(22,17,30,0.34)' : 'rgba(255,255,255,0.42)',
-          shadowColor: isDark ? '#000000' : '#6E6285',
-        }}
+        style={[
+          styles.playerCard,
+          isDark ? null : styles.playerCardLight,
+          isDark
+            ? {
+                backgroundColor: 'rgba(22,17,30,0.34)',
+                shadowColor: '#000000',
+              }
+            : {
+                // 亮色：白色叠层降到最薄，靠 BlurView 透出页面颜色，不做「整块白」
+                backgroundColor: 'rgba(255,255,255,0.15)',
+                shadowColor: '#6E6285',
+              },
+        ]}
       >
         <Glass
           blurRadius={24}
-          tint={isDark ? 'rgba(22,17,30,0.42)' : 'rgba(255,255,255,0.34)'}
+          tint={isDark ? 'rgba(22,17,30,0.42)' : 'rgba(255,255,255,0.13)'}
           radius={PLAYER_BAR_RADIUS}
         />
 
@@ -134,11 +143,25 @@ const MiniPlayer = memo(({ onOpenQueue }: { onOpenQueue: () => void }) => {
         <LinearGradient
           colors={isDark
             ? ['rgba(255,255,255,0.09)', 'rgba(255,255,255,0.02)', 'rgba(255,255,255,0)']
-            : ['rgba(255,255,255,0.42)', 'rgba(255,255,255,0.10)', 'rgba(255,255,255,0)']}
-          locations={[0, 0.55, 1]}
+            : ['rgba(255,255,255,0.30)', 'rgba(255,255,255,0.07)', 'rgba(255,255,255,0)']}
+          locations={[0, 0.5, 1]}
           style={styles.playerGloss}
           pointerEvents='none'
         />
+
+        {/* 亮色：底部内阴影 + 0.5dp 细描边撑出玻璃边界（深色分支保持原样） */}
+        {isDark
+          ? null
+          : (
+            <>
+              <LinearGradient
+                colors={['rgba(150,140,170,0)', 'rgba(150,140,170,0.22)']}
+                style={styles.playerInnerShade}
+                pointerEvents='none'
+              />
+              <View pointerEvents='none' style={styles.playerHighlightEdge} />
+            </>
+            )}
 
         <CapsuleProgress
           width={barSize.w}
@@ -165,8 +188,8 @@ const MiniPlayer = memo(({ onOpenQueue }: { onOpenQueue: () => void }) => {
             />
           </View>
           <View style={styles.playerText}>
-            <Text size={13} numberOfLines={1} style={styles.playerName}>{songName}</Text>
-            <Text size={10.5} color={theme['c-450']} numberOfLines={1} style={styles.playerSinger}>
+            <Text size={13} numberOfLines={1} style={isDark ? styles.playerName : [styles.playerName, styles.lightTextShadow]}>{songName}</Text>
+            <Text size={10.5} color={theme['c-450']} numberOfLines={1} style={isDark ? styles.playerSinger : [styles.playerSinger, styles.lightTextShadow]}>
               {musicInfo.singer || '未知歌手'}
             </Text>
           </View>
@@ -508,12 +531,42 @@ const styles = createStyle({
     shadowOffset: { width: 0, height: 6 },
     overflow: 'hidden',
   },
+  playerCardLight: {
+    // 亮色玻璃更透，外部阴影稍微加重一点把边界托出来（深色分支沿用 playerCard 的阴影）
+    elevation: 18,
+    shadowOpacity: 0.42,
+    shadowRadius: 30,
+    shadowOffset: { width: 0, height: 12 },
+  },
   playerGloss: {
     position: 'absolute',
     left: 0,
     right: 0,
     top: 0,
     height: PLAYER_BAR_HEIGHT * 0.66,
+  },
+  playerInnerShade: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: PLAYER_BAR_HEIGHT * 0.55,
+  },
+  playerHighlightEdge: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    borderRadius: PLAYER_BAR_RADIUS,
+    borderWidth: 0.5,
+    borderColor: 'rgba(255,255,255,0.75)',
+  },
+  lightTextShadow: {
+    // 亮色玻璃上是深色文字：给白色微阴影，透到深色背景上也能读
+    textShadowColor: 'rgba(255,255,255,0.55)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 5,
   },
   playerInfo: {
     flexGrow: 1,

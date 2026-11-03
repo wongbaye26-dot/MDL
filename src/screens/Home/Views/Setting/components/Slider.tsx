@@ -15,8 +15,8 @@ export default memo(({ value, minimumValue, maximumValue, onSlidingStart, onSlid
   const theme = useTheme()
 
   return (
-    // 包一层 View 是为了拿到 JS 触摸事件：设置子页的「左滑返回」是整页捕获阶段手势，
-    // 拖滑杆时要把这次触摸标记成「交互控件」，让左滑返回放弃接管（否则页面会跟着平移、滑杆卡住）。
+    // 包一层 View 是为了拿到 JS 触摸事件：设置子页的「右滑返回」是整页捕获阶段手势，
+    // 拖滑杆时要把这次触摸标记成「交互控件」，让右滑返回放弃接管（否则页面会跟着平移、滑杆卡住）。
     <View
       style={styles.sliderWrap}
       onTouchStart={() => { setInteractiveTouch(true) }}

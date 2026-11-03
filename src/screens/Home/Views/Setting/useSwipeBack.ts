@@ -5,7 +5,8 @@ import { useWindowSize } from '@/utils/hooks'
 import { isInteractiveTouch, setInteractiveTouch } from './swipeBackGuard'
 
 /**
- * 设置二级页（整屏 overlay）的「左滑返回」手势。
+ * 设置二级页（整屏 overlay）的「右滑返回」手势。
+ * 手指向右拖，整页跟着往右平移并淡出，露出左侧下层的「我的」网格后关闭子页。
  *
  * 用法：
  *   const swipeBack = useSwipeBack(() => { setActiveId(null) })
@@ -25,11 +26,11 @@ import { isInteractiveTouch, setInteractiveTouch } from './swipeBackGuard'
  *   拿到 responder，这里取 4dp（仍远大于点击抖动，且要求横向占优，不会误伤竖向滚动/点击）。
  */
 
-/** 横向占优的判定：|dx| 要明显大于 |dy| 才算左滑，避免抢走竖向滚动 */
+/** 横向占优的判定：|dx| 要明显大于 |dy| 才算右滑，避免抢走竖向滚动 */
 const HORIZONTAL_RATIO = 1.2
 /** 起手判定距离（dp），必须小于原生 PagerView 的 8dp 触摸斜率，理由见文件头注释 */
 const CAPTURE_SLOP = 4
-/** 松手判定：滑过屏宽 25%，或者快速甩动（vx < -0.5）就滑出关闭 */
+/** 松手判定：向右滑过屏宽 25%，或者快速向右甩动（vx > 0.5）就滑出关闭 */
 const CLOSE_RATIO = 0.25
 const FLING_VELOCITY = 0.5
 /** 拖动过程中整页最多淡到 0.55，滑出阶段再单独淡到 0 */
@@ -68,7 +69,7 @@ export default (onClose: () => void) => {
     const width = windowWidthRef.current || 1
     Animated.parallel([
       Animated.timing(translateX, {
-        toValue: -width,
+        toValue: width,
         duration: 190,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
@@ -87,7 +88,7 @@ export default (onClose: () => void) => {
   /** 松手/被系统 cancel 时统一判定：够远或够快就关闭，否则弹回 */
   const finish = useCallback((dx: number, vx: number) => {
     const width = windowWidthRef.current || 1
-    if (Math.abs(dx) > width * CLOSE_RATIO || vx < -FLING_VELOCITY) animateOut()
+    if (dx > width * CLOSE_RATIO || vx > FLING_VELOCITY) animateOut()
     else animateBack()
   }, [animateOut, animateBack])
 
@@ -97,7 +98,7 @@ export default (onClose: () => void) => {
       if (isInteractiveTouch()) return false
       // 多指（比如双指缩放）不抢
       if (gestureState.numberActiveTouches > 1) return false
-      return gestureState.dx < -CAPTURE_SLOP &&
+      return gestureState.dx > CAPTURE_SLOP &&
         Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * HORIZONTAL_RATIO
     },
     onPanResponderGrant: () => {
@@ -107,8 +108,8 @@ export default (onClose: () => void) => {
     },
     onPanResponderMove: (_, gestureState) => {
       const width = windowWidthRef.current || 1
-      // 只允许往左拖，最多拖一整屏
-      const x = Math.max(-width, Math.min(0, gestureState.dx))
+      // 只允许往右拖，最多拖一整屏
+      const x = Math.min(width, Math.max(0, gestureState.dx))
       translateX.setValue(x)
       opacity.setValue(1 - Math.abs(x) / width * (1 - MIN_DRAG_OPACITY))
     },

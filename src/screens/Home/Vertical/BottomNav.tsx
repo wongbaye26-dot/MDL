@@ -268,7 +268,8 @@ export default memo(() => {
     },
   }), [swipeEnabled])
 
-  const iconIdle = isDark ? 'rgba(255,255,255,0.66)' : 'rgba(30,24,40,0.62)'
+  // 亮色玻璃比之前透，未选中图标加深一点（0.62→0.72），透出彩色背景时也读得清
+  const iconIdle = isDark ? 'rgba(255,255,255,0.66)' : 'rgba(30,24,40,0.72)'
 
   /** 当前选中入口的槽位序号；播放器页（或未知 id）没有圆底 → -1 */
   const activeSlot = SLOT_INDEX[activeId] ?? -1
@@ -303,8 +304,8 @@ export default memo(() => {
         }}
         style={{
           ...styles.bar,
-          // 模糊不可用时的兜底色：暗色更实、亮色更透，和下面 Glass 的 tint 保持同一方向
-          backgroundColor: isDark ? 'rgba(22,17,30,0.52)' : 'rgba(255,255,255,0.28)',
+          // 模糊不可用时的兜底色：亮色下只留很薄一层白，让背景颜色透上来（不然成一块白）
+          backgroundColor: isDark ? 'rgba(22,17,30,0.52)' : 'rgba(255,255,255,0.15)',
           shadowColor: isDark ? '#000000' : '#6E6285',
         }}
       >
@@ -316,7 +317,7 @@ export default memo(() => {
         */}
         <Glass
           blurRadius={38}
-          tint={isDark ? 'rgba(22,17,30,0.52)' : 'rgba(255,255,255,0.28)'}
+          tint={isDark ? 'rgba(22,17,30,0.52)' : 'rgba(255,255,255,0.12)'}
           radius={BAR_RADIUS}
         />
 
@@ -324,7 +325,7 @@ export default memo(() => {
         <LinearGradient
           colors={isDark
             ? ['rgba(255,255,255,0.16)', 'rgba(255,255,255,0.05)', 'rgba(255,255,255,0)']
-            : ['rgba(255,255,255,0.55)', 'rgba(255,255,255,0.14)', 'rgba(255,255,255,0)']}
+            : ['rgba(255,255,255,0.30)', 'rgba(255,255,255,0.07)', 'rgba(255,255,255,0)']}
           locations={[0, 0.5, 1]}
           style={styles.gloss}
           pointerEvents='none'
@@ -337,7 +338,7 @@ export default memo(() => {
         <LinearGradient
           colors={isDark
             ? ['rgba(0,0,0,0)', 'rgba(0,0,0,0.30)']
-            : ['rgba(150,140,170,0)', 'rgba(150,140,170,0.18)']}
+            : ['rgba(150,140,170,0)', 'rgba(150,140,170,0.22)']}
           style={styles.innerShade}
           pointerEvents='none'
         />
@@ -347,7 +348,7 @@ export default memo(() => {
           pointerEvents='none'
           style={{
             ...styles.highlightEdge,
-            borderColor: isDark ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.78)',
+            borderColor: isDark ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.75)',
           }}
         />
 

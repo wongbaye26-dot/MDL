@@ -1,5 +1,6 @@
 import { memo, useRef } from 'react'
 import { View, TouchableOpacity } from 'react-native'
+import LinearGradient from 'react-native-linear-gradient'
 import Text from '@/components/common/Text'
 import { Icon } from '@/components/common/Icon'
 import Image from '@/components/common/Image'
@@ -52,18 +53,47 @@ export default memo(() => {
   return (
     <View style={styles.wrap} pointerEvents='box-none'>
       <View
-        style={{
-          ...styles.card,
-          backgroundColor: isDark ? 'rgba(24,18,34,0.20)' : 'rgba(255,255,255,0.12)',
-          borderColor: isDark ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.72)',
-          shadowColor: isDark ? '#000000' : '#6E6285',
-        }}
+        style={[
+          styles.card,
+          isDark ? null : styles.cardLight,
+          isDark
+            ? {
+                backgroundColor: 'rgba(24,18,34,0.20)',
+                borderColor: 'rgba(255,255,255,0.16)',
+                shadowColor: '#000000',
+              }
+            : {
+                // 亮色：只留很薄一层白，靠 BlurView 透出背后颜色，不做「整块白」
+                backgroundColor: 'rgba(255,255,255,0.10)',
+                borderColor: 'rgba(255,255,255,0.75)',
+                shadowColor: '#6E6285',
+              },
+        ]}
       >
         <Glass
           blurRadius={24}
-          tint={isDark ? 'rgba(22,17,30,0.42)' : 'rgba(255,255,255,0.34)'}
+          tint={isDark ? 'rgba(22,17,30,0.42)' : 'rgba(255,255,255,0.14)'}
           radius={22}
         />
+
+        {/* 亮色：薄玻璃靠这层顶部高光 + 底部内阴影撑厚度（深色分支保持原样，不叠这两层） */}
+        {isDark
+          ? null
+          : (
+            <>
+              <LinearGradient
+                colors={['rgba(255,255,255,0.30)', 'rgba(255,255,255,0.07)', 'rgba(255,255,255,0)']}
+                locations={[0, 0.5, 1]}
+                style={styles.gloss}
+                pointerEvents='none'
+              />
+              <LinearGradient
+                colors={['rgba(150,140,170,0)', 'rgba(150,140,170,0.22)']}
+                style={styles.innerShade}
+                pointerEvents='none'
+              />
+            </>
+            )}
 
         <TouchableOpacity
           style={styles.infoArea}
@@ -79,8 +109,8 @@ export default memo(() => {
             }
           </View>
           <View style={styles.textArea}>
-            <Text size={13} numberOfLines={1} style={styles.name}>{songName}</Text>
-            <Text size={11} color={theme['c-450']} numberOfLines={1} style={styles.singer}>{musicInfo.singer}</Text>
+            <Text size={13} numberOfLines={1} style={isDark ? styles.name : [styles.name, styles.lightTextShadow]}>{songName}</Text>
+            <Text size={11} color={theme['c-450']} numberOfLines={1} style={isDark ? styles.singer : [styles.singer, styles.lightTextShadow]}>{musicInfo.singer}</Text>
           </View>
         </TouchableOpacity>
 
@@ -131,6 +161,33 @@ const styles = createStyle({
     shadowRadius: 18,
     shadowOffset: { width: 0, height: 6 },
     overflow: 'hidden',
+  },
+  cardLight: {
+    // 亮色下玻璃更透，外部阴影稍微加重一点把边界托出来（深色分支沿用 card 的阴影）
+    elevation: 18,
+    shadowOpacity: 0.42,
+    shadowRadius: 30,
+    shadowOffset: { width: 0, height: 12 },
+  },
+  gloss: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    height: '70%',
+  },
+  innerShade: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '55%',
+  },
+  lightTextShadow: {
+    // 亮色玻璃是深色文字：给一层白色微阴影，透出深色背景时也能读
+    textShadowColor: 'rgba(255,255,255,0.55)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 5,
   },
   infoArea: {
     flexGrow: 1,

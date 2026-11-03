@@ -14,6 +14,7 @@ import { setNavActiveId } from '@/core/common'
 import { getList } from '@/core/songlist'
 import type { ListInfoItem } from '@/store/songlist/state'
 import { createStyle } from '@/utils/tools'
+import { scaleSizeW } from '@/utils/pixelRatio'
 import { LIST_IDS, NAV_BAR_SPACE } from '@/config/constant'
 import { formatSize } from '@/core/download/utils'
 import { getLocalMusicList } from '@/core/localMusic'
@@ -94,22 +95,25 @@ export default () => {
   const userApiModalRef = useRef<UserApiEditModalType>(null)
 
   /**
-   * 首页四张大卡：居中吸附轮播。
+   * 首页四张大卡：左对齐吸附轮播。
    *  - 卡片尺寸/间距从 BigCard 的同一套缩放函数拿，snapToInterval 才能严丝合缝；
-   *  - 左右留白 =（视口宽 − 卡宽）/2，第一张和最后一张都能停在正中；
+   *  - 左起 16dp 排第一张；右边距留够，让最后一张也能吸附到左侧（不再首卡居中、左边一片空）；
    *  - scrollX 走 native driver，每张卡的 scale/倾斜/透明度都由它插值出来。
    */
   const compact = useHorizontalMode()
   const cardMetrics = getBigCardMetrics(compact)
   const cardInterval = cardMetrics.width + cardMetrics.gap
   const cardsScrollX = useRef(new Animated.Value(0)).current
+  /** 左起 16dp：和页面其它内边距用同一套缩放 */
+  const cardsPaddingLeft = scaleSizeW(16)
   const [cardsViewport, setCardsViewport] = useState(0)
-  const cardsSidePad = Math.max(0, (cardsViewport - cardMetrics.width) / 2)
+  /** 右侧留白 = 视口宽 − 左边距 − 一个槽位（+2dp 兜底，避免浮点取整把最后一个吸附点挤出可滚范围） */
+  const cardsPaddingRight = Math.max(0, cardsViewport - cardsPaddingLeft - cardInterval + 2)
   const handleCardsScroll = useMemo(() => Animated.event(
     [{ nativeEvent: { contentOffset: { x: cardsScrollX } } }],
     { useNativeDriver: true },
   ), [cardsScrollX])
-  /** 每张卡的滚动进度：0 = 正中，±1 = 相邻卡（按吸附步长缓存，避免每次 render 重建动画节点） */
+  /** 每张卡的滚动进度：0 = 这张卡左对齐（焦点），±1 = 左右相邻卡（按吸附步长缓存） */
   const cardProgress = useMemo(() => CARDS.map((_, i) => cardsScrollX.interpolate({
     inputRange: [(i - 1) * cardInterval, i * cardInterval, (i + 1) * cardInterval],
     outputRange: [-1, 0, 1],
@@ -226,15 +230,15 @@ export default () => {
         />
 
         {/*
-          四张大卡：居中吸附轮播。
-          左右留白让每张卡都能停在正中；滚动时按 progress（0 = 正中，±1 = 相邻卡）做
+          四张大卡：左对齐吸附轮播。
+          第一张左起 16dp；滚动时按 progress（0 = 这张卡左对齐，±1 = 左右相邻卡）做
           scale 0.9→1、translateY、轻微 rotate/rotateY、相邻透明度变化，松手吸附回弹。
         */}
         <Animated.ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           style={styles.hScroll}
-          contentContainerStyle={[styles.cards, { paddingLeft: cardsSidePad, paddingRight: cardsSidePad }]}
+          contentContainerStyle={[styles.cards, { paddingLeft: cardsPaddingLeft, paddingRight: cardsPaddingRight }]}
           snapToInterval={cardInterval}
           decelerationRate='fast'
           scrollEventThrottle={16}

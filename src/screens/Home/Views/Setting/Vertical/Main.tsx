@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Animated, View, ScrollView, TouchableOpacity, StyleSheet } from 'react-native'
 
 import Basic from '../settings/Basic'
@@ -25,6 +25,7 @@ import { PAGE_HEADER_H } from '@/components/common/PageHeader'
 import settingState from '@/store/setting/state'
 import type { InitState as CommonState } from '@/store/common/state'
 import useSwipeBack from '../useSwipeBack'
+import { setNavActiveId } from '@/core/common'
 
 const getSection = (id: SettingScreenIds) => {
   switch (id) {
@@ -45,6 +46,8 @@ export default () => {
   const t = useI18n()
   const statusBarHeight = useStatusbarHeight()
   const [activeId, setActiveId] = useState<SettingScreenIds | null>(null)
+  const activeIdRef = useRef<SettingScreenIds | null>(null)
+  activeIdRef.current = activeId
 
   const section = useMemo(() => (activeId ? getSection(activeId) : null), [activeId])
 
@@ -53,8 +56,8 @@ export default () => {
   }, [])
 
   /**
-   * 左滑返回：子页是整屏 overlay，横滑时整页跟手左移（同步淡出），
-   * 滑过屏宽 25% 或快速甩动就滑出关闭，否则弹回。
+   * 右滑返回：子页是整屏 overlay，向右拖动时整页跟手右移（同步淡出，露出左侧下层网格），
+   * 向右滑过屏宽 25% 或快速向右甩动就滑出关闭，否则弹回。
    * （之前的下拉返回走的是子页 ScrollView 的 RefreshControl，已去掉）
    */
   const swipeBack = useSwipeBack(handleClose)
@@ -68,7 +71,15 @@ export default () => {
   // 返回键离开「我的」页时把子页一起收掉（否则再回到「我的」会看到子页还开着，且 PagerView 锁没释放）
   useEffect(() => {
     const handleNavActiveIdUpdate = (id: CommonState['navActiveId']) => {
-      if (id != 'nav_mine') setActiveId(null)
+      if (id == 'nav_mine') return
+      // 子页打开时下标变化只可能来自「横滑被原生 PagerView 抢走」：
+      // 关闭子页并回到「我的」，避免出现「设置页消失、人却到了本地音乐」的错位
+      if (activeIdRef.current) {
+        setActiveId(null)
+        setNavActiveId('nav_mine')
+        return
+      }
+      setActiveId(null)
     }
     global.state_event.on('navActiveIdUpdated', handleNavActiveIdUpdate)
     return () => {

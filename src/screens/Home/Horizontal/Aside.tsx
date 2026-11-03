@@ -88,7 +88,7 @@ const MenuItem = ({ id, icon, dark, active, onPress }: {
         <TabIcon
           name={icon}
           size={ICON_SIZE}
-          color={active ? theme['c-primary'] : (dark ? 'rgba(255,255,255,0.66)' : 'rgba(30,24,40,0.62)')}
+          color={active ? theme['c-primary'] : (dark ? 'rgba(255,255,255,0.66)' : 'rgba(30,24,40,0.72)')}
         />
       </Animated.View>
     </TouchableOpacity>
@@ -123,15 +123,24 @@ export default memo(() => {
           const { width, height } = e.nativeEvent.layout
           setBarSize(prev => (Math.abs(prev.w - width) < 0.5 && Math.abs(prev.h - height) < 0.5) ? prev : { w: width, h: height })
         }}
-        style={{
-          ...styles.container,
-          backgroundColor: dark ? 'rgba(22,17,30,0.34)' : 'rgba(255,255,255,0.42)',
-          shadowColor: dark ? '#000000' : '#6E6285',
-        }}
+        style={[
+          styles.container,
+          dark ? null : styles.containerLight,
+          dark
+            ? {
+                backgroundColor: 'rgba(22,17,30,0.34)',
+                shadowColor: '#000000',
+              }
+            : {
+                // 亮色：白色叠层降到最薄，靠 BlurView 透出内容颜色，不做「整块白」
+                backgroundColor: 'rgba(255,255,255,0.15)',
+                shadowColor: '#6E6285',
+              },
+        ]}
       >
         <Glass
           blurRadius={24}
-          tint={dark ? 'rgba(22,17,30,0.42)' : 'rgba(255,255,255,0.34)'}
+          tint={dark ? 'rgba(22,17,30,0.42)' : 'rgba(255,255,255,0.12)'}
           radius={BAR_RADIUS}
         />
 
@@ -139,13 +148,29 @@ export default memo(() => {
         <LinearGradient
           colors={dark
             ? ['rgba(255,255,255,0.09)', 'rgba(255,255,255,0.02)', 'rgba(255,255,255,0)']
-            : ['rgba(255,255,255,0.42)', 'rgba(255,255,255,0.10)', 'rgba(255,255,255,0)']}
-          locations={[0, 0.55, 1]}
+            : ['rgba(255,255,255,0.30)', 'rgba(255,255,255,0.07)', 'rgba(255,255,255,0)']}
+          locations={[0, 0.5, 1]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={styles.gloss}
           pointerEvents='none'
         />
+
+        {/* 亮色：右侧内阴影（对应竖屏的底部内阴影）+ 0.5dp 细描边撑出边界（深色分支保持原样） */}
+        {dark
+          ? null
+          : (
+            <>
+              <LinearGradient
+                colors={['rgba(150,140,170,0)', 'rgba(150,140,170,0.22)']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.innerShade}
+                pointerEvents='none'
+              />
+              <View pointerEvents='none' style={styles.highlightEdge} />
+            </>
+            )}
 
         {/* 边缘进度光晕：没有边框，只有贴着边缘的一圈柔光 */}
         <CapsuleProgress
@@ -213,12 +238,36 @@ const styles = StyleSheet.create({
     shadowRadius: 26,
     shadowOffset: { width: 0, height: 10 },
   },
+  containerLight: {
+    // 亮色玻璃更透，外部阴影稍微加重一点把边界托出来（深色分支沿用 container 的阴影）
+    elevation: 18,
+    shadowOpacity: 0.42,
+    shadowRadius: 30,
+    shadowOffset: { width: 0, height: 12 },
+  },
   gloss: {
     position: 'absolute',
     left: 0,
     top: 0,
     bottom: 0,
     width: BAR_WIDTH * 0.66,
+  },
+  innerShade: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: BAR_WIDTH * 0.55,
+  },
+  highlightEdge: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    borderRadius: BAR_RADIUS,
+    borderWidth: 0.5,
+    borderColor: 'rgba(255,255,255,0.75)',
   },
   item: {
     width: SLOT_SIZE,

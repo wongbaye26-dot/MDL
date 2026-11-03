@@ -102,7 +102,16 @@ export default memo(({ item, index, showSource, onPress, onLongPress, onShowMenu
 
   if (viewMode === 'card') {
     return (
-      <View style={{ ...styles.card, backgroundColor: isSelected ? theme['c-primary-background-hover'] : theme['c-primary-alpha-900'], borderColor: theme['c-primary-alpha-700'] }}>
+      <View style={[
+        styles.card,
+        // 排行榜卡片第二行会折成两行（歌手 · 专辑名），比普通卡片高 8dp；
+        // 搜索等其它卡片模式仍是 68dp，不受影响
+        showRank ? styles.cardWithRank : null,
+        {
+          backgroundColor: isSelected ? theme['c-primary-background-hover'] : theme['c-primary-alpha-900'],
+          borderColor: theme['c-primary-alpha-700'],
+        },
+      ]}>
         <TouchableOpacity style={styles.cardLeft} activeOpacity={0.75} onPress={() => { onPress(item, index) }} onLongPress={handleLongPress}>
           {/* 卡片行也要保留名次（排行榜直接传 viewMode='card'） */}
           { showRank ? <View style={styles.cardRank}><RankBadge index={index} /></View> : null }
@@ -110,10 +119,11 @@ export default memo(({ item, index, showSource, onPress, onLongPress, onShowMenu
           <View style={styles.cardInfo}>
             <Text size={14} numberOfLines={1} style={styles.cardName}>{item.name}</Text>
             {/* 音质 / 来源角标：和列表模式保持一致，切卡片后不丢信息 */}
-            <View style={styles.cardMetaRow}>
+            <View style={[styles.cardMetaRow, showRank ? styles.cardMetaRowRank : null]}>
               { tagInfo.type ? <Badge type={tagInfo.type}>{tagInfo.text}</Badge> : null }
               { showSource ? <Badge type="tertiary">{(item.source as string) === 'local' ? '本地' : item.source}</Badge> : null }
-              <Text size={11} color={theme['c-450']} numberOfLines={1} style={styles.cardSinger}>{singer}</Text>
+              {/* 排行榜允许两行：一行为歌手、一行为「· 专辑名」，避免专辑名被省略号截掉 */}
+              <Text size={11} color={theme['c-450']} numberOfLines={showRank ? 2 : 1} style={styles.cardSinger}>{singer}</Text>
             </View>
           </View>
           {isShowInterval ? <Text size={11} color={theme['c-400']} style={styles.interval}>{item.interval ?? ''}</Text> : null}
@@ -236,6 +246,11 @@ const styles = createStyle({
     borderRadius: 16,
     borderWidth: 0.5,
   },
+  cardWithRank: {
+    // 排行榜卡片：第二行可能折成两行（歌手 · 专辑名），比普通卡片高 8dp；
+    // 只作用于 showRank 的卡片，搜索等其它卡片模式仍是 68dp
+    height: 76,
+  },
   cardLeft: {
     flex: 1,
     flexDirection: 'row',
@@ -250,6 +265,11 @@ const styles = createStyle({
   cardInfo: {
     flexGrow: 1,
     flexShrink: 1,
+    // Android 上必须把宽度约束死：只给 grow/shrink 时 Text 会按 max-content 撑开，
+    // 再被父级裁掉 —— 表现就是「第二行专辑名被硬切、没有省略号也不折行」。
+    // flexBasis: 0 让宽度完全由剩余空间决定，minWidth: 0 才允许收缩到内容宽度以下。
+    flexBasis: 0,
+    minWidth: 0,
   },
   cardRank: {
     marginRight: 2,
@@ -261,9 +281,18 @@ const styles = createStyle({
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: 3,
+    // 同理：这一行是「角标 + 歌手/专辑」的横排，必须能收缩才能把剩余宽度交给 Text 去折行
+    flexShrink: 1,
+    minWidth: 0,
+  },
+  cardMetaRowRank: {
+    // 第二行折成两行时角标改为顶对齐，避免角标被文字块居中后偏下
+    alignItems: 'flex-start',
   },
   cardSinger: {
     flexShrink: 1,
+    // 文字节点也要允许收缩到内容宽度以下，numberOfLines={2} 才会真正折行/省略
+    minWidth: 0,
   },
   interval: {
     width: 44,
