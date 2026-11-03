@@ -35,6 +35,7 @@ import { LIST_IDS } from '@/config/constant'
 import { setNavActiveId, updateSetting } from '@/core/common'
 import { formatSize, formatSampleRate, QUALITY_LABEL, QUALITY_DESC } from '@/core/download/utils'
 import DownloadQualityModal, { type DownloadQualityModalType } from '@/components/DownloadQualityModal'
+import PlayerDetailSheet from '@/components/player/PlayerDetailSheet'
 import Stage, { COVER_TOP_RATIO, COVER_H_RATIO } from './Stage'
 import SeekBar from './SeekBar'
 import PlayGlyph from './PlayGlyph'
@@ -76,8 +77,9 @@ const LYRIC_NORMAL_RATIO = 1.14
 /** 歌词行高：飞牛实测 112.6px / 2.625 = 42.9dp */
 const LYRIC_LINE_H = 42.9
 /**
- * 底部整块高度：信息行 44 + 24 + 进度 48 + 32 + 控制 56 + 32 = 236
+ * 底部整块高度：10 + 信息行 44 + 14 + 进度 58 + 22 + 控制 56 + 32 = 236
  * 飞牛实测：信息行 655.6、进度 723.4、控制 803.4、底部留白 32
+ * （信息行/时间行整块下移 10dp 后重新配平，进度条和控制区位置不变，总高仍 236）
  */
 const BOTTOM_BLOCK_H = 236
 
@@ -607,6 +609,13 @@ export default () => {
   }, [currentLine, mode, isLandscape, scrollToLine, lines])
 
   const pic = musicInfo.pic
+  /*
+    当前播放的是本地音乐（文件已经在手机上）。这种情况不显示下载按钮：
+    本地文件没有「下载」这回事，留一个点了只弹 toast 的图标是噪音。
+    下载完成的曲目（ListItem，带 progress 字段）不算本地音乐，图标照旧（点了会提示已下载）。
+  */
+  const rawMusic = playerState.playMusicInfo.musicInfo
+  const isLocalMusic = rawMusic != null && !('progress' in rawMusic) && rawMusic.source === 'local'
 
   // 播放键按压反馈
   const playBtnScale = useRef(new Animated.Value(1)).current
@@ -744,21 +753,15 @@ export default () => {
         )
   }
 
-  <Modal visible={detailVisible} transparent animationType='fade' onRequestClose={() => { setDetailVisible(false) }}>
-    <TouchableOpacity style={styles.modalMask} activeOpacity={1} onPress={() => { setDetailVisible(false) }}>
-      <View style={{ ...styles.detailSheet, backgroundColor: theme['c-content-background'] }}>
-        <Text size={u(14)} style={styles.queueTitle}>歌曲详情</Text>
-        {
-          detailRows.map(row => (
-            <View key={row.label} style={styles.detailRow}>
-              <Text size={u(12)} color={theme['c-450']} style={styles.detailLabel}>{row.label}</Text>
-              <Text size={u(12)} numberOfLines={2} style={styles.detailValue}>{row.value}</Text>
-            </View>
-          ))
-        }
-      </View>
-    </TouchableOpacity>
-  </Modal>
+  {/* 歌曲详情：Material You 底部 Sheet（封面 + 歌名歌手 + 只读信息行），横竖屏共用 */}
+  <PlayerDetailSheet
+    visible={detailVisible}
+    pic={pic}
+    name={songName}
+    singer={musicInfo.singer}
+    rows={detailRows}
+    onClose={() => { setDetailVisible(false) }}
+  />
 
   <DownloadQualityModal ref={downloadModalRef} />
     </>
@@ -862,7 +865,8 @@ export default () => {
                 <Text size={u(11)} color={palette.textSecondary} numberOfLines={1} style={styles.songSinger}>{musicInfo.singer}</Text>
               </View>
               {
-                autoSaveEnabled
+                // 本地音乐没有下载这回事，整颗按钮不渲染（不占位，收藏/详情往左收）
+                autoSaveEnabled || isLocalMusic
                   ? null
                   : (
                     <TouchableOpacity style={styles.iconBtnLand} onPress={handleDownload} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
@@ -874,7 +878,7 @@ export default () => {
                 <Icon name={collected ? 'love' : 'heart-outline'} size={u(22)} color={collected ? accent : 'rgba(255,255,255,0.92)'} />
               </TouchableOpacity>
               <TouchableOpacity style={styles.iconBtnLand} onPress={() => { setDetailVisible(true) }} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-                <Icon name='dots-vertical' size={u(20)} color='rgba(255,255,255,0.92)' />
+                <Icon name='information-outline' size={u(20)} color='rgba(255,255,255,0.92)' />
               </TouchableOpacity>
             </View>
 
@@ -1139,7 +1143,8 @@ export default () => {
                 </TouchableOpacity>
                 <View style={styles.infoActions}>
                   {
-                    autoSaveEnabled
+                    // 本地音乐不显示下载按钮（不留空占位）
+                    autoSaveEnabled || isLocalMusic
                       ? null
                       : (
                         <TouchableOpacity style={styles.iconBtn} onPress={handleDownload} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
@@ -1155,7 +1160,7 @@ export default () => {
                     />
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.iconBtn} onPress={() => { setDetailVisible(true) }} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-                    <Icon name='dots-vertical' size={u(24)} color='rgba(255,255,255,0.92)' />
+                    <Icon name='information-outline' size={u(24)} color='rgba(255,255,255,0.92)' />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -1170,7 +1175,7 @@ export default () => {
                     <Icon name={collected ? 'love' : 'heart-outline'} size={u(26)} color={collected ? accent : 'rgba(255,255,255,0.9)'} />
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.iconBtn} onPress={() => { setDetailVisible(true) }} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-                    <Icon name='dots-vertical' size={u(24)} color='rgba(255,255,255,0.9)' />
+                    <Icon name='information-outline' size={u(24)} color='rgba(255,255,255,0.9)' />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -1338,9 +1343,18 @@ const styles = {
     right: 0,
     height: BOTTOM_BLOCK_H,
   },
-  /* 信息行：655.6..699.4（高 44） */
+  /*
+    信息行：655.6..699.4（高 44）。
+    这里按「信息行（歌名/歌手）+ 进度条下方的时间」整块再下移 10dp：
+      infoRow 加 marginTop 10、toolRow 同步 +10（歌词态顶部是工具行，两种模式保持同一节奏），
+      progressBlock 的 marginTop 24→14 抵掉这 10，进度条本身位置不变，
+      时间行在块内 top 28.2→38.2 下移 10，block 高度 48→58 装下它，
+      最后 controls 的 marginTop 32→22 把控制区拉回原位置 —— 底块总高仍是 236，
+      时间行和控制区之间还有约 22dp，不会压到控制键。
+  */
   infoRow: {
     height: 44,
+    marginTop: 10,
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     paddingLeft: 24,
@@ -1358,7 +1372,9 @@ const styles = {
     marginLeft: 12,
   },
   toolRow: {
+    // 和 infoRow 一样下移 10（歌词态顶部是工具行，不能让两态的时间行错位）
     height: 44,
+    marginTop: 10,
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     justifyContent: 'space-between' as const,
@@ -1367,15 +1383,15 @@ const styles = {
   },
   toolBtn: { width: 44, height: 44, justifyContent: 'center' as const, alignItems: 'center' as const },
 
-  /* 进度：723.4..771.4（高 48），轨道 6dp、中心在块内 25.2 */
-  progressBlock: { height: 48, marginTop: 24, paddingLeft: 24, paddingRight: 24 },
+  /* 进度：723.4..771.4（高 48），轨道 6dp、中心在块内 25.2；高度 58 给时间行下移留位置 */
+  progressBlock: { height: 58, marginTop: 14, paddingLeft: 24, paddingRight: 24 },
   // SeekBar 高 38（轨道 6 + 上下各 16 触摸区），轨道中心在 19 → top 6.2 让中心落在块内 25.2
   seekWrap: { position: 'absolute' as const, left: 24, right: 24, top: 6.2 },
   timeRow: {
     position: 'absolute' as const,
     left: 24,
     right: 24,
-    top: 28.2,
+    top: 38.2,
     height: 19.8,
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
@@ -1392,13 +1408,13 @@ const styles = {
     paddingRight: 10,
   },
 
-  /* 控制：803.4..859.4（高 56），两端贴边、无左右 padding */
+  /* 控制：803.4..859.4（高 56），两端贴边、无左右 padding；marginTop 22 抵掉上面下移的 10 */
   controls: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     justifyContent: 'space-between' as const,
     height: 56,
-    marginTop: 32,
+    marginTop: 22,
     marginBottom: 32,
     /*
       按钮是 48dp，图标墨迹居中，左右各留 (48-17.5)/2=15.25dp。
@@ -1483,7 +1499,6 @@ const styles = {
     paddingTop: 16,
     paddingBottom: 12,
   },
-  queueTitle: { fontWeight: '600' as const },
   queueModeBtn: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
@@ -1513,15 +1528,4 @@ const styles = {
   queueCover: { width: 44, height: 44, borderRadius: 10, marginRight: 12 },
   queueInfo: { flexGrow: 1, flexShrink: 1 },
   queueSinger: { marginTop: 2 },
-  detailSheet: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingLeft: 20,
-    paddingRight: 20,
-    paddingTop: 18,
-    paddingBottom: 28,
-  },
-  detailRow: { flexDirection: 'row' as const, alignItems: 'flex-start' as const, marginTop: 12 },
-  detailLabel: { width: 62 },
-  detailValue: { flexGrow: 1, flexShrink: 1 },
 }

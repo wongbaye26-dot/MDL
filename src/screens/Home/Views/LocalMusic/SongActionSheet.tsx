@@ -1,27 +1,17 @@
-import { useEffect, useRef, useState } from 'react'
-import {
-  Animated,
-  Easing,
-  Modal,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  View,
-} from 'react-native'
+import { useEffect, useState } from 'react'
 
-import Text from '@/components/common/Text'
-import { Icon } from '@/components/common/Icon'
-import { useWindowSize } from '@/utils/hooks'
+import ActionSheet, { type ActionSheetAction, type ActionSheetItem } from '@/components/common/ActionSheet'
 import { CoverImage } from './cover'
-import { useNeutralPalette } from './palette'
 
 /**
  * 单曲「更多」菜单：飞牛音乐风格的底部 Sheet。
  *
- * 结构（对照参考图 /tmp/fn_menu.png）：
- *   顶部圆角 24 → 封面 + 歌名/歌手 → 3 个白色操作卡（播放 / 下一首播放 / 加入播放列表）
- *   → 一列白色圆角行（专辑 / 歌手 / 收藏 / 添加到歌单 / 歌曲信息 / 查看目录 / 从列表移除 / 删除文件）
- * 动画：遮罩淡入 + Sheet 上滑，统一 240ms（参考图的手感是「快进快出」）。
+ * 布局已经抽到共用组件 `@/components/common/ActionSheet`（Material You 配色），
+ * 这里只负责把本地歌曲的数据/操作映射成 Sheet 的 header / actions / items：
+ *   header  → 封面 + 歌名/歌手
+ *   actions → 播放 / 下一首播放 / 加入播放列表
+ *   items   → 专辑 / 歌手 / 收藏 / 添加到歌单 / 歌曲信息 / 从列表移除 / 删除文件
+ * 本轮按需求去掉了「查看所在目录」行（路径复制入口移除）。
  */
 export type SongAction =
   | 'play'
@@ -32,6 +22,7 @@ export type SongAction =
   | 'toggleLove'
   | 'addToSonglist'
   | 'songInfo'
+  /** 保留在类型里：LocalMusic/index.tsx 的 handleSheetAction 仍有该分支，本轮不再渲染这一行 */
   | 'showPath'
   | 'removeFromList'
   | 'deleteFile'
@@ -45,184 +36,56 @@ interface Props {
   onAction: (action: SongAction) => void
 }
 
-/** 遮罩 + Sheet 动画时长 */
-const DURATION = 240
-/** 行间距 / 卡片间距（参考图 8~12dp） */
-const GAP = 12
-
 export default ({ visible, item, loved, onClose, onAction }: Props) => {
-  const palette = useNeutralPalette()
-  const { height: windowHeight } = useWindowSize()
-  /** 关闭动画播完之前 Modal 不能卸载，否则会「闪一下直接消失」 */
-  const [mounted, setMounted] = useState(visible)
-  const anim = useRef(new Animated.Value(0)).current
-
+  /**
+   * 关闭时父组件会把 item 置 null（避免残留），但 Sheet 还要播 240ms 退场动画，
+   * 这里用最后一项兜住内容，退场过程中不会突然变成空标题。
+   */
+  const [lastItem, setLastItem] = useState<LX.Music.MusicInfoLocal | null>(item)
   useEffect(() => {
-    if (visible) {
-      setMounted(true)
-      anim.setValue(0)
-      // 下一帧再启动：Modal 刚挂载时还不能做原生动画
-      requestAnimationFrame(() => {
-        Animated.timing(anim, {
-          toValue: 1,
-          duration: DURATION,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
-        }).start()
-      })
-    } else {
-      Animated.timing(anim, {
-        toValue: 0,
-        duration: DURATION,
-        easing: Easing.in(Easing.cubic),
-        useNativeDriver: true,
-      }).start(({ finished }) => {
-        if (finished) setMounted(false)
-      })
-    }
-  }, [visible, anim])
-
-  useEffect(() => {
-    // 没有选中歌曲时强制卸载，避免残留上一次的内容
-    if (!item) setMounted(false)
+    if (item) setLastItem(item)
   }, [item])
 
-  if (!mounted || !item) return null
+  const shown = item ?? lastItem
+  if (!shown) return null
 
-  const name = item.name || '未知歌曲'
-  const singer = item.singer || '未知歌手'
-  const albumName = item.meta.albumName || '未知专辑'
+  const name = shown.name || '未知歌曲'
+  const singer = shown.singer || '未知歌手'
+  const albumName = shown.meta.albumName || '未知专辑'
+
+  const actions: ActionSheetAction[] = [
+    { key: 'play', label: '播放', icon: 'play', onPress: () => { onAction('play') } },
+    { key: 'playNext', label: '下一首播放', icon: 'arrow-down-left', onPress: () => { onAction('playNext') } },
+    { key: 'addToPlaylist', label: '加入播放列表', icon: 'playlist-plus', onPress: () => { onAction('addToPlaylist') } },
+  ]
+
+  const items: ActionSheetItem[] = [
+    { key: 'album', label: `专辑：${albumName}`, icon: 'album', onPress: () => { onAction('album') } },
+    { key: 'artist', label: `歌手：${singer}`, icon: 'microphone', onPress: () => { onAction('artist') } },
+    {
+      key: 'toggleLove',
+      label: loved ? '取消收藏' : '收藏',
+      icon: loved ? 'heart' : 'heart-outline',
+      active: loved,
+      onPress: () => { onAction('toggleLove') },
+    },
+    { key: 'addToSonglist', label: '添加到歌单', icon: 'playlist-music', onPress: () => { onAction('addToSonglist') } },
+    { key: 'songInfo', label: '歌曲信息', icon: 'information-outline', onPress: () => { onAction('songInfo') } },
+    { key: 'removeFromList', label: '从列表移除', icon: 'delete-outline', onPress: () => { onAction('removeFromList') } },
+    { key: 'deleteFile', label: '删除文件', icon: 'trash-can-outline', danger: true, onPress: () => { onAction('deleteFile') } },
+  ]
 
   return (
-    <Modal
-      visible={mounted}
-      transparent
-      statusBarTranslucent
-      animationType='none'
-      onRequestClose={onClose}
-    >
-      <View style={{ flex: 1 }}>
-        <Animated.View
-          style={{
-            ...StyleSheet.absoluteFillObject,
-            backgroundColor: palette.scrim,
-            opacity: anim,
-          }}
-        >
-          <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={onClose} />
-        </Animated.View>
-        <Animated.View
-          style={{
-            position: 'absolute',
-            left: 0,
-            right: 0,
-            bottom: 0,
-            maxHeight: windowHeight * 0.86,
-            borderTopLeftRadius: 24,
-            borderTopRightRadius: 24,
-            paddingTop: 16,
-            paddingBottom: 20,
-            backgroundColor: palette.bg,
-            transform: [{
-              translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [windowHeight, 0] }),
-            }],
-          }}
-        >
-          {/* 封面 + 歌名/歌手 */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, marginBottom: 16 }}>
-            <CoverImage item={item} size={56} radius={12} inset={0} background={palette.card} />
-            <View style={{ flexGrow: 1, flexShrink: 1, marginLeft: 12 }}>
-              <Text size={16} color={palette.text} numberOfLines={1} style={{ fontWeight: '600' }}>{name}</Text>
-              <Text size={13} color={palette.textSecondary} numberOfLines={1} style={{ marginTop: 4 }}>{singer}</Text>
-            </View>
-          </View>
-
-          <ScrollView
-            style={{ maxHeight: windowHeight * 0.62 }}
-            contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 4 }}
-            keyboardShouldPersistTaps='handled'
-          >
-            {/* 3 个操作卡 */}
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              <ActionCard label='播放' icon='play' onPress={() => { onAction('play') }} />
-              <ActionCard label='下一首播放' icon='arrow-down-left' onPress={() => { onAction('playNext') }} />
-              <ActionCard label='加入播放列表' icon='playlist-plus' onPress={() => { onAction('addToPlaylist') }} />
-            </View>
-
-            <View style={{ height: GAP }} />
-
-            <ActionRow label={`专辑：${albumName}`} icon='album' onPress={() => { onAction('album') }} />
-            <ActionRow label={`歌手：${singer}`} icon='microphone' onPress={() => { onAction('artist') }} />
-            <ActionRow
-              label={loved ? '取消收藏' : '收藏'}
-              icon={loved ? 'heart' : 'heart-outline'}
-              onPress={() => { onAction('toggleLove') }}
-            />
-            <ActionRow label='添加到歌单' icon='playlist-music' onPress={() => { onAction('addToSonglist') }} />
-            <ActionRow label='歌曲信息' icon='information-outline' onPress={() => { onAction('songInfo') }} />
-            <ActionRow label='查看所在目录' icon='folder-outline' onPress={() => { onAction('showPath') }} />
-            <ActionRow label='从列表移除' icon='delete-outline' onPress={() => { onAction('removeFromList') }} />
-            <ActionRow
-              label='删除文件'
-              icon='trash-can-outline'
-              danger
-              onPress={() => { onAction('deleteFile') }}
-            />
-          </ScrollView>
-        </Animated.View>
-      </View>
-    </Modal>
-  )
-}
-
-/** 顶部大操作卡：白底圆角 12、高 68、图标在上文字在下 */
-const ActionCard = ({ label, icon, onPress }: { label: string, icon: string, onPress: () => void }) => {
-  const palette = useNeutralPalette()
-  return (
-    <TouchableOpacity
-      style={{
-        flex: 1,
-        height: 68,
-        borderRadius: 12,
-        backgroundColor: palette.card,
-        alignItems: 'center',
-        justifyContent: 'center',
+    <ActionSheet
+      visible={visible}
+      header={{
+        cover: <CoverImage item={shown} size={56} radius={12} inset={0} />,
+        title: name,
+        subtitle: singer,
       }}
-      activeOpacity={0.7}
-      onPress={onPress}
-    >
-      <Icon name={icon} size={20} color={palette.icon} />
-      <Text size={12.5} color={palette.text} numberOfLines={1} style={{ marginTop: 8 }}>{label}</Text>
-    </TouchableOpacity>
-  )
-}
-
-/** 白色圆角条目行：高 50、左右 16、右侧线性图标 */
-const ActionRow = ({ label, icon, danger = false, onPress }: {
-  label: string
-  icon: string
-  /** 危险操作（删除文件）用红色文字/图标 */
-  danger?: boolean
-  onPress: () => void
-}) => {
-  const palette = useNeutralPalette()
-  const color = danger ? palette.danger : palette.text
-  return (
-    <TouchableOpacity
-      style={{
-        height: 50,
-        borderRadius: 12,
-        backgroundColor: palette.card,
-        marginBottom: GAP,
-        paddingHorizontal: 16,
-        flexDirection: 'row',
-        alignItems: 'center',
-      }}
-      activeOpacity={0.7}
-      onPress={onPress}
-    >
-      <Text size={15} color={color} numberOfLines={1} style={{ flexGrow: 1, flexShrink: 1 }}>{label}</Text>
-      <Icon name={icon} size={20} color={danger ? palette.danger : palette.icon} />
-    </TouchableOpacity>
+      actions={actions}
+      items={items}
+      onClose={onClose}
+    />
   )
 }

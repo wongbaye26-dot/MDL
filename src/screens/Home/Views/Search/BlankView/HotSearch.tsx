@@ -9,6 +9,8 @@ import { useI18n } from '@/lang'
 import { createStyle } from '@/utils/tools'
 
 const HOT_LIMIT = 10
+/** 一行放 5 个热词，10 条正好两行（原来的竖排 10 行太高，把下面的历史搜索挤出去了） */
+const COLUMNS = 5
 const RANK_COLORS = ['#F5B942', '#C9D3E0', '#D8915F']
 
 interface ListProps {
@@ -50,19 +52,25 @@ export default forwardRef<HotSearchType, ListProps>((props, ref) => {
       <View style={styles.list}>
         {
           list.slice(0, HOT_LIMIT).map((keyword, index) => (
-            <TouchableOpacity
-              key={keyword}
-              activeOpacity={0.7}
-              style={styles.row}
-              onPress={() => { props.onSearch(keyword) }}
-            >
-              <Text
-                size={12}
-                color={index < 3 ? RANK_COLORS[index] : theme['c-400']}
-                style={styles.rank}
-              >{index + 1}</Text>
-              <Text size={13} numberOfLines={1} style={styles.word}>{keyword}</Text>
-            </TouchableOpacity>
+            <View key={keyword} style={styles.cell}>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                style={{
+                  ...styles.chip,
+                  backgroundColor: theme['c-primary-alpha-900'],
+                  borderColor: theme['c-primary-alpha-700'],
+                }}
+                onPress={() => { props.onSearch(keyword) }}
+              >
+                <Text
+                  size={9.5}
+                  color={index < 3 ? RANK_COLORS[index] : theme['c-400']}
+                  style={styles.rank}
+                >{index + 1}</Text>
+                {/* 一行只有一个关键词，超长直接省略号，别把 5 列撑歪 */}
+                <Text size={11} numberOfLines={1} style={styles.word}>{keyword}</Text>
+              </TouchableOpacity>
+            </View>
           ))
         }
       </View>
@@ -76,20 +84,33 @@ const styles = createStyle({
     fontWeight: '700',
   },
   list: {
-    marginTop: 4,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 6,
   },
-  row: {
+  /** 5 列等分：每格 20%，左右各留 3dp 间隙 */
+  cell: {
+    width: `${100 / COLUMNS}%`,
+    paddingLeft: 3,
+    paddingRight: 3,
+    paddingBottom: 8,
+  },
+  chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: 9,
-    paddingBottom: 9,
+    height: 30,
+    paddingLeft: 7,
+    paddingRight: 7,
+    borderRadius: 15,
+    borderWidth: 0.5,
   },
   rank: {
-    width: 26,
+    minWidth: 11,
+    marginRight: 3,
     fontWeight: '700',
   },
   word: {
-    flexGrow: 1,
+    flexGrow: 0,
     flexShrink: 1,
   },
 })

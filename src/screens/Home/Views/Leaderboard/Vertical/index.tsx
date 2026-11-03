@@ -121,8 +121,8 @@ export default () => {
       <View style={styles.list}>
         <MusicList ref={musicListRef} onListChange={handleListChange} />
       </View>
-      {/* 迷你播放器：和歌单广场/歌单详情同一套 */}
-      <PlayerBar />
+      {/* 迷你播放器：和歌单广场/歌单详情同一套；榜单本来就在首页里，转场不需要等 pop */}
+      <PlayerBar isHome />
     </View>
   )
 }

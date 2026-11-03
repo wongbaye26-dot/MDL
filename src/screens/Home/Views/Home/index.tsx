@@ -45,7 +45,6 @@ const CARDS = [
   { key: 'leaderboard', title: '排行榜', icon: 'leaderboard', color: '#8B5CF6' },
   { key: 'songlist', title: '歌单广场', icon: 'album', color: '#14B8A6' },
   { key: 'mylist', title: '收藏', icon: 'love', color: '#EC4899' },
-  { key: 'local', title: '本地音乐', icon: 'folder-music', color: '#0EA5E9' },
   { key: 'source', title: '音源管理', icon: 'share', color: '#3B82F6' },
 ] as const
 
@@ -154,16 +153,13 @@ export default () => {
     void playList(LIST_IDS.TEMP, index)
   }, [])
 
-  const openLocal = useCallback((tab: LocalTab = 'song') => {
+  const openLocal = useCallback((tab: LocalTab) => {
     setLocalTab(tab)
     setLocalVisible(true)
   }, [])
 
   const handleCard = useCallback((key: CardKey) => {
     switch (key) {
-      case 'local':
-        openLocal('song')
-        break
       case 'source':
         userApiModalRef.current?.show()
         break
@@ -173,7 +169,7 @@ export default () => {
       default:
         setModal(key)
     }
-  }, [openLocal])
+  }, [])
 
   useBackHandler(useCallback(() => {
     if (localVisible) {
@@ -419,8 +415,11 @@ const styles = createStyle({
     marginTop: 1,
   },
   sectionHint: {
-    marginLeft: 'auto',
-    paddingLeft: 8,
+    // 自己占满标题右侧的剩余宽度再右对齐：RN 里 Text 直接靠 marginLeft: 'auto' 定位会被
+    // 压成「本地 3 · 在…」，必须先用 flex: 1 把宽度撑开（同关于页 infoValue 的坑）
+    flex: 1,
+    marginLeft: 8,
+    textAlign: 'right',
   },
   railEmpty: {
     flexDirection: 'row',

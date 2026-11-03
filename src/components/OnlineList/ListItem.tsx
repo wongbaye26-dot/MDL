@@ -133,6 +133,9 @@ export default memo(({ item, index, showSource, onPress, onLongPress, onShowMenu
     prevProps.index === nextProps.index &&
     prevProps.isShowAlbumName === nextProps.isShowAlbumName &&
     prevProps.isShowInterval === nextProps.isShowInterval &&
+    // showSource 必须参与比较：搜索结果的「本地/来源」标记会随本地匹配变化，
+    // 漏掉它的话旧行会被 memo 挡住不重渲染，出现「徽标不显示 / 刷新后才出现」。
+    prevProps.showSource === nextProps.showSource &&
     nextProps.selectedList.includes(nextProps.item) == prevProps.selectedList.includes(nextProps.item)
   )
 })

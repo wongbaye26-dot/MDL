@@ -1,59 +1,126 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from 'react'
 import OnlineList, { type OnlineListType, type OnlineListProps } from '@/components/OnlineList'
 import { search } from '@/core/search/music'
 import searchMusicState, { type Source } from '@/store/search/music/state'
 import EmptyView from './EmptyView'
 import { getLocalMusicList } from '@/core/localMusic'
 
-// export type MusicListProps = Pick<OnlineListProps,
-// 'onLoadMore'
-// | 'onPlayList'
-// | 'onRefresh'
-// >
+/** 本地匹配最多拼进结果多少首：再多会把在线结果淹掉 */
+const LOCAL_MATCH_LIMIT = 10
 
 export interface MusicListType {
   loadList: (text: string, source: Source) => void
 }
 
+/**
+ * 在本地曲库里搜「歌名 / 歌手」命中的歌。
+ * 限 10 首、按 id 去重（曲库可能因为重复扫描出现同 id 条目）。
+ */
+const matchLocalMusic = async(text: string): Promise<LX.Music.MusicInfoLocal[]> => {
+  if (!text) return []
+  const kw = text.toLowerCase()
+  const matched: LX.Music.MusicInfoLocal[] = []
+  const ids = new Set<string>()
+  // getLocalMusicList 返回的是副本，这里只读不原地改
+  for (const item of await getLocalMusicList()) {
+    if (ids.has(item.id)) continue
+    const name = (item.name ?? '').toLowerCase()
+    const singer = (item.singer ?? '').toLowerCase()
+    if (!name.includes(kw) && !singer.includes(kw)) continue
+    ids.add(item.id)
+    matched.push(item)
+    if (matched.length >= LOCAL_MATCH_LIMIT) break
+  }
+  return matched
+}
+
+/** 本地匹配存在或「全部音源」时需要显示「本地 / 音源」来源标记 */
+const needShowSource = (localMatches: LX.Music.MusicInfoLocal[], source: Source) => (
+  source === 'all' || localMatches.length > 0
+)
+
 export default forwardRef<MusicListType, {}>((props, ref) => {
   const listRef = useRef<OnlineListType>(null)
   const searchInfoRef = useRef<{ text: string, source: Source }>({ text: '', source: 'kw' })
+  /**
+   * 当前关键词命中的本地歌曲缓存。
+   * 搜索、下拉刷新、加载更多都从同一份缓存里取，
+   * 避免出现「首次不显示本地 / 下拉刷新后本地消失 / 再搜一次才回来」。
+   */
+  const localMatchesRef = useRef<{ text: string, list: LX.Music.MusicInfoLocal[] }>({ text: '', list: [] })
   const isUnmountedRef = useRef(false)
+  /**
+   * 每次搜索生成一个请求号。
+   * 异步返回的本地匹配 / 在线结果如果已经不是最新一次搜索，就直接丢掉，
+   * 防止快速改关键词时旧结果盖到新列表上。
+   */
+  const requestIdRef = useRef(0)
+
+  const getLocalMatches = useCallback(async(text: string, force = false) => {
+    const cache = localMatchesRef.current
+    if (!force && cache.text === text) return cache.list
+    const list = await matchLocalMusic(text)
+    // 只缓存最后一次搜索的匹配，避免旧关键词的结果被复用
+    if (searchInfoRef.current.text === text) localMatchesRef.current = { text, list }
+    return list
+  }, [])
+
+  /**
+   * 把本地匹配拼在在线结果前面，并同步「本地/在线」标记。
+   *
+   * 加载更多（isAppend）时**不能再拼本地匹配**：OnlineList 的 append 是把传入数组
+   * 追加到当前列表末尾，当前列表开头已经有本地那批了，再拼一遍就会每翻一页
+   * 重复一遍本地 10 首。
+   */
+  const applyList = useCallback((
+    online: LX.Music.MusicInfoOnline[],
+    localMatches: LX.Music.MusicInfoLocal[],
+    isAppend = false,
+  ) => {
+    listRef.current?.setList(
+      (isAppend ? online : [...localMatches, ...online]) as unknown as LX.Music.MusicInfoOnline[],
+      isAppend,
+      needShowSource(localMatches, searchInfoRef.current.source),
+    )
+  }, [])
+
   useImperativeHandle(ref, () => ({
     async loadList(text, source) {
-      // const listDetailInfo = searchMusicState.listDetailInfo
-      // 本地曲库一起搜：名字或歌手命中就排在在线结果前面（限 10 首，多了会淹掉在线结果）
-      const localMatches = text
-        ? (await getLocalMusicList())
-            .filter(m => {
-              const kw = text.toLowerCase()
-              return m.name.toLowerCase().includes(kw) || (m.singer ?? '').toLowerCase().includes(kw)
-            })
-            .slice(0, 10)
-        : []
-      listRef.current?.setList(localMatches as unknown as LX.Music.MusicInfoOnline[], false, source == 'all' || localMatches.length > 0)
-      if (searchMusicState.searchText == text && searchMusicState.source == source && searchMusicState.listInfos[searchMusicState.source]!.list.length) {
+      const requestId = ++requestIdRef.current
+      searchInfoRef.current.text = text
+      searchInfoRef.current.source = source
+      // 每次真正发起搜索都重新算一遍本地匹配（曲库可能刚更新过），
+      // 结果顺手写进缓存给下拉刷新 / 加载更多复用
+      const localMatches = await getLocalMatches(text, true)
+      if (isUnmountedRef.current || requestId !== requestIdRef.current) return
+      listRef.current?.setList(
+        localMatches as unknown as LX.Music.MusicInfoOnline[],
+        false,
+        needShowSource(localMatches, source),
+      )
+      const listInfo = searchMusicState.listInfos[source]
+      if (searchMusicState.searchText == text && searchMusicState.source == source && listInfo?.list.length) {
         requestAnimationFrame(() => {
-          listRef.current?.setList([...localMatches, ...searchMusicState.listInfos[searchMusicState.source]!.list] as unknown as LX.Music.MusicInfoOnline[], false, source == 'all' || localMatches.length > 0)
+          if (isUnmountedRef.current || requestId !== requestIdRef.current) return
+          applyList(listInfo.list, localMatches)
         })
       } else {
         listRef.current?.setStatus('loading')
         const page = 1
-        searchInfoRef.current.text = text
-        searchInfoRef.current.source = source
         return search(text, page, source).then((list) => {
-          // const result = setListInfo(listDetail, id, page)
-          if (isUnmountedRef.current) return
+          if (isUnmountedRef.current || requestId !== requestIdRef.current) return
           requestAnimationFrame(() => {
-            listRef.current?.setList([...localMatches, ...list] as unknown as LX.Music.MusicInfoOnline[], false, source == 'all' || localMatches.length > 0)
-            listRef.current?.setStatus(searchMusicState.listInfos[searchMusicState.source]!.maxPage <= page ? 'end' : 'idle')
+            if (isUnmountedRef.current || requestId !== requestIdRef.current) return
+            applyList(list, localMatches)
+            listRef.current?.setStatus(searchMusicState.listInfos[source]!.maxPage <= page ? 'end' : 'idle')
           })
         }).catch(() => {
+          if (isUnmountedRef.current || requestId !== requestIdRef.current) return
           listRef.current?.setStatus('error')
         })
       }
     },
-  }), [])
+  }), [applyList, getLocalMatches])
 
   useEffect(() => {
     isUnmountedRef.current = false
@@ -62,31 +129,47 @@ export default forwardRef<MusicListType, {}>((props, ref) => {
     }
   }, [])
 
-
+  /** 下拉刷新：本地匹配复用当前关键词的缓存，和在线第一页重新拼一次 */
   const handleRefresh: OnlineListProps['onRefresh'] = () => {
+    const { text, source } = searchInfoRef.current
+    if (!text) return
     const page = 1
     listRef.current?.setStatus('refreshing')
-    search(searchInfoRef.current.text, page, searchInfoRef.current.source).then((list) => {
-      // const result = setListInfo(listDetail, searchMusicState.listDetailInfo.id, page)
-      if (isUnmountedRef.current) return
-      listRef.current?.setList(list, false, searchInfoRef.current.source == 'all')
-      listRef.current?.setStatus(searchMusicState.listInfos[searchInfoRef.current.source]!.maxPage <= page ? 'end' : 'idle')
-    }).catch(() => {
-      listRef.current?.setStatus('error')
-    })
+    void (async() => {
+      try {
+        const localMatches = await getLocalMatches(text)
+        if (isUnmountedRef.current) return
+        const list = await search(text, page, source)
+        if (isUnmountedRef.current) return
+        applyList(list, localMatches)
+        listRef.current?.setStatus(searchMusicState.listInfos[source]!.maxPage <= page ? 'end' : 'idle')
+      } catch {
+        if (isUnmountedRef.current) return
+        listRef.current?.setStatus('error')
+      }
+    })()
   }
+
+  /** 加载更多：search 返回的是「累积后的整页列表」，本地匹配依旧拼在最前面 */
   const handleLoadMore: OnlineListProps['onLoadMore'] = () => {
-    listRef.current?.setStatus('loading')
-    const info = searchMusicState.listInfos[searchInfoRef.current.source]!
+    const { text, source } = searchInfoRef.current
+    if (!text) return
+    const info = searchMusicState.listInfos[source]!
     const page = info?.list.length ? info.page + 1 : 1
-    search(searchInfoRef.current.text, page, searchInfoRef.current.source).then((list) => {
-      // const result = setListInfo(listDetail, searchMusicState.listDetailInfo.id, page)
-      if (isUnmountedRef.current) return
-      listRef.current?.setList(list, true, searchInfoRef.current.source == 'all')
-      listRef.current?.setStatus(info.maxPage <= page ? 'end' : 'idle')
-    }).catch(() => {
-      listRef.current?.setStatus('error')
-    })
+    listRef.current?.setStatus('loading')
+    void (async() => {
+      try {
+        const localMatches = await getLocalMatches(text)
+        if (isUnmountedRef.current) return
+        const list = await search(text, page, source)
+        if (isUnmountedRef.current) return
+        applyList(list, localMatches, true)
+        listRef.current?.setStatus(info.maxPage <= page ? 'end' : 'idle')
+      } catch {
+        if (isUnmountedRef.current) return
+        listRef.current?.setStatus('error')
+      }
+    })()
   }
 
   return <OnlineList
@@ -98,4 +181,3 @@ export default forwardRef<MusicListType, {}>((props, ref) => {
     ListEmptyComponent={EmptyView}
   />
 })
-

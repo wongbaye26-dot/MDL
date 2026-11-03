@@ -7,7 +7,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/platform-Android-3DDC84" alt="Platform">
   <img src="https://img.shields.io/badge/react--native-0.73-61DAFB" alt="React Native">
-  <img src="https://img.shields.io/badge/version-3.5.3-FF6B9D" alt="Version">
+  <img src="https://img.shields.io/badge/version-3.5.4-FF6B9D" alt="Version">
 </p>
 
 ---
@@ -94,8 +94,8 @@ cd android && ./gradlew assembleRelease
 
 按 ABI 拆分的产物：
 
-- `lx-music-mobile-v3.5.3-arm64-v8a.apk` —— 绝大多数现代手机
-- `lx-music-mobile-v3.5.3-universal.apk` —— 兼容所有架构
+- `lx-music-mobile-v3.5.4-arm64-v8a.apk` —— 绝大多数现代手机
+- `lx-music-mobile-v3.5.4-universal.apk` —— 兼容所有架构
 
 ---
 

@@ -1,4 +1,4 @@
-import { memo } from 'react'
+import { memo, useRef } from 'react'
 import { View, TouchableOpacity } from 'react-native'
 import Text from '@/components/common/Text'
 import { Icon } from '@/components/common/Icon'
@@ -10,7 +10,7 @@ import { usePlayerMusicInfo, useIsPlay, useProgress } from '@/store/player/hook'
 import { useSettingValue } from '@/store/setting/hook'
 import { useKeyboard } from '@/utils/hooks'
 import { playNext, togglePlay } from '@/core/player/player'
-import { setNavActiveId } from '@/core/common'
+import { measureStartRect, openPlayerWithTransition } from '@/utils/playerOpen'
 import { getPlayerPalette } from '@/theme/playerPalette'
 import PlayGlyph from '../Views/Player/PlayGlyph'
 import { createStyle } from '@/utils/tools'
@@ -23,6 +23,9 @@ import { cleanSongName } from '@/utils/songName'
  * 之前点它走的是 LX 老路由（已随旧播放器一并移除），会跳到旧版横屏播放页；
  * 现在和竖屏胶囊里的圆盘一样，直接切 nav_player（我们自己的播放器页）。
  * 视觉也换成和胶囊同一层玻璃 + 主题强调色。
+ *
+ * 点进播放器走和圆盘同一个共享元素 helper（utils/playerOpen）：
+ * 起点就是左边这块小封面，量它的屏幕位置交给飞行封面。
  */
 export default memo(() => {
   const theme = useTheme()
@@ -33,12 +36,18 @@ export default memo(() => {
   const { keyboardShown } = useKeyboard()
   const palette = getPlayerPalette(theme)
   const isDark = theme.isDark
+  /** 封面节点：打开播放器时量它的屏幕位置作为共享元素动画起点 */
+  const coverRef = useRef<View>(null)
 
   if (autoHidePlayBar && keyboardShown) return null
   if (!musicInfo.name) return null
   const songName = cleanSongName(musicInfo.name, musicInfo.singer)
 
-  const openPlayer = () => { setNavActiveId('nav_player') }
+  const openPlayer = () => {
+    openPlayerWithTransition(done => {
+      measureStartRect(coverRef.current, done)
+    })
+  }
 
   return (
     <View style={styles.wrap} pointerEvents='box-none'>
@@ -61,11 +70,14 @@ export default memo(() => {
           activeOpacity={0.75}
           onPress={openPlayer}
         >
-          {
-            musicInfo.pic
-              ? <Image url={musicInfo.pic} style={styles.pic} />
-              : <CoverPlaceholder name={songName} size={38} radius={11} />
-          }
+          {/* 封面包一层才能当测量节点（Image / CoverPlaceholder 都不是原生 View） */}
+          <View ref={coverRef} collapsable={false} style={styles.cover}>
+            {
+              musicInfo.pic
+                ? <Image url={musicInfo.pic} style={styles.coverImg} />
+                : <CoverPlaceholder name={songName} size={38} radius={11} />
+            }
+          </View>
           <View style={styles.textArea}>
             <Text size={13} numberOfLines={1} style={styles.name}>{songName}</Text>
             <Text size={11} color={theme['c-450']} numberOfLines={1} style={styles.singer}>{musicInfo.singer}</Text>
@@ -126,10 +138,15 @@ const styles = createStyle({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  pic: {
+  cover: {
     width: 38,
     height: 38,
     borderRadius: 11,
+    overflow: 'hidden',
+  },
+  coverImg: {
+    width: '100%',
+    height: '100%',
   },
   textArea: {
     flexGrow: 1,

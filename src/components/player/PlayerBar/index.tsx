@@ -14,21 +14,34 @@ import { usePlayerMusicInfo, useIsPlay, useProgress } from '@/store/player/hook'
 import { useSettingValue } from '@/store/setting/hook'
 import { useKeyboard } from '@/utils/hooks'
 import { playNext, togglePlay } from '@/core/player/player'
-import { setNavActiveId } from '@/core/common'
 import commonState from '@/store/common/state'
+import { measureStartRect, openPlayerFromBar } from '@/utils/playerOpen'
 import { createStyle } from '@/utils/tools'
 import { cleanSongName } from '@/utils/songName'
 
-/** 回到首页并切到内置播放器页签 */
-const openPlayerTab = () => {
+/**
+ * 点迷你播放条 → 打开播放器页。
+ *
+ * 和底部胶囊导航的圆盘用同一个共享元素转场（utils/playerOpen）：
+ * 起点是播放条左侧那块会转的圆盘（页面还在的时候先量好），
+ * 歌单详情/歌单页是 RNN 独立屏，要先 pop 回首页才有转场层，所以这里把
+ * 「量起点 → pop → 等动画完再切页」整个交给 helper；排行榜这类本来就在首页
+ * 内部的页面传 isHome=true，省掉 pop 等待直接起动画。
+ */
+const openPlayerTab = (discRef: React.RefObject<View | null>, isHome: boolean) => {
   const homeId = commonState.componentIds.home
-  if (homeId) {
-    try {
-      // 弹掉栈上的详情页，回到首页后再切页签
-      void Navigation.popTo(homeId).catch(() => {})
-    } catch {}
-  }
-  setTimeout(() => { setNavActiveId('nav_player') }, homeId ? 140 : 0)
+  openPlayerFromBar(
+    done => { measureStartRect(discRef.current, done) },
+    homeId && !isHome
+      ? () => {
+          try {
+            // 弹掉栈上的详情页，回到首页后再切页签
+            void Navigation.popTo(homeId).catch(() => {})
+          } catch {}
+        }
+      : undefined,
+    !isHome,
+  )
 }
 
 const BAR_HEIGHT = 59
@@ -52,6 +65,8 @@ export default memo(({ isHome = false }: { isHome?: boolean }) => {
   const { keyboardShown } = useKeyboard()
   const isDark = theme.isDark
   const [barSize, setBarSize] = useState({ w: 0, h: 0 })
+  /** 左侧圆盘节点：打开播放器时量它的屏幕位置作为共享元素动画起点 */
+  const discRef = useRef<View>(null)
 
   /** 呼吸灯：和胶囊同一份节奏 */
   const breathe = useRef(new Animated.Value(0.62)).current
@@ -69,7 +84,6 @@ export default memo(({ isHome = false }: { isHome?: boolean }) => {
   const songName = cleanSongName(musicInfo.name, musicInfo.singer)
 
   const ratio = Math.max(0, Math.min(1, progress))
-  void isHome
 
   return (
     <View style={styles.wrap}>
@@ -110,13 +124,15 @@ export default memo(({ isHome = false }: { isHome?: boolean }) => {
           breathe={breathe}
         />
 
-        <TouchableOpacity style={styles.infoArea} activeOpacity={0.75} onPress={openPlayerTab}>
-          {/* 会转的圆盘 + 外圈进度环（环的显隐跟 navProgressStyle 走） */}
-          <AlbumDiscSpin
-            progress={ratio}
-            showRing={progressStyle === 'ring'}
-            dark={isDark}
-          />
+        <TouchableOpacity style={styles.infoArea} activeOpacity={0.75} onPress={() => { openPlayerTab(discRef, isHome) }}>
+          {/* 会转的圆盘 + 外圈进度环；包一层原生 View 才能量共享元素起点 */}
+          <View ref={discRef} collapsable={false}>
+            <AlbumDiscSpin
+              progress={ratio}
+              showRing={progressStyle === 'ring'}
+              dark={isDark}
+            />
+          </View>
           <View style={styles.textArea}>
             <MarqueeText
               text={songName}

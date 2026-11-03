@@ -1,6 +1,18 @@
-import { forwardRef, useImperativeHandle, useRef, useState } from 'react'
-import Menu, { type Menus, type MenuType, type Position } from '@/components/common/Menu'
+import { forwardRef, useImperativeHandle, useState } from 'react'
 
+import ActionSheet, { type ActionSheetAction, type ActionSheetItem } from '@/components/common/ActionSheet'
+import type { Position } from '@/components/common/Menu'
+import PicImage from '@/components/common/PicImage'
+import { QUALITY_LABEL } from '@/core/download/utils'
+
+/**
+ * 下载任务的「更多菜单」：共用底部 ActionSheet（Material You 配色）。
+ *
+ * 只换菜单 UI / 主题色，原有 action 集合全部保留：
+ *   快捷卡 → 按任务状态给主操作：播放 / 重新下载 / 加入收藏（已完成）
+ *            暂停下载（下载中）/ 重新下载（失败）/ 开始下载（等待、已暂停）
+ *   操作行 → 从列表移除（保留文件）/ 删除任务和文件（危险，红色）
+ */
 export type TaskMenuAction = 'start' | 'pause' | 'retry' | 'remove' | 'removeWithFile' | 'play' | 'collect'
 
 export interface TaskMenuType {
@@ -12,54 +24,68 @@ export interface TaskMenuProps {
 }
 
 export default forwardRef<TaskMenuType, TaskMenuProps>(({ onAction }, ref) => {
-  const menuRef = useRef<MenuType>(null)
-  const taskRef = useRef<LX.Download.ListItem | null>(null)
+  /** 当前任务：关闭后保留，退场动画期间 header 不会变空 */
+  const [task, setTask] = useState<LX.Download.ListItem | null>(null)
   const [visible, setVisible] = useState(false)
-  const [menus, setMenus] = useState<Menus>([])
 
   useImperativeHandle(ref, () => ({
-    show(task, position) {
-      taskRef.current = task
-      setMenus(buildMenus(task))
-      if (visible) {
-        menuRef.current?.show(position)
-      } else {
-        setVisible(true)
-        requestAnimationFrame(() => {
-          menuRef.current?.show(position)
-        })
-      }
+    // 旧 API 的 position 参数保留只为兼容调用方，底部 Sheet 不再需要定位
+    show(info: LX.Download.ListItem, _position: Position) {
+      setTask(info)
+      setVisible(true)
     },
   }))
 
-  const handlePress = (menu: Menus[number]) => {
-    const task = taskRef.current
-    if (!task) return
-    menuRef.current?.hide()
-    onAction(menu.action as TaskMenuAction, task)
+  if (!task) return null
+
+  const musicInfo = task.metadata.musicInfo
+  const quality = QUALITY_LABEL[task.metadata.quality] ?? task.metadata.quality
+  const close = () => { setVisible(false) }
+  const runAction = (action: TaskMenuAction) => {
+    close()
+    onAction(action, task)
   }
 
-  return visible
-    ? <Menu ref={menuRef} menus={menus} onPress={handlePress} />
-    : null
-})
-
-const buildMenus = (task: LX.Download.ListItem): Menus => {
-  const menus: Array<{ action: string, label: string, disabled?: boolean }> = []
+  const actions: ActionSheetAction[] = []
   if (task.isComplate) {
-    menus.push({ action: 'play', label: '播放' })
-    menus.push({ action: 'retry', label: '重新下载' })
-    menus.push({ action: 'collect', label: '加入收藏' })
+    actions.push({ key: 'play', label: '播放', icon: 'play', onPress: () => { runAction('play') } })
+    actions.push({ key: 'retry', label: '重新下载', icon: 'refresh', onPress: () => { runAction('retry') } })
+    actions.push({ key: 'collect', label: '加入收藏', icon: 'heart-outline', onPress: () => { runAction('collect') } })
+  } else if (task.status === 'run') {
+    actions.push({ key: 'pause', label: '暂停下载', icon: 'pause', onPress: () => { runAction('pause') } })
+  } else if (task.status === 'error') {
+    actions.push({ key: 'retry', label: '重新下载', icon: 'refresh', onPress: () => { runAction('retry') } })
   } else {
-    if (task.status === 'run') {
-      menus.push({ action: 'pause', label: '暂停下载' })
-    } else if (task.status === 'error') {
-      menus.push({ action: 'retry', label: '重新下载' })
-    } else {
-      menus.push({ action: 'start', label: '开始下载' })
-    }
+    actions.push({ key: 'start', label: '开始下载', icon: 'play', onPress: () => { runAction('start') } })
   }
-  menus.push({ action: 'remove', label: '从列表移除（保留文件）' })
-  menus.push({ action: 'removeWithFile', label: '删除任务和文件' })
-  return menus
-}
+
+  const items: ActionSheetItem[] = [
+    {
+      key: 'remove',
+      label: '从列表移除（保留文件）',
+      icon: 'close-circle-outline',
+      onPress: () => { runAction('remove') },
+    },
+    {
+      key: 'removeWithFile',
+      label: '删除任务和文件',
+      icon: 'trash-can-outline',
+      danger: true,
+      onPress: () => { runAction('removeWithFile') },
+    },
+  ]
+
+  return (
+    <ActionSheet
+      visible={visible}
+      header={{
+        cover: <PicImage musicInfo={task} style={{ width: 56, height: 56, borderRadius: 12 }} />,
+        title: musicInfo.name || '未知歌曲',
+        subtitle: `${musicInfo.singer || '未知歌手'} · ${quality}`,
+      }}
+      actions={actions}
+      items={items}
+      onClose={close}
+    />
+  )
+})

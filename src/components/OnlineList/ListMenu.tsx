@@ -1,20 +1,27 @@
 import { useRef, useImperativeHandle, forwardRef, useState } from 'react'
 import { useI18n } from '@/lang'
-import Menu, { type Menus, type MenuType, type Position } from '@/components/common/Menu'
+import ActionSheet, { type ActionSheetAction, type ActionSheetItem } from '@/components/common/ActionSheet'
+import type { Position } from '@/components/common/Menu'
+import PicImage from '@/components/common/PicImage'
 import { hasDislike } from '@/core/dislikeList'
 import { hasMusicUrlByMusic } from '@/utils/data'
 
+/**
+ * 在线歌曲「更多菜单」：共用底部 ActionSheet（Material You 配色）。
+ *
+ * 这个组件被歌曲搜索、歌单详情、排行榜歌曲等所有 OnlineList 场景复用，
+ * 所以只换菜单 UI，不动原有 action 集合：
+ *   快捷卡 → 播放 / 下一首播放 / 下载
+ *   操作行 → 添加到 / 复制歌名 / 歌曲来源详情 / 清除缓存 / 不喜欢
+ * 「清除缓存」要异步查当前歌曲有没有缓存的音源地址，查到之前置灰。
+ */
 export interface SelectInfo {
   musicInfo: LX.Music.MusicInfoOnline
   selectedList: LX.Music.MusicInfoOnline[]
   index: number
   single: boolean
 }
-const initSelectInfo = {}
 
-const hasUrlCache = async(musicInfo: LX.Music.MusicInfo) => {
-  return hasMusicUrlByMusic(musicInfo)
-}
 export interface ListMenuProps {
   onPlay: (selectInfo: SelectInfo) => void
   onPlayLater: (selectInfo: SelectInfo) => void
@@ -36,85 +43,100 @@ export type {
 export default forwardRef<ListMenuType, ListMenuProps>((props: ListMenuProps, ref) => {
   const t = useI18n()
   const [visible, setVisible] = useState(false)
-  const menuRef = useRef<MenuType>(null)
-  const selectInfoRef = useRef<SelectInfo>(initSelectInfo as SelectInfo)
-  const [menus, setMenus] = useState<Menus>([])
+  /** 当前操作对象：关闭后保留，退场动画期间 header 不会变空 */
+  const [selectInfo, setSelectInfo] = useState<SelectInfo | null>(null)
+  /** 当前歌曲是否有缓存的音源地址（决定「清除缓存」是否可点） */
+  const [hasCache, setHasCache] = useState(false)
+  const showIdRef = useRef(0)
 
   useImperativeHandle(ref, () => ({
-    show(selectInfo, position) {
-      selectInfoRef.current = selectInfo
-      handleSetMenu(selectInfo.musicInfo)
-      if (visible) menuRef.current?.show(position)
-      else {
-        setVisible(true)
-        requestAnimationFrame(() => {
-          menuRef.current?.show(position)
-        })
-      }
+    // 旧 API 的 position 参数保留只为兼容调用方，底部 Sheet 不再需要定位
+    show(info: SelectInfo, _position: Position) {
+      setSelectInfo(info)
+      setVisible(true)
+      setHasCache(false)
+      const id = ++showIdRef.current
+      void hasMusicUrlByMusic(info.musicInfo).then(has => {
+        // 期间又长按了别的歌：旧请求的结果不能覆盖新状态
+        if (id != showIdRef.current) return
+        setHasCache(has)
+      }).catch(() => {})
     },
   }))
 
-  const handleSetMenu = (musicInfo: LX.Music.MusicInfo) => {
-    let has_url_cache = false
-    const menu = [
-      { action: 'play', label: t('play') },
-      { action: 'playLater', label: t('play_later') },
-      { action: 'download', label: t('download') },
-      { action: 'add', label: t('add_to') },
-      { action: 'copyName', label: t('copy_name') },
-      { action: 'musicSourceDetail', label: t('music_source_detail') },
-      { action: 'removeCache', disabled: !has_url_cache, label: t('list_remove_cache') },
-      { action: 'dislike', label: t('dislike'), disabled: hasDislike(musicInfo) },
-    ]
-    setMenus(menu)
-    void hasUrlCache(musicInfo).then((_has_url_cache) => {
-      let isUpdated = false
-      if (has_url_cache != _has_url_cache) {
-        has_url_cache = _has_url_cache
-        menu[menu.findIndex(m => m.action == 'removeCache')].disabled = !has_url_cache
-        isUpdated ||= true
-      }
+  if (!selectInfo) return null
 
-      if (isUpdated) setMenus([...menu])
-    })
-  }
+  const musicInfo = selectInfo.musicInfo
+  const selectedCount = selectInfo.selectedList.length
+  const close = () => { setVisible(false) }
 
-  const handleMenuPress = ({ action }: typeof menus[number]) => {
-    const selectInfo = selectInfoRef.current
-    switch (action) {
-      case 'play':
-        props.onPlay(selectInfo)
-        break
-      case 'playLater':
-        props.onPlayLater(selectInfo)
-        break
-      case 'add':
-        props.onAdd(selectInfo)
-        break
-      case 'download':
-        props.onDownload(selectInfo)
-        break
-      case 'copyName':
-        props.onCopyName(selectInfo)
-        break
-      case 'musicSourceDetail':
-        props.onMusicSourceDetail(selectInfo)
-        // setVIsibleMusicPosition(true)
-        break
-      case 'removeCache':
-        props.onRemoveCache(selectInfo)
-        break
-      case 'dislike':
-        props.onDislikeMusic(selectInfo)
-        break
-      default:
-        break
-    }
-  }
+  const actions: ActionSheetAction[] = [
+    {
+      key: 'play',
+      label: t('play'),
+      icon: 'play',
+      onPress: () => { close(); props.onPlay(selectInfo) },
+    },
+    {
+      key: 'playLater',
+      label: t('play_later'),
+      icon: 'arrow-down-left',
+      onPress: () => { close(); props.onPlayLater(selectInfo) },
+    },
+    {
+      key: 'download',
+      label: t('download'),
+      icon: 'download',
+      onPress: () => { close(); props.onDownload(selectInfo) },
+    },
+  ]
+
+  const items: ActionSheetItem[] = [
+    {
+      key: 'add',
+      label: t('add_to'),
+      icon: 'playlist-plus',
+      onPress: () => { close(); props.onAdd(selectInfo) },
+    },
+    {
+      key: 'copyName',
+      label: t('copy_name'),
+      icon: 'content-copy',
+      onPress: () => { close(); props.onCopyName(selectInfo) },
+    },
+    {
+      key: 'musicSourceDetail',
+      label: t('music_source_detail'),
+      icon: 'information-outline',
+      onPress: () => { close(); props.onMusicSourceDetail(selectInfo) },
+    },
+    {
+      key: 'removeCache',
+      label: t('list_remove_cache'),
+      icon: 'eraser',
+      disabled: !hasCache,
+      onPress: () => { close(); props.onRemoveCache(selectInfo) },
+    },
+    {
+      key: 'dislike',
+      label: t('dislike'),
+      icon: 'thumb-down-outline',
+      disabled: hasDislike(musicInfo),
+      onPress: () => { close(); props.onDislikeMusic(selectInfo) },
+    },
+  ]
 
   return (
-    visible
-      ? <Menu ref={menuRef} menus={menus} onPress={handleMenuPress} />
-      : null
+    <ActionSheet
+      visible={visible}
+      header={{
+        cover: <PicImage musicInfo={musicInfo} style={{ width: 56, height: 56, borderRadius: 12 }} />,
+        title: musicInfo.name || '未知歌曲',
+        subtitle: `${musicInfo.singer || '未知歌手'}${selectedCount > 1 ? ` · 已选 ${selectedCount} 首` : ''}`,
+      }}
+      actions={actions}
+      items={items}
+      onClose={close}
+    />
   )
 })

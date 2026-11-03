@@ -15,9 +15,7 @@ import { NAV_MENUS } from '@/config/constant'
 import { setNavActiveId } from '@/core/common'
 import { useSettingValue } from '@/store/setting/hook'
 import { playNext, playPrev } from '@/core/player/player'
-import { useWindowSize } from '@/utils/hooks'
-import { beginOpen } from '@/utils/playerTransition'
-import { COVER_H_RATIO, COVER_TOP_RATIO } from '../Views/Player/Stage'
+import { measureStartRect, openPlayerWithTransition } from '@/utils/playerOpen'
 
 /**
  * 底部胶囊导航。
@@ -204,7 +202,6 @@ export default memo(() => {
   const [barSize, setBarSize] = useState({ w: 0, h: 0 })
   /** 圆盘节点：打开播放器时量它的屏幕位置作为共享元素动画起点 */
   const discRef = useRef<View>(null)
-  const { width: winW, height: winH } = useWindowSize()
 
   /** 呼吸灯：进度层的整体透明度缓慢起伏（native driver，不占 JS 线程） */
   const breathe = useRef(new Animated.Value(0.62)).current
@@ -220,39 +217,14 @@ export default memo(() => {
   const openPlayer = useCallback(() => {
     if (activeId === 'nav_player') return
     /*
-      播放器封面在竖屏是「全宽矩形」，位置由 Stage 的两个比例常量决定。
-      转场中间还要经过一个「大圆」：下拉时封面先收成这个大圆，再一路缩回圆盘。
-      直径取封面宽度，圆心对齐封面区域的中心。
+      圆盘 → 播放器封面的共享元素转场。
+      起点是圆盘（外面那圈 54dp 的光环不算，真正飞出去的是 48dp 的盘面），
+      目标和中间大圆的算法在 utils/playerOpen 里，和迷你播放器共用同一份。
     */
-    const coverW = winW
-    const coverH = winH * COVER_H_RATIO
-    const coverTop = winH * COVER_TOP_RATIO
-    const circleD = coverW
-    const target = { x: 0, y: coverTop, width: coverW, height: coverH }
-    const circle = {
-      x: (coverW - circleD) / 2,
-      y: coverTop + coverH / 2 - circleD / 2,
-      width: circleD,
-      height: circleD,
-    }
-    const node = discRef.current
-    if (!node) {
-      setNavActiveId('nav_player')
-      return
-    }
-    // 先量圆盘在屏幕上的位置作为动画起点，量不到就直接切页（不阻塞功能）
-    node.measureInWindow((x, y, w, h) => {
-      const cx = x + w / 2
-      const cy = y + h / 2
-      beginOpen({
-        x: cx - DISC_SIZE / 2,
-        y: cy - DISC_SIZE / 2,
-        width: DISC_SIZE,
-        height: DISC_SIZE,
-      }, target, circle)
-      setNavActiveId('nav_player')
+    openPlayerWithTransition(done => {
+      measureStartRect(discRef.current, done, DISC_SIZE)
     })
-  }, [activeId, winW, winH])
+  }, [activeId])
 
   const swipeEnabled = useSettingValue('common.navSwipeSwitch')
   const panResponder = useMemo(() => PanResponder.create({

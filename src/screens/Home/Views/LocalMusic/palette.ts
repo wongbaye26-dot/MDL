@@ -1,13 +1,19 @@
-import { useTheme } from '@/store/theme/hook'
+import { useSheetPalette } from '@/components/common/ActionSheet'
 
 /**
- * 「更多」Sheet 和「歌曲信息」页的中性配色（对齐飞牛音乐）。
+ * 「更多」Sheet 和「歌曲信息」页的配色。
  *
- * 为什么不用主题 token：参考图是一套中性 UI —— 页面 #F3F3F3、白卡片、#111 主文字、
- * #8A8A8A 次文字；而 EMO 的主题 token 带 Material You 主色，还可能是半透明（为了透背景图），
- * 直接套上去和参考图差得很远，深色下卡片也会发灰。
- * 所以这里只借用 `theme.isDark` 决定明暗，色阶本身固定成中性值：
- * 浅色一套、深色一套等价色（#111113 底 / #1C1C1E 卡 / #F2F2F2 字）。
+ * 上一轮这里是一套写死的中性色（飞牛音乐的中性 UI）；本轮统一成 Material You：
+ * 直接复用共用底部 Sheet 的配色（`@/components/common/ActionSheet` 的 useSheetPalette），
+ * 因此会跟随主题主色、深浅色主题自动适配：
+ *   bg          → getSolidBackground(theme)（不透明页面底色）
+ *   card        → c-primary-alpha-900（卡片底色）
+ *   text        → c-font；textSecondary → c-450
+ *   divider     → c-primary-alpha-700（分隔线 / 描边）
+ *   icon        → c-font
+ *   danger      → 固定红（深色主题用亮红）
+ *
+ * 字段名保持旧接口不变，所以 SongInfoPage 只用换掉配色来源、布局不用动。
  */
 export interface NeutralPalette {
   /** 页面底色（Sheet 背景 / 信息页背景） */
@@ -24,33 +30,20 @@ export interface NeutralPalette {
   scrim: string
   /** 危险操作文字（删除文件） */
   danger: string
-  /** 线性图标色（参考图里就是纯黑 / 纯白线稿图标） */
+  /** 线性图标色 */
   icon: string
 }
 
-const LIGHT: NeutralPalette = {
-  bg: '#F3F3F3',
-  card: '#FFFFFF',
-  text: '#111111',
-  textSecondary: '#8A8A8A',
-  divider: 'rgba(0,0,0,0.07)',
-  scrim: 'rgba(0,0,0,0.5)',
-  danger: '#D92D20',
-  icon: '#111111',
-}
-
-const DARK: NeutralPalette = {
-  bg: '#111113',
-  card: '#1C1C1E',
-  text: '#F2F2F2',
-  textSecondary: '#98989E',
-  divider: 'rgba(255,255,255,0.09)',
-  scrim: 'rgba(0,0,0,0.62)',
-  danger: '#FF6B6B',
-  icon: '#F2F2F2',
-}
-
 export const useNeutralPalette = (): NeutralPalette => {
-  const theme = useTheme()
-  return theme.isDark ? DARK : LIGHT
+  const sheet = useSheetPalette()
+  return {
+    bg: sheet.bg,
+    card: sheet.card,
+    text: sheet.text,
+    textSecondary: sheet.textSecondary,
+    divider: sheet.border,
+    scrim: sheet.scrim,
+    danger: sheet.danger,
+    icon: sheet.icon,
+  }
 }
