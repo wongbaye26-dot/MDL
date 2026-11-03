@@ -582,6 +582,9 @@ export default () => {
     void playList(listId, index)
   }, [])
 
+  /** 关闭播放队列（给横屏覆盖层一个稳定引用：它的返回键监听依赖这个回调） */
+  const handleCloseQueue = useCallback(() => { setQueueVisible(false) }, [])
+
   const currentTime = seekPreview ?? progress.nowPlayTime
   const maxTime = progress.maxPlayTime
 
@@ -662,7 +665,13 @@ export default () => {
   }, [musicInfo.id, songName, musicInfo.singer, musicInfo.album, maxTime])
 
   const queue = useMemo(() => {
-    return queueVisible ? getListMusicSync(playerState.playInfo.playerListId) : []
+    /*
+      横屏覆盖层关闭时会先淡出一小段再卸载（把状态栏恢复后的重排藏在覆盖层后面），
+      那段时间还需要继续渲染这份列表，所以这里不随 visible 清空 —— 只在开关时刷新一次。
+    */
+    return getListMusicSync(playerState.playInfo.playerListId)
+    // 只在打开/关闭时取一次快照（列表变化不影响已打开的队列，和原来的行为一致）
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queueVisible])
 
   const timeMs = (mode === 'lyric' || isLandscape ? now : progress.nowPlayTime) * 1000
@@ -764,13 +773,15 @@ export default () => {
   {
     isLandscape
       ? (
+        /* 横屏队列是**页面内全屏覆盖层**（不是 Modal）：必须作为根 View 的最后一个子节点渲染，
+           才能盖住播放器自己的封面/控制键；状态栏因此也是 Activity 级隐藏，真机能真正全屏 */
         <QueueCoverFlow
           visible={queueVisible}
           queue={queue}
           currentId={musicInfo.id ?? undefined}
           listId={playerState.playInfo.playerListId ?? undefined}
           playing={isPlay}
-          onClose={() => { setQueueVisible(false) }}
+          onClose={handleCloseQueue}
           onPlay={handlePlayFromLandscapeQueue}
           onToggle={togglePlay}
         />
