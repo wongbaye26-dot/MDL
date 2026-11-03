@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentRef } from 'react'
-import { View, Animated } from 'react-native'
+import { View, Animated, Easing } from 'react-native'
 import Home from '../Views/Home'
 import Download from '../Views/Download'
 import Mine from '../Views/Mine'
@@ -25,17 +25,47 @@ const PAGES = [
   { id: 'nav_player', component: Player },
 ] as const
 
+/**
+ * 单个 Tab 页面。
+ *
+ * PagerView 切页是 `setPageWithoutAnimation`（瞬间跳），所以切换质感全靠这里：
+ * 淡入 + 轻微上浮 + 一点点推近（240~280ms ease-out），比原来的纯 200ms 淡入更有层次；
+ * 已访问过的页面不会重播（visible 只置 true 一次），回来时内容不跳。
+ */
 const Page = ({ id, children }: { id: CommonState['navActiveId'], children: React.ReactNode }) => {
   const [visible, setVisible] = useState(commonState.navActiveId == id)
   // children 只在首次挂载时取一次：切 Tab 不应该重建页面（否则滚动位置、播放状态都会丢）
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const component = useMemo(() => children, [])
   const opacity = useRef(new Animated.Value(1)).current
+  const translateY = useRef(new Animated.Value(0)).current
+  const scale = useRef(new Animated.Value(1)).current
   useEffect(() => {
     if (!visible) return
     opacity.setValue(0)
-    Animated.timing(opacity, { toValue: 1, duration: 200, useNativeDriver: true }).start()
-  }, [visible, opacity])
+    translateY.setValue(12)
+    scale.setValue(0.992)
+    Animated.parallel([
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 240,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(translateY, {
+        toValue: 0,
+        duration: 280,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(scale, {
+        toValue: 1,
+        duration: 280,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start()
+  }, [visible, opacity, translateY, scale])
   useEffect(() => {
     let currentId: CommonState['navActiveId'] = commonState.navActiveId
     const handleNavIdUpdate = (_id: CommonState['navActiveId']) => {
@@ -72,7 +102,13 @@ const Page = ({ id, children }: { id: CommonState['navActiveId'], children: Reac
     // id 是固定 prop，加上不会导致重复订阅，但能让 lint 满意
   }, [id])
 
-  return visible ? <Animated.View style={{ flex: 1, opacity }}>{component}</Animated.View> : null
+  return visible
+    ? (
+      <Animated.View style={{ flex: 1, opacity, transform: [{ translateY }, { scale }] }}>
+        {component}
+      </Animated.View>
+      )
+    : null
 }
 
 const getIndex = (id: CommonState['navActiveId']) => {

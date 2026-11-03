@@ -10,10 +10,12 @@ import { tipDialog } from '@/utils/tools'
 
 interface BtnProps {
   btnStyle?: _DorpDownMenuProps<any[]>['btnStyle']
+  /** 按钮文字颜色：默认白色，主色偏亮时由调用方传入对比色 */
+  color?: string
 }
 
 
-export default ({ btnStyle }: BtnProps) => {
+export default ({ btnStyle, color = '#FFFFFF' }: BtnProps) => {
   const t = useI18n()
   const scriptImportExportRef = useRef<ScriptImportExportType>(null)
   const scriptImportOnlineRef = useRef<ScriptImportOnlineType>(null)
@@ -51,7 +53,7 @@ export default ({ btnStyle }: BtnProps) => {
       center
       onPress={handleAction}
     >
-      <Text size={14} color='#FFFFFF' style={{ fontWeight: '600' }}>{t('user_api_btn_import')}</Text>
+      <Text size={14} color={color} style={{ fontWeight: '600' }}>{t('user_api_btn_import')}</Text>
       <ScriptImportExport ref={scriptImportExportRef} />
       <ScriptImportOnline ref={scriptImportOnlineRef} />
     </DorpDownMenu>

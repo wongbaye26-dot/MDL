@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useState } from 'react'
-import { View, ScrollView, TouchableOpacity, StyleSheet, RefreshControl } from 'react-native'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Animated, View, ScrollView, TouchableOpacity, StyleSheet } from 'react-native'
 
 import Basic from '../settings/Basic'
 import Player from '../settings/Player'
@@ -22,6 +22,9 @@ import Grid from './Grid'
 import { NAV_BAR_SPACE, HORIZONTAL_NAV_SPACE } from '@/config/constant'
 import { getSolidBackground } from '@/theme/solid'
 import { PAGE_HEADER_H } from '@/components/common/PageHeader'
+import settingState from '@/store/setting/state'
+import type { InitState as CommonState } from '@/store/common/state'
+import useSwipeBack from '../useSwipeBack'
 
 const getSection = (id: SettingScreenIds) => {
   switch (id) {
@@ -45,9 +48,50 @@ export default () => {
 
   const section = useMemo(() => (activeId ? getSection(activeId) : null), [activeId])
 
-  const handlePress = useCallback((id: SettingScreenIds) => {
-    setActiveId(id)
+  const handleClose = useCallback(() => {
+    setActiveId(null)
   }, [])
+
+  /**
+   * 左滑返回：子页是整屏 overlay，横滑时整页跟手左移（同步淡出），
+   * 滑过屏宽 25% 或快速甩动就滑出关闭，否则弹回。
+   * （之前的下拉返回走的是子页 ScrollView 的 RefreshControl，已去掉）
+   */
+  const swipeBack = useSwipeBack(handleClose)
+
+  const handlePress = useCallback((id: SettingScreenIds) => {
+    // 上一次可能是滑出关闭，整页还停在屏幕外，重新打开前必须复位
+    swipeBack.reset()
+    setActiveId(id)
+  }, [swipeBack])
+
+  // 返回键离开「我的」页时把子页一起收掉（否则再回到「我的」会看到子页还开着，且 PagerView 锁没释放）
+  useEffect(() => {
+    const handleNavActiveIdUpdate = (id: CommonState['navActiveId']) => {
+      if (id != 'nav_mine') setActiveId(null)
+    }
+    global.state_event.on('navActiveIdUpdated', handleNavActiveIdUpdate)
+    return () => {
+      global.state_event.off('navActiveIdUpdated', handleNavActiveIdUpdate)
+    }
+  }, [])
+
+  /**
+   * 子页打开期间锁住 Home 的 PagerView 横向切页：
+   * 子页是整屏浮层，横滑只应该用来返回，不能顺手切到「本地音乐」。
+   * 这里通过 configUpdated 事件把 PagerView 的 scrollEnabled 临时关掉，
+   * 只影响运行时的滑动开关，用户设置项本身不动（关闭子页时按原值恢复）。
+   */
+  useEffect(() => {
+    if (!activeId) return
+    const restore = () => {
+      global.state_event.configUpdated(['common.homePageScroll'], {
+        'common.homePageScroll': settingState.setting['common.homePageScroll'],
+      })
+    }
+    global.state_event.configUpdated(['common.homePageScroll'], { 'common.homePageScroll': false })
+    return restore
+  }, [activeId])
 
   // 子页是整屏详情页：往上盖住「我的」页头（高度 = 状态栏 + 页头本体）
   const overlayTop = -(statusBarHeight + PAGE_HEADER_H)
@@ -63,30 +107,29 @@ export default () => {
       {
         activeId
           ? (
-              <View style={[StyleSheet.absoluteFill, { top: overlayTop, left: overlayLeft, zIndex: 200, elevation: 24 }]}>
+              <Animated.View
+                {...swipeBack.panHandlers}
+                style={[
+                  StyleSheet.absoluteFill,
+                  { top: overlayTop, left: overlayLeft, zIndex: 200, elevation: 24 },
+                  swipeBack.animatedStyle,
+                ]}
+              >
                 <SlideInView style={{ ...styles.modal, backgroundColor: getSolidBackground(theme) }}>
                   <View style={{ ...styles.modalHeader, height: 52 + statusBarHeight, paddingTop: statusBarHeight }}>
-                    <TouchableOpacity style={styles.modalBack} onPress={() => { setActiveId(null) }}>
+                    <TouchableOpacity style={styles.modalBack} onPress={handleClose}>
                       <Icon name='chevron-left-2' size={20} color={theme['c-font']} />
                     </TouchableOpacity>
                     <Text size={19} style={styles.modalTitle}>{t(`setting_${activeId}` as 'setting_basic')}</Text>
                   </View>
                   <ScrollView
                     contentContainerStyle={styles.modalContent}
-                    refreshControl={(
-                      <RefreshControl
-                        refreshing={false}
-                        onRefresh={() => { setActiveId(null) }}
-                        colors={['transparent']}
-                        progressBackgroundColor='transparent'
-                        tintColor='transparent'
-                      />
-                    )}
+                    keyboardShouldPersistTaps='always'
                   >
                     {section}
                   </ScrollView>
                 </SlideInView>
-              </View>
+              </Animated.View>
             )
           : null
       }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ScrollView, TouchableOpacity, View } from 'react-native'
+import { Animated, ScrollView, TouchableOpacity, View } from 'react-native'
 
 import Text from '@/components/common/Text'
 import { Icon } from '@/components/common/Icon'
@@ -29,8 +29,9 @@ import CompactHero from '../Leaderboard/Vertical/CompactHero'
 import Favorites, { FavoriteTabs, type FavoriteTab } from '../Mylist/Favorites'
 import LocalMusic, { type LocalTab } from '../LocalMusic'
 import { useBackHandler } from '@/utils/hooks/useBackHandler'
+import { useHorizontalMode } from '@/utils/hooks'
 import UserApiEditModal, { type UserApiEditModalType } from '../Setting/settings/Basic/UserApiEditModal'
-import BigCard from './BigCard'
+import BigCard, { getBigCardMetrics } from './BigCard'
 import SongRail, { RAIL_ROWS } from './SongRail'
 
 type ModalType = 'songlist' | 'leaderboard' | 'mylist' | null
@@ -41,11 +42,15 @@ const RAIL_LIMIT = RAIL_ROWS * 5
 const RECENT_LIST_ID = 'home_recent'
 const LOCAL_RECENT_LIST_ID = 'home_local_recent'
 
+/**
+ * 首页四张大卡：每张卡自带一套渐变配色和持续动效（见 BigCard）
+ * variant 决定卡上的装饰动效，顺序就是横向轮播的顺序
+ */
 const CARDS = [
-  { key: 'leaderboard', title: '排行榜', icon: 'leaderboard', color: '#8B5CF6' },
-  { key: 'songlist', title: '歌单广场', icon: 'album', color: '#14B8A6' },
-  { key: 'mylist', title: '收藏', icon: 'love', color: '#EC4899' },
-  { key: 'source', title: '音源管理', icon: 'share', color: '#3B82F6' },
+  { key: 'leaderboard', title: '排行榜', icon: 'leaderboard', variant: 'bars' },
+  { key: 'songlist', title: '歌单广场', icon: 'album', variant: 'vinyl' },
+  { key: 'mylist', title: '收藏', icon: 'love', variant: 'hearts' },
+  { key: 'source', title: '音源管理', icon: 'share', variant: 'ripple' },
 ] as const
 
 type CardKey = typeof CARDS[number]['key']
@@ -87,6 +92,29 @@ export default () => {
   /** 本地曲库 */
   const [localList, setLocalList] = useState<LX.Music.MusicInfoLocal[]>([])
   const userApiModalRef = useRef<UserApiEditModalType>(null)
+
+  /**
+   * 首页四张大卡：居中吸附轮播。
+   *  - 卡片尺寸/间距从 BigCard 的同一套缩放函数拿，snapToInterval 才能严丝合缝；
+   *  - 左右留白 =（视口宽 − 卡宽）/2，第一张和最后一张都能停在正中；
+   *  - scrollX 走 native driver，每张卡的 scale/倾斜/透明度都由它插值出来。
+   */
+  const compact = useHorizontalMode()
+  const cardMetrics = getBigCardMetrics(compact)
+  const cardInterval = cardMetrics.width + cardMetrics.gap
+  const cardsScrollX = useRef(new Animated.Value(0)).current
+  const [cardsViewport, setCardsViewport] = useState(0)
+  const cardsSidePad = Math.max(0, (cardsViewport - cardMetrics.width) / 2)
+  const handleCardsScroll = useMemo(() => Animated.event(
+    [{ nativeEvent: { contentOffset: { x: cardsScrollX } } }],
+    { useNativeDriver: true },
+  ), [cardsScrollX])
+  /** 每张卡的滚动进度：0 = 正中，±1 = 相邻卡（按吸附步长缓存，避免每次 render 重建动画节点） */
+  const cardProgress = useMemo(() => CARDS.map((_, i) => cardsScrollX.interpolate({
+    inputRange: [(i - 1) * cardInterval, i * cardInterval, (i + 1) * cardInterval],
+    outputRange: [-1, 0, 1],
+    extrapolate: 'clamp',
+  })), [cardsScrollX, cardInterval])
 
   const recentDownload = useMemo(() => [...downloadList]
     .sort((a, b) => {
@@ -197,11 +225,24 @@ export default () => {
           right={<HeaderButton icon='search-2' onPress={() => { setSearchVisible(true) }} />}
         />
 
-        <ScrollView
+        {/*
+          四张大卡：居中吸附轮播。
+          左右留白让每张卡都能停在正中；滚动时按 progress（0 = 正中，±1 = 相邻卡）做
+          scale 0.9→1、translateY、轻微 rotate/rotateY、相邻透明度变化，松手吸附回弹。
+        */}
+        <Animated.ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           style={styles.hScroll}
-          contentContainerStyle={styles.cards}
+          contentContainerStyle={[styles.cards, { paddingLeft: cardsSidePad, paddingRight: cardsSidePad }]}
+          snapToInterval={cardInterval}
+          decelerationRate='fast'
+          scrollEventThrottle={16}
+          onScroll={handleCardsScroll}
+          onLayout={e => {
+            const { width } = e.nativeEvent.layout
+            setCardsViewport(prev => (Math.abs(prev - width) > 0.5 ? width : prev))
+          }}
         >
           {
             CARDS.map((card, i) => (
@@ -210,12 +251,13 @@ export default () => {
                 index={i}
                 title={card.title}
                 icon={card.icon}
-                color={card.color}
+                variant={card.variant}
+                progress={cardProgress[i]}
                 onPress={() => { handleCard(card.key) }}
               />
             ))
           }
-        </ScrollView>
+        </Animated.ScrollView>
 
         {
           // 常显：没有历史时给一个空态，而不是整块消失（位置会跳来跳去）
@@ -402,8 +444,9 @@ const styles = createStyle({
     alignItems: 'center',
   },
   cards: {
-    paddingLeft: 16,
-    paddingRight: 4,
+    // 左右留白在渲染时按视口宽度算（让卡片能停在正中），这里只留出上下缩放/倾斜的余量
+    paddingTop: 2,
+    paddingBottom: 12,
   },
   hScroll: {
     flexGrow: 0,

@@ -2,11 +2,13 @@
 import TrackPlayer, { State as TPState, Event as TPEvent } from 'react-native-track-player'
 // import { store } from '@/store'
 // import { action as playerAction, STATUS } from '@/store/modules/player'
-import { isTempId, isEmpty } from './utils'
+import { isTempId, isEmpty, updateOptions } from './utils'
+import { PLAY_MODES, registerNotificationListeners, isCurrentMusicLiked } from './notification'
 // import { play as lrcPlay, pause as lrcPause } from '@/core/lyric'
-import { exitApp } from '@/core/common'
+import { exitApp, updateSetting } from '@/core/common'
 import { getCurrentTrackId } from './playList'
-import { pause, play, playNext, playPrev } from '@/core/player/player'
+import { collectMusic, pause, play, playNext, playPrev, uncollectMusic } from '@/core/player/player'
+import settingState from '@/store/setting/state'
 import { log } from '@/utils/log'
 
 let isInitialized = false
@@ -24,9 +26,46 @@ const handleExitApp = async(reason: string) => {
   exitApp(reason)
 }
 
+// 通知栏自定义按钮（native 侧 MusicService 拦截 PendingIntent 后 emit 的 remote-* 事件）
+const REMOTE_FAVORITE = 'remote-favorite' as unknown as TPEvent
+const REMOTE_LOOP = 'remote-loop' as unknown as TPEvent
+
+/**
+ * 通知栏「收藏」按钮：收藏 / 取消收藏当前播放歌曲。
+ * 云盘下载歌曲（Download.ListItem）由 collectMusic / uncollectMusic 内部拆 metadata 处理。
+ * 收藏状态变化后 LOVE 列表会触发 list_music_add / list_music_remove，
+ * notification.ts 里注册的监听会再刷新一次通知图标，这里先同步刷新一次让点击反馈更即时。
+ */
+const handleRemoteFavorite = () => {
+  if (!global.lx.playerStatus.isInitialized) return
+  if (isCurrentMusicLiked()) {
+    uncollectMusic()
+  } else {
+    collectMusic()
+  }
+  void updateOptions()
+}
+
+/**
+ * 通知栏「循环」按钮：按播放器页相同的顺序切换播放模式
+ * （列表循环 → 随机 → 单曲循环 → 顺序），改完 setting 后刷新通知图标。
+ */
+const handleRemoteLoop = () => {
+  if (!global.lx.playerStatus.isInitialized) return
+  const current = settingState.setting['player.togglePlayMethod']
+  const index = PLAY_MODES.indexOf(current as typeof PLAY_MODES[number])
+  const next = PLAY_MODES[(index + 1) % PLAY_MODES.length]
+  updateSetting({ 'player.togglePlayMethod': next })
+  // configUpdated 监听也会刷新，这里直接刷新让通知按钮状态跟手
+  void updateOptions()
+}
+
 
 const registerPlaybackService = async() => {
   if (isInitialized) return
+
+  // 通知栏状态同步：主题色 / 收藏状态 / 播放模式变化时重新下发 options
+  registerNotificationListeners(updateOptions)
 
   TrackPlayer.addEventListener(TPEvent.RemotePlay, () => {
     // console.log('remote-play')
@@ -46,6 +85,17 @@ const registerPlaybackService = async() => {
   TrackPlayer.addEventListener(TPEvent.RemotePrevious, () => {
     // console.log('remote-previous')
     void playPrev()
+  })
+
+  // 通知栏展开视图的自定义按钮（收藏 / 循环）
+  TrackPlayer.addEventListener(REMOTE_FAVORITE, () => {
+    // console.log('remote-favorite')
+    handleRemoteFavorite()
+  })
+
+  TrackPlayer.addEventListener(REMOTE_LOOP, () => {
+    // console.log('remote-loop')
+    handleRemoteLoop()
   })
 
   TrackPlayer.addEventListener(TPEvent.RemoteStop, () => {
@@ -114,6 +164,8 @@ const registerPlaybackService = async() => {
   TrackPlayer.addEventListener(TPEvent.PlaybackTrackChanged, async info => {
     // console.log('PlaybackTrackChanged====>', info)
     global.lx.playerTrackId = await getCurrentTrackId()
+    // 切歌后通知栏的收藏按钮图标要跟着当前歌曲换掉（不同歌曲收藏状态可能不同）
+    void updateOptions()
     if (info.track == null) return
     if (global.lx.isPlayedStop) return handleExitApp('Timeout Exit')
 

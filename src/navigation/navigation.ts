@@ -114,6 +114,32 @@ export function pushSongListScreen(componentId: string) {
             componentBackgroundColor: theme['c-content-background'],
             fitSystemWindows: false,
           },
+          /*
+            进出场动画和 PageModal / 歌单详情统一：320ms ease-out（decelerate）横向推入推出。
+            不写的话走 RNN 平台默认动画，时长/缓动在各机型上不一致，进出的观感对不上。
+          */
+          animations: {
+            push: {
+              content: {
+                translationX: {
+                  from: windowSizeTools.getSize().width,
+                  to: 0,
+                  duration: 320,
+                  interpolation: { type: 'decelerate' },
+                },
+              },
+            },
+            pop: {
+              content: {
+                translationX: {
+                  from: 0,
+                  to: windowSizeTools.getSize().width,
+                  duration: 320,
+                  interpolation: { type: 'decelerate' },
+                },
+              },
+            },
+          },
         },
       },
     })

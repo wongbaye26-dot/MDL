@@ -43,7 +43,8 @@ export default ({ title, titleRight, onClose: _onClose, right, children }: {
     >
       {/* 覆盖层必须用不透明底色：主题的 c-main-background 可能是半透明的（为了透出背景图），
           盖在首页之上时下层内容会透上来，形成鬼影 */}
-      <SlideInView direction='up' style={{ ...styles.container, backgroundColor: getSolidBackground(theme) }}>
+      {/* 进场 320ms ease-out：和 RNN 全屏页（歌单广场/歌单详情）、播放器转场同一档时长 */}
+      <SlideInView direction='up' durationMs={320} style={{ ...styles.container, backgroundColor: getSolidBackground(theme) }}>
         {/*
           提供「多选插槽」：列表的多选栏渲染到标题右侧（原来它绝对定位在列表顶部、会盖住第一行）。
           子页里的 MultipleModeBar 检测到这个 context 就不再自己画。

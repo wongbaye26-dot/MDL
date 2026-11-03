@@ -1,48 +1,36 @@
 import { memo } from 'react'
-import { View, TouchableOpacity, Image } from 'react-native'
+import { View, Image } from 'react-native'
 
 import Section from '../components/Section'
 import Text from '@/components/common/Text'
 import { Icon } from '@/components/common/Icon'
 import MiniTag from '@/components/common/MiniTag'
 import { useTheme } from '@/store/theme/hook'
-import { createStyle, openUrl } from '@/utils/tools'
+import { createStyle } from '@/utils/tools'
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const emoLogo = require('@/resources/images/emo-logo.png')
 const currentVer = process.versions.app
 
-const REPO = 'https://github.com/wongbaye26-dot/MDL'
-const UPSTREAM = 'https://github.com/lyswhut/lx-music-mobile'
+/** 品牌区的标签：纯展示，不做跳转 */
+const BRAND_TAGS = ['本地 + 在线', 'Material You', '免费无广告'] as const
 
-const LinkRow = ({ icon, title, desc, onPress }: {
+/** 技术信息的一格：圆角图标 + 标签 + 值 */
+const TechCell = ({ icon, label, value }: {
   icon: string
-  title: string
-  desc?: string
-  onPress: () => void
+  label: string
+  value: string
 }) => {
   const theme = useTheme()
   return (
-    <TouchableOpacity style={styles.linkRow} activeOpacity={0.7} onPress={onPress}>
-      <View style={{ ...styles.linkIcon, backgroundColor: theme['c-primary-alpha-800'] }}>
-        <Icon name={icon} size={15} color={theme['c-primary-light-200']} />
+    <View style={styles.techCell}>
+      <View style={{ ...styles.techIcon, backgroundColor: theme['c-primary-alpha-800'] }}>
+        <Icon name={icon} size={14} color={theme['c-primary-light-200']} />
       </View>
-      <View style={styles.linkInfo}>
-        <Text size={14}>{title}</Text>
-        {desc ? <Text size={10} color={theme['c-450']} numberOfLines={1} style={styles.linkDesc}>{desc}</Text> : null}
+      <View style={styles.techInfo}>
+        <Text size={10} color={theme['c-450']} numberOfLines={1}>{label}</Text>
+        <Text size={12} numberOfLines={1} style={styles.techValue}>{value}</Text>
       </View>
-      <Icon name='chevron-right' size={14} color={theme['c-350']} />
-    </TouchableOpacity>
-  )
-}
-
-/** 纯文字行，用于技术信息这种不需要跳转的条目 */
-const InfoRow = ({ label, value }: { label: string, value: string }) => {
-  const theme = useTheme()
-  return (
-    <View style={styles.infoRow}>
-      <Text size={12} color={theme['c-450']} style={styles.infoLabel}>{label}</Text>
-      <Text size={12} numberOfLines={1} style={styles.infoValue}>{value}</Text>
     </View>
   )
 }
@@ -52,54 +40,46 @@ export default memo(() => {
 
   return (
     <>
-      {/* ── 品牌区 ── */}
-      <View style={styles.brand}>
-        <Image source={emoLogo} style={styles.logo} />
-        <View style={styles.brandInfo}>
-          {/* 角标跟名称同一行：放最右边会被整个 brandInfo 挤掉宽度 */}
-          <View style={styles.nameRow}>
-            <Text size={20} style={styles.brandName}>EMO音乐</Text>
-            <View style={styles.versionTag}>
-              <Text size={11} color={theme['c-primary']}>v{currentVer}</Text>
+      {/* ── 品牌 hero 卡 ── */}
+      <View style={{
+        ...styles.hero,
+        backgroundColor: theme['c-primary-alpha-900'],
+        borderColor: theme['c-primary-alpha-700'],
+      }}>
+        <View style={styles.heroTop}>
+          <Image source={emoLogo} style={styles.logo} />
+          <View style={styles.brandInfo}>
+            {/* RN 的 Text 不支持 flexShrink：名称要包一层 View 才会让位，版本 chip 才能完整显示 */}
+            <View style={styles.nameRow}>
+              <View style={styles.nameWrap}>
+                <Text size={20} numberOfLines={1} style={styles.brandName}>EMO音乐</Text>
+              </View>
             </View>
+            {/* 版本号并进副标题行（不再单独放窄 chip，避免被省略号截断） */}
+            <Text size={11} color={theme['c-450']} style={styles.brandDesc} numberOfLines={1}>
+              v{currentVer} · 深夜下载 · 情绪收藏
+            </Text>
           </View>
-          <Text size={11} color={theme['c-450']} style={styles.brandDesc}>深夜下载 · 情绪收藏</Text>
-          <View style={styles.brandTags}>
-            <MiniTag text='本地 + 在线' />
-            <MiniTag text='Material You' />
-          </View>
+        </View>
+        {/* 标签行可换行：小屏 / 大字号下哪怕换行也不会挤出卡片 */}
+        <View style={styles.tagRow}>
+          {
+            BRAND_TAGS.map(tag => (
+              <View key={tag} style={styles.tagItem}>
+                <MiniTag text={tag} />
+              </View>
+            ))
+          }
         </View>
       </View>
 
-      {/* ── 链接 ── */}
-      <Section title='关于'>
-        <LinkRow
-          icon='github'
-          title='项目仓库'
-          desc='wongbaye26-dot/MDL'
-          onPress={() => { void openUrl(REPO) }}
-        />
-        <LinkRow
-          icon='bug-outline'
-          title='问题反馈'
-          desc='遇到问题或有建议，欢迎提 Issue'
-          onPress={() => { void openUrl(`${REPO}/issues`) }}
-        />
-        <LinkRow
-          icon='scale-balance'
-          title='开源协议'
-          desc='MIT · 基于 LX Music 二次开发'
-          onPress={() => { void openUrl(`${REPO}/blob/master/LICENSE`) }}
-        />
-      </Section>
-
       {/* ── 技术信息 ── */}
       <Section title='技术信息'>
-        <View style={styles.textBlock}>
-          <InfoRow label='版本' value={`v${currentVer}`} />
-          <InfoRow label='框架' value='React Native' />
-          <InfoRow label='设计语言' value='Material You' />
-          <InfoRow label='支持平台' value='Android' />
+        <View style={styles.techGrid}>
+          <TechCell icon='information-outline' label='版本' value={`v${currentVer}`} />
+          <TechCell icon='react' label='框架' value='React Native' />
+          <TechCell icon='palette-outline' label='设计语言' value='Material You' />
+          <TechCell icon='android' label='平台' value='Android' />
         </View>
       </Section>
 
@@ -107,13 +87,7 @@ export default memo(() => {
       <Section title='致谢'>
         <View style={styles.textBlock}>
           <Text size={12} color={theme['c-450']} style={styles.paragraph}>
-            音源解析、下载与数据层来自{' '}
-            <Text
-              size={12}
-              color={theme['c-primary']}
-              onPress={() => { void openUrl(UPSTREAM) }}
-            >LX Music 移动版</Text>
-            ，感谢 lyswhut 的开源工作。界面、交互与播放器为本项目重做。
+            音源解析、下载与数据层来自 LX Music 移动版（lyswhut 开源），感谢作者的开源工作。界面、交互与播放器为本项目重做。
           </Text>
         </View>
       </Section>
@@ -133,26 +107,34 @@ export default memo(() => {
         </View>
       </Section>
 
-      <Text size={10} color={theme['c-400']} style={styles.footer}>
-        Made with care · EMO音乐 v{currentVer}
-      </Text>
+      {/* footer 分两行：版本号单独一行，任何宽度下都不会被截断 */}
+      <View style={styles.footer}>
+        <Text size={10} color={theme['c-400']}>Made with care · EMO音乐</Text>
+        <Text size={10} color={theme['c-400']} numberOfLines={1} style={styles.footerVersion}>v{currentVer}</Text>
+      </View>
     </>
   )
 })
 
 const styles = createStyle({
-  brand: {
+  hero: {
+    borderRadius: 20,
+    borderWidth: 0.5,
+    paddingLeft: 16,
+    paddingRight: 16,
+    paddingTop: 16,
+    paddingBottom: 14,
+    marginTop: 6,
+    marginBottom: 20,
+  },
+  heroTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingLeft: 4,
-    paddingRight: 4,
-    marginBottom: 20,
-    marginTop: 6,
   },
   logo: {
-    width: 58,
-    height: 58,
-    borderRadius: 18,
+    width: 62,
+    height: 62,
+    borderRadius: 19,
     marginRight: 14,
   },
   brandInfo: {
@@ -164,61 +146,58 @@ const styles = createStyle({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  nameWrap: {
+    flexGrow: 0,
+    flexShrink: 1,
+    minWidth: 0,
+  },
   brandName: {
     fontWeight: '800',
     letterSpacing: 0.5,
   },
   brandDesc: {
-    marginTop: 4,
+    marginTop: 6,
   },
-  brandTags: {
+  tagRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 12,
+  },
+  tagItem: {
+    marginBottom: 6,
+  },
+  techGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingLeft: 12,
+    paddingRight: 12,
+    paddingTop: 8,
+    paddingBottom: 8,
+  },
+  techCell: {
+    width: '50%',
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 7,
+    paddingTop: 8,
+    paddingBottom: 8,
+    paddingRight: 6,
   },
-  versionTag: {
-    flexShrink: 0,
-    marginLeft: 8,
-  },
-  linkRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingLeft: 14,
-    paddingRight: 14,
-    paddingTop: 12,
-    paddingBottom: 12,
-  },
-  linkIcon: {
+  techIcon: {
     width: 30,
     height: 30,
     borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 10,
   },
-  linkInfo: {
+  techInfo: {
     flexGrow: 1,
     flexShrink: 1,
+    minWidth: 0,
   },
-  linkDesc: {
-    marginTop: 3,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 6,
-    paddingBottom: 6,
-  },
-  infoLabel: {
-    width: 76,
-    flexShrink: 0,
-  },
-  infoValue: {
-    // 占满剩余宽度再右对齐：靠 flexShrink: 0 撑不开，Text 在 row 里会被压
-    flex: 1,
-    marginLeft: 12,
-    textAlign: 'right',
+  techValue: {
+    marginTop: 2,
+    fontWeight: '600',
   },
   textBlock: {
     paddingLeft: 14,
@@ -227,15 +206,19 @@ const styles = createStyle({
     paddingBottom: 12,
   },
   paragraph: {
-    lineHeight: 18,
+    lineHeight: 19,
     marginBottom: 10,
   },
   paragraphLast: {
     marginBottom: 0,
   },
   footer: {
-    textAlign: 'center',
+    alignItems: 'center',
     marginTop: 6,
     marginBottom: 24,
+  },
+  footerVersion: {
+    marginTop: 3,
+    letterSpacing: 0.4,
   },
 })

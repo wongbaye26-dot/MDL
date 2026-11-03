@@ -22,6 +22,7 @@ import { useTheme } from '@/store/theme/hook'
 import { usePlayerMusicInfo, useIsPlay, useProgress } from '@/store/player/hook'
 import { useStatusbarHeight, useNavActiveId } from '@/store/common/hook'
 import { useWindowSize } from '@/utils/hooks'
+import { useBackHandler } from '@/utils/hooks/useBackHandler'
 import { useSettingValue } from '@/store/setting/hook'
 import { toast } from '@/utils/tools'
 import { useLrcSet, useLrcPlay, type Line } from '@/plugins/lyric'
@@ -36,6 +37,7 @@ import { setNavActiveId, updateSetting } from '@/core/common'
 import { formatSize, formatSampleRate, QUALITY_LABEL, QUALITY_DESC } from '@/core/download/utils'
 import DownloadQualityModal, { type DownloadQualityModalType } from '@/components/DownloadQualityModal'
 import PlayerDetailSheet from '@/components/player/PlayerDetailSheet'
+import { canPlayCloseTransition, closePlayerWithTransition } from '@/utils/playerOpen'
 import Stage, { COVER_TOP_RATIO, COVER_H_RATIO } from './Stage'
 import SeekBar from './SeekBar'
 import PlayGlyph from './PlayGlyph'
@@ -49,6 +51,7 @@ import {
   cancelClose,
   dragY,
   finishClose,
+  getOriginNavId,
   getTransitionState,
   resetTransition,
   setCloseProgress,
@@ -274,6 +277,10 @@ export default () => {
     dragY.setValue(0)
   }, [navActiveId])
 
+  /**
+   * 整页下滑并切回原 Tab（没有共享元素可用时的关闭方式：横屏 / 起点没记到）。
+   * 关掉的是「当前这次进入前的 Tab」，不是固定回首页。
+   */
   const closeWithSlideDown = useCallback(() => {
     Animated.timing(panY, {
       toValue: heightRef.current + 80,
@@ -281,9 +288,48 @@ export default () => {
       useNativeDriver: true,
     }).start(() => {
       panY.setValue(0)
-      setNavActiveId('nav_home')
+      setNavActiveId(getOriginNavId() ?? 'nav_home')
     })
   }, [panY])
+
+  /**
+   * 统一的关闭入口：左上角 chevron / 返回键。
+   *
+   * 有共享元素时：飞行封面从播放器封面收回到本次进入的起点（同一个大圆、同一条贝塞尔），
+   * 同时整页往下滑 —— 和手势关闭同一个观感；封面落位后才切回原 Tab，
+   * 所以不会出现「先看到首页、封面才慢慢缩回去」的双封面/闪一下。
+   */
+  const handleClosePlayer = useCallback(() => {
+    if (settlingRef.current) return
+    if (!canPlayCloseTransition()) {
+      closeWithSlideDown()
+      return
+    }
+    settlingRef.current = true
+    // 280ms < 收拢动画 300ms：切页发生在封面落位之后，底部不会露出播放器页的边
+    Animated.timing(panY, {
+      toValue: heightRef.current + 80,
+      duration: 280,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start()
+    closePlayerWithTransition(() => {
+      // 切页前把位移补满（和手势关闭同一处理），下一帧首页就位，看不出跳动
+      panY.setValue(heightRef.current + 80)
+      settlingRef.current = false
+    })
+  }, [closeWithSlideDown, panY])
+
+  /** 返回键：和左上角 chevron 走同一条收拢动画；弹层打开时先关弹层 */
+  useBackHandler(useCallback(() => {
+    if (navActiveId !== 'nav_player') return false
+    if (queueVisible) {
+      setQueueVisible(false)
+      return true
+    }
+    handleClosePlayer()
+    return true
+  }, [handleClosePlayer, navActiveId, queueVisible]))
 
   const lyricScrollY = useRef(0)
   /*
@@ -335,7 +381,7 @@ export default () => {
             // 多移 80dp：layoutH 用的是窗口高度，比页面实际高度少了底部导航条那一条，
             // 只移 heightRef 的话最底部会露出播放器页的一条边（用户看到的那块色）
             panY.setValue(heightRef.current + 80)
-            setNavActiveId('nav_home')
+            setNavActiveId(getOriginNavId() ?? 'nav_home')
           })
         } else {
           closeWithSlideDown()
@@ -433,6 +479,38 @@ export default () => {
   useEffect(() => {
     setCollected(getListMusicSync(LIST_IDS.LOVE).some(m => m.id === musicInfo.id))
   }, [musicInfo.id])
+
+  /*
+    收藏状态的外部同步。
+    收藏不再只由本页按钮触发：通知栏的收藏按钮（native-notify）、收藏页、列表页都会改
+    「我的收藏」列表，本页开着时不刷新的话爱心就会和实际状态对不上。
+    列表事件走 global.list_event（Event.emit 内部是 setImmediate 异步派发），
+    这里只过滤 LOVE 列表，触发时用 playerState.musicInfo.id 现取当前歌，
+    所以订阅只在挂载时注册一次，切歌不会反复注册/泄漏。
+  */
+  useEffect(() => {
+    const refreshCollected = () => {
+      setCollected(getListMusicSync(LIST_IDS.LOVE).some(m => m.id === playerState.musicInfo.id))
+    }
+    // list_event 的监听签名和 emitter 方法同型（返回 Promise），参考 notification.ts 的写法
+    const handleListMusicChanged = async(listId: string) => {
+      if (listId === LIST_IDS.LOVE) refreshCollected()
+    }
+    // 清空列表的参数是 ids 数组
+    const handleListMusicCleared = async(ids: string[]) => {
+      if (ids.includes(LIST_IDS.LOVE)) refreshCollected()
+    }
+    global.list_event.on('list_music_add', handleListMusicChanged)
+    global.list_event.on('list_music_remove', handleListMusicChanged)
+    global.list_event.on('list_music_overwrite', handleListMusicChanged)
+    global.list_event.on('list_music_clear', handleListMusicCleared)
+    return () => {
+      global.list_event.off('list_music_add', handleListMusicChanged)
+      global.list_event.off('list_music_remove', handleListMusicChanged)
+      global.list_event.off('list_music_overwrite', handleListMusicChanged)
+      global.list_event.off('list_music_clear', handleListMusicCleared)
+    }
+  }, [])
 
   // 时长兜底：切歌后播放器还没回调时长时主动取一次
   useEffect(() => {
@@ -962,7 +1040,7 @@ export default () => {
         <TouchableOpacity
           style={[styles.landBack, { top: topInset + 6 }]}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          onPress={() => { setNavActiveId('nav_home') }}
+          onPress={handleClosePlayer}
         >
           <Icon name='chevron-down' size={u(22)} color='rgba(255,255,255,0.94)' />
         </TouchableOpacity>
@@ -1046,7 +1124,7 @@ export default () => {
         <TouchableOpacity
           style={styles.backBtn}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          onPress={() => { setNavActiveId('nav_home') }}
+          onPress={handleClosePlayer}
         >
           <Icon name='chevron-down' size={u(26)} color='rgba(255,255,255,0.94)' />
         </TouchableOpacity>

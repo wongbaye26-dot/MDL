@@ -41,6 +41,8 @@ const openPlayerTab = (discRef: React.RefObject<View | null>, isHome: boolean) =
         }
       : undefined,
     !isHome,
+    // 跨 RNN 页面时这条播放条随页面被 pop 掉了，关闭播放器要收回到首页胶囊的圆盘
+    !isHome,
   )
 }
 

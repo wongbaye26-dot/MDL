@@ -39,7 +39,13 @@ const UrlInput = forwardRef<UrlInputType, {}>((props, ref) => {
       placeholder={placeholder}
       value={text}
       onChangeText={setText}
-      style={{ ...styles.input, backgroundColor: theme['c-primary-input-background'] }}
+      size={13}
+      style={{
+        ...styles.input,
+        // 和 Material You 弹层的输入框一致：主色淡底 + 细描边 + 圆角
+        backgroundColor: theme['c-primary-alpha-900'],
+        borderColor: theme['c-primary-alpha-700'],
+      }}
     />
   )
 })
@@ -133,9 +139,11 @@ const styles = createStyle({
     flexGrow: 1,
     flexShrink: 1,
     minWidth: 290,
-    borderRadius: 4,
-    // paddingTop: 2,
-    // paddingBottom: 2,
+    height: 44,
+    borderRadius: 14,
+    borderWidth: 0.5,
+    paddingLeft: 12,
+    paddingRight: 12,
   },
 })
 

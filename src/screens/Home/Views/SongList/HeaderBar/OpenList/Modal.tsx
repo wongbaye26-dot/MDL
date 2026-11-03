@@ -1,10 +1,12 @@
 import { useRef, useImperativeHandle, forwardRef, useState, useCallback } from 'react'
-import { Modal, TouchableOpacity, View, KeyboardAvoidingView, Platform } from 'react-native'
+import { Modal, TouchableOpacity, View, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native'
+
 import Text from '@/components/common/Text'
 import Input, { type InputType } from '@/components/common/Input'
 import { Icon } from '@/components/common/Icon'
 import { createStyle } from '@/utils/tools'
-import { useTheme } from '@/store/theme/hook'
+import { useSheetPalette } from '@/components/common/ActionSheet/palette'
+import { contrastOn } from '@/theme/solid'
 import { useI18n } from '@/lang'
 import { type Source } from '@/store/songlist/state'
 
@@ -15,12 +17,20 @@ export interface ModalType {
   show: (source: Source) => void
 }
 
+/**
+ * 打开歌单弹窗。
+ *
+ * 和 ActionSheet / 自定义源弹窗同一套 Material You 卡片语言：
+ * 黑 50% 遮罩 + 圆角 24、主题底色；图标头 + 说明、主题淡底输入框、
+ * 次按钮（取消）+ 主色按钮（打开）。
+ */
 export default forwardRef<ModalType, ModalProps>(({ onOpenId }, ref) => {
-  const theme = useTheme()
+  const palette = useSheetPalette()
   const t = useI18n()
   const inputRef = useRef<InputType>(null)
   const [visible, setVisible] = useState(false)
   const [text, setText] = useState('')
+  const onPrimary = contrastOn(palette.primary)
 
   useImperativeHandle(ref, () => ({
     show() {
@@ -48,18 +58,21 @@ export default forwardRef<ModalType, ModalProps>(({ onOpenId }, ref) => {
         style={styles.mask}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <TouchableOpacity style={styles.maskTouch} activeOpacity={1} onPress={handleClose}>
-          <View
-            style={{ ...styles.card, backgroundColor: theme['c-content-background'] }}
-            onStartShouldSetResponder={() => true}
-          >
+        {/* 遮罩单独一层：卡片里的输入框/按钮不会被 responder 抢走 */}
+        <TouchableOpacity
+          style={{ ...StyleSheet.absoluteFillObject, backgroundColor: palette.scrim }}
+          activeOpacity={1}
+          onPress={handleClose}
+        />
+        <View style={styles.maskCenter} pointerEvents='box-none'>
+          <View style={{ ...styles.card, backgroundColor: palette.bg }}>
             <View style={styles.head}>
-              <View style={{ ...styles.iconWrap, backgroundColor: theme['c-primary-alpha-800'] }}>
-                <Icon name='link-variant' size={17} color={theme['c-primary-font']} />
+              <View style={{ ...styles.iconWrap, backgroundColor: palette.card, borderColor: palette.border }}>
+                <Icon name='link-variant' size={18} color={palette.primary} />
               </View>
               <View style={styles.headText}>
-                <Text size={16} style={styles.title}>打开歌单</Text>
-                <Text size={11} color={theme['c-450']} style={styles.subtitle}>粘贴歌单链接或 ID</Text>
+                <Text size={16} color={palette.text} style={styles.title}>打开歌单</Text>
+                <Text size={11} color={palette.textSecondary} style={styles.subtitle}>粘贴歌单链接或 ID</Text>
               </View>
             </View>
 
@@ -68,30 +81,30 @@ export default forwardRef<ModalType, ModalProps>(({ onOpenId }, ref) => {
               placeholder={t('songlist_open_input_placeholder')}
               value={text}
               onChangeText={setText}
-              style={{ ...styles.input, backgroundColor: theme['c-primary-alpha-900'], borderColor: theme['c-primary-alpha-700'] }}
+              style={{ ...styles.input, backgroundColor: palette.card, borderColor: palette.border }}
             />
 
-            <Text size={11} color={theme['c-400']} style={styles.tip}>{t('songlist_open_input_tip')}</Text>
+            <Text size={11} color={palette.textSecondary} style={styles.tip}>{t('songlist_open_input_tip')}</Text>
 
             <View style={styles.btnRow}>
               <TouchableOpacity
-                style={{ ...styles.btn, backgroundColor: theme['c-primary-alpha-800'] }}
+                style={{ ...styles.btn, backgroundColor: palette.card, borderColor: palette.border, borderWidth: 0.5 }}
                 activeOpacity={0.7}
                 onPress={handleClose}
               >
-                <Text size={14} color={theme['c-font']}>取消</Text>
+                <Text size={14} color={palette.text}>取消</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={{ ...styles.btn, backgroundColor: theme['c-primary'], opacity: text.trim() ? 1 : 0.45 }}
+                style={{ ...styles.btn, backgroundColor: palette.primary, opacity: text.trim() ? 1 : 0.45 }}
                 activeOpacity={0.8}
                 disabled={!text.trim()}
                 onPress={handleConfirm}
               >
-                <Text size={14} color='#FFFFFF' style={styles.confirmText}>打开</Text>
+                <Text size={14} color={onPrimary} style={styles.confirmText}>打开</Text>
               </TouchableOpacity>
             </View>
           </View>
-        </TouchableOpacity>
+        </View>
       </KeyboardAvoidingView>
     </Modal>
   )
@@ -101,11 +114,10 @@ const styles = createStyle({
   mask: {
     flex: 1,
   },
-  maskTouch: {
+  maskCenter: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)',
     paddingLeft: 24,
     paddingRight: 24,
   },
@@ -129,9 +141,10 @@ const styles = createStyle({
     marginBottom: 18,
   },
   iconWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: 13,
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    borderWidth: 0.5,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,

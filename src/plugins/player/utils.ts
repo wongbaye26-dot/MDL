@@ -1,6 +1,7 @@
-import TrackPlayer, { Capability, Event, RepeatMode, State } from 'react-native-track-player'
+import TrackPlayer, { Event, RepeatMode, State } from 'react-native-track-player'
 import BackgroundTimer from 'react-native-background-timer'
 import { playMusic as handlePlayMusic } from './playList'
+import { buildNotificationOptions } from './notification'
 import { existsFile, moveFile, privateStorageDirectoryPath, temporaryDirectoryPath } from '@/utils/fs'
 import { toast } from '@/utils/tools'
 // import { PlayerMusicInfo } from '@/store/modules/player/playInfo'
@@ -258,49 +259,17 @@ export const onStateChange = async(listener: (state: PlayStatus) => void) => {
  */
 // export const playState = callback => TrackPlayer.addEventListener('playback-state', callback)
 
-export const updateOptions = async(options = {
-  // Whether the player should stop running when the app is closed on Android
-  // stopWithApp: true,
-
-  // An array of media controls capabilities
-  // Can contain CAPABILITY_PLAY, CAPABILITY_PAUSE, CAPABILITY_STOP, CAPABILITY_SEEK_TO,
-  // CAPABILITY_SKIP_TO_NEXT, CAPABILITY_SKIP_TO_PREVIOUS, CAPABILITY_SET_RATING
-  capabilities: [
-    Capability.Play,
-    Capability.Pause,
-    Capability.Stop,
-    Capability.SeekTo,
-    Capability.SkipToNext,
-    Capability.SkipToPrevious,
-  ],
-
-  // 通知栏/状态栏媒体卡片：去掉 Stop（它等于退出 App），
-  // 只保留 上一首 / 播放暂停 / 下一首，否则系统卡片上会多出一个「停止」键，
-  // 而且主按钮容易被它顶掉
-  notificationCapabilities: [
-    Capability.Play,
-    Capability.Pause,
-    Capability.SkipToPrevious,
-    Capability.SkipToNext,
-    Capability.SeekTo,
-  ],
-
-  // // An array of capabilities that will show up when the notification is in the compact form on Android
-  compactCapabilities: [
-    Capability.Play,
-    Capability.Pause,
-    Capability.SkipToNext,
-  ],
-
-  // Icons for the notification on Android (if you don't like the default ones)
-  // playIcon: require('./play-icon.png'),
-  // pauseIcon: require('./pause-icon.png'),
-  // stopIcon: require('./stop-icon.png'),
-  // previousIcon: require('./previous-icon.png'),
-  // nextIcon: require('./next-icon.png'),
-  // icon: notificationIcon, // The notification icon
-}) => {
-  return TrackPlayer.updateOptions(options)
+/**
+ * 下发通知栏 / 锁屏媒体卡片的 options。
+ *
+ * 具体内容（主题主色、收藏 / 循环按钮图标、compact 的上一首等）在 ./notification 里
+ * 按当前主题、收藏状态、播放模式生成；切歌 / 收藏变化 / 播放模式变化 / 主题切换时
+ * 重新调用本方法即可让 native 重绘通知。
+ */
+export const updateOptions = async() => {
+  // 播放器还没初始化时 native 侧还没有连上 MusicService，下发没有意义
+  if (!global.lx.playerStatus.isInitialized) return
+  return TrackPlayer.updateOptions(buildNotificationOptions())
 }
 
 // export const setMaxCache = async size => {

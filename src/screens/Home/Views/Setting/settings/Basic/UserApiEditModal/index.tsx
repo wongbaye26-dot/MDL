@@ -1,195 +1,249 @@
-import { useRef, useImperativeHandle, forwardRef, useState } from 'react'
+import { useImperativeHandle, forwardRef, useState } from 'react'
+import { Modal, TouchableOpacity, View, ScrollView, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native'
+
 import Text from '@/components/common/Text'
-import { View, TouchableOpacity } from 'react-native'
+import { Icon } from '@/components/common/Icon'
 import { createStyle, openUrl } from '@/utils/tools'
-import { useTheme } from '@/store/theme/hook'
+import { useSheetPalette } from '@/components/common/ActionSheet/palette'
+import { contrastOn } from '@/theme/solid'
 import { useI18n } from '@/lang'
-import Dialog, { type DialogType } from '@/components/common/Dialog'
+import { useWindowSize } from '@/utils/hooks'
 import List from './List'
 import ImportBtn from './ImportBtn'
 
-// interface UrlInputType {
-//   setText: (text: string) => void
-//   getText: () => string
-//   focus: () => void
-// }
-// const UrlInput = forwardRef<UrlInputType, {}>((props, ref) => {
-//   const theme = useTheme()
-//   const t = useI18n()
-//   const [text, setText] = useState('')
-//   const inputRef = useRef<InputType>(null)
-//   const [height, setHeight] = useState(100)
-
-//   useImperativeHandle(ref, () => ({
-//     getText() {
-//       return text.trim()
-//     },
-//     setText(text) {
-//       setText(text)
-//     },
-//     focus() {
-//       inputRef.current?.focus()
-//     },
-//   }))
-
-//   const handleLayout = useCallback(({ nativeEvent }: LayoutChangeEvent) => {
-//     setHeight(nativeEvent.layout.height)
-//   }, [])
-
-//   return (
-//     <View style={styles.inputContent} onLayout={handleLayout}>
-//       <Input
-//         ref={inputRef}
-//         value={text}
-//         onChangeText={setText}
-//         textAlignVertical="top"
-//         placeholder={t('setting_dislike_list_input_tip')}
-//         size={12}
-//         style={{ ...styles.input, height, backgroundColor: theme['c-primary-input-background'] }}
-//       />
-//     </View>
-//   )
-// })
-
-
-// export interface UserApiEditModalProps {
-//   onSave: (rules: string) => void
-//   // onSourceChange: SourceSelectorProps['onSourceChange']
-// }
 export interface UserApiEditModalType {
   show: () => void
 }
 
+/**
+ * 自定义源管理弹窗。
+ *
+ * 视觉与 ActionSheet 统一：黑 50% 遮罩、圆角 24 的 Material You 卡片、
+ * 主题底色 + 主色淡底卡片 + 主色按钮。顶部是说明 + 导入入口，中间自定义源列表，
+ * 下面是说明 / FAQ 卡片和关闭按钮。
+ */
 export default forwardRef<UserApiEditModalType, {}>((props, ref) => {
-  const dialogRef = useRef<DialogType>(null)
-  // const sourceSelectorRef = useRef<SourceSelectorType>(null)
-  // const inputRef = useRef<UrlInputType>(null)
   const [visible, setVisible] = useState(false)
-  const theme = useTheme()
+  const palette = useSheetPalette()
   const t = useI18n()
+  const { height: windowHeight } = useWindowSize()
+  const onPrimary = contrastOn(palette.primary)
 
-  const handleShow = () => {
-    dialogRef.current?.setVisible(true)
-    // requestAnimationFrame(() => {
-    // inputRef.current?.setText('')
-    // sourceSelectorRef.current?.setSource(source)
-    // setTimeout(() => {
-    //   inputRef.current?.focus()
-    // }, 300)
-    // })
-  }
   useImperativeHandle(ref, () => ({
     show() {
-      if (visible) handleShow()
-      else {
-        setVisible(true)
-        requestAnimationFrame(() => {
-          handleShow()
-        })
-      }
+      setVisible(true)
     },
   }))
 
   const handleCancel = () => {
-    dialogRef.current?.setVisible(false)
+    setVisible(false)
   }
 
   const openFAQPage = () => {
     void openUrl('https://lyswhut.github.io/lx-music-doc/mobile/custom-source')
   }
 
+  if (!visible) return null
+
   return (
-    visible
-      ? (
-          <Dialog ref={dialogRef} bgHide={false}>
-            <View style={styles.content}>
-              {/* <UrlInput ref={inputRef} /> */}
-              <Text size={19} style={styles.title}>{t('user_api_title')}</Text>
-              <Text size={11} color={theme['c-450']} style={styles.subtitle}>导入 LX Music 格式的自定义源脚本，支持在线链接和本地文件</Text>
+    <Modal visible transparent statusBarTranslucent animationType='fade' onRequestClose={handleCancel}>
+      <KeyboardAvoidingView
+        style={styles.mask}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        {/* 遮罩单独一层：这样卡片里可以正常滚动列表，不会被 responder 抢走手势 */}
+        <TouchableOpacity
+          style={{ ...StyleSheet.absoluteFillObject, backgroundColor: palette.scrim }}
+          activeOpacity={1}
+          onPress={handleCancel}
+        />
+        <View style={styles.maskCenter} pointerEvents='box-none'>
+          <View style={{ ...styles.card, maxHeight: Math.min(windowHeight * 0.84, 680), backgroundColor: palette.bg }}>
+            {/* 头部：图标 + 标题 + 说明 + 关闭 */}
+            <View style={styles.head}>
+              <View style={{ ...styles.headIcon, backgroundColor: palette.card, borderColor: palette.border }}>
+                <Icon name='script-text-outline' size={20} color={palette.primary} />
+              </View>
+              <View style={styles.headInfo}>
+                <Text size={16} color={palette.text} numberOfLines={1} style={styles.title}>{t('user_api_title')}</Text>
+                <Text size={11} color={palette.textSecondary} numberOfLines={2} style={styles.subtitle}>导入 LX Music 格式的自定义源脚本</Text>
+              </View>
+              <TouchableOpacity
+                style={{ ...styles.closeBtn, backgroundColor: palette.card, borderColor: palette.border }}
+                activeOpacity={0.7}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                onPress={handleCancel}
+              >
+                <Icon name='close' size={16} color={palette.icon} />
+              </TouchableOpacity>
+            </View>
+
+            {/* 顶部说明 + 导入按钮（固定，不随列表滚动） */}
+            <View style={{ ...styles.importCard, backgroundColor: palette.card, borderColor: palette.border }}>
+              <Text size={11} color={palette.textSecondary} style={styles.importTip}>
+                支持在线链接导入，或从本地选择 .js 脚本文件
+              </Text>
+              <ImportBtn
+                btnStyle={{ ...styles.importBtn, backgroundColor: palette.primary }}
+                color={onPrimary}
+              />
+            </View>
+
+            {/* 中间内容滚动（头部 / 导入区 / 底部按钮固定），超高时只滚列表和说明 */}
+            <ScrollView
+              style={styles.scroll}
+              contentContainerStyle={styles.scrollContent}
+              keyboardShouldPersistTaps='always'
+              showsVerticalScrollIndicator={false}
+            >
+              {/* 自定义源列表（卡片式） */}
               <List />
-              <View style={{ ...styles.tips, backgroundColor: theme['c-primary-alpha-900'], borderColor: theme['c-primary-alpha-700'] }}>
-                <Text style={styles.tipsText} size={12}>
+
+              {/* 说明 / FAQ */}
+              <View style={{ ...styles.tips, backgroundColor: palette.card, borderColor: palette.border }}>
+                <Text size={11.5} color={palette.textSecondary} style={styles.tipsText}>
                   {t('user_api_readme')}
                 </Text>
-                <TouchableOpacity onPress={openFAQPage}>
-                  <Text style={{ ...styles.tipsText, textDecorationLine: 'underline' }} size={12} color={theme['c-primary-font']}>FAQ</Text>
+                <TouchableOpacity onPress={openFAQPage} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                  <Text size={11.5} color={palette.primary} style={styles.faqText}>FAQ</Text>
                 </TouchableOpacity>
-                <View>
-                  <Text style={styles.tipsText} size={12}>{t('user_api_note')}</Text>
-                </View>
+                <Text size={11.5} color={palette.textSecondary} style={styles.tipsText}>
+                  {t('user_api_note')}
+                </Text>
               </View>
-            </View>
-            <View style={styles.btns}>
+            </ScrollView>
+
+            {/* 底部按钮 */}
+            <View style={styles.btnRow}>
               <TouchableOpacity
-                style={{ ...styles.btn, borderWidth: 1, borderColor: theme['c-primary-alpha-600'] }}
+                style={{ ...styles.closeFull, backgroundColor: palette.card, borderColor: palette.border }}
                 activeOpacity={0.8}
                 onPress={handleCancel}
               >
-                <Text size={14} color={theme['c-font']} style={styles.btnText}>{t('close')}</Text>
+                <Text size={14} color={palette.text} style={styles.closeText}>{t('close')}</Text>
               </TouchableOpacity>
-              <ImportBtn btnStyle={{ ...styles.btn, backgroundColor: theme['c-primary'] }} />
             </View>
-          </Dialog>
-        ) : null
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
   )
 })
 
 
 const styles = createStyle({
-  content: {
-    // flexGrow: 1,
-    flexShrink: 1,
-    paddingHorizontal: 8,
-    paddingTop: 15,
-    paddingBottom: 10,
-    flexDirection: 'column',
+  mask: {
+    flex: 1,
   },
-  title: {
-    marginBottom: 4,
-    textAlign: 'center',
-    fontWeight: '800',
-    letterSpacing: 0.4,
+  maskCenter: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingLeft: 20,
+    paddingRight: 20,
   },
-  subtitle: {
-    textAlign: 'center',
-    marginBottom: 14,
-    paddingHorizontal: 12,
-    lineHeight: 16,
+  card: {
+    width: '100%',
+    maxWidth: 440,
+    borderRadius: 24,
+    paddingLeft: 16,
+    paddingRight: 16,
+    paddingTop: 16,
+    paddingBottom: 14,
+    elevation: 18,
+    shadowColor: '#000000',
+    shadowOpacity: 0.25,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 10 },
   },
-  tips: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginTop: 15,
+  head: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headIcon: {
+    width: 40,
+    height: 40,
     borderRadius: 14,
     borderWidth: 0.5,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  tipsText: {
-    marginTop: 6,
-    lineHeight: 17,
-    textAlignVertical: 'bottom',
-    // lineHeight: 18,
-    // backgroundColor: 'rgba(0, 0, 0, 0.2)',
-  },
-  btns: {
-    flexDirection: 'row',
     justifyContent: 'center',
-    paddingBottom: 18,
-    paddingLeft: 18,
-    paddingRight: 18,
-  },
-  btn: {
-    flex: 1,
-    height: 44,
     alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 22,
     marginRight: 12,
   },
-  btnText: {
+  headInfo: {
+    flexGrow: 1,
+    flexShrink: 1,
+  },
+  title: {
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  subtitle: {
+    marginTop: 3,
+    lineHeight: 15,
+  },
+  closeBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 0.5,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 10,
+  },
+  scroll: {
+    flexShrink: 1,
+    minHeight: 0,
+  },
+  scrollContent: {
+    paddingBottom: 2,
+  },
+  importCard: {
+    marginTop: 14,
+    borderRadius: 16,
+    borderWidth: 0.5,
+    paddingLeft: 12,
+    paddingRight: 12,
+    paddingTop: 12,
+    paddingBottom: 12,
+  },
+  importTip: {
+    marginBottom: 10,
+    lineHeight: 16,
+  },
+  importBtn: {
+    height: 42,
+    borderRadius: 21,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tips: {
+    marginTop: 12,
+    borderRadius: 16,
+    borderWidth: 0.5,
+    paddingLeft: 12,
+    paddingRight: 12,
+    paddingTop: 10,
+    paddingBottom: 10,
+  },
+  tipsText: {
+    lineHeight: 17,
+  },
+  faqText: {
+    lineHeight: 17,
+    fontWeight: '600',
+  },
+  btnRow: {
+    marginTop: 14,
+  },
+  closeFull: {
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 0.5,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeText: {
     fontWeight: '600',
   },
 })
-
-

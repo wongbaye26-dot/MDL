@@ -23,29 +23,35 @@ export default memo(() => {
 
   useEffect(() => subscribeTransition(forceUpdate), [])
 
-  const { from, to, circle } = state
+  const { from, to, circle, closingTo } = state
   const animStyle = useMemo(() => {
     if (!from || !to || !circle) return null
     /*
-      三段插值（progress：0 = 圆盘，0.93 = 大圆，1 = 播放器封面矩形）：
+      收拢终点：
+        - 手势关闭 = 打开时的起点（from），拖动路径必须和打开时完全一致；
+        - 左上角收起 / 返回键关闭 = closingTo（跨 RNN 页面时换成首页胶囊圆盘）。
+    */
+    const home = closingTo ?? from
+    /*
+      三段插值（progress：0 = 起点，0.93 = 大圆，1 = 播放器封面矩形）：
         - 1 → 0.93：一往下拉就立刻收成正圆（只占 7% 手势，约 60px），
           也就是「封面先突出成一个大圆」；
-        - 0.93 → 0：正圆一路缩小回底部圆盘，宽高同步、圆角恒等于半径。
+        - 0.93 → 0：正圆一路缩小回起点，宽高同步、圆角恒等于半径。
       之前只做两段，宽高各自插值 → 中间是长条圆角矩形，缩到最后会剩一个竖色块。
     */
     const K = [0, 0.93, 1]
     return {
-      left: progressAnim.interpolate({ inputRange: K, outputRange: [from.x, circle.x, to.x] }),
-      top: progressAnim.interpolate({ inputRange: K, outputRange: [from.y, circle.y, to.y] }),
-      width: progressAnim.interpolate({ inputRange: K, outputRange: [from.width, circle.width, to.width] }),
-      height: progressAnim.interpolate({ inputRange: K, outputRange: [from.height, circle.height, to.height] }),
+      left: progressAnim.interpolate({ inputRange: K, outputRange: [home.x, circle.x, to.x] }),
+      top: progressAnim.interpolate({ inputRange: K, outputRange: [home.y, circle.y, to.y] }),
+      width: progressAnim.interpolate({ inputRange: K, outputRange: [home.width, circle.width, to.width] }),
+      height: progressAnim.interpolate({ inputRange: K, outputRange: [home.height, circle.height, to.height] }),
       // 前两段恒为半径（正圆），最后一段收成直角
       borderRadius: progressAnim.interpolate({
         inputRange: K,
-        outputRange: [from.width / 2, circle.width / 2, 0],
+        outputRange: [home.width / 2, circle.width / 2, 0],
       }),
     }
-  }, [from, to, circle])
+  }, [from, to, circle, closingTo])
 
   if (state.phase === 'idle' || !animStyle) return null
 

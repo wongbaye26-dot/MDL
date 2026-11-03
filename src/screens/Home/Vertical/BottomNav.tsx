@@ -15,14 +15,14 @@ import { NAV_MENUS } from '@/config/constant'
 import { setNavActiveId } from '@/core/common'
 import { useSettingValue } from '@/store/setting/hook'
 import { playNext, playPrev } from '@/core/player/player'
-import { measureStartRect, openPlayerWithTransition } from '@/utils/playerOpen'
+import { measureStartRect, openPlayerWithTransition, registerDiscNode } from '@/utils/playerOpen'
 
 /**
  * 底部胶囊导航。
  *
  * 尺寸全部来自**飞牛音乐真机实测**（1080x2340 / dpr 2.75）：
  *   胶囊高 59.3dp、宽 244.4dp（它只有 4 个入口）、全圆角 29.6dp；
- *   选中圆底 52.5dp（占胶囊高 88%）、圆底距胶囊左边缘 4.0dp；图标约 22dp。
+ *   选中圆底 52.5dp（占胶囊高 88%）、圆底距胶囊左边缘 4.0dp；图标字形约 18dp。
  *
  * 两个关键结论：
  *  1. 圆底 = 胶囊高 − 7，四周各留 3.5dp，所以圆底和胶囊端部的圆弧是**同心**的
@@ -44,9 +44,9 @@ const BAR_PADDING = 1
 /**
  * 图标 size = 27。
  *
- * 飞牛真机实测：图标字形 17×17dp（圆底 52.5dp，占 32%）。
- * MaterialCommunityIcons 的字形只占 size 的约 63%，所以 size 27 → 字形约 17dp。
- * （之前传 34，字形 21.5dp，比飞牛大了 26%，看着就「图标顶满圆底」。）
+ * TabIcon 是 48 视框、字形收在约 7..41（34 单位），27dp 渲染时字形约 18~19dp，
+ * 和飞牛真机实测的 17×17dp 基本一致；旧版矢量图标字形顶满视框（27dp → 22.5dp），
+ * 看着就「顶满圆底」。
  */
 const ICON_SIZE = 27
 /** 右侧专辑圆盘（飞牛实测 49dp） */
@@ -54,13 +54,28 @@ const DISC_SIZE = 48
 /** 圆盘外的进度光环 */
 const RING_SIZE = 54
 
-/** 四个入口用设计稿的矢量图标（48×48 线性），选中态靠颜色 + 圆底区分 */
+/** 四个入口用设计稿的矢量图标（48×48 线性），选中态靠实心变体 + 圆底区分 */
 const MENU_ICONS: Record<string, TabIconName> = {
   nav_home: 'home',
   nav_download: 'download',
   nav_local: 'folder',
   nav_mine: 'me',
 }
+
+/**
+ * 四个入口在胶囊里的槽位序号。
+ * 选中圆底只有一颗，切换 Tab 时按序号算 translateX 滑过去（不再每个槽位各自硬切显隐）。
+ */
+const SLOT_INDEX: Record<string, number> = {
+  nav_home: 0,
+  nav_download: 1,
+  nav_local: 2,
+  nav_mine: 3,
+}
+/** 圆底相对胶囊左边缘的定位：和第一个槽位里的图标同心 */
+const ACTIVE_LEFT = BAR_PADDING + (SLOT_WIDTH - ACTIVE_SIZE) / 2
+/** 圆底垂直居中：胶囊高 − 圆底，上下各留一半 */
+const ACTIVE_TOP = (BAR_HEIGHT - ACTIVE_SIZE) / 2
 
 /**
  * 圆盘外的进度：一圈柔光，不是实线。
@@ -113,17 +128,17 @@ const ProgressRing = ({ ratio, color, breathe }: {
   )
 }
 
-const NavSlot = ({ active, onPress, icon, iconColor, activeBg }: {
+const NavSlot = ({ active, onPress, icon, iconColor }: {
   active: boolean
   onPress: () => void
   icon: TabIconName
   iconColor: string
-  activeBg: string
 }) => {
-  const anim = useRef(new Animated.Value(active ? 1 : 0)).current
+  const grow = useRef(new Animated.Value(active ? 1 : 0)).current
+  const pop = useRef(new Animated.Value(1)).current
 
   useEffect(() => {
-    Animated.spring(anim, {
+    Animated.spring(grow, {
       toValue: active ? 1 : 0,
       useNativeDriver: true,
       friction: 9,
@@ -131,26 +146,30 @@ const NavSlot = ({ active, onPress, icon, iconColor, activeBg }: {
       restDisplacementThreshold: 0.001,
       restSpeedThreshold: 0.001,
     }).start()
-  }, [active, anim])
+    // 选中瞬间图标轻弹一下：先顶到 1.16 再弹回 1，比单纯放大有「按下去」的手感
+    if (!active) return
+    pop.setValue(1)
+    Animated.sequence([
+      Animated.timing(pop, {
+        toValue: 1.16,
+        duration: 110,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
+      Animated.spring(pop, { toValue: 1, useNativeDriver: true, friction: 4.5, tension: 210 }),
+    ]).start()
+  }, [active, grow, pop])
 
   return (
     <TouchableOpacity style={styles.item} activeOpacity={0.85} onPress={onPress}>
       <Animated.View
         pointerEvents='none'
-        style={{
-          ...styles.activeBg,
-          backgroundColor: activeBg,
-          opacity: anim,
-          transform: [{ scale: anim.interpolate({ inputRange: [0, 1], outputRange: [0.72, 1] }) }],
-        }}
-      />
-      <Animated.View
-        pointerEvents='none'
-        style={{
-          transform: [{ scale: anim.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1] }) }],
-        }}
+        style={{ transform: [{ scale: grow.interpolate({ inputRange: [0, 1], outputRange: [0.93, 1] }) }] }}
       >
-        <TabIcon name={icon} size={ICON_SIZE} color={iconColor} />
+        <Animated.View pointerEvents='none' style={{ transform: [{ scale: pop }] }}>
+          {/* 未选中线性 / 选中实心渐变：同一套字形，选中圆底的滑动由父级统一控制 */}
+          <TabIcon name={icon} size={ICON_SIZE} color={iconColor} active={active} />
+        </Animated.View>
       </Animated.View>
     </TouchableOpacity>
   )
@@ -203,6 +222,15 @@ export default memo(() => {
   /** 圆盘节点：打开播放器时量它的屏幕位置作为共享元素动画起点 */
   const discRef = useRef<View>(null)
 
+  /*
+    把圆盘节点登记给转场模块：歌单详情 / 歌单这类 RNN 页里的 PlayerBar 打开播放器时，
+    关闭要把封面收回首页圆盘，而播放器页里胶囊是不挂载的 —— 只能趁现在（首页还在）登记。
+  */
+  useEffect(() => {
+    registerDiscNode(discRef.current, DISC_SIZE)
+    return () => { registerDiscNode(null) }
+  }, [])
+
   /** 呼吸灯：进度层的整体透明度缓慢起伏（native driver，不占 JS 线程） */
   const breathe = useRef(new Animated.Value(0.62)).current
   useEffect(() => {
@@ -242,6 +270,29 @@ export default memo(() => {
 
   const iconIdle = isDark ? 'rgba(255,255,255,0.66)' : 'rgba(30,24,40,0.62)'
 
+  /** 当前选中入口的槽位序号；播放器页（或未知 id）没有圆底 → -1 */
+  const activeSlot = SLOT_INDEX[activeId] ?? -1
+  /** 圆底滑动的横向位置：切换 Tab 时 spring 过去，不再「这边灭、那边亮」硬切 */
+  const activeX = useRef(new Animated.Value(Math.max(0, activeSlot))).current
+  /** 圆底显隐：选中播放器时缩掉，回到任意 Tab 时弹出来 */
+  const activeShown = useRef(new Animated.Value(activeSlot >= 0 ? 1 : 0)).current
+  useEffect(() => {
+    Animated.spring(activeX, {
+      toValue: Math.max(0, activeSlot),
+      useNativeDriver: true,
+      stiffness: 220,
+      damping: 17,
+      mass: 0.9,
+    }).start()
+    Animated.spring(activeShown, {
+      toValue: activeSlot >= 0 ? 1 : 0,
+      useNativeDriver: true,
+      stiffness: 260,
+      damping: 22,
+      mass: 0.8,
+    }).start()
+  }, [activeSlot, activeX, activeShown])
+
   return (
     <View style={styles.wrap} pointerEvents='box-none'>
       <View
@@ -252,23 +303,29 @@ export default memo(() => {
         }}
         style={{
           ...styles.bar,
-          backgroundColor: isDark ? 'rgba(22,17,30,0.34)' : 'rgba(255,255,255,0.42)',
+          // 模糊不可用时的兜底色：暗色更实、亮色更透，和下面 Glass 的 tint 保持同一方向
+          backgroundColor: isDark ? 'rgba(22,17,30,0.52)' : 'rgba(255,255,255,0.28)',
           shadowColor: isDark ? '#000000' : '#6E6285',
         }}
       >
-        {/* 磨砂玻璃：抓胶囊背后的内容做真高斯模糊 */}
+        {/*
+          磨砂玻璃：抓胶囊背后的内容做真高斯模糊。
+          Android 侧 @react-native-community/blur 的 blurRadius 硬上限是 25（超过直接抛错，
+          Glass 内部已夹紧到 25），所以这里传 38 只是表达「要更厚的磨砂」的设计意图；
+          实际的厚度感靠下面更实的 tint + 更亮的顶部高光 + 更深的内阴影叠出来。
+        */}
         <Glass
-          blurRadius={24}
-          tint={isDark ? 'rgba(22,17,30,0.42)' : 'rgba(255,255,255,0.34)'}
+          blurRadius={38}
+          tint={isDark ? 'rgba(22,17,30,0.52)' : 'rgba(255,255,255,0.28)'}
           radius={BAR_RADIUS}
         />
 
-        {/* 玻璃反光：上半部一层自上而下的白色渐变（飞牛没有描边，厚度感全靠这层） */}
+        {/* 玻璃反光：上半部一层自上而下的白色渐变，顶部更亮（玻璃的厚度感全靠这层） */}
         <LinearGradient
           colors={isDark
-            ? ['rgba(255,255,255,0.09)', 'rgba(255,255,255,0.02)', 'rgba(255,255,255,0)']
-            : ['rgba(255,255,255,0.42)', 'rgba(255,255,255,0.10)', 'rgba(255,255,255,0)']}
-          locations={[0, 0.55, 1]}
+            ? ['rgba(255,255,255,0.16)', 'rgba(255,255,255,0.05)', 'rgba(255,255,255,0)']
+            : ['rgba(255,255,255,0.55)', 'rgba(255,255,255,0.14)', 'rgba(255,255,255,0)']}
+          locations={[0, 0.5, 1]}
           style={styles.gloss}
           pointerEvents='none'
         />
@@ -279,10 +336,19 @@ export default memo(() => {
         */}
         <LinearGradient
           colors={isDark
-            ? ['rgba(0,0,0,0)', 'rgba(0,0,0,0.18)']
-            : ['rgba(150,140,170,0)', 'rgba(150,140,170,0.10)']}
+            ? ['rgba(0,0,0,0)', 'rgba(0,0,0,0.30)']
+            : ['rgba(150,140,170,0)', 'rgba(150,140,170,0.18)']}
           style={styles.innerShade}
           pointerEvents='none'
+        />
+
+        {/* 0.5dp 极淡高光描边：不是边框线，只是让胶囊边缘在背景上「亮」一圈 */}
+        <View
+          pointerEvents='none'
+          style={{
+            ...styles.highlightEdge,
+            borderColor: isDark ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.78)',
+          }}
         />
 
         {/* 播放进度：沿胶囊边缘的一圈柔光，没有边框线 */}
@@ -292,6 +358,29 @@ export default memo(() => {
           progress={progressStyle === 'border' ? progress : 0}
           color={theme['c-primary']}
           breathe={breathe}
+        />
+
+        {/*
+          选中圆底只画一颗：切换 Tab 时沿槽位 translateX 用 spring 滑过去，
+          顺便用 scale 0.84→1 做「弹出来」的入场，不再每个槽位各自淡入淡出。
+        */}
+        <Animated.View
+          pointerEvents='none'
+          style={{
+            ...styles.activeBg,
+            backgroundColor: theme['c-primary-alpha-800'],
+            opacity: activeShown,
+            transform: [
+              {
+                translateX: activeX.interpolate({
+                  inputRange: [0, 1, 2, 3],
+                  outputRange: [0, SLOT_WIDTH, SLOT_WIDTH * 2, SLOT_WIDTH * 3],
+                  extrapolate: 'clamp',
+                }),
+              },
+              { scale: activeShown.interpolate({ inputRange: [0, 1], outputRange: [0.84, 1] }) },
+            ],
+          }}
         />
 
         {
@@ -320,7 +409,6 @@ export default memo(() => {
                 active={isActive}
                 icon={MENU_ICONS[menu.id] ?? 'home'}
                 iconColor={iconColor}
-                activeBg={theme['c-primary-alpha-800']}
                 onPress={() => { if (!isActive) setNavActiveId(menu.id) }}
               />
             )
@@ -349,24 +437,34 @@ const styles = StyleSheet.create({
     paddingRight: BAR_PADDING,
     // 模糊层、渐变层、进度光晕都要按胶囊形状裁切
     overflow: 'hidden',
-    elevation: 16,
-    shadowOpacity: 0.32,
-    shadowRadius: 26,
-    shadowOffset: { width: 0, height: 10 },
+    // 悬浮感靠更重的投影托起来：elevation 给 Android，shadow* 给 iOS
+    elevation: 24,
+    shadowOpacity: 0.5,
+    shadowRadius: 32,
+    shadowOffset: { width: 0, height: 14 },
   },
   gloss: {
     position: 'absolute',
     left: 0,
     right: 0,
     top: 0,
-    height: BAR_HEIGHT * 0.66,
+    height: BAR_HEIGHT * 0.7,
   },
   innerShade: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
-    height: BAR_HEIGHT * 0.5,
+    height: BAR_HEIGHT * 0.55,
+  },
+  highlightEdge: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    borderRadius: BAR_RADIUS,
+    borderWidth: 0.5,
   },
   item: {
     width: SLOT_WIDTH,
@@ -376,6 +474,8 @@ const styles = StyleSheet.create({
   },
   activeBg: {
     position: 'absolute',
+    left: ACTIVE_LEFT,
+    top: ACTIVE_TOP,
     width: ACTIVE_SIZE,
     height: ACTIVE_SIZE,
     borderRadius: ACTIVE_SIZE / 2,
