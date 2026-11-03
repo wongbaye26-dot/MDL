@@ -8,6 +8,7 @@ import List from '../settings/List'
 import Download from '../settings/Download'
 import Other from '../settings/Other'
 import About from '../settings/About'
+import Tools from '../settings/Tools'
 import { createStyle } from '@/utils/tools'
 import { type SettingScreenIds } from '../Main'
 import { Icon } from '@/components/common/Icon'
@@ -29,6 +30,7 @@ const getSection = (id: SettingScreenIds) => {
     case 'list': return <List />
     case 'download': return <Download />
     case 'other': return <Other />
+    case 'tools': return <Tools />
     case 'about': return <About />
     case 'basic':
     default: return <Basic />

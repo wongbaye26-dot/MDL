@@ -52,6 +52,7 @@ interface DirectoryPickerModule {
   copyToTree?: (treeUri: string, fileName: string, srcPath: string) => Promise<string>
   readAudioMeta?: (contentUri: string) => Promise<AudioMeta>
   findAudioByPath?: (path: string) => Promise<{ contentUri?: string, albumArt?: string } | null>
+  deleteDocument?: (uri: string) => Promise<boolean>
 }
 
 interface PickedPayload {
@@ -133,6 +134,24 @@ export const findAudioByPath = async(path: string): Promise<{ contentUri?: strin
     return await nativeModule.findAudioByPath(path)
   } catch {
     return null
+  }
+}
+
+/**
+ * 删除一个文档 / 媒体条目。
+ *
+ * 分区存储下按路径 `File.delete()` 会静默失败（返回 false 不抛错），
+ * 只有 `DocumentsContract.deleteDocument` / `ContentResolver.delete` 才能真的删掉。
+ * 支持 content:// 文档 uri、content://media 媒体 uri，也兼容普通路径。
+ * @returns 是否删掉了（false 表示系统不允许）
+ */
+export const deleteDocument = async(uri: string): Promise<boolean> => {
+  if (!uri) return false
+  if (!nativeModule?.deleteDocument) return false
+  try {
+    return await nativeModule.deleteDocument(uri)
+  } catch {
+    return false
   }
 }
 

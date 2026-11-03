@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, memo } from 'react'
 import {
   Animated,
   FlatList,
@@ -17,6 +17,7 @@ import {
 import Text from '@/components/common/Text'
 import Image from '@/components/common/Image'
 import { Icon } from '@/components/common/Icon'
+import Clipboard from '@react-native-clipboard/clipboard'
 import DorpDownMenu from '@/components/common/DorpDownMenu'
 import CoverPlaceholder from '@/components/common/CoverPlaceholder'
 import PageHeader from '@/components/common/PageHeader'
@@ -26,10 +27,11 @@ import { useTheme } from '@/store/theme/hook'
 import { contrastOn } from '@/theme/solid'
 import { createStyle, toast } from '@/utils/tools'
 import { formatSize, formatSampleRate } from '@/core/download/utils'
-import { getLocalMusicList, scanLocalMusicInBackground, isScanning, useScanState, getTotalSize, deleteLocalMusic, updateLocalMusicMeta, getScanDirs, getExtraDirs, setExtraDirs, type ScanDir } from '@/core/localMusic'
-import { pickDirectory, isDirectoryPickerSupported, readAudioMeta } from '@/utils/directoryPicker'
+import { getLocalMusicList, getScanPartialList, subscribeScanPartialList, scanLocalMusicInBackground, isScanning, useScanState, getTotalSize, deleteLocalMusic, updateLocalMusicMeta, getScanDirs, getExtraDirs, setExtraDirs, type ScanDir } from '@/core/localMusic'
+import { readEmbeddedCover } from '@/core/localMusic/cover'
+import { pickDirectory, isDirectoryPickerSupported } from '@/utils/directoryPicker'
 import { getData, saveData } from '@/plugins/storage'
-import { readPic } from '@/utils/localMediaMetadata'
+import { cleanSongName } from '@/utils/songName'
 import { overwriteListMusics } from '@/core/list'
 import listAction from '@/store/list/action'
 import { playList } from '@/core/player/player'
@@ -42,6 +44,18 @@ const LOCAL_LIST_ID = 'local_music'
 const VIEW_MODE_KEY = '@local_music_view_mode'
 /** 授权失效的提示色（主题里没有 warning 语义色，这里固定一个在深浅底上都读得出来的琥珀色） */
 const WARN_COLOR = '#E8A33D'
+/**
+ * 列表初始挂载行数上限。
+ *
+ * 本工程的 VirtualizedList 有「只渲染 initialNumToRender 这一批、滚动不再补」
+ * 的坑（详见 components/OnlineList/List.tsx 里的注释），所以这里按当前行数
+ * 给初始批次：233 首一次全挂上，从头滚到尾都不会空白。
+ * 曲库可能上千首，一帧挂几千行会把主线程堵死，所以封顶 600 行，
+ * 超出的部分交给虚拟化按批补（正常滚动时会补，只是不能指望它兜底）。
+ */
+const MAX_INITIAL_ROWS = 600
+/** 滚动时每批补多少行（比 RN 默认的 10 大，快滑时不容易出现空白） */
+const MAX_RENDER_BATCH = 40
 
 /** 浏览层级（Poweramp 那种：最近添加 / 专辑 / 艺人 / 文件夹树 / 全部） */
 const TABS = [
@@ -52,90 +66,117 @@ const TABS = [
   { key: 'recent', label: '最近添加', icon: 'clock-outline' },
 ] as const
 
+/** 页签按钮单独抽出来：内联渲染时每次切页整排都会重渲染，切起来发涩 */
+const TabButton = memo(({ label, active, onPress }: {
+  label: string
+  active: boolean
+  onPress: () => void
+}) => {
+  const theme = useTheme()
+  return (
+    <TouchableOpacity
+      activeOpacity={0.8}
+      style={{
+        ...styles.tabItem,
+        backgroundColor: active ? theme['c-primary'] : theme['c-primary-alpha-900'],
+        borderColor: active ? theme['c-primary'] : theme['c-primary-alpha-700'],
+      }}
+      onPress={onPress}
+    >
+      <Text size={11} color={active ? contrastOn(theme['c-primary']) : theme['c-450']} numberOfLines={1}>
+        {label}
+      </Text>
+    </TouchableOpacity>
+  )
+})
+
 /** 封面提取有开销，做一层串行队列 + 内存缓存 */
 const picCache = new Map<string, string>()
-let picQueue: Promise<unknown> = Promise.resolve()
-const loadPic = async(filePath: string): Promise<string> => {
-  const cached = picCache.get(filePath)
-  if (cached) return cached
-  picQueue = picQueue.then(async() => {
-    return await readPic(filePath).catch(() => '')
-  }).then(pic => {
-    if (pic) picCache.set(filePath, pic)
-    return pic
-  })
-  return picQueue as Promise<string>
+/** 同时最多跑 2 个原生抽取，切到「专辑 / 艺人」页签时不会一次压上几十个任务 */
+let activeLoads = 0
+const pendingLoads: Array<() => void> = []
+const withLimit = async<T,>(task: () => Promise<T>): Promise<T> => {
+  if (activeLoads >= 2) {
+    await new Promise<void>(resolve => { pendingLoads.push(resolve) })
+  }
+  activeLoads++
+  try {
+    return await task()
+  } finally {
+    activeLoads--
+    pendingLoads.shift()?.()
+  }
 }
 
-/** 确认过确实没有内嵌封面的文件，别再反复读 */
-const noCoverSet = new Set<string>()
+/** 取封面：内存缓存 → 文件内嵌（私有目录读文件 / 公共目录读 content uri） */
+const loadPic = async(item: LX.Music.MusicInfoLocal): Promise<string> => {
+  const key = item.meta.filePath
+  const cached = picCache.get(key)
+  if (cached) return cached
+  const pic = await withLimit(async() => await readEmbeddedCover(item)).catch(() => '')
+  if (pic) picCache.set(key, pic)
+  return pic
+}
 
-const Cover = ({ item }: { item: LX.Music.MusicInfoLocal }) => {
+const Cover = ({ item, size = 56, round = false }: {
+  item: LX.Music.MusicInfoLocal
+  size?: number
+  /** 艺人头像用圆形 */
+  round?: boolean
+}) => {
   const theme = useTheme()
   // MediaStore 条目自带 albumart 的 content:// 地址，直接用它（公共目录读不了文件）
-  const [uri, setUri] = useState<string | null>(() => item.meta.picUrl ?? picCache.get(item.meta.filePath) ?? null)
+  const [uri, setUri] = useState<string>(() => picCache.get(item.meta.filePath) ?? item.meta.picUrl ?? '')
   /** 抽取失败/图片加载失败后标记，用来切到首字占位 */
   const [failed, setFailed] = useState(false)
   /** 本轮是否已经尝试过抽取，避免 effect 反复跑 */
   const tried = useRef(false)
   /** 加载失败后允许重新抽一次（缓存被系统清掉时能自愈） */
   const recovered = useRef(false)
+  /** 上一次应用过的曲库封面，只有它变了才覆盖当前显示 */
+  const lastPicRef = useRef(item.meta.picUrl ?? '')
 
-  /**
-   * 惰性取封面：扫描时没抽到、或者抽出来的缓存文件已经失效，都在这里补一次。
-   * - 应用私有目录：直接读文件
-   * - 公共目录：用 SAF 文档 uri 抽内嵌封面（按路径打不开）
-   * 抽不到就记进 noCoverSet，滚动重挂载时不再重复调用原生。
-   */
   useEffect(() => {
-    if (uri) return
-    if (failed) return
-    if (tried.current) return
-    if (noCoverSet.has(item.meta.filePath)) return
+    if (uri || failed || tried.current) return
     tried.current = true
     let alive = true
-    const done = (pic: string | null) => {
+    void loadPic(item).then(pic => {
       if (!alive) return
-      if (pic) {
-        picCache.set(item.meta.filePath, pic)
-        setUri(pic)
-        setFailed(false)
-      } else {
-        noCoverSet.add(item.meta.filePath)
-      }
-    }
-    if (item.meta.filePath.includes('/Android/data/')) {
-      void loadPic(item.meta.filePath).then(pic => { done(pic || null) }).catch(() => { done(null) })
-      return () => { alive = false }
-    }
-    const contentUri = item.meta.contentUri
-    if (!contentUri) {
-      noCoverSet.add(item.meta.filePath)
-      return
-    }
-    void readAudioMeta(contentUri)
-      .then(meta => { done(meta?.cover ?? null) })
-      .catch(() => { done(null) })
+      if (pic) setUri(pic)
+      else setFailed(true)
+    })
     return () => { alive = false }
-  }, [item.meta.filePath, item.meta.contentUri, uri, failed])
+  }, [item, uri, failed])
+
+  /** 曲库里的封面被补上了（音乐工具 / 联网搜索）→ 已挂载的行也要跟着换 */
+  useEffect(() => {
+    const next = item.meta.picUrl ?? ''
+    if (!next || next === lastPicRef.current) return
+    lastPicRef.current = next
+    setUri(next)
+    setFailed(false)
+    recovered.current = false
+  }, [item.meta.picUrl])
 
   /** 图片加载失败：先给一次重新抽取的机会，再失败就落到首字占位 */
   const handleError = () => {
     if (!recovered.current) {
       recovered.current = true
       tried.current = false
-      setUri(null)
+      setUri('')
       return
     }
     setFailed(true)
   }
 
+  const radius = round ? size / 2 : 10
+  const inner = size - 8
   return (
-    <View style={{ ...styles.cover, backgroundColor: theme['c-primary-alpha-900'] }}>
+    <View style={{ width: size, height: size, borderRadius: radius, backgroundColor: theme['c-primary-alpha-900'], justifyContent: 'center', alignItems: 'center', marginRight: 12, overflow: 'hidden' }}>
       {
         uri && !failed
-          ? <Image url={uri} style={styles.coverImg} onError={handleError} />
-          : <CoverPlaceholder name={item.name} size={56} radius={10} />
+          ? <Image url={uri} style={{ width: inner, height: inner, borderRadius: round ? inner / 2 : 10 }} onError={handleError} />
+          : <CoverPlaceholder name={cleanSongName(item.name, item.singer)} size={size} radius={radius} />
       }
     </View>
   )
@@ -157,6 +198,12 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
   const dirsRef = useRef<ScanDir[]>([])
   /** 浏览层级：最近添加 / 专辑 / 艺人 / 文件夹树 / 全部歌曲 */
   const [tab, setTab] = useState<LocalTab>(initialTab ?? 'song')
+  /**
+   * 列表用「延迟版」的页签：
+   * 切页签要重建几百行 + 拉几十张封面，同步做会把主线程占满（点了像卡住）。
+   * 页签高亮走即时状态，列表重建走低优先级渲染，点下去先看到按钮变化。
+   */
+  const deferredTab = useDeferredValue(tab)
   /** 专辑 / 艺人的二级页 */
   const [detail, setDetail] = useState<{ type: 'album' | 'artist', title: string } | null>(null)
   /** 文件夹树当前目录（null = 根） */
@@ -166,6 +213,16 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
   /** 歌曲行的呈现方式：列表 / 卡片（持久化，重进页面保持上次选择） */
   const [viewMode, setViewMode] = useState<'list' | 'card'>('list')
   const mountedRef = useRef(true)
+  /**
+   * 是否已经从「事件 / 扫描结果」拿到过比缓存读取更新的列表。
+   * 挂载时读缓存是异步的，可能比扫描结束的事件还晚返回；
+   * 没有这个标记的话，慢一步的旧缓存会把刚刷新的新列表覆盖回去。
+   */
+  const freshListRef = useRef(false)
+  /** 挂载时那次「读缓存」是否已经有结果（在此之前不能拿扫描中的半成品覆盖它） */
+  const cacheReadDoneRef = useRef(false)
+  /** 当前列表是不是「本次扫描的半成品」（是的话就要继续跟着半成品刷新标签） */
+  const partialOwnedRef = useRef(false)
 
   useEffect(() => {
     mountedRef.current = true
@@ -192,13 +249,19 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
         后台静默扫描：扫描过程完全在 core 层跑，不依赖这个组件是否挂载。
         之前是组件里 setState + 每补完一首就推一次全量列表（186 首 = 186 次重渲染），
         扫到一半滑到别的页就卡死黑屏。
+        现在 core 在扫描期间通过本地订阅节流推送「文件名兜底版 + 补标签进度」（见下面的 effect），
+        扫描结束 / 失败 / 被打断时 cachedList 都不会被半成品覆盖。
       */
       const result = await scanLocalMusicInBackground(
         dirsRef.current.length ? dirsRef.current : undefined,
       )
       if (!result) return
       if (!mountedRef.current) return
-      setList(result.list)
+      // 复制一份再进 state：result.list 是 core 的内部数组，
+      // 直接塞进 state 的话 core 后续原地改它，页面就不会重渲染了
+      freshListRef.current = true
+      partialOwnedRef.current = false
+      setList([...result.list])
       setDir(result.dir)
       setDirs(result.dirs)
       setNeedAuth(result.needAuth)
@@ -210,7 +273,16 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
         toast(result.list.length ? `扫描完成，共 ${result.list.length} 首` : '没有找到音频文件')
       }
     } catch {
-      if (mountedRef.current) toast('扫描失败，请检查目录权限')
+      if (!mountedRef.current) return
+      toast('扫描失败，请检查目录权限')
+      // 扫描失败 / 被打断时 core 里仍然是上一次的完整列表，
+      // 读回来覆盖掉页面上可能已经刷成半成品的增量数据
+      const cached = await getLocalMusicList()
+      if (!mountedRef.current) return
+      freshListRef.current = true
+      partialOwnedRef.current = false
+      setList(cached)
+      setInited(true)
     }
   }, [])
 
@@ -225,7 +297,12 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
   useEffect(() => {
     void getLocalMusicList().then(cached => {
       if (!mountedRef.current) return
+      cacheReadDoneRef.current = true
+      // 扫描结束 / 工具补封面等事件可能已经先把新列表推进来了，别用慢一步的旧缓存盖回去
+      if (freshListRef.current) return
       if (cached.length) {
+        // 这里拿到的已经是副本（core 保证），直接进 state 不会被 core 后续原地改动影响
+        partialOwnedRef.current = false
         setList(cached)
         setInited(true)
       } else {
@@ -233,6 +310,59 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
       }
     })
   }, [handleScan])
+
+  // 音乐工具补封面 / 其他页面改元信息 / 后台扫描完成都会发这个事件，
+  // 页面挂载着的时候直接跟着刷新，不用等用户手动重扫
+  useEffect(() => {
+    const handleUpdated = (updated: LX.Music.MusicInfoLocal[]) => {
+      if (!mountedRef.current) return
+      /*
+        复制后再 setList。两个原因：
+        1. 事件里的数组虽然 core 已经复制过一层，但页面 state 绝不持有 core 的数组
+           （两段式扫描补标签期间会原地改它，等于隔空改 state，React 收不到通知）；
+        2. 必须是**新引用**：`setList(和当前 state 相同的数组)` 会被 React 判为没变、
+           直接 bail out 不重渲染 —— 这正是扫描结束后列表停在半成品的原因。
+      */
+      freshListRef.current = true
+      partialOwnedRef.current = false
+      setList([...updated])
+    }
+    global.state_event.on('localMusicUpdated', handleUpdated)
+    return () => {
+      global.state_event.off('localMusicUpdated', handleUpdated)
+    }
+  }, [])
+
+  /**
+   * 扫描中的「半成品」列表：core 专门的本地订阅，不走全局事件
+   * （全局事件首页也在听，扫描期间每 800ms 广播一次会让首页跟着重渲染，
+   *   上一版「扫描中切页黑屏」就是那么来的）。
+   *
+   * 只在曲库还是空的时候才用半成品：首次扫描要能边扫边出歌，
+   * 但「重新扫描 / 新加了目录」时（已有完整列表）不要用缺标签的半成品打断用户，
+   * 等扫描结束那一次事件把完整结果推上来即可。
+   */
+  useEffect(() => {
+    const applyPartial = () => {
+      if (!mountedRef.current || !cacheReadDoneRef.current) return
+      const partial = getScanPartialList()
+      if (!partial) return
+      setList(prev => {
+        // 只有「曲库还是空的」或者「当前显示的就是本次扫描的半成品」才吃半成品：
+        // - 首次扫描：边扫边出歌，标签补上一条就刷一条；
+        // - 重新扫描 / 新加目录（已有完整列表）：不要用缺标签的半成品打断用户，
+        //   等扫描结束那一次事件把完整结果推上来；
+        // - 返回同一个引用时 React 直接 bail out，这种情况下零成本。
+        if (prev.length && !partialOwnedRef.current) return prev
+        partialOwnedRef.current = true
+        freshListRef.current = true
+        return [...partial]
+      })
+    }
+    // 挂载时如果扫描已经跑到一半（比如从首页弹层重新打开），先对齐当前进度
+    applyPartial()
+    return subscribeScanPartialList(applyPartial)
+  }, [])
 
   const totalSize = useMemo(() => formatSize(getTotalSize(list)), [list])
 
@@ -278,7 +408,7 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
     type Row =
       | { type: 'song', key: string, item: LX.Music.MusicInfoLocal, index: number }
       | { type: 'album', key: string, title: string, count: number, cover?: LX.Music.MusicInfoLocal }
-      | { type: 'artist', key: string, title: string, count: number }
+      | { type: 'artist', key: string, title: string, count: number, cover?: LX.Music.MusicInfoLocal }
       | { type: 'folder', key: string, title: string, count: number, path: string }
 
     const toSongRow = (item: LX.Music.MusicInfoLocal, position?: number): Row => ({
@@ -299,14 +429,14 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
     }
 
     // 最近添加：按文件修改时间倒序
-    if (tab === 'recent') {
+    if (deferredTab === 'recent') {
       return [...list].sort((a, b) => (b.meta.mtime ?? 0) - (a.meta.mtime ?? 0)).map(item => toSongRow(item))
     }
 
-    if (tab === 'song') return list.map((item, i) => toSongRow(item, i))
+    if (deferredTab === 'song') return list.map((item, i) => toSongRow(item, i))
 
     // 文件夹：只列「直接装了歌」的目录（不再逐层钻），点进去就是这一层的歌
-    if (tab === 'folder') {
+    if (deferredTab === 'folder') {
       if (folderPath && folderTree.has(folderPath)) {
         return (folderTree.get(folderPath)?.songs ?? []).map(item => toSongRow(item))
       }
@@ -325,17 +455,18 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
     // 专辑 / 艺人：先列分组，点进去看二级页
     const map = new Map<string, LX.Music.MusicInfoLocal[]>()
     for (const item of list) {
-      const key = tab === 'album' ? (item.meta.albumName || '未知专辑') : (item.singer || '未知歌手')
+      const key = deferredTab === 'album' ? (item.meta.albumName || '未知专辑') : (item.singer || '未知歌手')
       const arr = map.get(key)
       if (arr) arr.push(item)
       else map.set(key, [item])
     }
     return [...map.entries()]
       .sort((a, b) => a[0].localeCompare(b[0], 'zh-Hans-CN'))
-      .map(([key, items]): Row => tab === 'album'
+      .map(([key, items]): Row => deferredTab === 'album'
         ? { type: 'album', key, title: key, count: items.length, cover: items[0] }
-        : { type: 'artist', key, title: key, count: items.length })
-  }, [detail, tab, list, indexOfId, folderTree, folderPath])
+        // 艺人头像直接借这个艺人第一首有封面的歌，没有封面就用首字圆形占位
+        : { type: 'artist', key, title: key, count: items.length, cover: items.find(it => it.meta.picUrl) ?? items[0] })
+  }, [detail, deferredTab, list, indexOfId, folderTree, folderPath])
 
   // 下滑关闭：回到下载中心。
   // onClose 放进 ref：外层每次重渲染都会传新闭包，如果进 useMemo 依赖，
@@ -456,10 +587,15 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
   }, [handleScan])
 
   const handleDelete = useCallback(async(item: LX.Music.MusicInfoLocal, deleteFile: boolean) => {
-    await deleteLocalMusic(item, deleteFile)
-    const newList = await getLocalMusicList()
-    setList(newList)
-    toast(deleteFile ? '已删除文件和记录' : '已从列表移除')
+    try {
+      await deleteLocalMusic(item, deleteFile)
+      const newList = await getLocalMusicList()
+      setList(newList)
+      toast(deleteFile ? '已删除文件和记录' : '已从列表移除')
+    } catch (err) {
+      // 文件删不掉时不要把记录也删了，否则列表和磁盘对不上
+      toast(`删除失败：${(err as Error)?.message ?? '文件被占用或无权限'}`)
+    }
   }, [])
 
   const [editingItem, setEditingItem] = useState<LX.Music.MusicInfoLocal | null>(null)
@@ -467,6 +603,41 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
   const handleEdit = useCallback((item: LX.Music.MusicInfoLocal) => {
     setEditingItem(item)
   }, [])
+
+  /**
+   * 行的点击 / 菜单回调做成稳定引用，
+   * 这样 LocalRow 的 memo 才生效（否则每次渲染都传新闭包，等于没 memo）。
+   */
+  const handleRowPress = useCallback((item: LX.Music.MusicInfoLocal, index: number) => {
+    void handlePlay(index)
+  }, [handlePlay])
+
+  const handleRowMenu = useCallback((action: string, item: LX.Music.MusicInfoLocal, index: number) => {
+    switch (action) {
+      case 'play':
+        void handlePlay(index)
+        break
+      case 'playLater':
+        handlePlayLater(item)
+        break
+      case 'delete':
+        void handleDelete(item, false)
+        break
+      case 'deleteFile':
+        void handleDelete(item, true)
+        break
+      case 'showPath': {
+        const path = item.meta.filePath ?? ''
+        if (!path) { toast('这首歌没有文件路径'); return }
+        Clipboard.setString(path)
+        toast(`路径已复制：${path}`)
+        break
+      }
+      case 'edit':
+        handleEdit(item)
+        break
+    }
+  }, [handlePlay, handlePlayLater, handleDelete, handleEdit])
 
   const handleSaveEdit = useCallback(async(name: string, singer: string, albumName: string) => {
     if (!editingItem) return
@@ -480,7 +651,7 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
   const renderItem = useCallback(({ item: row }: { item:
   | { type: 'song', key: string, item: LX.Music.MusicInfoLocal, index: number }
   | { type: 'album', key: string, title: string, count: number, cover?: LX.Music.MusicInfoLocal }
-  | { type: 'artist', key: string, title: string, count: number }
+  | { type: 'artist', key: string, title: string, count: number, cover?: LX.Music.MusicInfoLocal }
   | { type: 'folder', key: string, title: string, count: number, path: string } }) => {
     if (row.type === 'album') {
       return (
@@ -505,9 +676,15 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
           activeOpacity={0.7}
           onPress={() => { setDetail({ type: 'artist', title: row.title }) }}
         >
-          <View style={{ ...styles.artistAvatar, backgroundColor: theme['c-primary-alpha-900'] }}>
-            <Text size={17} color={theme['c-primary']} style={styles.artistInitial}>{row.title.slice(0, 1).toUpperCase()}</Text>
-          </View>
+          {
+            row.cover
+              ? <Cover item={row.cover} size={46} round />
+              : (
+                <View style={{ ...styles.artistAvatar, backgroundColor: theme['c-primary-alpha-900'] }}>
+                  <Text size={17} color={theme['c-primary']} style={styles.artistInitial}>{row.title.slice(0, 1).toUpperCase()}</Text>
+                </View>
+                )
+          }
           <View style={styles.groupInfo}>
             <Text size={14} numberOfLines={1}>{row.title}</Text>
             <Text size={10} color={theme['c-450']} numberOfLines={1} style={styles.groupMeta}>{row.count} 首</Text>
@@ -544,17 +721,11 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
         item={item}
         index={index}
         card={viewMode === 'card'}
-        onPress={() => { void handlePlay(index) }}
-        onMenu={action => {
-          if (action === 'play') void handlePlay(index)
-          else if (action === 'playLater') handlePlayLater(item)
-          else if (action === 'delete') void handleDelete(item, false)
-          else if (action === 'deleteFile') void handleDelete(item, true)
-          else if (action === 'edit') handleEdit(item)
-        }}
+        onPress={handleRowPress}
+        onMenu={handleRowMenu}
       />
     )
-  }, [theme, handlePlay, handlePlayLater, handleDelete, handleEdit, viewMode])
+  }, [theme, handleRowPress, handleRowMenu, viewMode])
 
   /** 二级页「播放全部」：从这一组的第一首开始播 */
   const handlePlayGroup = useCallback(() => {
@@ -575,7 +746,7 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
           subtitle={(
             <View style={styles.headerTags}>
               {list.length ? <MiniTag text={`${list.length} 首`} /> : null}
-              {totalSize ? <MiniTag text={totalSize} /> : null}
+              {totalSize ? <MiniTag text={totalSize.replace(/\s+/g, '')} /> : null}
             </View>
           )}
           right={(
@@ -701,29 +872,19 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
             <View style={styles.tabBar}>
               <View style={styles.tabRow}>
                 {
-                  TABS.map(item => {
-                    const active = tab === item.key
-                    return (
-                      <TouchableOpacity
-                        key={item.key}
-                        activeOpacity={0.8}
-                        style={{
-                          ...styles.tabItem,
-                          backgroundColor: active ? theme['c-primary'] : theme['c-primary-alpha-900'],
-                          borderColor: active ? theme['c-primary'] : theme['c-primary-alpha-700'],
-                        }}
-                        onPress={() => {
-                          if (active) return
-                          setTab(item.key)
-                          setFolderPath(null)
-                        }}
-                      >
-                        <Text size={11} color={active ? contrastOn(theme['c-primary']) : theme['c-450']} numberOfLines={1}>
-                          {item.label}
-                        </Text>
-                      </TouchableOpacity>
-                    )
-                  })
+                  TABS.map(item => (
+                    <TabButton
+                      key={item.key}
+                      label={item.label}
+                      active={tab === item.key}
+                      onPress={() => {
+                        if (tab === item.key) return
+                        setTab(item.key)
+                        setFolderPath(null)
+                        setDetail(null)
+                      }}
+                    />
+                  ))
                 }
               </View>
             </View>
@@ -753,12 +914,23 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
         keyExtractor={row => row.key}
         contentContainerStyle={styles.listContent}
         /*
-          FlatList 默认只渲染 10 条（initialNumToRender 默认值），列表长了就会出现
-          「只显示 10 首、往下滑是空的」—— 这个列表最多几百条，直接一次渲染完。
+          本工程 VirtualizedList 有「只渲染初始批次、滚动不补」的坑
+          （见 components/OnlineList/List.tsx 的注释，线上已经踩过一次），
+          所以初始批次直接按当前行数给：233 首一次挂载完，从头滚到尾都不会空白，
+          切页签 / 扫描完成 / 补封面之后也不会「只显示十几首」。
+
+          性能取舍：全量挂载的那一帧要建几百个行组件，但封面是懒加载
+          （picCache + 同时最多 2 个原生抽取），不会一次压上几百个原生任务；
+          旧版把 initialNumToRender 设成 rows.length 会卡，根因不在初始批次本身，
+          而在「扫描期间推全量新数组」让整表反复重建 —— 那个已经在 core 里修掉
+          （快照节流 800ms、只给本地音乐页、行组件 memo 靠对象引用跳过没变的行）。
+          曲库上千首时封顶 600 行，剩下的交给虚拟化按批补，
+          避免一帧挂几千行把主线程堵死。
         */
-        initialNumToRender={Math.max(20, rows.length)}
-        maxToRenderPerBatch={Math.max(20, rows.length)}
-        windowSize={41}
+        initialNumToRender={Math.min(rows.length, MAX_INITIAL_ROWS)}
+        maxToRenderPerBatch={MAX_RENDER_BATCH}
+        updateCellsBatchingPeriod={40}
+        windowSize={21}
         removeClippedSubviews={false}
         scrollEventThrottle={32}
         onScroll={e => { scrollY.current = e.nativeEvent.contentOffset.y }}
@@ -858,13 +1030,13 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
   )
 }
 
-const LocalRow = ({ item, index, card = false, onPress, onMenu }: {
+const LocalRow = memo(({ item, index, card = false, onPress, onMenu }: {
   item: LX.Music.MusicInfoLocal
   index: number
   /** 卡片模式：带边框底色的独立卡片（和搜索/排行榜的「卡片」同一套 token） */
   card?: boolean
-  onPress: () => void
-  onMenu: (action: string) => void
+  onPress: (item: LX.Music.MusicInfoLocal, index: number) => void
+  onMenu: (action: string, item: LX.Music.MusicInfoLocal, index: number) => void
 }) => {
   const theme = useTheme()
   const menuRef = useRef<MenuType>(null)
@@ -873,6 +1045,7 @@ const LocalRow = ({ item, index, card = false, onPress, onMenu }: {
     { action: 'playLater', label: '稍后播放' },
     { action: 'edit', label: '编辑信息' },
     { action: 'delete', label: '从列表移除' },
+    { action: 'showPath', label: '查看所在目录' },
     { action: 'deleteFile', label: '删除文件' },
   ], [])
 
@@ -882,16 +1055,19 @@ const LocalRow = ({ item, index, card = false, onPress, onMenu }: {
     menuRef.current?.show({ x: pageX, y: pageY, w: 0, h: 0 })
   }
 
+  /** 歌名：标签里可能带着「歌手 - 」前缀，这里只显示歌名 */
+  const songName = useMemo(() => cleanSongName(item.name, item.singer), [item.name, item.singer])
   /** 第二行：歌手 - 专辑 */
   const subLine = useMemo(() => {
     return [item.singer || '未知歌手', item.meta.albumName].filter(Boolean).join(' - ')
-  }, [item])
+  }, [item.singer, item.meta.albumName])
   /** 第三行：采样率（精简成 44.1k，小标签放得下） */
   const rate = useMemo(() => {
+    // 去掉空格：4 个标签挤在一行，多一个空格就会把最后一个挤成省略号
     return item.meta.sampleRate
-      ? formatSampleRate(item.meta.sampleRate)
+      ? formatSampleRate(item.meta.sampleRate).replace(/\s+/g, '')
       : ''
-  }, [item])
+  }, [item.meta.sampleRate])
 
   return (
     <View style={card
@@ -904,14 +1080,14 @@ const LocalRow = ({ item, index, card = false, onPress, onMenu }: {
       <TouchableOpacity
         style={card ? styles.cardMain : styles.rowMain}
         activeOpacity={0.7}
-        onPress={onPress}
+        onPress={() => { onPress(item, index) }}
         onLongPress={handleLongPress}
         delayLongPress={320}
       >
         {card ? null : <Text size={11} color={theme['c-350']} style={styles.index}>{index + 1}</Text>}
         <Cover item={item} />
         <View style={styles.info}>
-          <Text size={15} numberOfLines={1} style={styles.name}>{item.name}</Text>
+          <Text size={15} numberOfLines={1} style={styles.name}>{songName}</Text>
           <Text size={11.5} color={theme['c-450']} numberOfLines={1} style={styles.meta}>{subLine}</Text>
           <View style={styles.thirdRow}>
             {item.interval ? <MiniTag text={item.interval} /> : null}
@@ -921,13 +1097,13 @@ const LocalRow = ({ item, index, card = false, onPress, onMenu }: {
           </View>
         </View>
       </TouchableOpacity>
-      <DorpDownMenu menus={menus} onPress={menu => { onMenu(menu.action) }} btnStyle={styles.moreBtn}>
+      <DorpDownMenu menus={menus} onPress={menu => { onMenu(menu.action, item, index) }} btnStyle={styles.moreBtn}>
         <Icon name='dots-vertical' size={14} color={theme['c-350']} />
       </DorpDownMenu>
-      <Menu ref={menuRef} menus={menus} onPress={menu => { onMenu(menu.action) }} />
+      <Menu ref={menuRef} menus={menus} onPress={menu => { onMenu(menu.action, item, index) }} />
     </View>
   )
-}
+})
 
 const EditMusicModal = ({ item, onClose, onSave }: {
   item: LX.Music.MusicInfoLocal | null
@@ -1050,6 +1226,7 @@ const styles = createStyle({
   headerTags: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
     marginTop: 5,
   },
   headerBtn: {
@@ -1359,6 +1536,7 @@ const styles = createStyle({
   thirdRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
     marginTop: 3,
   },
   third: {

@@ -335,6 +335,55 @@ public class DirectoryPickerModule extends ReactContextBaseJavaModule {
   }
 
   /**
+   * 删除一个文档 / 媒体条目。
+   *
+   * 为什么不能用 react-native-file-system 的 unlink：
+   * 它底层是 `java.io.File.delete()`，分区存储下对公共目录只会返回 false（不抛异常），
+   * JS 侧收到的是「成功」，界面就提示「已删除」但文件还在。
+   * 文档 uri 必须走 DocumentsContract.deleteDocument，媒体 uri 走 ContentResolver.delete。
+   *
+   * @return true 表示确实删掉了
+   */
+  @ReactMethod
+  public void deleteDocument(String uriString, Promise promise) {
+    if (uriString == null || uriString.isEmpty()) {
+      promise.resolve(false);
+      return;
+    }
+    android.content.ContentResolver cr = getReactApplicationContext().getContentResolver();
+    try {
+      if (uriString.startsWith("content://")) {
+        Uri uri = Uri.parse(uriString);
+        boolean ok;
+        if (uriString.startsWith("content://media/")) {
+          ok = cr.delete(uri, null, null) > 0;
+        } else {
+          ok = android.provider.DocumentsContract.deleteDocument(cr, uri);
+        }
+        promise.resolve(ok);
+        return;
+      }
+
+      java.io.File file = new java.io.File(uriString);
+      boolean ok = !file.exists() || file.delete();
+      // 文件删掉后把系统索引里的记录也清掉，否则别的播放器还会看到这条「幽灵歌曲」
+      if (ok) removeMediaStoreEntry(cr, uriString);
+      promise.resolve(ok);
+    } catch (Exception e) {
+      promise.resolve(false);
+    }
+  }
+
+  private void removeMediaStoreEntry(android.content.ContentResolver cr, String path) {
+    try {
+      cr.delete(
+          MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+          MediaStore.Audio.Media.DATA + "=?",
+          new String[] { path });
+    } catch (Exception ignored) {}
+  }
+
+  /**
    * 把本地文件复制进 SAF 目录树。
    *
    * 下载流程是「先下到缓存，再挪到目标目录」，而 react-native-fs 的 copyFile

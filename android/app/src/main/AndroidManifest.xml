@@ -7,6 +7,8 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
     <!-- Android 13+ 读本地音频要这个（老版本走 READ_EXTERNAL_STORAGE） -->
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+    <!-- 直接往 /storage/emulated/0/Music 写文件需要它，否则只能退到 Android/data 私有目录 -->
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" tools:ignore="ScopedStorage" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />

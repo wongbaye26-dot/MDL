@@ -8,7 +8,6 @@ import PicImage from '@/components/common/PicImage'
 import PageHeader, { HeaderButton } from '@/components/common/PageHeader'
 import { useTheme } from '@/store/theme/hook'
 import { useDownloadList } from '@/store/download'
-import playerState from '@/store/player/state'
 import commonState from '@/store/common/state'
 import { navigations } from '@/navigation'
 import { setNavActiveId } from '@/core/common'
@@ -21,6 +20,7 @@ import { getLocalMusicList } from '@/core/localMusic'
 import { overwriteListMusics } from '@/core/list'
 import listAction from '@/store/list/action'
 import { playList } from '@/core/player/player'
+import { getRecentPlayList } from '@/core/player/recentPlay'
 import SearchModal from '../../Vertical/SearchModal'
 import PageModal from '../../Vertical/PageModal'
 import SongList from '../SongList'
@@ -50,11 +50,6 @@ const CARDS = [
 ] as const
 
 type CardKey = typeof CARDS[number]['key']
-
-/** 播放历史里可能混入下载任务，统一取出歌曲信息 */
-const toMusicInfo = (music: LX.Player.PlayMusic): LX.Music.MusicInfo => {
-  return 'metadata' in music ? music.metadata.musicInfo : music
-}
 
 const SectionHead = ({ title, hint, onPress }: {
   title: string
@@ -104,6 +99,14 @@ export default () => {
     .sort((a, b) => (b.meta.mtime ?? 0) - (a.meta.mtime ?? 0))
     .slice(0, RAIL_LIMIT), [localList])
 
+  /** 最近播放里本地 / 在线的构成，放在标题右侧一眼看清 */
+  const recentHint = useMemo(() => {
+    if (!playedMusic.length) return undefined
+    const local = playedMusic.filter(m => m.source === 'local').length
+    const online = playedMusic.length - local
+    return local && online ? `本地 ${local} · 在线 ${online}` : local ? `本地 ${local}` : `在线 ${online}`
+  }, [playedMusic])
+
   useEffect(() => {
     void getList('kw', '全部', 'hot', 1)
       .then(res => { setRecommend((res.list ?? []).slice(0, 8)) })
@@ -126,28 +129,19 @@ export default () => {
     }
   }, [])
 
+  // 最近播放：独立持久化历史，和随机模式 / 播放列表切换无关
   useEffect(() => {
-    /**
-     * 只认 playPlayedListChanged：播放历史是在 addPlayedList 里 push 的，
-     * 而 playMusicInfoChanged 触发时历史可能还没写进去（首页会一直显示上一首）。
-     * 回调参数是 `{ ...array }` 展开出来的对象（没有 length），所以直接读 store 里的真数组。
-     */
-    const handleUpdate = () => {
-      const seen = new Set<string>()
-      const out: LX.Music.MusicInfo[] = []
-      const src = playerState.playedList
-      for (let i = src.length - 1; i >= 0 && out.length < RAIL_LIMIT; i--) {
-        const info = toMusicInfo(src[i].musicInfo)
-        if (seen.has(info.id)) continue
-        seen.add(info.id)
-        out.push(info)
-      }
-      setPlayedMusic(out)
+    let alive = true
+    void getRecentPlayList().then(list => {
+      if (alive) setPlayedMusic(list.slice(0, RAIL_LIMIT))
+    })
+    const handleUpdate = (list: LX.Music.MusicInfo[]) => {
+      if (alive) setPlayedMusic(list.slice(0, RAIL_LIMIT))
     }
-    handleUpdate()
-    global.state_event.on('playPlayedListChanged', handleUpdate)
+    global.state_event.on('recentPlayUpdated', handleUpdate)
     return () => {
-      global.state_event.off('playPlayedListChanged', handleUpdate)
+      alive = false
+      global.state_event.off('recentPlayUpdated', handleUpdate)
     }
   }, [])
 
@@ -226,10 +220,11 @@ export default () => {
         </ScrollView>
 
         {
+          // 常显：没有历史时给一个空态，而不是整块消失（位置会跳来跳去）
           playedMusic.length
             ? (
                 <>
-                  <SectionHead title='最近播放' />
+                  <SectionHead title='最近播放' hint={recentHint} />
                   <SongRail
                     items={playedMusic}
                     showSource
@@ -237,7 +232,17 @@ export default () => {
                   />
                 </>
               )
-            : null
+            : (
+                <>
+                  <SectionHead title='最近播放' />
+                  <View style={styles.railEmpty}>
+                    <View style={{ ...styles.railEmptyIcon, backgroundColor: theme['c-primary-alpha-900'] }}>
+                      <Icon name='play-circle-outline' size={20} color={theme['c-400']} />
+                    </View>
+                    <Text size={12} color={theme['c-450']}>还没有播放记录，听一首歌就会出现在这里</Text>
+                  </View>
+                </>
+              )
         }
 
         {
@@ -416,6 +421,27 @@ const styles = createStyle({
   sectionHint: {
     marginLeft: 'auto',
     paddingLeft: 8,
+  },
+  railEmpty: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 16,
+    marginRight: 16,
+    paddingLeft: 12,
+    paddingRight: 12,
+    paddingTop: 10,
+    paddingBottom: 10,
+    borderRadius: 14,
+    borderWidth: 0.5,
+    borderColor: 'transparent',
+  },
+  railEmptyIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    marginRight: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   row: {
     flexDirection: 'row',

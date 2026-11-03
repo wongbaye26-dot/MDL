@@ -1,12 +1,15 @@
-import { memo, useCallback, useMemo, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { ScrollView, TouchableOpacity, View, type LayoutChangeEvent } from 'react-native'
 
 import Text from '@/components/common/Text'
 import Image from '@/components/common/Image'
 import CoverPlaceholder from '@/components/common/CoverPlaceholder'
+import { readEmbeddedCover } from '@/core/localMusic/cover'
+import { cleanSongName } from '@/utils/songName'
 import { useTheme } from '@/store/theme/hook'
 import { createStyle } from '@/utils/tools'
 import { scaleSizeW } from '@/utils/pixelRatio'
+import { contrastOn } from '@/theme/solid'
 
 /**
  * 首页「横向歌曲流」。
@@ -47,9 +50,25 @@ const Cell = memo(({ musicInfo, showSource, onPress, onLongPress }: {
 }) => {
   const theme = useTheme()
   const [picFailed, setPicFailed] = useState(false)
-  // 本地歌曲的封面在 meta.picUrl（MediaStore 的 albumart 或缓存文件路径）
-  const pic = musicInfo.meta?.picUrl
   const isLocal = musicInfo.source === 'local'
+  /** 歌名只显示歌名：历史快照里的 name 可能带着「歌手 - 」前缀 */
+  const songName = useMemo(() => cleanSongName(musicInfo.name, musicInfo.singer), [musicInfo.name, musicInfo.singer])
+  const metaPic = musicInfo.meta?.picUrl ?? ''
+  const isRemotePic = metaPic.startsWith('http')
+  // 播放历史是播放当时的快照，本地歌曲的 picUrl 那时还没提取出来，这里补一次
+  const [localPic, setLocalPic] = useState('')
+  useEffect(() => {
+    if (!isLocal || isRemotePic) return
+    if (!musicInfo.meta?.filePath) return
+    let alive = true
+    // 用统一入口：私有目录读文件、公共目录读 content uri
+    void readEmbeddedCover(musicInfo).then(path => {
+      if (alive && path) setLocalPic(path)
+    }).catch(() => {})
+    return () => { alive = false }
+  }, [isLocal, isRemotePic, musicInfo])
+  // 本地歌曲的封面在 meta.picUrl（MediaStore 的 albumart 或缓存文件路径）
+  const pic = localPic || metaPic
 
   return (
     <TouchableOpacity
@@ -62,10 +81,10 @@ const Cell = memo(({ musicInfo, showSource, onPress, onLongPress }: {
       {
         pic && !picFailed
           ? <Image url={pic} style={styles.cover} onError={() => { setPicFailed(true) }} />
-          : <CoverPlaceholder name={musicInfo.name} size={COVER} radius={10} style={styles.cover} />
+          : <CoverPlaceholder name={songName} size={COVER} radius={10} style={styles.cover} />
       }
       <View style={styles.cellInfo}>
-        <Text size={13} numberOfLines={1}>{musicInfo.name}</Text>
+        <Text size={13} numberOfLines={1}>{songName}</Text>
         <View style={styles.subRow}>
           <Text size={10} color={theme['c-450']} numberOfLines={1} style={styles.cellSub}>
             {musicInfo.singer || '未知歌手'}
@@ -75,10 +94,10 @@ const Cell = memo(({ musicInfo, showSource, onPress, onLongPress }: {
               ? (
                 <View style={{
                   ...styles.tag,
-                  backgroundColor: isLocal ? theme['c-primary-alpha-800'] : 'transparent',
-                  borderColor: theme['c-primary-alpha-600'],
+                  backgroundColor: isLocal ? theme['c-primary'] : 'transparent',
+                  borderColor: isLocal ? theme['c-primary'] : theme['c-primary-alpha-600'],
                 }}>
-                  <Text size={8} color={isLocal ? theme['c-primary'] : theme['c-450']}>{isLocal ? '本地' : '在线'}</Text>
+                  <Text size={8.5} color={isLocal ? contrastOn(theme['c-primary']) : theme['c-450']}>{isLocal ? '本地' : '在线'}</Text>
                 </View>
                 )
               : null

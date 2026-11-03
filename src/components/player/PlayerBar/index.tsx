@@ -17,6 +17,7 @@ import { playNext, togglePlay } from '@/core/player/player'
 import { setNavActiveId } from '@/core/common'
 import commonState from '@/store/common/state'
 import { createStyle } from '@/utils/tools'
+import { cleanSongName } from '@/utils/songName'
 
 /** 回到首页并切到内置播放器页签 */
 const openPlayerTab = () => {
@@ -65,6 +66,7 @@ export default memo(({ isHome = false }: { isHome?: boolean }) => {
 
   if (autoHidePlayBar && keyboardShown) return null
   if (!musicInfo.name) return null
+  const songName = cleanSongName(musicInfo.name, musicInfo.singer)
 
   const ratio = Math.max(0, Math.min(1, progress))
   void isHome
@@ -117,7 +119,7 @@ export default memo(({ isHome = false }: { isHome?: boolean }) => {
           />
           <View style={styles.textArea}>
             <MarqueeText
-              text={musicInfo.name}
+              text={songName}
               size={14}
               color={theme['c-font']}
               style={styles.name}

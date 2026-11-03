@@ -18,6 +18,7 @@ const META: Record<SettingScreenIds, { icon: string, color: string }> = {
   list: { icon: 'list-order', color: '#14B8A6' },
   download: { icon: 'download-2', color: '#F59E0B' },
   other: { icon: 'slider', color: '#64748B' },
+  tools: { icon: 'wrench', color: '#F97316' },
   about: { icon: 'help', color: '#10B981' },
 }
 
@@ -104,11 +105,12 @@ export default ({ onPress }: { onPress: (id: SettingScreenIds) => void }) => {
     list: `专辑名${onOff(showAlbumName)} · 间隔${onOff(showInterval)}`,
     download: `${QUALITY_LABEL[downloadQuality] ?? downloadQuality} · 并发 ${maxDownloadNum ?? 3}${autoSave ? ' · 边听边存' : ''}`,
     other: '缓存管理 · 不感兴趣 · 日志',
+    tools: '批量补封面 · 写标签',
     about: `v${process.versions.app}`,
   }
 
-  const tiles = SETTING_SCREENS.slice(0, SETTING_SCREENS.length - 1)
-  const last = SETTING_SCREENS[SETTING_SCREENS.length - 1]
+  const tiles = SETTING_SCREENS.slice(0, SETTING_SCREENS.length - 2)
+  const wideTiles = SETTING_SCREENS.slice(SETTING_SCREENS.length - 2)
 
   return (
     <View style={styles.container}>
@@ -125,13 +127,18 @@ export default ({ onPress }: { onPress: (id: SettingScreenIds) => void }) => {
           ))
         }
       </View>
-      <Tile
-        id={last}
-        wide
-        title={t(`setting_${last}` as 'setting_basic')}
-        preview={previews[last]}
-        onPress={onPress}
-      />
+      {
+        wideTiles.map(id => (
+          <Tile
+            key={id}
+            id={id}
+            wide
+            title={t(`setting_${id}` as 'setting_basic')}
+            preview={previews[id]}
+            onPress={onPress}
+          />
+        ))
+      }
     </View>
   )
 }
@@ -166,6 +173,7 @@ const styles = createStyle({
     paddingRight: 12,
     paddingTop: 12,
     paddingBottom: 12,
+    marginBottom: 10,
   },
   iconWrap: {
     width: 34,

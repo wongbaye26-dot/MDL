@@ -1,5 +1,5 @@
 import { memo, useMemo, useRef } from 'react'
-import { View } from 'react-native'
+import { Linking, TouchableOpacity, View } from 'react-native'
 
 import Section from '../../components/Section'
 import SubTitle from '../../components/SubTitle'
@@ -54,6 +54,13 @@ export default memo(() => {
   const isUseOtherSource = useSettingValue('download.isUseOtherSource')
   const isDownloadLyric = useSettingValue('download.isDownloadLyric')
   const isDownloadPic = useSettingValue('download.isDownloadPic')
+
+  /** 跳系统设置授予「所有文件访问权限」，授了才能直接写公共音乐目录 */
+  const openAllFilesAccess = () => {
+    void Linking.sendIntent('android.settings.MANAGE_APP_ALL_FILES_ACCESS_PERMISSION', [
+      { key: 'package', value: 'cn.toside.music.mobile' },
+    ]).catch(() => { void Linking.openSettings() })
+  }
   const isWriteMetadata = useSettingValue('download.isWriteMetadata')
   const autoSaveWhilePlaying = useSettingValue('download.autoSaveWhilePlaying')
 
@@ -157,6 +164,18 @@ export default memo(() => {
         />
       </Section>
 
+      <Section title='存储权限'>
+        <TouchableOpacity style={styles.permRow} activeOpacity={0.7} onPress={openAllFilesAccess}>
+          <View style={styles.permInfo}>
+            <Text size={14}>所有文件访问权限</Text>
+            <Text size={10} color={theme['c-450']} style={styles.permDesc}>
+              没有它，歌曲只能存到 Android/data 私有目录，其他播放器读不到，也写不进封面
+            </Text>
+          </View>
+          <Text size={12} color={theme['c-primary']}>去授权</Text>
+        </TouchableOpacity>
+      </Section>
+
       <Section title='附加文件'>
         <CheckBoxItem
           check={isDownloadLyric}
@@ -194,6 +213,23 @@ export default memo(() => {
 })
 
 const styles = createStyle({
+  permRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingLeft: 14,
+    paddingRight: 14,
+    paddingTop: 12,
+    paddingBottom: 12,
+  },
+  permInfo: {
+    flexGrow: 1,
+    flexShrink: 1,
+    marginRight: 12,
+  },
+  permDesc: {
+    marginTop: 3,
+    lineHeight: 15,
+  },
   pathRow: {
     paddingLeft: 14,
     paddingRight: 14,

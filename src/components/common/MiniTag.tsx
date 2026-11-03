@@ -21,7 +21,7 @@ export default memo(({ text, color, bg }: {
   const theme = useTheme()
   return (
     <View style={[styles.tag, { backgroundColor: bg ?? theme['c-primary-alpha-900'] }]}>
-      <Text size={10} color={color ?? theme['c-450']} numberOfLines={1}>{text}</Text>
+      <Text size={9.5} color={color ?? theme['c-450']}>{text}{'\u2009'}</Text>
     </View>
   )
 })
@@ -30,8 +30,8 @@ const styles = StyleSheet.create({
   tag: {
     flexShrink: 0,
     flexGrow: 0,
-    paddingLeft: 6,
-    paddingRight: 6,
+    paddingLeft: 5,
+    paddingRight: 8,
     paddingTop: 2,
     paddingBottom: 2,
     borderRadius: 5,

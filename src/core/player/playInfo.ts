@@ -85,11 +85,24 @@ export const resetPlayerMusicInfo = () => {
   })
 }
 
+/**
+ * 播放器初始封面。
+ *
+ * MediaStore 的 albumart content:// 地址在「没有封面」的专辑上也会生成，
+ * 直接塞给播放器必然加载失败（播放页会黑一块）。这里先不显示，
+ * 交给 getPicPath 去解析：本地内嵌封面优先，没有才联网找。
+ */
+const getInitialPic = (picUrl?: string | null) => {
+  if (!picUrl) return null
+  if (picUrl.startsWith('content://')) return null
+  return picUrl
+}
+
 const setPlayerMusicInfo = (musicInfo: LX.Music.MusicInfo | LX.Download.ListItem | null) => {
   if (musicInfo) {
     setMusicInfo('progress' in musicInfo ? {
       id: musicInfo.id,
-      pic: musicInfo.metadata.musicInfo.meta.picUrl,
+      pic: getInitialPic(musicInfo.metadata.musicInfo.meta.picUrl),
       name: musicInfo.metadata.musicInfo.name,
       singer: musicInfo.metadata.musicInfo.singer,
       album: musicInfo.metadata.musicInfo.meta.albumName ?? '',
@@ -100,7 +113,7 @@ const setPlayerMusicInfo = (musicInfo: LX.Music.MusicInfo | LX.Download.ListItem
       rawlrc: null,
     } : {
       id: musicInfo.id,
-      pic: musicInfo.meta.picUrl,
+      pic: getInitialPic(musicInfo.meta.picUrl),
       name: musicInfo.name,
       singer: musicInfo.singer,
       album: musicInfo.meta.albumName ?? '',

@@ -15,6 +15,7 @@ import { getPlayerPalette } from '@/theme/playerPalette'
 import PlayGlyph from '../Views/Player/PlayGlyph'
 import { createStyle } from '@/utils/tools'
 import { contrastOn } from '@/theme/solid'
+import { cleanSongName } from '@/utils/songName'
 
 /**
  * 横屏内容区底部的迷你播放器。
@@ -35,6 +36,7 @@ export default memo(() => {
 
   if (autoHidePlayBar && keyboardShown) return null
   if (!musicInfo.name) return null
+  const songName = cleanSongName(musicInfo.name, musicInfo.singer)
 
   const openPlayer = () => { setNavActiveId('nav_player') }
 
@@ -62,10 +64,10 @@ export default memo(() => {
           {
             musicInfo.pic
               ? <Image url={musicInfo.pic} style={styles.pic} />
-              : <CoverPlaceholder name={musicInfo.name} size={38} radius={11} />
+              : <CoverPlaceholder name={songName} size={38} radius={11} />
           }
           <View style={styles.textArea}>
-            <Text size={13} numberOfLines={1} style={styles.name}>{musicInfo.name}</Text>
+            <Text size={13} numberOfLines={1} style={styles.name}>{songName}</Text>
             <Text size={11} color={theme['c-450']} numberOfLines={1} style={styles.singer}>{musicInfo.singer}</Text>
           </View>
         </TouchableOpacity>

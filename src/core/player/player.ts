@@ -19,6 +19,7 @@ import {
   clearTempPlayeList,
   removeTempPlayList,
 } from '@/core/player/tempPlayList'
+import { addRecentPlay } from '@/core/player/recentPlay'
 import { getMusicUrl, getPicPath, getLyricInfo } from '@/core/music'
 import { getPlayQuality } from '@/core/music/utils'
 import { requestMsg } from '@/utils/message'
@@ -219,6 +220,8 @@ const handleRestorePlay = async(restorePlayInfo: LX.Player.SavedPlayInfo) => {
   const playMusicInfo = playerState.playMusicInfo
 
   void initTrackInfo(musicInfo, playerState.musicInfo)
+  // 恢复播放也算一次「最近播放」，否则杀进程回来首页会少一首
+  void addRecentPlay(musicInfo)
 
   void getPicPath({ musicInfo, listId: playMusicInfo.listId }).then((url: string) => {
     if (
@@ -228,7 +231,8 @@ const handleRestorePlay = async(restorePlayInfo: LX.Player.SavedPlayInfo) => {
     ) return
     setMusicInfo({ pic: url })
     global.app_event.picUpdated()
-  })
+    // 封面失败不该影响播放，也不该变成未处理的 Promise 拒绝
+  }).catch((err: unknown) => { log.error(err) })
 
   void getLyricInfo({ musicInfo }).then((lyricInfo) => {
     if (musicInfo.id != playMusicInfo.musicInfo?.id) return
@@ -260,7 +264,7 @@ const debouncePlay = debounceBackgroundTimer((musicInfo: LX.Player.PlayMusic) =>
       playerState.loadErrorPicUrl == url) return
     setMusicInfo({ pic: url })
     global.app_event.picUpdated()
-  })
+  }).catch((err: unknown) => { log.error(err) })
 
   void getLyricInfo({ musicInfo }).then((lyricInfo) => {
     if (musicInfo.id != playerState.playMusicInfo.musicInfo?.id) return
@@ -313,6 +317,8 @@ const handlePlay = async() => {
   clearDelayNextTimeout()
   clearLoadTimeout()
 
+  // 首页「最近播放」和随机模式无关：任何模式播过的歌都记一笔
+  void addRecentPlay(musicInfo)
 
   if (settingState.setting['player.togglePlayMethod'] == 'random' && !playMusicInfo.isTempPlay) addPlayedList(playMusicInfo as LX.Player.PlayMusicInfo)
 

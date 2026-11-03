@@ -13,7 +13,7 @@ import {
   getOtherSource,
 } from './utils'
 import { getLocalFilePath } from '@/utils/music'
-import { readLyric, readPic } from '@/utils/localMediaMetadata'
+import { readLyric } from '@/utils/localMediaMetadata'
 import { stat } from '@/utils/fs'
 import { findAudioByPath } from '@/utils/directoryPicker'
 
@@ -116,17 +116,37 @@ export const getPicUrl = async({ musicInfo, listId, isRefresh, skipFilePic, onTo
   onToggleSource?: (musicInfo?: LX.Music.MusicInfoOnline) => void
 }): Promise<string> => {
   if (!isRefresh && !skipFilePic) {
-    let pic = await readPic(musicInfo.meta.filePath).catch(() => null)
-    if (pic) {
-      if (pic.startsWith('/')) pic = `file://${pic}`
-      return pic
-    }
+    /*
+      本地优先，没有就联网：
+      1. 文件内嵌封面（应用私有目录按路径读，公共目录用 content:// 文档 uri 抽）
+      2. 曲库里记着的可用封面地址（上次联网找到的网络地址 / 扫描时抽出的缓存文件）
+      3. 本地确认没有 → 用「歌名 + 歌手」联网找一张，找到后写回曲库，
+         这样列表、迷你播放条、下次进播放器都能直接用。
 
-    if (musicInfo.meta.picUrl) return musicInfo.meta.picUrl
+      注意：MediaStore 的 albumart content:// 地址不能当成「有封面」——
+      没封面的专辑也会生成这个地址，图片必然加载失败，以前就卡在这一步不联网。
+    */
+    const cover = await import('@/core/localMusic/cover').catch(() => null)
+    if (cover) {
+      const localPic = await cover.resolveLocalCover(musicInfo, { allowNetwork: false }).catch(() => '')
+      if (localPic) return localPic.startsWith('/') ? `file://${localPic}` : localPic
+
+      const networkPic = await cover.fetchNetworkCover(musicInfo).catch(() => '')
+      if (networkPic) {
+        void import('@/core/localMusic').then(async({ updateLocalMusicPic }) => {
+          await updateLocalMusicPic(musicInfo.meta.filePath, networkPic)
+        }).catch(() => {})
+        return networkPic
+      }
+    }
   }
 
   try {
     return await getOnlineOtherSourcePicByLocal(musicInfo).then(({ url }) => {
+      // 记住网络封面：下次开播放器 / 列表渲染都不用再搜一遍
+      void import('@/core/localMusic').then(async({ updateLocalMusicPic }) => {
+        await updateLocalMusicPic(musicInfo.meta.filePath, url)
+      }).catch(() => {})
       return url
     })
   } catch {}
@@ -137,6 +157,12 @@ export const getPicUrl = async({ musicInfo, listId, isRefresh, skipFilePic, onTo
       if (listId) {
         musicInfo.meta.picUrl = url
         void updateListMusics([{ id: listId, musicInfo }])
+      }
+      // 换成其它音源搜到的封面也要记住，不然每次播放都要重新搜一遍
+      if (!isFromCache) {
+        void import('@/core/localMusic').then(async({ updateLocalMusicPic }) => {
+          await updateLocalMusicPic(musicInfo.meta.filePath, url)
+        }).catch(() => {})
       }
 
       return url

@@ -72,6 +72,11 @@ export class StateEvent extends Event {
     this.emit('playPlayedListChanged', playedList)
   }
 
+  /** 首页「最近播放」历史变化（独立于随机模式的 playedList） */
+  recentPlayUpdated(list: LX.Music.MusicInfo[]) {
+    this.emit('recentPlayUpdated', list)
+  }
+
   playTempPlayListChanged(tempPlayList: PlayerState['tempPlayList']) {
     this.emit('playTempPlayListChanged', tempPlayList)
   }

@@ -41,6 +41,7 @@ import PlayGlyph from './PlayGlyph'
 import QueueCoverFlow from './QueueCoverFlow'
 import FadeMask from './FadeMask'
 import { u } from './metrics'
+import { cleanSongName } from '@/utils/songName'
 import { getPlayerPalette } from '@/theme/playerPalette'
 import {
   beginClose,
@@ -152,6 +153,8 @@ export default () => {
   const statusBarHeight = useStatusbarHeight()
   const navActiveId = useNavActiveId()
   const musicInfo = usePlayerMusicInfo()
+  /** 歌名只显示歌名（下载文件的标签常常是「歌手 - 歌名」） */
+  const songName = useMemo(() => cleanSongName(musicInfo.name, musicInfo.singer), [musicInfo.name, musicInfo.singer])
   const isPlay = useIsPlay()
   const progress = useProgress()
   const lines = useLrcSet()
@@ -542,7 +545,7 @@ export default () => {
   const detailRows = useMemo(() => {
     const raw = playerState.playMusicInfo.musicInfo
     const rows: Array<{ label: string, value: string }> = []
-    rows.push({ label: '歌名', value: musicInfo.name || '-' })
+    rows.push({ label: '歌名', value: songName || '-' })
     rows.push({ label: '歌手', value: musicInfo.singer || '-' })
     if (musicInfo.album) rows.push({ label: '专辑', value: musicInfo.album })
     if (raw) {
@@ -565,7 +568,7 @@ export default () => {
     return rows
     // 同上：musicInfo.id 只是切歌信号
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [musicInfo.id, musicInfo.name, musicInfo.singer, musicInfo.album, maxTime])
+  }, [musicInfo.id, songName, musicInfo.singer, musicInfo.album, maxTime])
 
   const queue = useMemo(() => {
     return queueVisible ? getListMusicSync(playerState.playInfo.playerListId) : []
@@ -720,7 +723,7 @@ export default () => {
                 >
                   <PicImage musicInfo={item} listId={playerState.playInfo.playerListId} style={styles.queueCover} />
                   <View style={styles.queueInfo}>
-                    <Text size={u(13)} color={active ? theme['c-primary'] : theme['c-font']} numberOfLines={1}>{item.name}</Text>
+                    <Text size={u(13)} color={active ? theme['c-primary'] : theme['c-font']} numberOfLines={1}>{cleanSongName(item.name, item.singer)}</Text>
                     <Text size={u(10)} color={theme['c-450']} numberOfLines={1} style={styles.queueSinger}>{item.singer}</Text>
                   </View>
                   <TouchableOpacity
@@ -851,7 +854,7 @@ export default () => {
             <View style={styles.landTopRow}>
               <View style={{ flexGrow: 1, flexShrink: 1 }}>
                 <MarqueeText
-                  text={musicInfo.name || '未在播放'}
+                  text={songName || '未在播放'}
                   size={u(18)}
                   color='#FFFFFF'
                   style={styles.songName}
@@ -997,7 +1000,7 @@ export default () => {
       <Animated.View pointerEvents='none' style={[styles.stage, { opacity: coverAnim }]}>
         <Stage
           pic={pic ?? undefined}
-          name={musicInfo.name}
+          name={songName}
           width={layoutW}
           height={layoutH}
           hidden={mode === 'lyric' || transitionPhase !== 'idle'}
@@ -1047,7 +1050,7 @@ export default () => {
           mode === 'lyric'
             ? (
               <View pointerEvents='none' style={styles.headerTitle}>
-                <MarqueeText text={musicInfo.name || '未在播放'} size={u(15)} color='rgba(255,255,255,0.96)' style={styles.headerName} align='center' />
+                <MarqueeText text={songName || '未在播放'} size={u(15)} color='rgba(255,255,255,0.96)' style={styles.headerName} align='center' />
                 <Text size={u(11)} color='rgba(255,255,255,0.62)' numberOfLines={1} style={styles.headerSinger}>{musicInfo.singer}</Text>
               </View>
               )
@@ -1127,7 +1130,7 @@ export default () => {
               <View style={styles.infoRow}>
                 <TouchableOpacity style={styles.titleText} activeOpacity={0.75} onPress={handleToggleMode}>
                   <MarqueeText
-                    text={musicInfo.name || '未在播放'}
+                    text={songName || '未在播放'}
                     size={u(18)}
                     color='#FFFFFF'
                     style={styles.songName}

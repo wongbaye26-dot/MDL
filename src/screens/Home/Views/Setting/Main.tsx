@@ -6,6 +6,7 @@ import Search from './settings/Search'
 import List from './settings/List'
 import Download from './settings/Download'
 import Other from './settings/Other'
+import Tools from './settings/Tools'
 import About from './settings/About'
 
 export const SETTING_SCREENS = [
@@ -15,6 +16,7 @@ export const SETTING_SCREENS = [
   'list',
   'download',
   'other',
+  'tools',
   'about',
 ] as const
 
@@ -47,6 +49,7 @@ const Main = forwardRef<MainType, {}>((props, ref) => {
       case 'list': return <List />
       case 'download': return <Download />
       case 'other': return <Other />
+      case 'tools': return <Tools />
       case 'about': return <About />
       case 'basic':
       default: return <Basic />
