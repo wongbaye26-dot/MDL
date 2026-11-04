@@ -1,6 +1,6 @@
 <p align="center"><img width="120" src="doc/images/icon.png" alt="EMO 音乐"></p>
 
-<h1 align="center">EMO 音乐</h1>
+<h1 align="center">Emo音乐</h1>
 
 <p align="center">一个以 Material You 为设计语言的本地 + 在线音乐播放器</p>
 
@@ -14,11 +14,11 @@
 
 ## 这是什么
 
-EMO 音乐是一个 Android 音乐播放器，支持**本地曲库**和**在线音源**（酷我 / 酷狗 / 企鹅 / 网易 / 咪咕）。
+Emo音乐是一个 Android 音乐播放器，支持**本地曲库**和**在线音源**（酷我 / 酷狗 / 企鹅 / 网易 / 咪咕）。
 
 界面以 **Material You** 为基准重新设计：磨砂玻璃胶囊、动态取色、圆形封面、大圆角。播放器支持横竖屏双布局，手势与动效都按手机端重新调过。
 
-> 本项目基于 [lx-music-mobile](https://github.com/lyswhut/lx-music-mobile) 二次开发，音源与数据层沿用上游实现，UI 与交互做了大规模重做。感谢原作者 [lyswhut](https://github.com/lyswhut) 的开源工作。
+> 本项目是独立的 Emo音乐 工程（目录 `MDL/EmoMusic`，与 lx-music-mobile 上游仓库分开维护），基于 [lx-music-mobile](https://github.com/lyswhut/lx-music-mobile) 二次开发，音源与数据层沿用上游实现，UI 与交互做了大规模重做。感谢原作者 [lyswhut](https://github.com/lyswhut) 的开源工作。
 
 ### 安装包隔离（v3.6.0 起）
 

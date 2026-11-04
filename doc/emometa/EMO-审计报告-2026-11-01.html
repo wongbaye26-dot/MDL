@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EMO 音乐 v3.5.0 项目审计报告</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#ffffff; --ink:#16181d; --ink-2:#4a5058; --ink-3:#828a94;
+    --line:#e5e8ec; --accent:#3f6fd8; --ok:#1f9d5c; --warn:#c07a09; --bad:#d0453c;
+    --ok-bg:#eaf7f0; --warn-bg:#fdf4e3; --bad-bg:#fdeceb; --chip:#eef1f6;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    line-height:1.65; font-size:15px;
+  }
+  .wrap{max-width:1000px;margin:0 auto;padding:40px 24px 80px}
+  header{margin-bottom:32px}
+  .eyebrow{color:var(--ink-3);font-size:13px;letter-spacing:.08em;text-transform:uppercase;font-weight:600}
+  h1{font-size:30px;line-height:1.3;margin:8px 0 10px;letter-spacing:-.01em}
+  .meta{color:var(--ink-3);font-size:13.5px}
+  .meta b{color:var(--ink-2);font-weight:600}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px 24px;margin:18px 0}
+  h2{font-size:19px;margin:0 0 4px;letter-spacing:-.01em}
+  h2 .n{color:var(--ink-3);font-weight:600;margin-right:8px;font-variant-numeric:tabular-nums}
+  .sub{color:var(--ink-3);font-size:13px;margin:0 0 16px}
+  h3{font-size:15px;margin:22px 0 8px}
+
+  .score{display:flex;gap:20px;align-items:center;flex-wrap:wrap}
+  .big{font-size:52px;font-weight:800;letter-spacing:-.03em;line-height:1;font-variant-numeric:tabular-nums}
+  .big small{font-size:16px;font-weight:600;color:var(--ink-3);margin-left:4px}
+  .verdict{flex:1;min-width:240px;color:var(--ink-2);font-size:14px}
+  .verdict b{color:var(--ink)}
+
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--ink-3);font-weight:600;font-size:12px;letter-spacing:.03em;text-transform:uppercase;white-space:nowrap}
+  tr:last-child td{border-bottom:none}
+  td.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+  .bar{height:6px;border-radius:3px;background:var(--chip);overflow:hidden;min-width:70px}
+  .bar i{display:block;height:100%;border-radius:3px;background:var(--accent)}
+  .bar.ok i{background:var(--ok)} .bar.warn i{background:var(--warn)} .bar.bad i{background:var(--bad)}
+
+  .tag{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11.5px;font-weight:700;letter-spacing:.02em;white-space:nowrap}
+  .t-ok{background:var(--ok-bg);color:var(--ok)}
+  .t-warn{background:var(--warn-bg);color:var(--warn)}
+  .t-bad{background:var(--bad-bg);color:var(--bad)}
+  .t-p0{background:#3b1d1b;color:#ffd9d6}
+  .t-p1{background:var(--bad-bg);color:var(--bad)}
+  .t-p2{background:var(--warn-bg);color:var(--warn)}
+  .t-p3{background:var(--chip);color:var(--ink-2)}
+
+  code{background:var(--chip);padding:1.5px 6px;border-radius:5px;font-size:12.5px;
+       font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  .path{color:var(--ink-3);font-size:12px}
+
+  ul{margin:8px 0 0;padding-left:20px}
+  li{margin:5px 0}
+  .kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:6px}
+  .kv div{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+  .kv .k{font-size:12px;color:var(--ink-3);font-weight:600}
+  .kv .v{font-size:20px;font-weight:800;letter-spacing:-.02em;margin-top:2px;font-variant-numeric:tabular-nums}
+  .kv .v small{font-size:12px;font-weight:600;color:var(--ink-3);margin-left:3px}
+  .note{border-left:3px solid var(--accent);background:#f2f6fd;padding:12px 16px;border-radius:0 10px 10px 0;font-size:13.5px;color:var(--ink-2);margin-top:14px}
+  footer{margin-top:36px;color:var(--ink-3);font-size:12.5px;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">Project Audit</div>
+  <h1>EMO 音乐 v3.5.0 项目审计报告</h1>
+  <div class="meta">
+    审计对象：<b>lx-music-mobile（EMO 定制版）</b> · 仓库 <code>master</code> @ <b>1c38b23e</b> + 14 个未提交改动<br>
+    审计时间：<b>2026-11-01 22:10</b> · 审计方式：静态扫描 + 真机验证（Samsung R5CY10H9VFW，Android 13）<br>
+    说明：审计中途 USB 调试断开，运行时结论基于断开前的截图与 logcat 取证。
+  </div>
+</header>
+
+<!-- 总评 -->
+<div class="card">
+  <div class="score">
+    <div class="big">67<small>/100</small></div>
+    <div class="verdict">
+      <b>结论：可以日常使用，功能面基本兑现；工程化欠账明显。</b><br>
+      用户可感知的需求已完成约 <b>26 / 30</b>，视觉还原度高；但代码健康度、依赖治理、交付流程三项拉低总分。
+      最需要处理的是<b>新旧两套播放器并存</b>（2813 行旧代码仍可被用户触发）和<b>4 个本地 fork 的原生依赖</b>。
+    </div>
+  </div>
+</div>
+
+<!-- 分项评分 -->
+<div class="card">
+  <h2><span class="n">01</span>分项评分</h2>
+  <p class="sub">按权重加权得出总分；每项分数都有下文的具体证据支撑。</p>
+  <table>
+    <thead><tr><th>维度</th><th style="width:130px">得分</th><th>依据</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>功能完成度 <span class="path">30%</span></td>
+        <td class="num"><div class="bar ok"><i style="width:82%"></i></div> 82</td>
+        <td>30 项需求完成 26 项；缺口集中在本地音乐卡片模式、占位封面、旧播放器残留</td>
+      </tr>
+      <tr>
+        <td>视觉还原度 <span class="path">15%</span></td>
+        <td class="num"><div class="bar ok"><i style="width:88%"></i></div> 88</td>
+        <td>竖屏播放器 / 歌词页 / 横屏播放器 / 3D 队列均按飞牛实测 dp 复刻，Material You 全链路生效</td>
+      </tr>
+      <tr>
+        <td>代码健康度 <span class="path">20%</span></td>
+        <td class="num"><div class="bar warn"><i style="width:55%"></i></div> 55</td>
+        <td>tsc 32 错 / eslint 81 错、106 处活跃 console.log、0 测试</td>
+      </tr>
+      <tr>
+        <td>架构可维护性 <span class="path">15%</span></td>
+        <td class="num"><div class="bar bad"><i style="width:48%"></i></div> 48</td>
+        <td>4 个 vendor fork 原生依赖、postinstall 补丁、2813 行死代码、无 CI</td>
+      </tr>
+      <tr>
+        <td>运行时稳定性 <span class="path">10%</span></td>
+        <td class="num"><div class="bar warn"><i style="width:70%"></i></div> 70</td>
+        <td>核心路径真机验证通过；Android 5–7 兼容性、权限撤销、超大目录未覆盖</td>
+      </tr>
+      <tr>
+        <td>工程化 / 交付 <span class="path">10%</span></td>
+        <td class="num"><div class="bar bad"><i style="width:45%"></i></div> 45</td>
+        <td>dist 累积 133 个 APK / 3.0 GB，最新构建未归档，签名密钥仅存本机</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 需求矩阵 -->
+<div class="card">
+  <h2><span class="n">02</span>需求完成度矩阵</h2>
+  <p class="sub">按对话历史里提出的需求逐条回溯到代码位置。<span class="tag t-ok">已交付</span> <span class="tag t-warn">部分</span> <span class="tag t-bad">缺失</span></p>
+  <table>
+    <thead><tr><th style="width:34%">需求</th><th style="width:70px">状态</th><th>实现位置 / 说明</th></tr></thead>
+    <tbody>
+      <tr><td>竖屏播放器封面上下柔化渐变</td><td><span class="tag t-ok">已交付</span></td><td><code>Player/index.tsx</code> · MaskedView + LinearGradient 真渐变遮罩</td></tr>
+      <tr><td>歌词页 1:1 复刻飞牛</td><td><span class="tag t-ok">已交付</span></td><td>歌词区独立实现，进度吃 <code>progress.nowPlayTime</code> 而非 getPosition</td></tr>
+      <tr><td>封面/歌词/标题/进度条间距对齐</td><td><span class="tag t-ok">已交付</span></td><td>改用普通对象样式 + <code>u()</code> 抵消 375×667 缩放（K≈1.097）</td></tr>
+      <tr><td>Material You 应用到播放器与歌词页</td><td><span class="tag t-ok">已交付</span></td><td><code>theme/playerPalette.ts</code>（165 行）统一派生 accent/surface/track</td></tr>
+      <tr><td>三个主控键图标重构 + 精确对齐</td><td><span class="tag t-ok">已交付</span></td><td><code>Player/PlayGlyph.tsx</code> 自绘，实测 dx=+1.1dp 补偿 MCI 字形偏移</td></tr>
+      <tr><td>播放器下滑不白屏</td><td><span class="tag t-ok">已交付</span></td><td><code>slideBackdrop</code> 深色垫片 top:-2400</td></tr>
+      <tr><td>横屏全站布局重构</td><td><span class="tag t-ok">已交付</span></td><td><code>Home/Horizontal/</code>（262 行）复用 Views，内容区整屏 + Aside 浮层</td></tr>
+      <tr><td>横屏真全屏（左侧白边消失）</td><td><span class="tag t-ok">已交付</span></td><td><code>CutoutCompensator.tsx</code> 负 margin 补偿 96px 挖孔 inset</td></tr>
+      <tr><td>胶囊侧栏与竖屏统一</td><td><span class="tag t-ok">已交付</span></td><td><code>Horizontal/Aside.tsx</code> 悬浮玻璃胶囊，4 入口，图标实心/描边</td></tr>
+      <tr><td>横屏播放器照飞牛（左半屏出血封面）</td><td><span class="tag t-ok">已交付</span></td><td>左半屏 <code>resizeMode='cover'</code> + 右侧 96px 渐隐，右栏歌词/进度/控制</td></tr>
+      <tr><td>横屏播放队列 1:1 3D 封面流</td><td><span class="tag t-ok">已交付</span></td><td><code>QueueCoverFlow.tsx</code> rotateY ±42°，间距 0.72×封面</td></tr>
+      <tr><td>列表 / 卡片样式切换</td><td><span class="tag t-warn">部分</span></td><td>搜索、排行榜、歌单详情有；<b>本地音乐、我的列表没有</b></td></tr>
+      <tr><td>胶囊 5 入口 + 本地音乐居中</td><td><span class="tag t-ok">已交付</span></td><td><code>config/constant.ts NAV_MENUS</code></td></tr>
+      <tr><td>胶囊封面放大 + 进度沿边框</td><td><span class="tag t-ok">已交付</span></td><td><code>CapsuleProgress.tsx</code> SVG Rect 虚线，周长 = 2·(w−2r)+2πr</td></tr>
+      <tr><td>多套进度样式（可设置）</td><td><span class="tag t-ok">已交付</span></td><td><code>common.navProgressStyle</code> = border / ring / none，设置页已接线</td></tr>
+      <tr><td>本地音乐 Poweramp 层级</td><td><span class="tag t-ok">已交付</span></td><td>5 页签（全部/文件夹/专辑/艺人/最近）+ 专辑·艺人二级页</td></tr>
+      <tr><td>多文件夹导入（SAF）</td><td><span class="tag t-ok">已交付</span></td><td>透明代理 Activity 接 <code>onActivityResult</code>（RNN 不转发），treeUri 一并回传</td></tr>
+      <tr><td>显示专辑封面</td><td><span class="tag t-ok">已交付</span></td><td><code>getEmbeddedPicture()</code> 写缓存返回 file://，绕开 Android 10+ 读不出的 albumart</td></tr>
+      <tr><td>补采样率 / 码率</td><td><span class="tag t-ok">已交付</span></td><td>MediaMetadataRetriever，真机显示 44.1 kHz / 801 kbps</td></tr>
+      <tr><td>文件夹不要多层</td><td><span class="tag t-ok">已交付</span></td><td>只列「直接含歌」的目录，点进去一层到底</td></tr>
+      <tr><td>添加文件夹后扫不到歌</td><td><span class="tag t-ok">已交付</span></td><td><code>listTree</code> SAF 枚举，实测 20 首 → 64 首</td></tr>
+      <tr><td>保存目录可更换</td><td><span class="tag t-ok">已交付</span></td><td>修 import 崩溃 + <code>canWriteTree</code>/<code>copyToTree</code>，实测落盘成功</td></tr>
+      <tr><td>权限管理页 + 首次启动授权</td><td><span class="tag t-ok">已交付</span></td><td><code>core/permissions.ts</code> + <code>Other/Permissions.tsx</code></td></tr>
+      <tr><td>自定义源 UI 统一</td><td><span class="tag t-ok">已交付</span></td><td>歌曲来源名称改胶囊（原名 / 别名）</td></tr>
+      <tr><td>文案替换（洛雪/LX Music → EMO音乐）</td><td><span class="tag t-ok">已交付</span></td><td>语言包 + 代码内硬编码 <b>0 条残留</b>（已核验）</td></tr>
+      <tr><td>播放要等几秒</td><td><span class="tag t-warn">部分</span></td><td>本地已秒播（无在线请求、无 EACCES）；<b>在线音源仍可能随机等 2–6 s</b></td></tr>
+      <tr><td>下载中心 / 设置 UI 重构</td><td><span class="tag t-ok">已交付</span></td><td>卡片化 + 统一 Section 语言</td></tr>
+      <tr><td>排行榜 / 歌单广场 / 歌单页 UI 统一</td><td><span class="tag t-ok">已交付</span></td><td><code>components/OnlineList</code> 统一列表/卡片</td></tr>
+      <tr><td>无封面歌曲的占位封面（首字母+主题色）</td><td><span class="tag t-bad">缺失</span></td><td>目前只有主题色底 + 音符图标</td></tr>
+      <tr><td>抽屉菜单「本地音乐」文字</td><td><span class="tag t-ok">已交付</span></td><td>本次审计发现并修复（<code>nav_local</code> 缺语言键 → 渲染为空串）</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 问题清单 -->
+<div class="card">
+  <h2><span class="n">03</span>问题清单</h2>
+  <p class="sub">按严重度排序。P0 = 阻断或数据风险；P1 = 用户可感知的功能缺陷；P2 = 兼容/健壮性；P3 = 工程化。</p>
+
+  <table>
+    <thead><tr><th style="width:56px">级别</th><th style="width:30%">问题</th><th>证据与影响</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><span class="tag t-p0">P0</span></td>
+        <td>本次审计未发现阻断性问题</td>
+        <td>核心链路（启动、扫描、播放、下载、设置）均可用</td>
+      </tr>
+      <tr>
+        <td><span class="tag t-p1">P1</span></td>
+        <td><b>新旧两套播放器并存</b></td>
+        <td>
+          <code>screens/PlayDetail/</code> <b>2813 行</b>旧 lx-music 播放器仍在注册（<code>lxm.PlayDetailScreen</code>），
+          且「基本设置 → 启动后打开播放详情页」开关（<code>player.startupPushPlayDetailScreen</code>）打开后，
+          启动会 push <b>旧播放器</b>，与新的飞牛风格播放器完全两套 UI。零代码复用。
+        </td>
+      </tr>
+      <tr>
+        <td><span class="tag t-p1">P1</span></td>
+        <td>抽屉菜单「本地音乐」无文字</td>
+        <td>
+          <code>DrawerNav.tsx:114</code> 调 <code>t('nav_local')</code>，但三个语言包都没有该键，
+          <code>getMessage()</code> 对缺失键返回 <code>''</code> → 只显示图标没有文字。<b>本次已修</b>（zh-cn/zh-tw/en-us 各补 1 行）。
+        </td>
+      </tr>
+      <tr>
+        <td><span class="tag t-p1">P1</span></td>
+        <td>本地音乐没有列表/卡片切换</td>
+        <td>「支持列表/卡片样式」只覆盖了在线列表（<code>OnlineList</code> + 歌单详情），本地音乐自建列表未接</td>
+      </tr>
+      <tr>
+        <td><span class="tag t-p1">P1</span></td>
+        <td>在线播放仍可能随机等 2–6 秒</td>
+        <td>
+          <code>core/player/player.ts:79</code> <code>const time = getRandom(2, 6)</code>：
+          音源限流时进入 <code>delayRetry</code>，用户看到「正在获取链接，X 秒后重试」。
+          本地音乐已不走这条路，但在线歌曲仍会。
+        </td>
+      </tr>
+      <tr>
+        <td><span class="tag t-p1">P1</span></td>
+        <td>无内嵌封面的歌只有图标</td>
+        <td>列表/播放器都退化成主题色底 + 音符图标，缺少「首字母」占位（此前提过但未确认实施）</td>
+      </tr>
+
+      <tr>
+        <td><span class="tag t-p2">P2</span></td>
+        <td>SAF 写入用了 API 26 才有的截断模式</td>
+        <td>
+          <code>DirectoryPickerModule.copyToTree</code> 原用 <code>openOutputStream(uri,"wt")</code>，
+          但 <code>minSdkVersion = 21</code> → Android 5–7 上下载完成却保存失败。
+          <b>本次已修</b>：改为「先删同名文档再 createDocument + "w"」，全程 API 21 可用。
+        </td>
+      </tr>
+      <tr>
+        <td><span class="tag t-p2">P2</span></td>
+        <td>文件 IO 层完全没有类型</td>
+        <td>
+          <code>react-native-file-system</code> 的 <code>package.json</code> 声明
+          <code>types: lib/typescript/src/index.d.ts</code>，但该文件<b>不存在</b> →
+          <code>utils/fs.ts</code> 与 <code>localMediaMetadata.ts</code> 共 6 个 <code>TS2307</code>，
+          整个文件系统层裸奔（这是最容易出运行时问题的一层）。
+        </td>
+      </tr>
+      <tr>
+        <td><span class="tag t-p2">P2</span></td>
+        <td><code>getSavePath</code> 缓存竞态</td>
+        <td><code>core/download/index.ts:354/360/365</code> eslint <code>require-atomic-updates</code> ×3：
+          <code>cachedSavePath</code> 在 await 之后基于旧值赋值，并发下载时可能指向已被判定不可用的目录。</td>
+      </tr>
+      <tr>
+        <td><span class="tag t-p2">P2</span></td>
+        <td>SAF 授权被撤销后无提示</td>
+        <td>用户清理存储/重装后 treeUri 失效，只有下一次下载时报「目标目录不可写」，扫描则静默 0 首</td>
+      </tr>
+      <tr>
+        <td><span class="tag t-p2">P2</span></td>
+        <td>大目录扫描会丢标签</td>
+        <td><code>collectPublicDir</code> 的 <code>metaBudget = 500</code>，超过 500 首后剩余文件只有文件名，无歌手/封面/采样率</td>
+      </tr>
+      <tr>
+        <td><span class="tag t-p2">P2</span></td>
+        <td>挖孔补偿是几何 hack</td>
+        <td><code>CutoutCompensator</code> 用「窗口宽 − 布局宽」负 margin 顶回去。主题 / MainActivity / RNN 三条正路都试过无效，
+          属于 RN 0.73 + RNN 7.39 + targetSdk 29 组合下的已知妥协；换机型需重新验证。</td>
+      </tr>
+
+      <tr>
+        <td><span class="tag t-p3">P3</span></td>
+        <td>零测试</td>
+        <td>全仓 0 个 <code>*.test.*</code> / <code>__tests__</code>，所有回归靠真机手点</td>
+      </tr>
+      <tr>
+        <td><span class="tag t-p3">P3</span></td>
+        <td>4 个核心原生依赖是本地 fork</td>
+        <td>
+          <code>react-native-track-player@2.1.2</code>（2021 年）、<code>react-native-background-timer</code>、
+          <code>react-native-file-system</code>、<code>react-native-local-media-metadata</code>
+          全部指向 <code>file:../vendor/*</code>。RNTP 还额外打了 <code>updateNowPlayingTitles</code>/<code>isCached</code>
+          等自定义方法 —— 升级等于重做移植。
+        </td>
+      </tr>
+      <tr>
+        <td><span class="tag t-p3">P3</span></td>
+        <td>依赖靠 postinstall 打补丁</td>
+        <td><code>dependencies-patch.js</code> 直接改 <code>node_modules</code> 里的 <code>build.gradle</code>（AGP 8 namespace），
+          重装依赖若脚本没跑就构建失败</td>
+      </tr>
+      <tr>
+        <td><span class="tag t-p3">P3</span></td>
+        <td>类型与 lint 欠账</td>
+        <td>tsc <b>32 错 / 18 文件</b>；eslint <b>81 错 / 7 警告 / 30 文件</b>
+          （37 × no-unsafe-argument、25 × quote-props、5 × exhaustive-deps）</td>
+      </tr>
+      <tr>
+        <td><span class="tag t-p3">P3</span></td>
+        <td>调试输出未清理</td>
+        <td>106 处活跃 <code>console.log</code>（另有 216 处已注释），release 包里同样在打日志</td>
+      </tr>
+      <tr>
+        <td><span class="tag t-p3">P3</span></td>
+        <td>产物归档失控</td>
+        <td><code>dist/</code> 累积 <b>133 个 APK / 3.0 GB</b>（v2.0.0 → v3.5.0）；
+          <code>EMO-v3.5.0</code> 只有 21:05 的 arm64 一份，<b>最新 22:07 的构建（含本次修复）未归档，且缺 universal</b></td>
+      </tr>
+      <tr>
+        <td><span class="tag t-p3">P3</span></td>
+        <td>签名密钥只存本机</td>
+        <td><code>keystore.properties</code> 已 gitignore（安全没问题），但密钥无异地备份 →
+          丢失后老用户无法覆盖升级，只能卸载重装</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 代码规模 -->
+<div class="card">
+  <h2><span class="n">04</span>规模与热点</h2>
+  <p class="sub">542 个 ts/tsx 文件、57,584 行；下列文件是复杂度热点，改动风险最高。</p>
+  <div class="kv">
+    <div><div class="k">源码总量</div><div class="v">57,584<small>行</small></div></div>
+    <div><div class="k">本次改动</div><div class="v">+701<small>−199</small></div></div>
+    <div><div class="k">vendor fork</div><div class="v">4<small>个</small></div></div>
+    <div><div class="k">dist 产物</div><div class="v">3.0<small>GB</small></div></div>
+  </div>
+  <table style="margin-top:18px">
+    <thead><tr><th>文件</th><th style="width:90px">行数</th><th>风险点</th></tr></thead>
+    <tbody>
+      <tr><td><code>screens/Home/Views/Player/index.tsx</code></td><td class="num">1,310</td><td>单文件承载竖屏+横屏+歌词+队列四套布局，改一处要通读</td></tr>
+      <tr><td><code>screens/Home/Views/LocalMusic/index.tsx</code></td><td class="num">1,125</td><td>5 个页签 + 二级页 + 目录管理 + 编辑弹窗 + 下滑关闭全在一起</td></tr>
+      <tr><td><code>screens/PlayDetail/**</code></td><td class="num">2,813</td><td><b>应删除的旧播放器</b></td></tr>
+      <tr><td><code>core/player/player.ts</code></td><td class="num">699</td><td>播放状态机 + 取流重试 + 歌词/封面联动</td></tr>
+      <tr><td><code>core/download/index.ts</code></td><td class="num">570</td><td>任务队列 + SAF 落盘 + 边听边存</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 建议 -->
+<div class="card">
+  <h2><span class="n">05</span>建议的下一步</h2>
+  <p class="sub">按「投入产出比」排序，前两项做完能显著降低长期成本。</p>
+  <table>
+    <thead><tr><th style="width:52px">优先级</th><th style="width:30%">动作</th><th>理由</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><span class="tag t-p1">先做</span></td>
+        <td>删掉 <code>screens/PlayDetail/</code> 与相关设置项</td>
+        <td>一次性移除 2813 行死代码，同时消除「打开开关进入旧播放器」的体验断层。删前确认没有隐藏入口引用。</td>
+      </tr>
+      <tr>
+        <td><span class="tag t-p1">先做</span></td>
+        <td>给两个 fork 依赖补 <code>.d.ts</code></td>
+        <td>写两个 10 行的声明文件，就能把文件 IO 层的 6 个类型错误清零，让 <code>tsc</code> 真正能守住这一层。</td>
+      </tr>
+      <tr>
+        <td><span class="tag t-p2">其次</span></td>
+        <td>本地音乐接上列表/卡片切换</td>
+        <td>复用 <code>OnlineList</code> 的布局切换逻辑，补齐「全站统一」的最后一块</td>
+      </tr>
+      <tr>
+        <td><span class="tag t-p2">其次</span></td>
+        <td>把在线重试从「随机 2–6 秒」改成「立即重试 + 递增退避」</td>
+        <td>限流场景下用户感知从「等 4 秒」变成「等 1 秒」，且不改变重试语义</td>
+      </tr>
+      <tr>
+        <td><span class="tag t-p2">其次</span></td>
+        <td>给 SAF 目录加「授权失效」检测与一键重授权</td>
+        <td>已经写好 <code>canWriteTree</code>，扫描前顺手探一次即可，避免静默 0 首</td>
+      </tr>
+      <tr>
+        <td><span class="tag t-p3">有余力</span></td>
+        <td>清理 console.log、把 eslint 降到 0、加一个冒烟测试</td>
+        <td>release 日志会拖慢 JS 线程；至少给「扫描→播放→下载」三条主链路各写一个脚本化冒烟</td>
+      </tr>
+      <tr>
+        <td><span class="tag t-p3">有余力</span></td>
+        <td>归档脚本 + dist 瘦身 + 密钥异地备份</td>
+        <td>只保留最近 5 个版本，其余压缩或删除；密钥备份到密码管理器</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="note">
+    <b>本次审计顺手修掉的 2 个缺陷</b>：抽屉「本地音乐」空白文字（补 3 个语言键）、
+    SAF 写入的 API 26 兼容性问题（改为删后重建 + <code>"w"</code> 模式）。
+    两处改动已通过 <code>assembleRelease</code> 编译验证（22:07 产物），但因设备断开未做真机复验。
+  </div>
+</div>
+
+<footer>
+  EMO 音乐项目审计 · 2026-11-01 · 静态证据来自 <code>tsc</code>/<code>eslint</code>/<code>git</code>/源码检索，运行时证据来自 Samsung R5CY10H9VFW 真机截图与 logcat
+</footer>
+
+</div>
+</body>
+</html>
