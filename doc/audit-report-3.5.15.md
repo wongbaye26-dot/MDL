@@ -1,6 +1,6 @@
-# EMO 音乐项目完成度审计报告
+# EmoMusic项目完成度审计报告
 
-- 审计对象：`lx-music-mobile`（EMO 音乐 Android 客户端，基于 LX Music 二次开发）
+- 审计对象：`EmoMusic`（EmoMusic Android 客户端，基于 lxmusic 开源项目 二次开发）
 - 代码基线：`3f76a1a1`（v3.5.15 / versionCode 161）
 - 审计时间：2026-11-04 00:10（Asia/Bangkok）
 - 审计环境：macOS + Android SDK 34 / JDK 17；真机 Samsung SM-S938B（Android 17）

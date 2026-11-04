@@ -1,7 +1,7 @@
 {
   "name": "em-music",
-  "version": "3.6.4",
-  "versionCode": 169,
+  "version": "3.6.5",
+  "versionCode": 170,
   "private": true,
   "scripts": {
     "dev": "react-native run-android --active-arch-only",
@@ -43,8 +43,7 @@
     "react-native-app"
   ],
   "author": {
-    "name": "lyswhut",
-    "email": "lyswhut@qq.com"
+    "name": "EmoMusic"
   },
   "license": "Apache-2.0",
   "bugs": {
@@ -115,5 +114,11 @@
     "react-native-navigation": {
       "lodash": "^4.18"
     }
-  }
+  },
+  "contributors": [
+    {
+      "name": "lyswhut",
+      "url": "https://github.com/lyswhut"
+    }
+  ]
 }

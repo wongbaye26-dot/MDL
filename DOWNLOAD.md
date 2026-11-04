@@ -1,6 +1,6 @@
 # 手机音乐下载器改造说明
 
-本项目基于 [lx-music-mobile](https://github.com/lyswhut/lx-music-mobile) 改造，在原播放器的基础上补齐了**完整的下载能力**，定位为「下载为主 + 保留试听」的手机音乐下载器，并保留 LX 自定义音源（音源脚本）支持。
+本项目是 **EmoMusic** 的下载模块说明。EmoMusic 基于 lxmusic 开源项目二次开发（直接使用的 lxmusic 项目为 lx-music-mobile），并在原播放器基础上补齐了**完整的下载能力**，定位为「下载为主 + 保留试听」的手机音乐下载器；自定义音源脚本格式保持兼容。
 
 ## 一、已实现能力
 
@@ -14,18 +14,18 @@
 | 断点续传 | 原生层以 HTTP Range 续传，中断后保留 `.part` 文件，重启应用后可继续 |
 | 链接失效重试 | 401/403/404/410/416 时自动刷新下载地址重试（最多 2 次） |
 | 歌词 / 封面 / 标签 | 下载同名 `.lrc`、把封面与「歌名/歌手/专辑」写入音频标签（需文件系统路径，SAF 目录下仅写 `.lrc`） |
-| 保存目录 | 默认 `公共音乐目录/Music/LXMusic`；不可写时自动回退到应用专属目录；也可用系统目录选择器指定任意目录 |
+| 保存目录 | 默认 `公共音乐目录/Music/EmoMusic`；不可写时自动回退到应用专属目录；也可用系统目录选择器指定任意目录 |
 | 文件名模板 | `歌名 - 歌手` / `歌手 - 歌名` / `歌名` |
 | 下载中心 | 独立「下载」Tab：进度条、速度、状态、全部开始/暂停、清空已完成、单任务暂停/继续/重试/删除 |
 
-LX 音源相关：任务创建时通过 `global.lx.qualityList[source]` 读取**当前音源脚本声明的音质列表**，并结合歌曲 `meta._qualitys` 做音质降级；URL 解析走原有 `handleGetOnlineMusicUrl` 管线，因此内置音源与自定义音源脚本（`user_api_*`）行为一致。
+自定义音源相关：任务创建时通过 `global.lx.qualityList[source]` 读取**当前音源脚本声明的音质列表**，并结合歌曲 `meta._qualitys` 做音质降级；URL 解析走原有 `handleGetOnlineMusicUrl` 管线，因此内置音源与自定义音源脚本（`user_api_*`）行为一致。
 
 ## 二、代码结构
 
 ### Android 原生层（新增）
 
 ```
-android/app/src/main/java/cn/toside/music/mobile/download/
+android/app/src/main/java/cn/emomusic/mobile/download/
 ├── DownloadModule.java   // RN 模块：startTask / pauseTask / removeTask / getTaskInfo
 ├── DownloadTask.java     // 单任务下载线程：HttpURLConnection + Range 续传 + 进度上报
 ├── DownloadEvent.java    // 统一事件通道 download-event（start/progress/pause/complete/error）
@@ -67,7 +67,7 @@ src/screens/Home/Views/Setting/settings/Download/  // 下载设置分组
 
 ## 三、存储与权限说明
 
-- 默认保存目录：`/storage/emulated/0/Music/LXMusic`（`Dirs.SDCardDir` + `/Music/LXMusic`）。
+- 默认保存目录：`/storage/emulated/0/Music/EmoMusic`（`Dirs.SDCardDir` + `/Music/EmoMusic`）。
 - 应用 `targetSdkVersion = 29` 且开启了 `requestLegacyExternalStorage`，因此公共目录写入在 Android 10/11/12/13 上通常可用。
 - 若目标目录不可写（例如部分 ROM 限制），`getSavePath()` 会依次回退：
   1. 用户设置的目录（绝对路径）

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>EMO 音乐 v3.5.0 项目审计报告</title>
+<title>EmoMusic v3.5.0 项目审计报告</title>
 <style>
   :root{
     --bg:#f6f7f9; --card:#ffffff; --ink:#16181d; --ink-2:#4a5058; --ink-3:#828a94;
@@ -73,9 +73,9 @@
 
 <header>
   <div class="eyebrow">Project Audit</div>
-  <h1>EMO 音乐 v3.5.0 项目审计报告</h1>
+  <h1>EmoMusic v3.5.0 项目审计报告</h1>
   <div class="meta">
-    审计对象：<b>lx-music-mobile（EMO 定制版）</b> · 仓库 <code>master</code> @ <b>1c38b23e</b> + 14 个未提交改动<br>
+    审计对象：<b>EmoMusic（EMO 定制版）</b> · 仓库 <code>master</code> @ <b>1c38b23e</b> + 14 个未提交改动<br>
     审计时间：<b>2026-11-01 22:10</b> · 审计方式：静态扫描 + 真机验证（Samsung R5CY10H9VFW，Android 13）<br>
     说明：审计中途 USB 调试断开，运行时结论基于断开前的截图与 logcat 取证。
   </div>
@@ -165,7 +165,7 @@
       <tr><td>保存目录可更换</td><td><span class="tag t-ok">已交付</span></td><td>修 import 崩溃 + <code>canWriteTree</code>/<code>copyToTree</code>，实测落盘成功</td></tr>
       <tr><td>权限管理页 + 首次启动授权</td><td><span class="tag t-ok">已交付</span></td><td><code>core/permissions.ts</code> + <code>Other/Permissions.tsx</code></td></tr>
       <tr><td>自定义源 UI 统一</td><td><span class="tag t-ok">已交付</span></td><td>歌曲来源名称改胶囊（原名 / 别名）</td></tr>
-      <tr><td>文案替换（洛雪/LX Music → EMO音乐）</td><td><span class="tag t-ok">已交付</span></td><td>语言包 + 代码内硬编码 <b>0 条残留</b>（已核验）</td></tr>
+      <tr><td>文案替换（洛雪/lxmusic 开源项目 → EMO音乐）</td><td><span class="tag t-ok">已交付</span></td><td>语言包 + 代码内硬编码 <b>0 条残留</b>（已核验）</td></tr>
       <tr><td>播放要等几秒</td><td><span class="tag t-warn">部分</span></td><td>本地已秒播（无在线请求、无 EACCES）；<b>在线音源仍可能随机等 2–6 s</b></td></tr>
       <tr><td>下载中心 / 设置 UI 重构</td><td><span class="tag t-ok">已交付</span></td><td>卡片化 + 统一 Section 语言</td></tr>
       <tr><td>排行榜 / 歌单广场 / 歌单页 UI 统一</td><td><span class="tag t-ok">已交付</span></td><td><code>components/OnlineList</code> 统一列表/卡片</td></tr>
@@ -389,7 +389,7 @@
 </div>
 
 <footer>
-  EMO 音乐项目审计 · 2026-11-01 · 静态证据来自 <code>tsc</code>/<code>eslint</code>/<code>git</code>/源码检索，运行时证据来自 Samsung R5CY10H9VFW 真机截图与 logcat
+  EmoMusic项目审计 · 2026-11-01 · 静态证据来自 <code>tsc</code>/<code>eslint</code>/<code>git</code>/源码检索，运行时证据来自 Samsung R5CY10H9VFW 真机截图与 logcat
 </footer>
 
 </div>

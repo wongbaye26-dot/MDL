@@ -182,7 +182,7 @@ export default () => {
               </View>
               <Text size={13} color={palette.text} style={styles.emptyTitle}>{t('user_api_empty')}</Text>
               <Text size={11} color={palette.textSecondary} style={styles.emptyTip}>
-                点上方「导入」添加 LX Music 格式的自定义源脚本
+                点上方「导入」添加自定义源脚本
               </Text>
             </View>
             )

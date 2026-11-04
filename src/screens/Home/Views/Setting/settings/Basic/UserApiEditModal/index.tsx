@@ -40,7 +40,7 @@ export default forwardRef<UserApiEditModalType, {}>((props, ref) => {
   }
 
   const openFAQPage = () => {
-    void openUrl('https://lyswhut.github.io/lx-music-doc/mobile/custom-source')
+    void openUrl('https://github.com/wongbaye26-dot/MDL#readme')
   }
 
   if (!visible) return null
@@ -66,7 +66,7 @@ export default forwardRef<UserApiEditModalType, {}>((props, ref) => {
               </View>
               <View style={styles.headInfo}>
                 <Text size={16} color={palette.text} numberOfLines={1} style={styles.title}>{t('user_api_title')}</Text>
-                <Text size={11} color={palette.textSecondary} numberOfLines={2} style={styles.subtitle}>导入 LX Music 格式的自定义源脚本</Text>
+                <Text size={11} color={palette.textSecondary} numberOfLines={2} style={styles.subtitle}>导入自定义源脚本</Text>
               </View>
               <TouchableOpacity
                 style={{ ...styles.closeBtn, backgroundColor: palette.card, borderColor: palette.border }}

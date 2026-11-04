@@ -1,5 +1,4 @@
 import { httpGet } from '@/utils/request'
-import { author, name } from '../../package.json'
 import { downloadFile, stopDownload, temporaryDirectoryPath } from '@/utils/fs'
 import { getSupportedAbis, installApk } from '@/utils/nativeModules/utils'
 import { APP_PROVIDER_NAME } from '@/config/constant'
@@ -12,15 +11,10 @@ const abis = [
   'universal',
 ]
 
+// EmoMusic 没有维护独立的在线更新清单；保留一个 Emo 仓库地址，
+// 不再请求上游项目的 version-info / 更新接口，避免误提示或下载到其它项目的安装包。
 const address = [
-  [`https://raw.githubusercontent.com/${author.name}/${name}/master/publish/version.json`, 'direct'],
-  ['https://registry.npmjs.org/lx-music-mobile-version-info/latest', 'npm'],
-  [`https://cdn.jsdelivr.net/gh/${author.name}/${name}/publish/version.json`, 'direct'],
-  [`https://fastly.jsdelivr.net/gh/${author.name}/${name}/publish/version.json`, 'direct'],
-  [`https://gcore.jsdelivr.net/gh/${author.name}/${name}/publish/version.json`, 'direct'],
-  ['https://registry.npmmirror.com/lx-music-mobile-version-info/latest', 'npm'],
-  ['https://gitee.com/lyswhut/lx-music-mobile-versions/raw/master/version.json', 'direct'],
-  ['http://cdn.stsky.cn/lx-music/mobile/version.json', 'direct'],
+  ['https://raw.githubusercontent.com/wongbaye26-dot/MDL/master/publish/version.json', 'direct'],
 ]
 
 
@@ -86,8 +80,8 @@ let apkSavePath
 
 export const downloadNewVersion = async(version, onDownload = noop) => {
   const abi = await getTargetAbi()
-  const url = `https://github.com/${author.name}/${name}/releases/download/v${version}/${name}-v${version}-${abi}.apk`
-  let savePath = temporaryDirectoryPath + '/lx-music-mobile.apk'
+  const url = `https://github.com/wongbaye26-dot/MDL/releases/download/v${version}/em-music-v${version}-${abi}.apk`
+  let savePath = temporaryDirectoryPath + '/em-music.apk'
 
   if (downloadJobId) stopDownload(downloadJobId)
 

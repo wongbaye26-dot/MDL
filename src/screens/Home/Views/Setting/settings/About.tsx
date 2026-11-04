@@ -87,7 +87,7 @@ export default memo(() => {
       <Section title='致谢'>
         <View style={styles.textBlock}>
           <Text size={12} color={theme['c-450']} style={styles.paragraph}>
-            音源解析、下载与数据层来自 LX Music 移动版（lyswhut 开源），感谢作者的开源工作。界面、交互与播放器为本项目重做。
+            感谢 lxmusic 开源项目。EmoMusic 基于 lxmusic 开源项目二次开发：音源解析、播放内核接入与数据层沿用/改造自上游 lx-music-mobile；品牌、界面、交互、播放器、本地音乐、下载中心与通知/锁屏媒体能力由 EmoMusic 开发或重做。
           </Text>
         </View>
       </Section>

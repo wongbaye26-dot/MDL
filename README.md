@@ -1,13 +1,13 @@
-<p align="center"><img width="120" src="doc/images/icon.png" alt="EMO 音乐"></p>
+<p align="center"><img width="120" src="doc/images/icon.png" alt="EmoMusic"></p>
 
-<h1 align="center">Emo音乐</h1>
+<h1 align="center">EmoMusic</h1>
 
-<p align="center">一个以 Material You 为设计语言的本地 + 在线音乐播放器</p>
+<p align="center">Emo音乐 · 一个以 Material You 为设计语言的本地 + 在线音乐播放器</p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/platform-Android-3DDC84" alt="Platform">
   <img src="https://img.shields.io/badge/react--native-0.73-61DAFB" alt="React Native">
-  <img src="https://img.shields.io/badge/version-3.6.4-FF6B9D" alt="Version">
+  <img src="https://img.shields.io/badge/version-3.6.5-FF6B9D" alt="Version">
 </p>
 
 ---
@@ -18,12 +18,16 @@ Emo音乐是一个 Android 音乐播放器，支持**本地曲库**和**在线�
 
 界面以 **Material You** 为基准重新设计：磨砂玻璃胶囊、动态取色、圆形封面、大圆角。播放器支持横竖屏双布局，手势与动效都按手机端重新调过。
 
-> 本项目是独立的 Emo音乐 工程（目录 `MDL/EmoMusic`，与 lx-music-mobile 上游仓库分开维护），基于 [lx-music-mobile](https://github.com/lyswhut/lx-music-mobile) 二次开发，音源与数据层沿用上游实现，UI 与交互做了大规模重做。感谢原作者 [lyswhut](https://github.com/lyswhut) 的开源工作。
+> 感谢 **lxmusic 开源项目**。EmoMusic 是基于 lxmusic 开源项目二次开发的独立项目（目录 `MDL/EmoMusic`）。
+>
+> 直接使用的 lxmusic 项目只有 **lx-music-mobile**（本项目在其 `v1.9.2` 基础上二次开发）；未直接使用 lx-music-desktop、lx-music-sync-server 的代码。音源适配层、播放内核接入等沿用/改造自上游；品牌、UI/交互、播放器、本地音乐、下载中心、通知/锁屏媒体能力等由 EmoMusic 自己开发或重做。
+>
+> 完整的来源、致谢、上游/自研范围说明见 [doc/attribution.md](doc/attribution.md)。
 
 ### 安装包隔离（v3.6.0 起）
 
 - 包名：`cn.emomusic.mobile`；桌面名称：**Emo音乐**
-- 签名：独立 release 密钥（`android/app/emomusic-release.keystore`），与 lxmusic 官方包/旧 EMO 包不同
+- 签名：独立 release 密钥（`android/app/emomusic-release.keystore`），与旧版 EMO 包签名不同
 - 因此新旧包**可以共存**、数据互不可见；新包首次安装后需要重新导入本地音乐、重新配置音源
 - 本地音频文件仍在手机存储中，重新扫描原目录即可；旧包确认迁移完成后再卸载
 
@@ -102,8 +106,8 @@ cd android && ./gradlew assembleRelease
 
 按 ABI 拆分的产物：
 
-- `em-music-v3.6.4-arm64-v8a.apk` —— 绝大多数现代手机
-- `em-music-v3.6.4-universal.apk` —— 兼容所有架构
+- `em-music-v3.6.5-arm64-v8a.apk` —— 绝大多数现代手机
+- `em-music-v3.6.5-universal.apk` —— 兼容所有架构
 
 ---
 
@@ -136,6 +140,6 @@ src/
 
 ## 协议
 
-本项目遵循上游 [MIT](./LICENSE) 协议。
+本项目遵循 [Apache License 2.0](./LICENSE) 协议。
 
 在线音源的所有内容版权归各平台所有，本软件仅提供播放能力，不存储任何音频资源。

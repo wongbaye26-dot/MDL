@@ -19,6 +19,7 @@ export const LIST_IDS = {
   PLAY_LATER: null,
 } as const
 
+/** 同步服务协议字符串，保持与上游生态兼容，不属于品牌文案，不能替换。 */
 export const SYNC_CODE = {
   helloMsg: 'Hello~::^-^::~v4~',
   idPrefix: 'OjppZDo6',
