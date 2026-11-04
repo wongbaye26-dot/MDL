@@ -4,6 +4,12 @@ EmoMusic 是基于 lxmusic 开源项目二次开发的独立项目，直接使�
 
 ## v3.6.x（品牌隔离、下载与本地音乐目录修复）
 
+### v3.6.8
+- 逐字歌词进一步解耦：播放器页面只在换行时重渲染，卡拉 OK 高亮由当前歌词行组件按 rAF 连续插值，减少整页 50fps 重渲染造成的掉帧。
+
+### v3.6.7
+- 逐字歌词从「按字符 slice」改为「按像素宽度裁切高亮层」，同一进度下连续扫过，不再一格一格跳；高亮层跟随当前歌词进度 50fps 刷新。
+
 ### v3.6.6
 - 替换 README/GitHub 头像 logo 为 EmoMusic 图标（原 `doc/images/icon.png` 还是 lxmusic 绿色下载图标）。
 - 替换 Android 启动页 `launch_screen.png` 为 EmoMusic 暗色品牌图，删除遗留的 lxmusic 自适应图标前景向量 `ic_launcher_foreground.xml`。

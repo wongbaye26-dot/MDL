@@ -107,10 +107,13 @@ const findLine = (lines: Line[], timeMs: number) => {
 /**
  * 歌词行。飞牛：当前行纯白 + 加粗 + 字号放大，其余行统一半透明白（没有距离渐隐）。
  */
-const LyricLine = memo(({ text, active, ratio, size, wordByWord, activeColor, align = 'center' }: {
+const LyricLine = memo(({ text, active, startMs, endMs, playing, syncMs, size, wordByWord, activeColor, align = 'center' }: {
   text: string
   active: boolean
-  ratio: number
+  startMs: number
+  endMs: number
+  playing: boolean
+  syncMs: number
   size: number
   wordByWord: boolean
   /** 当前行高亮色：跟随主题（Material You 主色） */
@@ -139,17 +142,107 @@ const LyricLine = memo(({ text, active, ratio, size, wordByWord, activeColor, al
       >{text || ' '}</Text>
     )
   }
-  const shown = Math.min(text.length, Math.ceil(text.length * Math.max(0, Math.min(1, ratio))))
   return (
-    <Text
-      size={u(size)}
-      color='rgba(255,255,255,0.32)'
-      style={[styles.lyricLine, { textAlign: align }]}
-      numberOfLines={1}
+    <KaraokeText
+      text={text}
+      size={size}
+      activeColor={activeColor}
+      align={align}
+      startMs={startMs}
+      endMs={endMs}
+      playing={playing}
+      syncMs={syncMs}
+    />
+  )
+})
+
+/**
+ * 卡拉 OK 式逐字歌词：用像素宽度裁切高亮层，而不是按字符 slice。
+ *
+ * 关键点：
+ * - 高亮层宽度 = 行宽 × 当前行进度，进度由本组件自己的 rAF 插值；
+ * - Player 只在「换行」时 setState，不跟着 60fps 重渲染整个播放器页面；
+ * - 暂停/继续用 syncMs 重新对齐，seek 后最多 1 秒内自动跟上（歌词行不变的情况）。
+ */
+const KaraokeText = memo(({ text, size, activeColor, align, startMs, endMs, playing, syncMs }: {
+  text: string
+  size: number
+  activeColor: string
+  align: 'center' | 'left'
+  startMs: number
+  endMs: number
+  playing: boolean
+  syncMs: number
+}) => {
+  const [lineWidth, setLineWidth] = useState(0)
+  const [containerWidth, setContainerWidth] = useState(0)
+  const [ratio, setRatio] = useState(0)
+  const syncRef = useRef(syncMs)
+  syncRef.current = syncMs
+  const duration = Math.max(1, endMs - startMs)
+  const ratioAt = useCallback((time: number) => Math.max(0, Math.min(1, (time - startMs) / duration)), [startMs, duration])
+
+  useEffect(() => {
+    if (!playing) {
+      setRatio(ratioAt(syncRef.current))
+      return
+    }
+    // 从当前播放位置起步：挂载时可能刚好在一行中间
+    const elapsed = Math.max(0, Math.min(duration, syncRef.current - startMs))
+    const lineStartedAt = Date.now() - elapsed
+    let stopped = false
+    let rafId = 0
+    const tick = () => {
+      if (stopped) return
+      const next = Math.max(0, Math.min(1, (Date.now() - lineStartedAt) / duration))
+      setRatio(next)
+      if (next < 1) rafId = requestAnimationFrame(tick)
+    }
+    rafId = requestAnimationFrame(tick)
+    return () => {
+      stopped = true
+      if (rafId) cancelAnimationFrame(rafId)
+    }
+  }, [playing, startMs, duration, ratioAt])
+
+  // 暂停时按真实进度对齐；播放中 seek 到同一行时最多等下一次进度推送（1s）修正
+  useEffect(() => {
+    if (!playing) setRatio(ratioAt(syncMs))
+  }, [syncMs, playing, ratioAt])
+
+  const progress = Math.max(0, Math.min(1, ratio))
+  const overlayLeft = align === 'center' ? Math.max(0, (containerWidth - lineWidth) / 2) : 0
+  return (
+    <View
+      style={[styles.karaokeWrap, { alignItems: align === 'center' ? 'center' : 'flex-start' }]}
+      onLayout={e => {
+        const w = e.nativeEvent.layout.width
+        if (w > 0 && Math.abs(w - containerWidth) > 0.5) setContainerWidth(w)
+      }}
     >
-      <Text size={u(size)} color={activeColor} style={styles.lyricActive}>{text.slice(0, shown)}</Text>
-      {text.slice(shown)}
-    </Text>
+      <Text
+        size={u(size)}
+        color='rgba(255,255,255,0.32)'
+        style={[styles.lyricLine, { textAlign: align }]}
+        numberOfLines={1}
+        onLayout={e => {
+          const w = e.nativeEvent.layout.width
+          if (w > 0 && Math.abs(w - lineWidth) > 0.5) setLineWidth(w)
+        }}
+      >{text || ' '}</Text>
+      {lineWidth > 0
+        ? (
+          <View pointerEvents='none' style={[styles.karaokeOverlay, { left: overlayLeft, width: lineWidth * progress }]}>
+            <Text
+              size={u(size)}
+              color={activeColor}
+              style={[styles.lyricLine, styles.lyricActive, { width: lineWidth, textAlign: align }]}
+              numberOfLines={1}
+            >{text || ' '}</Text>
+          </View>
+          )
+        : null}
+    </View>
   )
 })
 
@@ -462,8 +555,11 @@ export default () => {
       const elapsed = Math.min(1200, Math.max(0, Date.now() - base.at)) / 1000
       // 暂停时不推进插值，避免歌词自己往前跑
       const est = playerState.isPlay ? base.pos + elapsed : base.pos
-      if (Math.abs(est - lastEmitted) >= 0.02) {
-        lastEmitted = est
+      // 只在「当前行」变化时 setState：逐字高亮由 KaraokeText 自己的 rAF 插值，
+      // 不要为了 60fps 高亮把整个播放器页面每秒重渲染 50 次。
+      const line = findLine(lines, est * 1000)
+      if (line !== lastEmitted) {
+        lastEmitted = line
         setNow(est)
       }
       rafId = requestAnimationFrame(tick)
@@ -474,7 +570,7 @@ export default () => {
       stopped = true
       if (rafId) cancelAnimationFrame(rafId)
     }
-  }, [mode, isLandscape])
+  }, [mode, isLandscape, lines])
 
   useEffect(() => {
     setCollected(getListMusicSync(LIST_IDS.LOVE).some(m => m.id === musicInfo.id))
@@ -676,12 +772,6 @@ export default () => {
 
   const timeMs = (mode === 'lyric' || isLandscape ? now : progress.nowPlayTime) * 1000
   const currentLine = useMemo(() => findLine(lines, timeMs), [lines, timeMs])
-  const currentRatio = useMemo(() => {
-    if (currentLine < 0) return 0
-    const start = lines[currentLine].time
-    const end = lines[currentLine + 1]?.time ?? (maxTime * 1000 || start + 4000)
-    return end > start ? (timeMs - start) / (end - start) : 0
-  }, [currentLine, lines, timeMs, maxTime])
 
   const scrollRef = useRef<ScrollView>(null)
   /** 行高固定 + 上下等长 spacer，当前行居中就是滚到 index * 行高 */
@@ -751,7 +841,10 @@ export default () => {
         text={line.text}
         size={lyricSize}
         active={index === currentLine}
-        ratio={index === currentLine ? currentRatio : 0}
+        startMs={line.time}
+        endMs={lines[index + 1]?.time ?? (maxTime * 1000 || line.time + 4000)}
+        playing={isPlay}
+        syncMs={progress.nowPlayTime * 1000}
         wordByWord={isWordByWord}
         activeColor={accent}
         align={isLandscape ? 'left' : 'center'}
@@ -1193,8 +1286,11 @@ export default () => {
                           <LyricLine
                             text={currentLine >= 0 ? lines[currentLine].text : ''}
                             size={lyricSize + 4}
-                            active
-                            ratio={currentRatio}
+                            active={currentLine >= 0}
+                            startMs={currentLine >= 0 ? lines[currentLine].time : 0}
+                            endMs={currentLine >= 0 ? (lines[currentLine + 1]?.time ?? (maxTime * 1000 || lines[currentLine].time + 4000)) : 4000}
+                            playing={isPlay}
+                            syncMs={progress.nowPlayTime * 1000}
                             wordByWord={isWordByWord}
                             activeColor={accent}
                           />
@@ -1427,6 +1523,8 @@ const styles = {
   },
   lyricRow: { height: LYRIC_LINE_H, justifyContent: 'center' as const },
   lyricLine: { textAlign: 'center' as const },
+  karaokeWrap: { width: '100%' as const, justifyContent: 'center' as const },
+  karaokeOverlay: { position: 'absolute' as const, top: 0, bottom: 0, overflow: 'hidden' as const },
   lyricActive: {
     fontWeight: '600' as const,
     // 主题色在亮封面上会偏淡，压一层柔和阴影保证可读
