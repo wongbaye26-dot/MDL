@@ -177,6 +177,11 @@ declare global {
       'player.isShowLyricRoma': boolean
 
       /**
+       * 无注音数据时自动按字生成粤拼（普通话歌请关闭）
+       */
+      'player.isAutoJyutping': boolean
+
+      /**
        * 是否在通知栏显示歌曲图片
        */
       'player.isShowNotificationImage': boolean

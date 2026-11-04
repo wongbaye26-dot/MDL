@@ -541,5 +541,6 @@
   "version_title_new": "🌟 New version found 🌟",
   "version_title_unknown": "❓ Failed to get the latest version information ❓",
   "version_title_update": "🚀 App update 🚀",
-  "setting_tools": "Music Tools"
+  "setting_tools": "Music Tools",
+  "setting_play_auto_jyutping": "Auto-generate Jyutping when no annotation (turn off for Mandarin songs)"
 }

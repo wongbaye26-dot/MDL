@@ -541,5 +541,6 @@
   "version_title_new": "🌟 发现新版本 🌟",
   "version_title_unknown": "❓ 获取最新版本信息失败 ❓",
   "version_title_update": "🚀 软件更新 🚀",
-  "setting_tools": "音乐工具"
+  "setting_tools": "音乐工具",
+  "setting_play_auto_jyutping": "无注音数据时按字自动生成粤拼（普通话歌请关闭）"
 }

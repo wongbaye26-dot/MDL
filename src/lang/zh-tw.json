@@ -541,5 +541,6 @@
   "version_title_new": "🌟 發現新版本 🌟",
   "version_title_unknown": "❓ 獲取最新版本資訊失敗 ❓",
   "version_title_update": "🚀 軟體更新 🚀",
-  "setting_tools": "音樂工具"
+  "setting_tools": "音樂工具",
+  "setting_play_auto_jyutping": "無注音資料時按字自動生成粵拼（普通話歌請關閉）"
 }

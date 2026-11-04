@@ -26,6 +26,7 @@ import { useBackHandler } from '@/utils/hooks/useBackHandler'
 import { useSettingValue } from '@/store/setting/hook'
 import { toast } from '@/utils/tools'
 import { useLrcSet, useLrcPlay, type Line } from '@/plugins/lyric'
+import * as Jyutping from '@/utils/jyutping/index.js'
 import playerState from '@/store/player/state'
 import { collectMusic, playList, playNext, playPrev, togglePlay, uncollectMusic } from '@/core/player/player'
 import { setCurrentTime, getDuration } from '@/plugins/player'
@@ -132,7 +133,7 @@ const LyricLine = memo(({ text, extras, active, startMs, endMs, playing, syncMs,
             size={Math.max(9, size * 0.5)}
             color={active ? 'rgba(255,255,255,0.72)' : 'rgba(255,255,255,0.32)'}
             style={[styles.lyricExtra, { textAlign: align }]}
-            numberOfLines={2}
+            numberOfLines={3}
           >{extra}</Text>
         ))}
       </View>
@@ -296,6 +297,7 @@ export default () => {
   const downloadModalRef = useRef<DownloadQualityModalType>(null)
   const autoSaveEnabled = useSettingValue('download.autoSaveWhilePlaying')
   const isWordByWord = useSettingValue('player.isWordByWordLyric')
+  const isAutoJyutping = useSettingValue('player.isAutoJyutping')
   const isSingleLine = useSettingValue('player.isSingleLineLyric')
 
 
@@ -314,9 +316,21 @@ export default () => {
   }, [])
 
   const lyricSize = LYRIC_SIZES[sizeIndex]
-  /** 开启注音/翻译且这首歌确实有扩展歌词时，每行多留一行小字高度 */
-  const hasLyricExtras = lines.some(line => (line.extendedLyrics?.length ?? 0) > 0)
-  const lyricRowH = hasLyricExtras ? LYRIC_LINE_H + 28 : LYRIC_LINE_H
+  /** 音源自带注音/翻译优先；没有时按设置用本地粤拼词典自动生成 */
+  const lyricExtras = useMemo(() => lines.map(line => {
+    if (line.extendedLyrics?.length) return line.extendedLyrics
+    if (!isAutoJyutping) return []
+    const text = line.text?.trim()
+    if (!text) return []
+    try {
+      const jyutping = Jyutping.getJyutpingText(text).trim()
+      return jyutping ? [jyutping] : []
+    } catch {
+      return []
+    }
+  }), [lines, isAutoJyutping])
+  const hasLyricExtras = lyricExtras.some(extras => extras.length > 0)
+  const lyricRowH = hasLyricExtras ? LYRIC_LINE_H + 40 : LYRIC_LINE_H
   /*
     播放器页底色永远是深色（封面糊底），所以不能直接用 c-primary：
     M3 在深色表面上用 tone 80 的 primary（浅而高彩度的柔和色），
@@ -869,7 +883,7 @@ export default () => {
     >
       <LyricLine
         text={line.text}
-        extras={line.extendedLyrics ?? []}
+        extras={lyricExtras[index] ?? []}
         size={lyricSize}
         active={index === currentLine}
         startMs={line.time}
@@ -1316,7 +1330,7 @@ export default () => {
                         <TouchableOpacity activeOpacity={0.9} style={styles.singleLineArea} onPress={handleToggleMode}>
                           <LyricLine
                             text={currentLine >= 0 ? lines[currentLine].text : ''}
-                            extras={currentLine >= 0 ? (lines[currentLine].extendedLyrics ?? []) : []}
+                            extras={currentLine >= 0 ? (lyricExtras[currentLine] ?? []) : []}
                             size={lyricSize + 4}
                             active={currentLine >= 0}
                             startMs={currentLine >= 0 ? lines[currentLine].time : 0}
@@ -1556,8 +1570,8 @@ const styles = {
   lyricRow: { height: LYRIC_LINE_H, justifyContent: 'center' as const },
   lyricLine: { textAlign: 'center' as const },
   lyricLineWrap: { alignItems: 'center' as const },
-  lyricExtras: { marginTop: 2, alignItems: 'center' as const },
-  lyricExtra: { textAlign: 'center' as const },
+  lyricExtras: { width: '100%' as const, marginTop: 2, alignItems: 'center' as const },
+  lyricExtra: { width: '100%' as const, textAlign: 'center' as const },
   karaokeWrap: { width: '100%' as const, justifyContent: 'center' as const },
   karaokeOverlay: { position: 'absolute' as const, top: 0, bottom: 0, overflow: 'hidden' as const },
   lyricActive: {
