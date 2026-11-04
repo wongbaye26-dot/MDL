@@ -10,7 +10,6 @@ import IsShowBluetoothLyric from './IsShowBluetoothLyric'
 import IsShowBluetoothFullLyric from './IsShowBluetoothFullLyric'
 import IsShowNotificationImage from './IsShowNotificationImage'
 import IsShowLyricTranslation from './IsShowLyricTranslation'
-import IsAutoJyutping from './IsAutoJyutping'
 import IsS2T from './IsS2T'
 import MaxCache from './MaxCache'
 import IsWordByWordLyric from './IsWordByWordLyric'
@@ -34,7 +33,6 @@ export default memo(() => {
         <IsWordByWordLyric />
         <IsSingleLineLyric />
         <IsShowLyricTranslation />
-        <IsAutoJyutping />
         <IsS2T />
         <IsShowBluetoothLyric />
         <IsShowBluetoothFullLyric />

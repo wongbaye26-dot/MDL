@@ -294,7 +294,6 @@ export default () => {
   const [mode, setMode] = useState<'cover' | 'lyric'>('cover')
   const [sizeIndex, setSizeIndex] = useState(1)
   const [currentLine, setCurrentLine] = useState(-1)
-  const [lyricSettingsVisible, setLyricSettingsVisible] = useState(false)
   const [seekPreview, setSeekPreview] = useState<number | null>(null)
   const [collected, setCollected] = useState(false)
   const [queueVisible, setQueueVisible] = useState(false)
@@ -686,6 +685,10 @@ export default () => {
     setMode(mode => mode === 'cover' ? 'lyric' : 'cover')
   }, [])
 
+  const handleSizeChange = useCallback(() => {
+    setSizeIndex(index => (index + 1) % LYRIC_SIZES.length)
+  }, [])
+
   const handleSeek = useCallback((time: number) => {
     setSeekPreview(null)
     setNowPlayTime(time)
@@ -1017,42 +1020,6 @@ export default () => {
 
   <DownloadQualityModal ref={downloadModalRef} />
 
-  <Modal visible={lyricSettingsVisible} transparent statusBarTranslucent animationType='fade' onRequestClose={() => { setLyricSettingsVisible(false) }}>
-    <TouchableOpacity style={styles.lyricSettingsMask} activeOpacity={1} onPress={() => { setLyricSettingsVisible(false) }}>
-      <View style={styles.lyricSettingsCard}>
-        <Text size={u(16)} color='rgba(255,255,255,0.95)' style={styles.lyricSettingsTitle}>歌词设置</Text>
-        <Text size={u(10)} color='rgba(255,255,255,0.45)' style={styles.lyricSettingsLabel}>字体大小</Text>
-        <View style={styles.lyricSizeRow}>
-          {['小', '标准', '大', '超大'].map((label, index) => (
-            <TouchableOpacity
-              key={label}
-              activeOpacity={0.7}
-              style={[styles.lyricSizeChip, sizeIndex === index ? styles.lyricSizeChipActive : null]}
-              onPress={() => { setSizeIndex(index) }}
-            >
-              <Text size={u(11)} color={sizeIndex === index ? '#1D1B20' : 'rgba(255,255,255,0.72)'}>{label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-        <TouchableOpacity
-          style={styles.lyricSwitchRow}
-          activeOpacity={0.7}
-          onPress={() => { updateSetting({ 'player.isAutoJyutping': !isAutoJyutping }) }}
-        >
-          <View style={{ flex: 1 }}>
-            <Text size={u(13)} color='rgba(255,255,255,0.9)'>本地歌词自动粤拼</Text>
-            <Text size={u(10)} color='rgba(255,255,255,0.45)' style={styles.lyricSwitchDesc}>没有注音数据时按字生成；普通话歌建议关闭</Text>
-          </View>
-          <Switch
-            value={isAutoJyutping}
-            onValueChange={value => { updateSetting({ 'player.isAutoJyutping': value }) }}
-            trackColor={{ false: 'rgba(255,255,255,0.16)', true: accent }}
-            thumbColor={isAutoJyutping ? '#FFFFFF' : 'rgba(255,255,255,0.75)'}
-          />
-        </TouchableOpacity>
-      </View>
-    </TouchableOpacity>
-  </Modal>
     </>
   )
 
@@ -1461,9 +1428,21 @@ export default () => {
               )
             : (
               <View style={styles.toolRow}>
-                <TouchableOpacity style={styles.toolBtn} onPress={() => { setLyricSettingsVisible(true) }} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-                  <Icon name='format-size' size={u(21)} color='rgba(255,255,255,0.88)' />
-                </TouchableOpacity>
+                <View style={styles.toolLeft}>
+                  <TouchableOpacity style={styles.toolBtn} onPress={handleSizeChange} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                    <Icon name='format-size' size={u(21)} color='rgba(255,255,255,0.88)' />
+                  </TouchableOpacity>
+                  <View style={styles.jyutpingToggle}>
+                    <Text size={u(10)} color='rgba(255,255,255,0.62)'>粤拼</Text>
+                    <Switch
+                      value={isAutoJyutping}
+                      onValueChange={value => { updateSetting({ 'player.isAutoJyutping': value }) }}
+                      trackColor={{ false: 'rgba(255,255,255,0.16)', true: accent }}
+                      thumbColor={isAutoJyutping ? '#FFFFFF' : 'rgba(255,255,255,0.75)'}
+                      style={styles.jyutpingSwitch}
+                    />
+                  </View>
+                </View>
                 <View style={styles.infoActions}>
                   <TouchableOpacity style={styles.iconBtn} onPress={handleToggleCollect} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
                     <Icon name={collected ? 'love' : 'heart-outline'} size={u(26)} color={collected ? accent : 'rgba(255,255,255,0.9)'} />
@@ -1709,6 +1688,9 @@ const styles = {
     paddingRight: 16,
   },
   toolBtn: { width: 44, height: 44, justifyContent: 'center' as const, alignItems: 'center' as const },
+  toolLeft: { flexDirection: 'row' as const, alignItems: 'center' as const },
+  jyutpingToggle: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 6, marginLeft: 2 },
+  jyutpingSwitch: { transform: [{ scale: 0.72 }] },
 
   /*
     进度：723.4..771.4（轨道 6dp、中心在块内 25.2）。
