@@ -170,9 +170,12 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
         现在 core 在扫描期间通过本地订阅节流推送「文件名兜底版 + 补标签进度」（见下面的 effect），
         扫描结束 / 失败 / 被打断时 cachedList 都不会被半成品覆盖。
       */
-      const result = await scanLocalMusicInBackground(
-        dirsRef.current.length ? dirsRef.current : undefined,
-      )
+      // 每次扫描前重新取目录：下载目录改到别处后，这里要自动跟上，
+      // 不能继续用页面挂载时缓存的旧目录
+      const currentDirs = await getScanDirs()
+      dirsRef.current = currentDirs
+      setDirs(currentDirs)
+      const result = await scanLocalMusicInBackground(currentDirs)
       if (!result) return
       if (!mountedRef.current) return
       // 复制一份再进 state：result.list 是 core 的内部数组，

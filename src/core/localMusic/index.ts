@@ -4,6 +4,7 @@ import { getData, saveData } from '@/plugins/storage'
 import { existsFile, extname, readDir, unlink } from '@/utils/fs'
 import { readMetadata } from '@/utils/localMediaMetadata'
 import { getSavePath } from '@/core/download'
+import { getDefaultSavePath, getFallbackSavePath } from '@/core/download/utils'
 import {
   listAudioFiles,
   listTreeAudio,
@@ -229,26 +230,38 @@ const normalizeDirs = (raw: unknown): ScanDir[] => {
 }
 
 /**
- * 扫描目录列表（完全由用户管理）。
- * 首次使用时用下载目录播种一次，之后用户想删就删 —— 不再有「默认目录」的概念。
+ * 下载目录本身就是本地音乐的第一个扫描根目录，且不写进用户目录列表。
+ * 这样下载目录改了（默认目录 / 重新授权 / SAF）之后，本地音乐会自动跟着走，
+ * 不会再残留一个旧的 Android/data 兜底目录。
  */
-export const getExtraDirs = async(): Promise<ScanDir[]> => {
-  const dirs = normalizeDirs(await getData<unknown>(DIRS_KEY))
-  if (dirs.length) return dirs
+const getDownloadScanDir = async(): Promise<ScanDir | null> => {
   let base = ''
   try {
     base = await getSavePath()
   } catch {}
-  let seed: ScanDir[] = []
-  if (base) {
-    // 下载目录可能是 SAF 授权目录（content://），播种时要还原成路径 + treeUri，
-    // 否则后面拿它去 MediaStore 查是查不到的
-    seed = base.startsWith('content://')
-      ? [{ path: treeUriToDisplayPath(base), treeUri: base }]
-      : [{ path: base }]
-  }
-  await saveData(DIRS_KEY, seed)
-  return seed
+  if (!base) return null
+  // 下载目录可能是 SAF 授权目录（content://），要还原成路径 + treeUri，
+  // 否则后面拿它去 MediaStore 查是查不到的
+  return base.startsWith('content://')
+    ? { path: treeUriToDisplayPath(base), treeUri: base }
+    : { path: base }
+}
+
+/** v3.6.3 之前播种过的默认下载目录：旧兜底/android/data、旧品牌 Music/EMOMusic 等 */
+const isStaleDefaultDir = (path: string) => {
+  const clean = path.replace(/\/+$/, '')
+  return clean === getDefaultSavePath() ||
+    clean === getFallbackSavePath() ||
+    /\/Android\/data\/[^/]+\/files\/Music$/.test(clean) ||
+    /\/Music\/(EMOMusic|EmoMusic)$/.test(clean)
+}
+
+/**
+ * 用户额外添加的扫描目录（不含下载目录）。
+ * 老数据里可能混有之前播种进去的默认下载目录，读取时过滤掉。
+ */
+export const getExtraDirs = async(): Promise<ScanDir[]> => {
+  return normalizeDirs(await getData<unknown>(DIRS_KEY)).filter(dir => !isStaleDefaultDir(dir.path))
 }
 
 export const setExtraDirs = async(dirs: ScanDir[]) => {
@@ -262,8 +275,19 @@ export const setExtraDirs = async(dirs: ScanDir[]) => {
   await saveData(DIRS_KEY, next)
 }
 
-/** 全部扫描根目录（就是用户管理的那份列表） */
-export const getScanDirs = async(): Promise<ScanDir[]> => getExtraDirs()
+/** 全部扫描根目录：当前下载目录 + 用户额外目录，去重 */
+export const getScanDirs = async(): Promise<ScanDir[]> => {
+  const downloadDir = await getDownloadScanDir()
+  const dirs = [downloadDir, ...await getExtraDirs()]
+  const seen = new Set<string>()
+  const out: ScanDir[] = []
+  for (const dir of dirs) {
+    if (!dir?.path || seen.has(dir.path)) continue
+    seen.add(dir.path)
+    out.push(dir)
+  }
+  return out
+}
 
 /** 把 AudioMeta 合并进条目（标签/时长/封面/码率） */
 const applyAudioMeta = (entry: DirEntry, audioMeta: AudioMeta) => {
