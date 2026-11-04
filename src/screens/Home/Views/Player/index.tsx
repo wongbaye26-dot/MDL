@@ -5,7 +5,6 @@ import {
   Modal,
   PanResponder,
   ScrollView,
-  Switch,
   StatusBar as RNStatusBar,
   TouchableOpacity,
   View,
@@ -1432,16 +1431,17 @@ export default () => {
                   <TouchableOpacity style={styles.toolBtn} onPress={handleSizeChange} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
                     <Icon name='format-size' size={u(21)} color='rgba(255,255,255,0.88)' />
                   </TouchableOpacity>
-                  <View style={styles.jyutpingToggle}>
-                    <Text size={u(10)} color='rgba(255,255,255,0.62)'>粤拼</Text>
-                    <Switch
-                      value={isAutoJyutping}
-                      onValueChange={value => { updateSetting({ 'player.isAutoJyutping': value }) }}
-                      trackColor={{ false: 'rgba(255,255,255,0.16)', true: accent }}
-                      thumbColor={isAutoJyutping ? '#FFFFFF' : 'rgba(255,255,255,0.75)'}
-                      style={styles.jyutpingSwitch}
+                  <TouchableOpacity
+                    style={styles.toolBtn}
+                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                    onPress={() => { updateSetting({ 'player.isAutoJyutping': !isAutoJyutping }) }}
+                  >
+                    <Icon
+                      name='translate'
+                      size={u(21)}
+                      color={isAutoJyutping ? accent : 'rgba(255,255,255,0.42)'}
                     />
-                  </View>
+                  </TouchableOpacity>
                 </View>
                 <View style={styles.infoActions}>
                   <TouchableOpacity style={styles.iconBtn} onPress={handleToggleCollect} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
@@ -1689,8 +1689,6 @@ const styles = {
   },
   toolBtn: { width: 44, height: 44, justifyContent: 'center' as const, alignItems: 'center' as const },
   toolLeft: { flexDirection: 'row' as const, alignItems: 'center' as const },
-  jyutpingToggle: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 6, marginLeft: 2 },
-  jyutpingSwitch: { transform: [{ scale: 0.72 }] },
 
   /*
     进度：723.4..771.4（轨道 6dp、中心在块内 25.2）。
