@@ -11,7 +11,9 @@ import android.net.Uri;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.os.Build;
+import android.os.Environment;
 import android.util.Log;
+import android.provider.Settings;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
@@ -483,5 +485,40 @@ public class UtilsModule extends ReactContextBaseJavaModule {
       Log.e("Utils", "setWindowBackgroundColor error: " + e.getMessage(), e);
     }
   }
+  /** 是否已授予「所有文件访问权限」（Android 11+ 写公共 Music 目录必需） */
+  @ReactMethod
+  public void isExternalStorageManager(Promise promise) {
+    try {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        promise.resolve(Environment.isExternalStorageManager());
+      } else {
+        promise.resolve(true);
+      }
+    } catch (Exception e) {
+      promise.reject("ERR", e);
+    }
+  }
+
+  /** 跳系统「所有文件访问权限」设置页（当前应用） */
+  @ReactMethod
+  public void openAllFilesAccessSettings(Promise promise) {
+    try {
+      Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
+      intent.setData(Uri.parse("package:" + getReactApplicationContext().getPackageName()));
+      intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+      getReactApplicationContext().startActivity(intent);
+      promise.resolve(true);
+    } catch (Exception e) {
+      try {
+        Intent fallback = new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION);
+        fallback.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        getReactApplicationContext().startActivity(fallback);
+        promise.resolve(true);
+      } catch (Exception e2) {
+        promise.reject("ERR", e2);
+      }
+    }
+  }
+
 }
 

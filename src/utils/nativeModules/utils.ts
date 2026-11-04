@@ -27,6 +27,17 @@ export const getDeviceName = async(): Promise<string> => {
   return UtilsModule.getDeviceName().then((deviceName: string) => deviceName || 'Unknown')
 }
 
+
+/** 是否已授予「所有文件访问权限」（Android 11+ 写公共 Music 目录必需） */
+export const isExternalStorageManager = async(): Promise<boolean> => {
+  try { return await UtilsModule.isExternalStorageManager() } catch { return false }
+}
+
+/** 打开系统「所有文件访问权限」设置页 */
+export const openAllFilesAccessSettings = async(): Promise<boolean> => {
+  try { return await UtilsModule.openAllFilesAccessSettings() } catch { return false }
+}
+
 export const isNotificationsEnabled = UtilsModule.isNotificationsEnabled as () => Promise<boolean>
 
 export const requestNotificationPermission = async() => new Promise<boolean>((resolve) => {

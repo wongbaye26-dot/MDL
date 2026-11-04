@@ -7,7 +7,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/platform-Android-3DDC84" alt="Platform">
   <img src="https://img.shields.io/badge/react--native-0.73-61DAFB" alt="React Native">
-  <img src="https://img.shields.io/badge/version-3.6.2-FF6B9D" alt="Version">
+  <img src="https://img.shields.io/badge/version-3.6.3-FF6B9D" alt="Version">
 </p>
 
 ---
@@ -102,8 +102,8 @@ cd android && ./gradlew assembleRelease
 
 按 ABI 拆分的产物：
 
-- `em-music-v3.6.2-arm64-v8a.apk` —— 绝大多数现代手机
-- `em-music-v3.6.2-universal.apk` —— 兼容所有架构
+- `em-music-v3.6.3-arm64-v8a.apk` —— 绝大多数现代手机
+- `em-music-v3.6.3-universal.apk` —— 兼容所有架构
 
 ---
 

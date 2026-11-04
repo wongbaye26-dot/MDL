@@ -1,5 +1,5 @@
-import { memo, useMemo, useRef } from 'react'
-import { Linking, TouchableOpacity, View } from 'react-native'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { AppState, Linking, TouchableOpacity, View } from 'react-native'
 
 import Section from '../../components/Section'
 import SubTitle from '../../components/SubTitle'
@@ -14,8 +14,9 @@ import { createStyle, toast } from '@/utils/tools'
 import { updateSetting } from '@/core/common'
 import { useSettingValue } from '@/store/setting/hook'
 import { QUALITYS, QUALITY_LABEL, getDefaultSavePath, getFallbackSavePath, isSafPath } from '@/core/download/utils'
-import { clearSavePathCache, ensureDir } from '@/core/download'
+import { clearSavePathCache, ensureDir, migrateFallbackDownloads } from '@/core/download'
 import { pickDirectory, canWriteTree, treeUriToDisplayPath } from '@/utils/directoryPicker'
+import { isExternalStorageManager, openAllFilesAccessSettings } from '@/utils/nativeModules/utils'
 
 const OptionRow = ({ label, options, value, onChange }: {
   label: string
@@ -55,11 +56,38 @@ export default memo(() => {
   const isDownloadLyric = useSettingValue('download.isDownloadLyric')
   const isDownloadPic = useSettingValue('download.isDownloadPic')
 
+  const [allFilesAccess, setAllFilesAccess] = useState(false)
+
+  /** 检查「所有文件访问权限」，已授权时把私有目录里的旧下载迁回默认目录 */
+  const checkAllFilesAccess = useCallback(async() => {
+    const granted = await isExternalStorageManager()
+    setAllFilesAccess(granted)
+    if (!granted) return
+    const moved = await migrateFallbackDownloads()
+    if (moved > 0) {
+      clearSavePathCache()
+      toast(`已把 ${moved} 个文件迁回默认音乐目录`)
+    }
+  }, [])
+
+  useEffect(() => {
+    void checkAllFilesAccess()
+    const sub = AppState.addEventListener('change', state => {
+      if (state === 'active') void checkAllFilesAccess()
+    })
+    return () => { sub.remove() }
+  }, [checkAllFilesAccess])
+
   /** 跳系统设置授予「所有文件访问权限」，授了才能直接写公共音乐目录 */
-  const openAllFilesAccess = () => {
-    void Linking.sendIntent('android.settings.MANAGE_APP_ALL_FILES_ACCESS_PERMISSION', [
-      { key: 'package', value: 'cn.emomusic.mobile' },
-    ]).catch(() => { void Linking.openSettings() })
+  const openAllFilesAccess = async() => {
+    const ok = await openAllFilesAccessSettings()
+    if (!ok) {
+      try {
+        await Linking.sendIntent('android.settings.MANAGE_APP_ALL_FILES_ACCESS_PERMISSION', [
+          { key: 'package', value: 'cn.emomusic.mobile' },
+        ])
+      } catch { void Linking.openSettings() }
+    }
   }
   const isWriteMetadata = useSettingValue('download.isWriteMetadata')
   const autoSaveWhilePlaying = useSettingValue('download.autoSaveWhilePlaying')
@@ -126,6 +154,13 @@ export default memo(() => {
               ? (isSafPath(savePath) ? `${treeUriToDisplayPath(savePath)}（授权目录）` : savePath)
               : `${t('setting_download_save_path_default')}: ${getDefaultSavePath()}`}
           </Text>
+          {!allFilesAccess && !savePath
+            ? (
+              <Text size={10} color={theme['c-450']} style={styles.pathWarn}>
+                未授予「所有文件访问权限」时，下载会落到 Android/data 私有目录，文件管理器里找不到
+              </Text>
+              )
+            : null}
           <View style={styles.btnRow}>
             <Button onPress={handleSelectPath}>选择目录</Button>
             <Button onPress={() => { void handleUseAppDir('external') }}>应用专属目录</Button>
@@ -169,10 +204,12 @@ export default memo(() => {
           <View style={styles.permInfo}>
             <Text size={14}>所有文件访问权限</Text>
             <Text size={10} color={theme['c-450']} style={styles.permDesc}>
-              没有它，歌曲只能存到 Android/data 私有目录，其他播放器读不到，也写不进封面
+              {allFilesAccess
+                ? '已授权，下载会直接保存到公共音乐目录，其他播放器可扫描'
+                : '没有它，歌曲只能存到 Android/data 私有目录，文件管理器里找不到'}
             </Text>
           </View>
-          <Text size={12} color={theme['c-primary']}>去授权</Text>
+          <Text size={12} color={theme['c-primary']}>{allFilesAccess ? '已授权' : '去授权'}</Text>
         </TouchableOpacity>
       </Section>
 
@@ -235,6 +272,10 @@ const styles = createStyle({
     paddingRight: 14,
     paddingTop: 12,
     paddingBottom: 12,
+  },
+  pathWarn: {
+    marginTop: 4,
+    lineHeight: 15,
   },
   pathText: {
     marginTop: 6,

@@ -10,7 +10,7 @@ import {
   pauseAll as nativePauseAll,
   type DownloadEventPayload,
 } from '@/utils/nativeModules/download'
-import { existsFile, mkdir, stat, unlink, writeFile } from '@/utils/fs'
+import { existsFile, mkdir, moveFile, readDir, stat, unlink, writeFile } from '@/utils/fs'
 import { copyFileToTree } from '@/utils/directoryPicker'
 import { writeTaskExtras } from './extras'
 import {
@@ -26,6 +26,8 @@ import {
   joinPath,
 } from './utils'
 import { log } from '@/utils/log'
+import { toast } from '@/utils/tools'
+import { isExternalStorageManager } from '@/utils/nativeModules/utils'
 
 /** 正在下载的任务 id */
 const runningIds = new Set<string>()
@@ -106,6 +108,8 @@ export const init = async() => {
   // 清掉可能残留的临时文件标记
   savePathPromise = null
   initAutoSave()
+  // 如果用户之前授予过「所有文件访问权限」，把早期落到私有目录的下载迁回默认目录
+  void migrateFallbackDownloads()
 }
 
 /** 边听边存：播放的在线歌曲自动加入下载队列 */
@@ -369,6 +373,38 @@ export const getSavePath = async() => {
   return savePathPromise
 }
 
+/**
+ * 把所有文件访问权限授予之前下载到私有兜底目录的文件迁回默认音乐目录。
+ * 需要用户在系统设置里授予「所有文件访问权限」；未授权时直接跳过。
+ * 返回实际移动的文件数。
+ */
+export const migrateFallbackDownloads = async(): Promise<number> => {
+  try {
+    if (!(await isExternalStorageManager())) return 0
+    const fallback = getFallbackSavePath()
+    const target = getDefaultSavePath()
+    if (!await existsFile(fallback)) return 0
+    if (!await ensureDir(target)) return 0
+    const entries = await readDir(fallback) as Array<{ name: string, path: string, isDirectory?: boolean }>
+    let moved = 0
+    for (const entry of entries) {
+      if (entry.isDirectory) continue
+      try {
+        await moveFile(entry.path, joinPath(target, entry.name))
+        moved++
+      } catch (err) {
+        log.error(err)
+      }
+    }
+    return moved
+  } catch (err) {
+    log.error(err)
+    return 0
+  }
+}
+
+let didWarnFallback = false
+
 const resolveSavePath = async(): Promise<string> => {
   const configured = settingState.setting['download.savePath']
   if (configured) {
@@ -379,6 +415,10 @@ const resolveSavePath = async(): Promise<string> => {
   if (await ensureDir(defaultPath)) return defaultPath
   const fallbackPath = getFallbackSavePath()
   await ensureDir(fallbackPath)
+  if (!didWarnFallback) {
+    didWarnFallback = true
+    toast('未授予「所有文件访问权限」，歌曲会先保存到应用专属目录；到 设置→下载设置 授权后可自动迁回默认音乐目录', 'long')
+  }
   return fallbackPath
 }
 
