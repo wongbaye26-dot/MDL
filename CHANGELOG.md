@@ -4,6 +4,10 @@ EmoMusic 是基于 lxmusic 开源项目二次开发的独立项目，直接使�
 
 ## v3.6.x（品牌隔离、下载与本地音乐目录修复）
 
+### v3.6.6
+- 替换 README/GitHub 头像 logo 为 EmoMusic 图标（原 `doc/images/icon.png` 还是 lxmusic 绿色下载图标）。
+- 替换 Android 启动页 `launch_screen.png` 为 EmoMusic 暗色品牌图，删除遗留的 lxmusic 自适应图标前景向量 `ic_launcher_foreground.xml`。
+
 ### v3.6.5
 - 项目资料统一为 EmoMusic 品牌，移除 lxmusic 品牌信息，仅保留来源致谢；新增完整的「上游/自研」说明（doc/attribution.md）。
 - 应用内关于页、许可协议、FAQ、更新检查地址、CI/Issue 模板同步为 EmoMusic。
