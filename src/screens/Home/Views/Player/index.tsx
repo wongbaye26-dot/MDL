@@ -5,6 +5,7 @@ import {
   Modal,
   PanResponder,
   ScrollView,
+  Switch,
   StatusBar as RNStatusBar,
   TouchableOpacity,
   View,
@@ -77,6 +78,8 @@ const MODE_LABEL: Record<PlayMode, string> = {
 /** 歌词字号（当前行）。非当前行 = 当前行 / 1.14（飞牛实测 19.5 : 17.1） */
 const LYRIC_SIZES = [17.5, 20, 22.5, 25.5]
 const LYRIC_NORMAL_RATIO = 1.14
+/** 作词/作曲等 credit 行：这些行通常很长，需要允许折行 */
+const LYRIC_META_RXP = /^(作词|作曲|编曲|制作人|词|曲|监制|出品|OP|SP|吉他|贝斯|鼓|和声|混音|母带|录音|弦乐|制作助理|统筹|发行|策划|封面|文案)\s*[:：]/
 
 /** 歌词行高：飞牛实测 112.6px / 2.625 = 42.9dp */
 const LYRIC_LINE_H = 42.9
@@ -108,7 +111,7 @@ const findLine = (lines: Line[], timeMs: number) => {
 /**
  * 歌词行。飞牛：当前行纯白 + 加粗 + 字号放大，其余行统一半透明白（没有距离渐隐）。
  */
-const LyricLine = memo(({ text, extras, active, startMs, endMs, playing, syncMs, size, wordByWord, activeColor, align = 'center' }: {
+const LyricLine = memo(({ text, extras, active, startMs, endMs, playing, syncMs, size, wrap, wordByWord, activeColor, align = 'center' }: {
   text: string
   /** lrc 的翻译/罗马音/粤拼等扩展行（设置开启时由 lrc parser 提供） */
   extras: string[]
@@ -118,6 +121,7 @@ const LyricLine = memo(({ text, extras, active, startMs, endMs, playing, syncMs,
   playing: boolean
   syncMs: number
   size: number
+  wrap: boolean
   wordByWord: boolean
   /** 当前行高亮色：跟随主题（Material You 主色） */
   activeColor: string
@@ -146,7 +150,7 @@ const LyricLine = memo(({ text, extras, active, startMs, endMs, playing, syncMs,
           size={u(size / LYRIC_NORMAL_RATIO)}
           color='rgba(255,255,255,0.38)'
           style={[styles.lyricLine, { textAlign: align }]}
-          numberOfLines={1}
+          numberOfLines={wrap ? 3 : 1}
         >{text || ' '}</Text>
         {extraNodes}
       </View>
@@ -160,7 +164,7 @@ const LyricLine = memo(({ text, extras, active, startMs, endMs, playing, syncMs,
           size={u(size)}
           color={activeColor}
           style={{ ...styles.lyricLine, textAlign: align, ...styles.lyricActive }}
-          numberOfLines={1}
+          numberOfLines={wrap ? 3 : 1}
         >{text || ' '}</Text>
         {extraNodes}
       </View>
@@ -289,7 +293,8 @@ export default () => {
 
   const [mode, setMode] = useState<'cover' | 'lyric'>('cover')
   const [sizeIndex, setSizeIndex] = useState(1)
-  const [now, setNow] = useState(0)
+  const [currentLine, setCurrentLine] = useState(-1)
+  const [lyricSettingsVisible, setLyricSettingsVisible] = useState(false)
   const [seekPreview, setSeekPreview] = useState<number | null>(null)
   const [collected, setCollected] = useState(false)
   const [queueVisible, setQueueVisible] = useState(false)
@@ -323,14 +328,15 @@ export default () => {
     const text = line.text?.trim()
     if (!text) return []
     try {
-      const jyutping = Jyutping.getJyutpingText(text).trim()
+      const jyutping = Jyutping.getJyutpingText(text).replace(/[0-9]/g, '').replace(/\s+/g, ' ').trim()
       return jyutping ? [jyutping] : []
     } catch {
       return []
     }
   }), [lines, isAutoJyutping])
   const hasLyricExtras = lyricExtras.some(extras => extras.length > 0)
-  const lyricRowH = hasLyricExtras ? LYRIC_LINE_H + 40 : LYRIC_LINE_H
+  const hasLongCreditLine = lines.some(line => LYRIC_META_RXP.test(line.text.trim()) && line.text.trim().length > 12)
+  const lyricRowH = LYRIC_LINE_H + (hasLyricExtras ? 40 : 0) + (hasLongCreditLine ? 30 : 0)
   /*
     播放器页底色永远是深色（封面糊底），所以不能直接用 c-primary：
     M3 在深色表面上用 tone 80 的 primary（浅而高彩度的柔和色），
@@ -590,7 +596,6 @@ export default () => {
     if (mode !== 'lyric' && !isLandscape) return
     let stopped = false
     let rafId = 0
-    let lastEmitted = -1
 
     const tick = () => {
       if (stopped) return
@@ -599,12 +604,20 @@ export default () => {
       const elapsed = Math.min(1200, Math.max(0, Date.now() - base.at)) / 1000
       // 暂停时不推进插值，避免歌词自己往前跑
       const est = playerState.isPlay ? base.pos + elapsed : base.pos
-      // 只在「当前行」变化时 setState：逐字高亮由 KaraokeText 自己的 rAF 插值，
-      // 不要为了 60fps 高亮把整个播放器页面每秒重渲染 50 次。
-      const line = findLine(lines, est * 1000)
-      if (line !== lastEmitted) {
-        lastEmitted = line
-        setNow(est)
+      let line = findLine(lines, est * 1000)
+      const prevLine = currentLineRef.current
+      /*
+        播放中进度基准每秒会回拨一次（rAF 估算比真实位置略早），
+        跨行瞬间会出现「先到第二行、下个 tick 又回到第一行」的抖动。
+        只要真实播放位置还没离开上一行，就不允许行号回退；真 seek/上一首时实际时间会早于行起点，才放行。
+      */
+      if (playerState.isPlay && prevLine >= 0 && line < prevLine) {
+        const prevStart = lines[prevLine]?.time ?? 0
+        if (playerState.progress.nowPlayTime * 1000 >= prevStart) line = prevLine
+      }
+      if (line !== prevLine) {
+        currentLineRef.current = line
+        setCurrentLine(line)
       }
       rafId = requestAnimationFrame(tick)
     }
@@ -676,9 +689,12 @@ export default () => {
   const handleSeek = useCallback((time: number) => {
     setSeekPreview(null)
     setNowPlayTime(time)
-    setNow(time)
+    lrcBase.current = { pos: time, at: Date.now() }
+    const line = findLine(lines, time * 1000)
+    currentLineRef.current = line
+    setCurrentLine(line)
     void setCurrentTime(time)
-  }, [])
+  }, [lines])
 
   const handleToggleCollect = useCallback(() => {
     if (collected) {
@@ -698,10 +714,6 @@ export default () => {
     updateSetting({ 'player.togglePlayMethod': next })
     toast(MODE_LABEL[next])
   }, [playMode])
-
-  const handleSizeChange = useCallback(() => {
-    setSizeIndex(index => (index + 1) % LYRIC_SIZES.length)
-  }, [])
 
   /** 点击队列里的歌曲直接切歌播放 */
   const handlePlayFromQueue = useCallback((index: number) => {
@@ -814,9 +826,6 @@ export default () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queueVisible])
 
-  const timeMs = (mode === 'lyric' || isLandscape ? now : progress.nowPlayTime) * 1000
-  const currentLine = useMemo(() => findLine(lines, timeMs), [lines, timeMs])
-
   const scrollRef = useRef<ScrollView>(null)
   /** 行高固定 + 上下等长 spacer，当前行居中就是滚到 index * 行高 */
   const currentLineRef = useRef(currentLine)
@@ -830,7 +839,11 @@ export default () => {
   /** 上一次高亮的行，用来判断「跳太远」 */
   const prevLineRef = useRef(-1)
   // 换歌后行数据整个换掉，重置基准
-  useEffect(() => { prevLineRef.current = -1 }, [lines])
+  useEffect(() => {
+    prevLineRef.current = -1
+    currentLineRef.current = -1
+    setCurrentLine(-1)
+  }, [lines])
 
   useEffect(() => {
     if (mode !== 'lyric' && !isLandscape) return
@@ -890,7 +903,8 @@ export default () => {
         endMs={lines[index + 1]?.time ?? (maxTime * 1000 || line.time + 4000)}
         playing={isPlay}
         syncMs={progress.nowPlayTime * 1000}
-        wordByWord={isWordByWord}
+        wrap={hasLongCreditLine}
+        wordByWord={isWordByWord && !LYRIC_META_RXP.test(line.text.trim())}
         activeColor={accent}
         align={isLandscape ? 'left' : 'center'}
       />
@@ -1002,6 +1016,43 @@ export default () => {
   />
 
   <DownloadQualityModal ref={downloadModalRef} />
+
+  <Modal visible={lyricSettingsVisible} transparent statusBarTranslucent animationType='fade' onRequestClose={() => { setLyricSettingsVisible(false) }}>
+    <TouchableOpacity style={styles.lyricSettingsMask} activeOpacity={1} onPress={() => { setLyricSettingsVisible(false) }}>
+      <View style={styles.lyricSettingsCard}>
+        <Text size={u(16)} color='rgba(255,255,255,0.95)' style={styles.lyricSettingsTitle}>歌词设置</Text>
+        <Text size={u(10)} color='rgba(255,255,255,0.45)' style={styles.lyricSettingsLabel}>字体大小</Text>
+        <View style={styles.lyricSizeRow}>
+          {['小', '标准', '大', '超大'].map((label, index) => (
+            <TouchableOpacity
+              key={label}
+              activeOpacity={0.7}
+              style={[styles.lyricSizeChip, sizeIndex === index ? styles.lyricSizeChipActive : null]}
+              onPress={() => { setSizeIndex(index) }}
+            >
+              <Text size={u(11)} color={sizeIndex === index ? '#1D1B20' : 'rgba(255,255,255,0.72)'}>{label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        <TouchableOpacity
+          style={styles.lyricSwitchRow}
+          activeOpacity={0.7}
+          onPress={() => { updateSetting({ 'player.isAutoJyutping': !isAutoJyutping }) }}
+        >
+          <View style={{ flex: 1 }}>
+            <Text size={u(13)} color='rgba(255,255,255,0.9)'>本地歌词自动粤拼</Text>
+            <Text size={u(10)} color='rgba(255,255,255,0.45)' style={styles.lyricSwitchDesc}>没有注音数据时按字生成；普通话歌建议关闭</Text>
+          </View>
+          <Switch
+            value={isAutoJyutping}
+            onValueChange={value => { updateSetting({ 'player.isAutoJyutping': value }) }}
+            trackColor={{ false: 'rgba(255,255,255,0.16)', true: accent }}
+            thumbColor={isAutoJyutping ? '#FFFFFF' : 'rgba(255,255,255,0.75)'}
+          />
+        </TouchableOpacity>
+      </View>
+    </TouchableOpacity>
+  </Modal>
     </>
   )
 
@@ -1337,7 +1388,8 @@ export default () => {
                             endMs={currentLine >= 0 ? (lines[currentLine + 1]?.time ?? (maxTime * 1000 || lines[currentLine].time + 4000)) : 4000}
                             playing={isPlay}
                             syncMs={progress.nowPlayTime * 1000}
-                            wordByWord={isWordByWord}
+                            wrap={hasLongCreditLine}
+                            wordByWord={isWordByWord && !(currentLine >= 0 && LYRIC_META_RXP.test(lines[currentLine].text.trim()))}
                             activeColor={accent}
                           />
                         </TouchableOpacity>
@@ -1409,7 +1461,7 @@ export default () => {
               )
             : (
               <View style={styles.toolRow}>
-                <TouchableOpacity style={styles.toolBtn} onPress={handleSizeChange} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                <TouchableOpacity style={styles.toolBtn} onPress={() => { setLyricSettingsVisible(true) }} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
                   <Icon name='format-size' size={u(21)} color='rgba(255,255,255,0.88)' />
                 </TouchableOpacity>
                 <View style={styles.infoActions}>
@@ -1567,6 +1619,34 @@ const styles = {
     paddingLeft: 20,
     paddingRight: 20,
   },
+  lyricSettingsMask: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.48)',
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+  },
+  lyricSettingsCard: {
+    width: '82%' as const,
+    borderRadius: 24,
+    padding: 20,
+    backgroundColor: 'rgba(32,28,38,0.97)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  lyricSettingsTitle: { marginBottom: 16 },
+  lyricSettingsLabel: { marginBottom: 8 },
+  lyricSizeRow: { flexDirection: 'row' as const, gap: 8, marginBottom: 18 },
+  lyricSizeChip: {
+    flex: 1,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  lyricSizeChipActive: { backgroundColor: 'rgba(255,255,255,0.9)' },
+  lyricSwitchRow: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 12 },
+  lyricSwitchDesc: { marginTop: 3 },
   lyricRow: { height: LYRIC_LINE_H, justifyContent: 'center' as const },
   lyricLine: { textAlign: 'center' as const },
   lyricLineWrap: { alignItems: 'center' as const },
