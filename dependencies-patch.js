@@ -197,6 +197,75 @@ const patchs = [
 
         Bundle bundle = options.getBundle(propertyName);`,
   ],
+  // ---- 任务31：锁屏大播放器「上一首」改自定义 notification action ----
+  // 标准 media action（MediaButtonReceiver broadcast）在三星等锁屏大播放器上被画成
+  // 圆角方块，而收藏 / 循环这些自定义 action 是圆形。把上一首也改成
+  // createCustomAction + PendingIntent.getService -> MusicService.onStartCommand
+  // emit("remote-previous")，并占 mActions 第 0 位 / compact 第 0 位，
+  // 这样它与其它按钮走同一种渲染路径；媒体会话的 SkipToPrevious 能力仍保留（耳机上一曲）。
+  [
+    path.join(rootPath, 'node_modules/react-native-track-player/android/src/main/java/com/guichaguri/trackplayer/service/MusicService.java'),
+    `    MusicManager manager;
+    Handler handler;`,
+    `    MusicManager manager;
+    Handler handler;
+
+    /** 通知栏「上一首」自定义按钮 action（与收藏/循环一样由 PendingIntent.getService 触发） */
+    public static final String ACTION_PREVIOUS = "cn.toside.music.mobile.NOTIFY_PREVIOUS";`,
+  ],
+  [
+    path.join(rootPath, 'node_modules/react-native-track-player/android/src/main/java/com/guichaguri/trackplayer/service/MusicService.java'),
+    `        manager = new MusicManager(this);
+        handler = new Handler();`,
+    `        // 通知栏「上一首」自定义按钮：和收藏/循环一样由 PendingIntent.getService 触发，
+        // 只把事件转给 JS（remote-previous，JS 侧已有的 RemotePrevious/playPrev 监听会处理），
+        // 不启动 headless task
+        if(intent != null && ACTION_PREVIOUS.equals(intent.getAction())) {
+            emit("remote-previous", null);
+
+            // 服务本来没在播放（没有 manager）：别留下一个空的前台通知
+            if(manager == null) stopSelf();
+
+            return START_NOT_STICKY;
+        }
+
+        manager = new MusicManager(this);
+        handler = new Handler();`,
+  ],
+  [
+    path.join(rootPath, 'node_modules/react-native-track-player/android/src/main/java/com/guichaguri/trackplayer/service/metadata/MetadataManager.java'),
+    `    private Bitmap prevArtResource = null;
+
+    private Action previousAction, rewindAction, playAction, pauseAction, stopAction, forwardAction, nextAction;`,
+    `    private Bitmap prevArtResource = null;
+
+    // 通知栏「上一首」自定义按钮（上一首不再走标准媒体 action，避免锁屏上被画成圆角方块）
+    private Action previousCustomAction;
+
+    private Action previousAction, rewindAction, playAction, pauseAction, stopAction, forwardAction, nextAction;`,
+  ],
+  [
+    path.join(rootPath, 'node_modules/react-native-track-player/android/src/main/java/com/guichaguri/trackplayer/service/metadata/MetadataManager.java'),
+    `    public void updateOptions(Bundle options) {
+        List<Integer> capabilities = options.getIntegerArrayList("capabilities");`,
+    `    public void updateOptions(Bundle options) {
+        // 上一首也用自定义 action：图标/标题由 JS 传（previousIcon / previousTitle）
+        previousCustomAction = createCustomAction(options, "previousIcon", "previousTitle", "上一首", MusicService.ACTION_PREVIOUS);
+
+        List<Integer> capabilities = options.getIntegerArrayList("capabilities");`,
+  ],
+  [
+    path.join(rootPath, 'node_modules/react-native-track-player/android/src/main/java/com/guichaguri/trackplayer/service/metadata/MetadataManager.java'),
+    `        addAction(previousAction, PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS, compact);
+        addAction(rewindAction, PlaybackStateCompat.ACTION_REWIND, compact);`,
+    `        // 上一首用自定义 action 占第 0 位并进 compact：与收藏/循环同一种渲染方式，
+        // 锁屏大播放器上才是圆形按钮；媒体会话的 SkipToPrevious 能力仍保留给耳机上一曲
+        if(previousCustomAction != null) {
+            compact.add(builder.mActions.size());
+            builder.mActions.add(previousCustomAction);
+        }
+        addAction(rewindAction, PlaybackStateCompat.ACTION_REWIND, compact);`,
+  ],
 ]
 
 ;(async() => {

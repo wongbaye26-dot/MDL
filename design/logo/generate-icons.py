@@ -9,37 +9,62 @@
 - 方块边界：x 8..1245，y 约 -1..1238（上边缘被裁掉约 1px，可忽略）
 - 四角圆弧拟合半径 ≈ 303px，边长 1238px → 约 24.5%（视觉上的「≈22%」偏小）
 
-自适应图标前景的坑（2026-11 修复）：
-之前是「#0B0B12 不透明画布 + 80% logo」，系统按 108dp 裁切后画布外圈那层黑会包在
-方块外面，原图圆角方块外圈的紫/粉霓虹渐变边整个被吃掉，桌面图标变成「黑底 + 内缩方块」。
-现在自适应前景改成**透明画布 + 满幅 logo**：不再铺底色、不再缩放，渐变边直接落到画布
-边缘；背景由 @color/ic_launcher_background 提供，圆角/圆形裁切交给系统 mask。
+霓虹描边（2026-11 第二轮修复）：
+原图那圈边缘渐变辉光缩到 48~192dp 后基本看不见，加上系统 mask 还会裁/缩自适应前景，
+真机桌面只剩「深色圆角方块 + 霓虹横条」。这里在生成时**主动沿图标边缘画一圈明显的
+紫→粉渐变描边 + 内发光**（颜色取自原图/指定色：左上 #6D28D9~#8B5CF6、右下 #EC4899~#F472B6），
+核心亮边长约图标 1.6%、连内发光约 7%，保证各尺寸都能看到颜色边。
+关键：Android 自适应图标 **108dp 画布只有中心 72dp 可见**（其余 18dp×2 被系统用于遮罩/视差），
+所以「logo 占图标 92~96%」必须按可见区换算：72/108 × 0.95 ≈ 0.63，即 logo（连同描边）
+只占画布 63%，落在中心 72dp 可视区内；之前直接铺满 108dp 画布，描边必然被裁掉。
+- 自适应前景：透明画布，logo/描边位于中心可视区，画布外圈透明、由 @color/ic_launcher_background 兜底；
+- 传统 mipmap 方形/圆形：同样带描边，圆形裁切时描边跟随圆边；
+- App 内 256 logo：同步加强描边，圆角外仍透明。
 
 用法：
-    python3 design/logo/generate-icons.py                  # 只生成 + 边缘自检
-    python3 design/logo/generate-icons.py preview.png      # 额外输出静态预览图
+    python3 design/logo/generate-icons.py                  # 生成 + 边缘采样自检
+    python3 design/logo/generate-icons.py preview.png      # 额外输出预览拼图
 """
+import math
 import sys
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFont
+import numpy as np
+from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont
 
 ROOT = Path(__file__).resolve().parents[2]
 SRC = ROOT / 'design/logo/emo-logo-new-src.png'
 APP_LOGO = ROOT / 'src/resources/images/emo-logo.png'
 RES = ROOT / 'android/app/src/main/res'
+# 自适应图标背景色（values/ic_launcher_background.xml），用于自检/预览合成
+BACKGROUND = (0x0B, 0x0B, 0x12)
 
 # 原图里圆角方块的包围盒 (left, top, right, bottom)
 ART_BOX = (8, 0, 1246, 1239)
 # 圆角半径占边长的比例（对原图四角做圆弧拟合得到 303/1238≈0.245）
 RADIUS_RATIO = 0.245
 
-# 自适应前景的安全余量：0 = 满幅。
-# 万一某些 ROM 的 mask 把画布最外一圈 AA 切掉，可以调成 0.01~0.02；
-# 再大就会在渐变边和 mask 之间露出 背景色 #0B0B12 的一圈，就是「黑边」了。
-ADAPTIVE_INSET = 0.0
-# 自适应图标背景（values/ic_launcher_background.xml 的 #0B0B12），只用于自检/预览合成
-BACKGROUND = (0x0B, 0x0B, 0x12)
+# Android 自适应图标：108dp 画布只有中心 72dp 可见（官方规范），其余 18dp×2 是给系统
+# 遮罩/视差留的。任务里的「logo 占 92~96%」按**可见区**算才是有效尺寸：
+#   72/108 × 0.95 ≈ 0.63  → 描边落在可见区内、尽量贴可见区边缘。
+# 直接把 0.95 铺到 108dp 画布上，描边会落在 72dp 可视区之外，真机依旧看不见（前两版就是这么失败的）。
+VISIBLE_CANVAS_RATIO = 72 / 108
+ADAPTIVE_LOGO_RATIO = VISIBLE_CANVAS_RATIO * 0.95
+
+# 霓虹描边颜色：从左上紫到右下粉（对应原图边缘渐变的取色）
+RIM_STOPS = (
+    (0.00, (0x6D, 0x28, 0xD9)),
+    (0.38, (0x8B, 0x5C, 0xF6)),
+    (0.62, (0xEC, 0x48, 0x99)),
+    (1.00, (0xF4, 0x72, 0xB6)),
+)
+# 描边分层：(向内比例, 向外比例, 模糊比例, 不透明度)，比例都相对图标边长。
+# 第一层是约 1.6% 的核心亮边（视觉宽度约 icon 2~3%），后两层是向内的辉光。
+RIM_LAYERS = (
+    (0.016, 0.006, 0.0035, 0.95),
+    (0.042, 0.016, 0.0100, 0.52),
+    (0.078, 0.030, 0.0200, 0.22),
+)
 
 # 传统启动图标：48dp 基准 × 各密度
 MIPMAPS = {'mdpi': 48, 'hdpi': 72, 'xhdpi': 96, 'xxhdpi': 144, 'xxxhdpi': 192}
@@ -76,14 +101,73 @@ def _art(size: int) -> Image.Image:
     return art
 
 
-def _foreground(size: int) -> Image.Image:
-    """自适应图标前景：透明画布 + 满幅 logo（ADAPTIVE_INSET>0 时留一点透明余量）。"""
-    if ADAPTIVE_INSET <= 0:
-        return _art(size)
-    logo_size = round(size * (1 - 2 * ADAPTIVE_INSET))
+# ────────────────────────── 渐变霓虹描边 ──────────────────────────
+
+def _shape_mask(size: int, circular: bool) -> Image.Image:
+    return _circle_mask(size) if circular else _rounded_mask(size, size * RADIUS_RATIO)
+
+
+def _centered_shape_mask(canvas_size: int, shape_size: int, circular: bool) -> Image.Image:
+    """在 canvas_size 画布上居中画一个 shape_size 的圆角方块/圆形遮罩（允许超出画布）。"""
+    shape_size = max(4, shape_size)
+    shape = _shape_mask(shape_size, circular)
+    if shape_size == canvas_size:
+        return shape
+    mask = Image.new('L', (canvas_size, canvas_size), 0)
+    offset = (canvas_size - shape_size) // 2
+    mask.paste(shape, (offset, offset))
+    return mask
+
+
+def _ring(canvas_size: int, shape_size: int, inward: int, outward: int, circular: bool) -> Image.Image:
+    """沿图形边缘的环形遮罩：从「外扩 outward」到「内缩 inward」的那一圈。"""
+    outer = _centered_shape_mask(canvas_size, shape_size + 2 * outward, circular)
+    inner = _centered_shape_mask(canvas_size, shape_size - 2 * inward, circular)
+    return ImageChops.subtract(outer, inner)
+
+
+def _diagonal_gradient(size: int) -> Image.Image:
+    """左上 → 右下 的多段紫→粉渐变：t = (x + y) / (2(size-1))。"""
+    coords = np.arange(size, dtype=np.float32)
+    t = (coords[:, None] + coords[None, :]) / (2 * max(1, size - 1))
+    positions = [stop[0] for stop in RIM_STOPS]
+    channels = [
+        np.interp(t, positions, [stop[1][ch] for stop in RIM_STOPS])
+        for ch in range(3)
+    ]
+    rgb = np.stack(channels, axis=-1).round().clip(0, 255).astype(np.uint8)
+    return Image.fromarray(rgb, 'RGB')
+
+
+def _neon_rim(canvas_size: int, shape_size: int, circular: bool = False) -> Image.Image:
+    """沿图形边缘的紫/粉渐变描边 + 内发光（RGBA，画布大小；外圈可有一点外发光）。"""
+    alpha = Image.new('L', (canvas_size, canvas_size), 0)
+    for inward, outward, blur, opacity in RIM_LAYERS:
+        band = _ring(
+            canvas_size,
+            shape_size,
+            max(1, round(canvas_size * inward)),
+            max(1, round(canvas_size * outward)),
+            circular,
+        )
+        band = band.filter(ImageFilter.GaussianBlur(max(0.35, canvas_size * blur)))
+        band = band.point(lambda value, o=opacity: round(value * o))
+        alpha = ImageChops.add(alpha, band)
+    rim = _diagonal_gradient(canvas_size).convert('RGBA')
+    rim.putalpha(alpha)
+    return rim
+
+
+def _decorated(size: int, logo_ratio: float = 1.0, circular: bool = False) -> Image.Image:
+    """logo（可内缩）+ 渐变霓虹描边；画布其余部分透明。"""
+    logo_size = max(8, round(size * logo_ratio))
+    logo = _art(logo_size)
+    if circular:
+        logo.putalpha(_circle_mask(logo_size))
     canvas = Image.new('RGBA', (size, size), (0, 0, 0, 0))
     offset = (size - logo_size) // 2
-    canvas.alpha_composite(_art(logo_size), (offset, offset))
+    canvas.alpha_composite(logo, (offset, offset))
+    canvas.alpha_composite(_neon_rim(size, logo_size, circular))
     return canvas
 
 
@@ -93,198 +177,177 @@ def _save(img: Image.Image, path: Path) -> None:
     print(f'  {path.relative_to(ROOT)}  {img.size[0]}x{img.size[1]}  {img.mode}')
 
 
-# ────────────────────────── 边缘自检 ──────────────────────────
+# ────────────────────────── 边缘采样自检 ──────────────────────────
 
-def _source_edge_colors() -> dict[str, tuple[int, int, int]]:
-    """原图四条边外侧 1.5% 带内最亮的渐变边颜色。
-
-    取「带内峰值」而不是最外 1px：原图最外 1px 是辉光的抗锯齿尾巴，偏暗；
-    生成时缩小会把更内侧的辉光平均到边缘，所以生成图标的最外圈一般比原图最外 1px 亮。
-    """
-    img = Image.open(SRC).convert('RGB')
+def _sample_rim(img: Image.Image, shape_size: int, circular: bool = False) -> tuple[tuple[int, int, int], tuple[int, int, int]]:
+    """采样描边的紫色侧（左上）和粉色侧（右下）颜色。"""
+    size = img.size[0]
     px = img.load()
-    left, top, right, bottom = ART_BOX
-    cx, cy = (left + right) // 2, (top + bottom) // 2
-    half_side = (right - left) // 6
-    band = max(6, round((right - left) * 0.015))
-
-    def peak(x0: int, x1: int, y0: int, y1: int) -> tuple[int, int, int]:
-        best = (0, 0, 0)
-        for y in range(y0, y1):
-            for x in range(x0, x1):
-                color = px[x, y]
-                if max(color) > max(best):
-                    best = color
-        return best
-
-    return {
-        'L': peak(left, left + band, cy - half_side, cy + half_side),
-        'R': peak(right - band, right, cy - half_side, cy + half_side),
-        'T': peak(cx - half_side, cx + half_side, top, top + band),
-        'B': peak(cx - half_side, cx + half_side, bottom - band, bottom),
-    }
-
-
-def _sample_edge(img: Image.Image) -> dict[str, tuple[int, int, int, int]]:
-    """取四条边中点的 RGBA（圆形图标这四个点正好是圆和方块相切的位置）。"""
-    s = img.size[0]
-    half = s // 2
-    return {
-        'L': img.getpixel((0, half)),
-        'R': img.getpixel((s - 1, half)),
-        'T': img.getpixel((half, 0)),
-        'B': img.getpixel((half, s - 1)),
-    }
-
-
-def _is_neon(rgb: tuple[int, int, int, int]) -> bool:
-    """紫/粉渐变判定：蓝或红明显高于绿，且不是接近黑的背景色。"""
-    r, g, b = rgb[:3]
-    return max(r, b) - g >= 18 and max(r, b) >= 28
-
-
-def _color_distance(a: tuple[int, ...], b: tuple[int, ...]) -> int:
-    return max(abs(a[i] - b[i]) for i in range(3))
+    margin = (size - shape_size) // 2
+    inset = max(1, round(size * 0.012))
+    if circular:
+        radius = shape_size / 2 - inset
+        cx = cy = size / 2
+        purple = (round(cx + radius * math.cos(math.radians(225))), round(cy + radius * math.sin(math.radians(225))))
+        pink = (round(cx + radius * math.cos(math.radians(45))), round(cy + radius * math.sin(math.radians(45))))
+    else:
+        x0 = y0 = margin
+        x1 = margin + shape_size - 1
+        purple = (round(x0 + shape_size * 0.30), y0 + inset)
+        pink = (round(x1 - shape_size * 0.02), round(y0 + shape_size * 0.70))
+    choose = lambda p: (min(max(p[0], 0), size - 1), min(max(p[1], 0), size - 1))
+    return px[choose(purple)][:3], px[choose(pink)][:3]
 
 
 def verify() -> bool:
-    print('\n边缘自检（紫/粉渐变 + 四角透明）：')
-    src = _source_edge_colors()
-    targets = [('App 内 logo 256', APP_LOGO)]
-    for density in MIPMAPS:
-        targets.append((f'mipmap-{density} 方形', RES / f'mipmap-{density}/ic_launcher.png'))
-        targets.append((f'mipmap-{density} 圆形', RES / f'mipmap-{density}/ic_launcher_round.png'))
-    for density in DRAWABLES:
-        targets.append((f'drawable-{density} 自适应前景', RES / f'drawable-{density}/ic_launcher_emo.png'))
+    print('\n霓虹描边自检（边缘采样 RGB，看紫/粉分量）：')
+    targets = [('App 内 logo 256', APP_LOGO, 256, 256, False, False)]
+    for density, size in MIPMAPS.items():
+        targets.append((f'mipmap-{density} 方形', RES / f'mipmap-{density}/ic_launcher.png', size, size, False, False))
+        targets.append((f'mipmap-{density} 圆形', RES / f'mipmap-{density}/ic_launcher_round.png', size, size, True, False))
+    for density, size in DRAWABLES.items():
+        targets.append((
+            f'drawable-{density} 自适应前景',
+            RES / f'drawable-{density}/ic_launcher_emo.png',
+            size,
+            round(size * ADAPTIVE_LOGO_RATIO),
+            False,
+            True,
+        ))
 
     ok = True
-    for label, path in targets:
+    for label, path, canvas, shape, circular, transparent_margin in targets:
         img = Image.open(path).convert('RGBA')
-        edge = _sample_edge(img)
-        neon = [side for side in 'LRTB' if _is_neon(edge[side])]
+        purple, pink = _sample_rim(img, shape, circular)
         corner_alpha = img.getpixel((0, 0))[3]
-        # 亮度保留率：生成边缘的峰值亮度 / 原图同一侧渐变带的峰值亮度。
-        # 缩小时抗锯齿会拉低边缘亮度，但保留率过低就说明渐变边被黑底吃掉了。
-        keep = min(
-            max(edge[side][:3]) / max(1, max(src[side])) for side in 'LRTB'
-        )
-        # 边缘像素也不能等于背景色 #0B0B12（这就是之前「黑底内缩方块」的症状）
-        bg_like = [side for side in 'LRTB' if _color_distance(edge[side][:3], BACKGROUND) <= 4]
-        # 四边中点至少 3 条边是霓虹色；四角必须透明；亮度保留率 ≥ 40% 且边缘不是背景色
-        passed = len(neon) >= 3 and corner_alpha <= 8 and keep >= 0.4 and not bg_like
+        edge_alpha = img.getpixel((canvas // 2, 0))[3]
+        purple_ok = purple[2] - purple[1] >= 25 and purple[2] >= 55
+        pink_ok = pink[0] - pink[1] >= 35 and pink[0] >= 80
+        # 右下明显比左上更红，说明渐变方向（紫→粉）是对的
+        gradient_ok = pink[0] - purple[0] >= 20
+        # 自适应前景：画布外圈必须是透明的（描边整体在中心 72dp 可视区里）；
+        # 传统图标/App logo 是满幅的，边缘中点应该就是描边（接近不透明）
+        if transparent_margin:
+            edge_ok = edge_alpha <= 30
+            # 核心描边外缘必须落在 72dp 可视区内，否则真机裁完还是看不见
+            rim_outer = (shape + 2 * canvas * RIM_LAYERS[0][1]) / canvas
+            visible_ok = rim_outer <= VISIBLE_CANVAS_RATIO
+            rim_note = f' 描边外缘={round(rim_outer * 100)}%画布(可视区≤{round(VISIBLE_CANVAS_RATIO * 100)}%)'
+        else:
+            edge_ok = edge_alpha >= 160
+            visible_ok = True
+            rim_note = ''
+        passed = purple_ok and pink_ok and gradient_ok and edge_ok and visible_ok and corner_alpha <= 8
         ok = ok and passed
         print(
             f'  [{"OK" if passed else "FAIL"}] {label:<24} '
-            f'边缘 L{edge["L"][:3]} R{edge["R"][:3]} T{edge["T"][:3]} B{edge["B"][:3]} '
-            f'霓虹边 {len(neon)}/4 角alpha {corner_alpha} 亮度保留 {round(keep * 100)}% 背景色边 {len(bg_like)}',
+            f'紫 {purple} (B-G={purple[2] - purple[1]})  '
+            f'粉 {pink} (R-G={pink[0] - pink[1]})  '
+            f'角alpha={corner_alpha} 边中点alpha={edge_alpha}{rim_note}',
         )
-    print('边缘自检：' + ('PASS' if ok else 'FAIL'))
+    print('霓虹描边自检：' + ('PASS' if ok else 'FAIL'))
     return ok
 
 
-# ────────────────────────── 预览图 ──────────────────────────
+# ────────────────────────── 预览拼图 ──────────────────────────
 
-def _checker(size: int, step: int = 16) -> Image.Image:
-    img = Image.new('RGB', (size, size), (255, 255, 255))
-    draw = ImageDraw.Draw(img)
-    for y in range(0, size, step):
-        for x in range(0, size, step):
-            if (x // step + y // step) % 2 == 0:
-                draw.rectangle((x, y, x + step - 1, y + step - 1), fill=(208, 208, 208))
-    return img
+def _squircle_mask(size: int) -> Image.Image:
+    big = size * SUPERSAMPLE
+    mask = Image.new('L', (big, big), 0)
+    ImageDraw.Draw(mask).rounded_rectangle(
+        (0, 0, big - 1, big - 1), radius=big * 0.32, fill=255,
+    )
+    return mask.resize((size, size), Image.LANCZOS)
 
 
-def _masked_composite(icon: Image.Image, size: int, mask: Image.Image) -> Image.Image:
-    """把透明前景叠到 #0B0B12 背景上，再套一层系统 mask，模拟桌面上的样子。"""
-    canvas = Image.new('RGB', (size, size), BACKGROUND)
-    fg = icon.resize((size, size), Image.LANCZOS)
-    canvas.paste(fg, (0, 0), fg)
-    masked = Image.new('RGB', (size, size), (250, 250, 250))
-    masked.paste(canvas, (0, 0), mask)
-    return masked
+def _visible_crop(icon: Image.Image) -> Image.Image:
+    """按 Android 规范裁出中心 72/108 的可视区：预览要按真机看到的范围来。"""
+    size = icon.size[0]
+    side = round(size * VISIBLE_CANVAS_RATIO)
+    offset = (size - side) // 2
+    return icon.crop((offset, offset, offset + side, offset + side))
+
+
+def _fit(img: Image.Image, box: int) -> Image.Image:
+    """等比缩放到 box 内；放大小图用 NEAREST 方便看清像素边缘。"""
+    scale = box / img.size[0]
+    resample = Image.NEAREST if scale >= 1.5 else Image.LANCZOS
+    size = (max(1, round(img.size[0] * scale)), max(1, round(img.size[1] * scale)))
+    return img.resize(size, resample)
 
 
 def preview(path: Path) -> None:
-    cell = 170
-    font = ImageFont.load_default(size=12)
-    sheet = Image.new('RGB', (cell * 4 + 20, cell * 2 + 40), (250, 250, 250))
+    cell = 150
+    label_h = 18
+    row_h = cell + label_h
+    font = ImageFont.load_default(size=11)
+    sheet = Image.new('RGB', (cell * 5 + 20, row_h * 3 + 30), (250, 250, 250))
     draw = ImageDraw.Draw(sheet)
 
-    fg = Image.open(RES / 'drawable-xxxhdpi/ic_launcher_emo.png').convert('RGBA')
-    circle = _circle_mask(cell)
-    squircle_mask = Image.new('L', (cell * SUPERSAMPLE, cell * SUPERSAMPLE), 0)
-    ImageDraw.Draw(squircle_mask).rounded_rectangle(
-        (0, 0, cell * SUPERSAMPLE - 1, cell * SUPERSAMPLE - 1),
-        radius=cell * SUPERSAMPLE * 0.38, fill=255,
-    )
-    squircle = squircle_mask.resize((cell, cell), Image.LANCZOS)
+    sizes = [MIPMAPS['mdpi'], MIPMAPS['hdpi'], MIPMAPS['xhdpi'], MIPMAPS['xxhdpi'], MIPMAPS['xxxhdpi']]
+    densities = ['mdpi', 'hdpi', 'xhdpi', 'xxhdpi', 'xxxhdpi']
+    squircle = _squircle_mask(cell)
 
-    # 「修复前」：不透明 #0B0B12 画布 + 80% logo（系统遮罩后剩一圈黑底）
-    before = Image.new('RGBA', (cell, cell), BACKGROUND + (255,))
-    before_logo_size = round(cell * 0.8)
-    before.alpha_composite(
-        _art(before_logo_size),
-        ((cell - before_logo_size) // 2, (cell - before_logo_size) // 2),
-    )
+    def cell_img(img: Image.Image, mask: Image.Image | None, background=(0x0B, 0x0B, 0x12)) -> Image.Image:
+        fitted = _fit(img, cell)
+        base = Image.new('RGB', (cell, cell), background)
+        base.paste(fitted, ((cell - fitted.size[0]) // 2, (cell - fitted.size[1]) // 2), fitted)
+        if mask is None:
+            return base
+        out = Image.new('RGB', (cell, cell), (250, 250, 250))
+        out.paste(base, (0, 0), mask)
+        return out
 
-    row1 = [
-        ('BEFORE: bg + 80%', _masked_composite(before, cell, squircle)),
-        ('AFTER: full-bleed (raw)', _masked_composite(fg, cell, Image.new('L', (cell, cell), 255))),
-        ('AFTER: circle mask', _masked_composite(fg, cell, circle)),
-        ('AFTER: squircle mask', _masked_composite(fg, cell, squircle)),
-    ]
-    icons = {}
-    for density in MIPMAPS:
-        icons[f'mipmap-{density}'] = RES / f'mipmap-{density}'
-    square = Image.open(icons['mipmap-xxxhdpi'] / 'ic_launcher.png').convert('RGBA')
-    round_icon = Image.open(icons['mipmap-xxxhdpi'] / 'ic_launcher_round.png').convert('RGBA')
+    # 第一行：自适应前景（squircle / 圆形遮罩模拟）+ 传统 192 方形/圆形 + App 内 logo
+    adaptive = Image.open(RES / 'drawable-xxxhdpi/ic_launcher_emo.png').convert('RGBA')
+    square192 = Image.open(RES / 'mipmap-xxxhdpi/ic_launcher.png').convert('RGBA')
+    round192 = Image.open(RES / 'mipmap-xxxhdpi/ic_launcher_round.png').convert('RGBA')
     app_logo = Image.open(APP_LOGO).convert('RGBA')
-
-    def paste_contained(dst: Image.Image, src: Image.Image, box: int) -> None:
-        scale = min(box / src.size[0], box / src.size[1])
-        size = (max(1, round(src.size[0] * scale)), max(1, round(src.size[1] * scale)))
-        icon = src.resize(size, Image.LANCZOS)
-        dst.paste(icon, ((box - size[0]) // 2, (box - size[1]) // 2), icon)
-
-    row2 = [
-        ('legacy square 192', square),
-        ('legacy round 192', round_icon),
-        ('app logo 256', app_logo),
+    first_row = [
+        ('adaptive visible / squircle', cell_img(_visible_crop(adaptive), squircle, BACKGROUND)),
+        ('adaptive visible / circle', cell_img(_visible_crop(adaptive), _circle_mask(cell), BACKGROUND)),
+        ('legacy square 192', cell_img(square192, None, (240, 240, 240))),
+        ('legacy round 192', cell_img(round192, None, (240, 240, 240))),
+        ('app logo 256', cell_img(app_logo, None, (240, 240, 240))),
     ]
+    for idx, (label, img) in enumerate(first_row):
+        x = 10 + idx * cell
+        sheet.paste(img, (x, 18))
+        draw.text((x + 2, 3), label, fill=(80, 74, 96), font=font)
 
-    for idx, (label, img) in enumerate(row1):
-        x = idx * cell + 10
-        sheet.paste(img, (x, 20))
-        draw.text((x, 4), label, fill=(80, 74, 96), font=font)
-    for idx, (label, img) in enumerate(row2):
-        x = idx * cell + 10
-        y = cell + 40
-        bg = _checker(cell)
-        if img.size == (cell, cell):
-            bg.paste(img, (0, 0), img)
-        else:
-            paste_contained(bg, img, cell)
-        sheet.paste(bg, (x, y))
-        draw.text((x, y - 16), label, fill=(80, 74, 96), font=font)
+    # 第二、三行：48/72/96/144/192 的 squircle / 圆形预览
+    for row, (kind, mask_fn) in enumerate((
+        ('squircle', lambda: squircle),
+        ('circle', lambda: _circle_mask(cell)),
+    )):
+        y = 18 + row_h * (row + 1)
+        for idx, density in enumerate(densities):
+            icon = Image.open(RES / f'mipmap-{density}/ic_launcher.png').convert('RGBA') \
+                if kind == 'squircle' else Image.open(RES / f'mipmap-{density}/ic_launcher_round.png').convert('RGBA')
+            if kind == 'squircle':
+                img = cell_img(icon, mask_fn())
+            else:
+                img = cell_img(icon, None)
+            x = 10 + idx * cell
+            sheet.paste(img, (x, y))
+            draw.text((x + 2, y - label_h + 3), f'{sizes[idx]} {kind}', fill=(80, 74, 96), font=font)
 
     sheet.save(path, 'PNG')
     print(f'\n预览图已输出：{path}')
 
 
 def main() -> None:
-    print('App 内 logo：')
-    _save(_art(256), APP_LOGO)
+    print('App 内 logo（叠加渐变霓虹描边）：')
+    _save(_decorated(256), APP_LOGO)
 
-    print('自适应图标前景（透明画布 + 满幅 logo，渐变边直接到画布边缘）：')
+    print('自适应图标前景（透明画布；logo 占可见区 95% ≈ 画布 63%，边缘渐变霓虹描边）：')
     for density, size in DRAWABLES.items():
-        _save(_foreground(size), RES / f'drawable-{density}/ic_launcher_emo.png')
+        _save(_decorated(size, logo_ratio=ADAPTIVE_LOGO_RATIO), RES / f'drawable-{density}/ic_launcher_emo.png')
 
-    print('传统启动图标 + 圆形图标（透明外部，保留渐变边）：')
+    print('传统启动图标 + 圆形图标（带渐变霓虹描边）：')
     for density, size in MIPMAPS.items():
-        _save(_art(size), RES / f'mipmap-{density}/ic_launcher.png')
-        round_icon = _art(size)
-        round_icon.putalpha(_circle_mask(size))
-        _save(round_icon, RES / f'mipmap-{density}/ic_launcher_round.png')
+        _save(_decorated(size), RES / f'mipmap-{density}/ic_launcher.png')
+        _save(_decorated(size, circular=True), RES / f'mipmap-{density}/ic_launcher_round.png')
 
     passed = verify()
     if len(sys.argv) > 1:

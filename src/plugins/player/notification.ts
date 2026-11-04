@@ -8,7 +8,7 @@
  *  - 切歌 / 我的收藏列表变化 → 收藏按钮图标（实心 / 线框）
  *  - 播放模式变化 → 循环按钮图标（列表循环 / 单曲循环 / 随机 / 顺序）
  *  - 标准媒体按钮（上一首 / 播放 / 暂停 / 下一首）统一成 Material 矢量图标（emo_media_*），
- *    不再混用库内置 PNG，避免锁屏大播放器里图标风格不一致
+ *    不再混用库内置 PNG；其中「上一首」改为自定义 action，锁屏大播放器上才与其它按钮同为圆形
  *
  * native 侧会按 settings 里的 drawable 资源名（emo_notif_* / emo_media_*）在 app 包内用
  * getIdentifier 解析图标，所以这里传的是资源名字符串而不是 require() 资源。
@@ -39,9 +39,10 @@ const LOOP_ICON: Record<PlayMode | 'none', string> = {
 }
 
 /**
- * 通知栏 compact / 锁屏大播放器的标准媒体按钮图标。
+ * 通知栏 compact / 锁屏大播放器的上一首 / 播放 / 暂停 / 下一首 图标。
  * 库默认用内置 PNG，和收藏 / 循环的 Material 矢量风格不一致；这里统一成
  * 同一套 24dp 白色 Material 实心矢量（native getIcon 已扩展支持传资源名字符串）。
+ * 其中「上一首」由 native createCustomAction 使用（自定义 action，锁屏上才是圆形按钮）。
  */
 const MEDIA_ICON_PREVIOUS = 'emo_media_previous'
 const MEDIA_ICON_PLAY = 'emo_media_play'
@@ -51,6 +52,7 @@ const MEDIA_ICON_NEXT = 'emo_media_next'
 /** 自定义按钮的文案（native 里也会兜底，这里传过去方便以后本地化） */
 const FAVORITE_TITLE = '收藏'
 const LOOP_TITLE = '播放模式'
+const PREVIOUS_TITLE = '上一首'
 
 /**
  * native 能从 Bundle 里多读到的自定义字段。
@@ -58,6 +60,9 @@ const LOOP_TITLE = '播放模式'
  * 注意：previousIcon / playIcon / pauseIcon / nextIcon 传的是 drawable 资源名字符串
  * （如 'emo_media_previous'），而 MetadataOptions 里同名字段类型是资源 id（number）。
  * native 侧 getIcon 已扩展支持按 app 包资源名解析，解析失败会回退库内置图标。
+ *
+ * 其中「上一首」已改成自定义 action（previousIcon + previousTitle，native 占 mActions
+ * 第 0 位），在锁屏大播放器上与收藏 / 循环一样渲染成圆形按钮，不再走标准 media action。
  */
 interface EmoNotificationOptions extends Omit<MetadataOptions, 'icon' | 'previousIcon' | 'playIcon' | 'pauseIcon' | 'stopIcon' | 'nextIcon' | 'rewindIcon' | 'forwardIcon'> {
   favoriteIcon?: string
@@ -65,6 +70,7 @@ interface EmoNotificationOptions extends Omit<MetadataOptions, 'icon' | 'previou
   favoriteTitle?: string
   loopTitle?: string
   previousIcon?: string
+  previousTitle?: string
   playIcon?: string
   pauseIcon?: string
   nextIcon?: string
@@ -100,22 +106,22 @@ export const buildNotificationOptions = (): MetadataOptions => {
       Capability.SkipToPrevious,
     ],
 
-    // 通知栏 / 状态栏媒体卡片：去掉 Stop（它等于退出 App），
-    // 只保留 上一首 / 播放暂停 / 下一首（展开后再加上收藏 / 循环）
+    // 通知栏 / 状态栏媒体卡片：上一首已改成 native 自定义 action（fixed 占第 0 位），
+    // 不再由 notificationCapabilities 生成标准 previous action；这里只声明
+    // 播放暂停 / 下一首，去掉 Stop（它等于退出 App）
     notificationCapabilities: [
       Capability.Play,
       Capability.Pause,
-      Capability.SkipToPrevious,
       Capability.SkipToNext,
       Capability.SeekTo,
     ],
 
-    // 锁屏 / 通知 compact 视图最多 3 个按钮：上一首 / 播放暂停 / 下一首。
-    // 加进 SkipToPrevious 锁屏小组件才有「上一曲」。
+    // 锁屏 / 通知 compact 视图最多 3 个按钮：上一首（native 自定义 action 固定占第 0 位）/
+    // 播放暂停 / 下一首。上一首在 native 里手动加，这里只声明后两个。
+    // 注意 capabilities 里仍保留 SkipToPrevious，供媒体会话 / 耳机上一曲使用。
     compactCapabilities: [
       Capability.Play,
       Capability.Pause,
-      Capability.SkipToPrevious,
       Capability.SkipToNext,
     ],
 
@@ -129,8 +135,10 @@ export const buildNotificationOptions = (): MetadataOptions => {
     loopTitle: LOOP_TITLE,
 
     // 标准媒体按钮：显式传 app drawable 资源名，让通知 compact / 锁屏大播放器
-    // 的上一首 / 播放 / 暂停 / 下一首与收藏 / 循环使用同一套 Material 图标
+    // 的上一首 / 播放 / 暂停 / 下一首与收藏 / 循环使用同一套 Material 图标。
+    // 其中上一首是自定义 action（native 占 mActions 第 0 位），锁屏上渲染成圆形按钮。
     previousIcon: MEDIA_ICON_PREVIOUS,
+    previousTitle: PREVIOUS_TITLE,
     playIcon: MEDIA_ICON_PLAY,
     pauseIcon: MEDIA_ICON_PAUSE,
     nextIcon: MEDIA_ICON_NEXT,
