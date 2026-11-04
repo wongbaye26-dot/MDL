@@ -248,7 +248,7 @@ export default () => {
     <View style={styles.container}>
       <ScrollView contentContainerStyle={{ paddingBottom: NAV_BAR_SPACE }}>
         <PageHeader
-          title='EMO音乐'
+          title='Emo音乐'
           right={<HeaderButton icon='search-2' onPress={() => { setSearchVisible(true) }} />}
         />
 

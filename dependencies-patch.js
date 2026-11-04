@@ -41,8 +41,8 @@ const patchs = [
     /* 通知栏自定义按钮的 Intent action。MetadataManager 用 PendingIntent.getService 把这两个
        action 发到本服务，在 onStartCommand 里拦截后转成 JS 事件（remote-favorite / remote-loop），
        不启动 headless task。 */
-    public static final String ACTION_FAVORITE = "cn.toside.music.mobile.NOTIFY_FAVORITE";
-    public static final String ACTION_LOOP = "cn.toside.music.mobile.NOTIFY_LOOP";
+    public static final String ACTION_FAVORITE = "cn.emomusic.mobile.NOTIFY_FAVORITE";
+    public static final String ACTION_LOOP = "cn.emomusic.mobile.NOTIFY_LOOP";
 
     MusicManager manager;`,
   ],
@@ -211,7 +211,7 @@ const patchs = [
     Handler handler;
 
     /** 通知栏「上一首」自定义按钮 action（与收藏/循环一样由 PendingIntent.getService 触发） */
-    public static final String ACTION_PREVIOUS = "cn.toside.music.mobile.NOTIFY_PREVIOUS";`,
+    public static final String ACTION_PREVIOUS = "cn.emomusic.mobile.NOTIFY_PREVIOUS";`,
   ],
   [
     path.join(rootPath, 'node_modules/react-native-track-player/android/src/main/java/com/guichaguri/trackplayer/service/MusicService.java'),

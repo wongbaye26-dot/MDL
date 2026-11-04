@@ -99,7 +99,7 @@ export default ({ onPress }: { onPress: (id: SettingScreenIds) => void }) => {
   const autoSave = useSettingValue('download.autoSaveWhilePlaying')
 
   const previews: Record<SettingScreenIds, string> = {
-    basic: `${theme.name || 'EMO'} · ${LANG_LABEL[(langId ?? 'zh-cn').replace('_', '-')] ?? langId ?? ''}`,
+    basic: `${theme.name || 'Emo'} · ${LANG_LABEL[(langId ?? 'zh-cn').replace('_', '-')] ?? langId ?? ''}`,
     player: `${QUALITY_LABEL[playQuality] ?? playQuality} · 逐字歌词${onOff(wordByWord)}`,
     search: `历史${onOff(showHistory)} · 热搜${onOff(showHot)}`,
     list: `专辑名${onOff(showAlbumName)} · 间隔${onOff(showInterval)}`,

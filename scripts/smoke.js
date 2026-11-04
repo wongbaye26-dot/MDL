@@ -13,7 +13,7 @@
  *   node scripts/smoke.js              # 跑「启动 / 扫描 / 播放」三条
  *   node scripts/smoke.js --keep-going # 某步失败也继续跑后面的
  *
- * 前置：手机连上 adb、已安装 cn.toside.music.mobile、本地音乐里至少有一首歌。
+ * 前置：手机连上 adb、已安装 cn.emomusic.mobile、本地音乐里至少有一首歌。
  * 退出码：0 全通过 / 1 有失败。
  *
  * ── 为什么没有自动化的「下载」链路 ──
@@ -32,7 +32,7 @@
 
 const { execSync } = require('node:child_process')
 
-const PKG = 'cn.toside.music.mobile'
+const PKG = 'cn.emomusic.mobile'
 const MAIN = `${PKG}/.MainActivity`
 
 const args = process.argv.slice(2)

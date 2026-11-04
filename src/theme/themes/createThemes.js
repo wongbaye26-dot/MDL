@@ -223,7 +223,7 @@ const defaultThemes = [
   },
   {
     id: 'emo',
-    name: 'EMO 深夜',
+    name: 'Emo 深夜',
     isDark: true,
     config: {
       primary: 'rgb(168, 85, 247)',
@@ -241,7 +241,7 @@ const defaultThemes = [
   },
   {
     id: 'emo_light',
-    name: 'EMO 晴日',
+    name: 'Emo 晴日',
     isDark: false,
     config: {
       primary: 'rgb(124, 58, 237)',

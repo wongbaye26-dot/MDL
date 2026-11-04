@@ -72,8 +72,8 @@ const main = () => {
 
   // 只归档 arm64-v8a 和 universal：前者给真机覆盖升级，后者给全新安装
   const wanted = [
-    { abi: 'arm64-v8a', file: `lx-music-mobile-v${version}-arm64-v8a.apk` },
-    { abi: 'universal', file: `lx-music-mobile-v${version}-universal.apk` },
+    { abi: 'arm64-v8a', file: `em-music-v${version}-arm64-v8a.apk` },
+    { abi: 'universal', file: `em-music-v${version}-universal.apk` },
   ]
 
   console.log('\n▶ 归档到 dist …')
@@ -84,7 +84,7 @@ const main = () => {
       console.warn(`⚠ 缺少 ${item.file}，跳过`)
       continue
     }
-    const dest = path.join(DIST, `EMO-v${version}-${item.abi}.apk`)
+    const dest = path.join(DIST, `EmoMusic-v${version}-${item.abi}.apk`)
     fs.copyFileSync(src, dest)
     const mb = (fs.statSync(dest).size / 1048576).toFixed(1)
     console.log(`  → ${path.basename(dest)}  (${mb} MB)`)
@@ -95,8 +95,8 @@ const main = () => {
   // 瘦身：只保留最近 N 个版本
   const versions = [...new Set(
     fs.readdirSync(DIST)
-      .filter(f => f.startsWith('EMO-v') && f.endsWith('.apk'))
-      .map(f => /^EMO-(v[\d.]+)-/.exec(f)?.[1])
+      .filter(f => f.startsWith('EmoMusic-v') && f.endsWith('.apk'))
+      .map(f => /^EmoMusic-(v[\d.]+)-/.exec(f)?.[1])
       .filter(Boolean),
   )].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
 
@@ -105,7 +105,7 @@ const main = () => {
     console.log(`\n▶ 清理旧版本（保留最近 ${keep} 个：${versions.slice(-keep).join(', ')}）`)
     if (!has('--prune-delete') && !fs.existsSync(ARCHIVE)) fs.mkdirSync(ARCHIVE, { recursive: true })
     for (const v of drop) {
-      for (const f of fs.readdirSync(DIST).filter(n => n.startsWith(`EMO-${v}-`))) {
+      for (const f of fs.readdirSync(DIST).filter(n => n.startsWith(`EmoMusic-${v}-`))) {
         const from = path.join(DIST, f)
         if (has('--prune-delete')) {
           fs.rmSync(from, { force: true })

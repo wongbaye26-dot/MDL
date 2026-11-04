@@ -7,7 +7,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/platform-Android-3DDC84" alt="Platform">
   <img src="https://img.shields.io/badge/react--native-0.73-61DAFB" alt="React Native">
-  <img src="https://img.shields.io/badge/version-3.5.17-FF6B9D" alt="Version">
+  <img src="https://img.shields.io/badge/version-3.6.0-FF6B9D" alt="Version">
 </p>
 
 ---
@@ -19,6 +19,14 @@ EMO 音乐是一个 Android 音乐播放器，支持**本地曲库**和**在线�
 界面以 **Material You** 为基准重新设计：磨砂玻璃胶囊、动态取色、圆形封面、大圆角。播放器支持横竖屏双布局，手势与动效都按手机端重新调过。
 
 > 本项目基于 [lx-music-mobile](https://github.com/lyswhut/lx-music-mobile) 二次开发，音源与数据层沿用上游实现，UI 与交互做了大规模重做。感谢原作者 [lyswhut](https://github.com/lyswhut) 的开源工作。
+
+### 安装包隔离（v3.6.0 起）
+
+- 包名：`cn.emomusic.mobile`；桌面名称：**Emo音乐**
+- 签名：独立 release 密钥（`android/app/emomusic-release.keystore`），与 lxmusic 官方包/旧 EMO 包不同
+- 因此新旧包**可以共存**、数据互不可见；新包首次安装后需要重新导入本地音乐、重新配置音源
+- 本地音频文件仍在手机存储中，重新扫描原目录即可；旧包确认迁移完成后再卸载
+
 
 ---
 
@@ -94,8 +102,8 @@ cd android && ./gradlew assembleRelease
 
 按 ABI 拆分的产物：
 
-- `lx-music-mobile-v3.5.17-arm64-v8a.apk` —— 绝大多数现代手机
-- `lx-music-mobile-v3.5.17-universal.apk` —— 兼容所有架构
+- `em-music-v3.6.0-arm64-v8a.apk` —— 绝大多数现代手机
+- `em-music-v3.6.0-universal.apk` —— 兼容所有架构
 
 ---
 

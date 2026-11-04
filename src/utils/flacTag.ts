@@ -86,7 +86,7 @@ const parseFlac = (bytes: Uint8Array): ParsedFlac | null => {
 /** 构造 VORBIS_COMMENT（type 4） */
 const buildVorbisComment = (tags: Record<string, string>): Uint8Array => {
   const out: number[] = []
-  const vendor = utf8Bytes('EMO Music')
+  const vendor = utf8Bytes('Emo Music')
   pushU32LE(out, vendor.length)
   out.push(...vendor)
   const items = Object.entries(tags)

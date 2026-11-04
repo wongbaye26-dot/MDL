@@ -52,7 +52,7 @@ export default memo(() => {
             {/* RN 的 Text 不支持 flexShrink：名称要包一层 View 才会让位，版本 chip 才能完整显示 */}
             <View style={styles.nameRow}>
               <View style={styles.nameWrap}>
-                <Text size={20} numberOfLines={1} style={styles.brandName}>EMO音乐</Text>
+                <Text size={20} numberOfLines={1} style={styles.brandName}>Emo音乐</Text>
               </View>
             </View>
             {/* 版本号并进副标题行（不再单独放窄 chip，避免被省略号截断） */}
@@ -96,7 +96,7 @@ export default memo(() => {
       <Section title='声明'>
         <View style={styles.textBlock}>
           <Text size={12} color={theme['c-450']} style={styles.paragraph}>
-            EMO音乐 是一个本地音乐下载与试听工具，所有内容均来自用户自行配置的第三方音源，软件本身不提供、不存储任何音频内容。
+            Emo音乐 是一个本地音乐下载与试听工具，所有内容均来自用户自行配置的第三方音源，软件本身不提供、不存储任何音频内容。
           </Text>
           <Text size={12} color={theme['c-450']} style={styles.paragraph}>
             请仅将本软件用于个人学习与技术研究，下载的音乐版权归原作者及版权方所有，请勿用于任何商业用途或二次分发。
@@ -109,7 +109,7 @@ export default memo(() => {
 
       {/* footer 分两行：版本号单独一行，任何宽度下都不会被截断 */}
       <View style={styles.footer}>
-        <Text size={10} color={theme['c-400']}>Made with care · EMO音乐</Text>
+        <Text size={10} color={theme['c-400']}>Made with care · Emo音乐</Text>
         <Text size={10} color={theme['c-400']} numberOfLines={1} style={styles.footerVersion}>v{currentVer}</Text>
       </View>
     </>

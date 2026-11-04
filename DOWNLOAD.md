@@ -72,7 +72,7 @@ src/screens/Home/Views/Setting/settings/Download/  // 下载设置分组
 - 若目标目录不可写（例如部分 ROM 限制），`getSavePath()` 会依次回退：
   1. 用户设置的目录（绝对路径）
   2. 默认公共目录
-  3. `Android/data/cn.toside.music.mobile/files/Music`（应用专属目录，无需权限，但卸载即删）
+  3. `Android/data/cn.emomusic.mobile/files/Music`（应用专属目录，无需权限，但卸载即删）
 - 用户通过系统目录选择器选中目录时，路径为 SAF `content://...` 树 URI：此时先下载到缓存目录，完成后用 `FileSystem.cp` 复制到目标目录（同目录下的文件无法直接写标签，因此标签写入会被跳过，`.lrc` 仍会写入）。
 
 ## 四、构建

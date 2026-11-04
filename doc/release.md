@@ -12,7 +12,7 @@ node scripts/release.js --prune-delete      # 旧版本直接删（默认移到 
 ```
 
 脚本做的事：改版本号 → 强制重打 JS bundle → `assembleRelease` → 把 `arm64-v8a` 和 `universal`
-拷成 `dist/EMO-v<版本>-<abi>.apk` → 把超出保留数的旧版本移到 `dist-archive/`。
+拷成 `dist/EmoMusic-v<版本>-<abi>.apk` → 把超出保留数的旧版本移到 `dist-archive/`。
 
 > **装包时注意**：`arm64-v8a` 的 versionCode 带 ABI 后缀（如 `146003`），能覆盖升级；
 > `universal` 的 versionCode 是裸的 `146`，**低于**已装版本会报「降级」，
@@ -20,7 +20,7 @@ node scripts/release.js --prune-delete      # 旧版本直接删（默认移到 
 
 ## 签名密钥
 
-release 签名用的是 `android/app/mdl-release.keystore`，配置在 `android/keystore.properties`
+release 签名用的是 `android/app/emomusic-release.keystore`（与旧 lxmusic 包完全隔离；旧密钥已归档到 `android/legacy-signing/`），配置在 `android/keystore.properties`
 （该文件已 gitignore，不入库）。
 
 ```bash
@@ -30,13 +30,17 @@ npm run keystore:info   # 打印密钥路径、别名、SHA-256/SHA-1 指纹（�
 当前指纹：
 
 ```
-SHA-256 : 25:2A:06:5F:6C:FC:DA:A0:6E:7F:A1:B9:53:DF:81:65:52:3D:0A:5E:20:5B:CF:11:0F:5B:29:F2:D5:14:71:20
-SHA-1   : 1F:16:8C:87:A8:F5:97:43:07:1C:D0:B2:E8:F8:9E:BF:9D:4E:9A:79
+SHA-256 : 02:0C:0C:4B:77:07:66:2D:CD:E2:86:A1:73:AB:C5:1A:82:D7:57:68:25:EE:CF:8F:C6:18:06:93:7B:09:89:0A
+SHA-1   : EE:65:67:28:2E:E4:F9:F3:7C:95:37:47:53:73:49:9A:1A:2F:EE:DB
 ```
 
 ### 必须做的事
 
-**把 `mdl-release.keystore` 和 `keystore.properties` 备份到密码管理器 / 加密云盘。**
+**把 `android/app/emomusic-release.keystore` 和 `android/keystore.properties` 备份到密码管理器 / 加密云盘。**
+
+> 版本 3.6.0 起包名从 `cn.toside.music.mobile` 改为 `cn.emomusic.mobile`、签名换成全新的 `emomusic` 密钥，
+> 与 lxmusic 官方包及旧 EMO 包在安装层面完全隔离（可共存、数据互不可见）。旧包如需继续更新，
+> 请使用 `android/legacy-signing/lxmusic-release.keystore`（已归档，不要删除）。
 
 签名不一致的后果：老用户装不上新版本，只能卸载重装 —— **本地音乐库、歌单、播放记录全丢**。
 没有别的补救办法，Google Play / 各应用商店也不接受换钥匙。

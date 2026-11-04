@@ -12,7 +12,7 @@ export default () => {
       <PageHeader
         logo={emoLogo}
         title='我的'
-        subtitle='EMO音乐 · 深夜下载 · 情绪收藏'
+        subtitle='Emo音乐 · 深夜下载 · 情绪收藏'
       />
       <View style={styles.setting}>
         <Setting />

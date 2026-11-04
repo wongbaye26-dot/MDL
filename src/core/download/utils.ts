@@ -117,12 +117,12 @@ export const joinPath = (dir: string, name: string) => {
 /**
  * 默认保存目录：公共音乐目录，无需额外权限即可被其他音乐 App 扫描到
  */
-export const getDefaultSavePath = () => joinPath(externalStorageDirectoryPath, 'Music/EMOMusic')
+export const getDefaultSavePath = () => joinPath(externalStorageDirectoryPath, 'Music/EmoMusic')
 
 /**
  * 公共目录不可写时的兜底目录（应用专属外部目录，卸载应用时会被清理）
  */
-export const getFallbackSavePath = () => joinPath(externalStorageDirectoryPath, 'Android/data/cn.toside.music.mobile/files/Music')
+export const getFallbackSavePath = () => joinPath(externalStorageDirectoryPath, 'Android/data/cn.emomusic.mobile/files/Music')
 
 /**
  * 使用 SAF 目录时，先下载到应用缓存目录，完成后再复制到目标目录

@@ -58,7 +58,7 @@ export default memo(() => {
   /** 跳系统设置授予「所有文件访问权限」，授了才能直接写公共音乐目录 */
   const openAllFilesAccess = () => {
     void Linking.sendIntent('android.settings.MANAGE_APP_ALL_FILES_ACCESS_PERMISSION', [
-      { key: 'package', value: 'cn.toside.music.mobile' },
+      { key: 'package', value: 'cn.emomusic.mobile' },
     ]).catch(() => { void Linking.openSettings() })
   }
   const isWriteMetadata = useSettingValue('download.isWriteMetadata')

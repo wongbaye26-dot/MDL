@@ -3028,7 +3028,7 @@ export default [
   },
   {
     "id": "emo",
-    "name": "EMO 深夜",
+    "name": "Emo 深夜",
     "isDark": true,
     "isCustom": false,
     "config": {
@@ -3280,7 +3280,7 @@ export default [
   },
   {
     "id": "emo_light",
-    "name": "EMO 晴日",
+    "name": "Emo 晴日",
     "isDark": false,
     "isCustom": false,
     "config": {
