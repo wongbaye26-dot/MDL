@@ -107,8 +107,10 @@ const findLine = (lines: Line[], timeMs: number) => {
 /**
  * 歌词行。飞牛：当前行纯白 + 加粗 + 字号放大，其余行统一半透明白（没有距离渐隐）。
  */
-const LyricLine = memo(({ text, active, startMs, endMs, playing, syncMs, size, wordByWord, activeColor, align = 'center' }: {
+const LyricLine = memo(({ text, extras, active, startMs, endMs, playing, syncMs, size, wordByWord, activeColor, align = 'center' }: {
   text: string
+  /** lrc 的翻译/罗马音/粤拼等扩展行（设置开启时由 lrc parser 提供） */
+  extras: string[]
   active: boolean
   startMs: number
   endMs: number
@@ -121,38 +123,62 @@ const LyricLine = memo(({ text, active, startMs, endMs, playing, syncMs, size, w
   /** 横屏和歌名一样左对齐，竖屏居中 */
   align?: 'center' | 'left'
 }) => {
+  const extraNodes = extras.length
+    ? (
+      <View style={styles.lyricExtras}>
+        {extras.map((extra, i) => (
+          <Text
+            key={`${i}_${extra}`}
+            size={Math.max(9, size * 0.5)}
+            color={active ? 'rgba(255,255,255,0.72)' : 'rgba(255,255,255,0.32)'}
+            style={[styles.lyricExtra, { textAlign: align }]}
+            numberOfLines={1}
+          >{extra}</Text>
+        ))}
+      </View>
+      )
+    : null
   if (!active) {
     return (
-      <Text
-        size={u(size / LYRIC_NORMAL_RATIO)}
-        color='rgba(255,255,255,0.38)'
-        style={[styles.lyricLine, { textAlign: align }]}
-        numberOfLines={1}
-      >{text || ' '}</Text>
+      <View style={[styles.lyricLineWrap, { alignItems: align === 'center' ? 'center' : 'flex-start' }]}>
+        <Text
+          size={u(size / LYRIC_NORMAL_RATIO)}
+          color='rgba(255,255,255,0.38)'
+          style={[styles.lyricLine, { textAlign: align }]}
+          numberOfLines={1}
+        >{text || ' '}</Text>
+        {extraNodes}
+      </View>
     )
   }
   // 关闭逐字时整行高亮
   if (!wordByWord) {
     return (
-      <Text
-        size={u(size)}
-        color={activeColor}
-        style={{ ...styles.lyricLine, textAlign: align, ...styles.lyricActive }}
-        numberOfLines={1}
-      >{text || ' '}</Text>
+      <View style={[styles.lyricLineWrap, { alignItems: align === 'center' ? 'center' : 'flex-start' }]}>
+        <Text
+          size={u(size)}
+          color={activeColor}
+          style={{ ...styles.lyricLine, textAlign: align, ...styles.lyricActive }}
+          numberOfLines={1}
+        >{text || ' '}</Text>
+        {extraNodes}
+      </View>
     )
   }
   return (
-    <KaraokeText
-      text={text}
-      size={size}
-      activeColor={activeColor}
-      align={align}
-      startMs={startMs}
-      endMs={endMs}
-      playing={playing}
-      syncMs={syncMs}
-    />
+    <View style={[styles.lyricLineWrap, { alignItems: align === 'center' ? 'center' : 'flex-start' }]}>
+      <KaraokeText
+        text={text}
+        size={size}
+        activeColor={activeColor}
+        align={align}
+        startMs={startMs}
+        endMs={endMs}
+        playing={playing}
+        syncMs={syncMs}
+      />
+      {extraNodes}
+    </View>
   )
 })
 
@@ -271,6 +297,8 @@ export default () => {
   const autoSaveEnabled = useSettingValue('download.autoSaveWhilePlaying')
   const isWordByWord = useSettingValue('player.isWordByWordLyric')
   const isSingleLine = useSettingValue('player.isSingleLineLyric')
+  const isShowLyricRoma = useSettingValue('player.isShowLyricRoma')
+  const isShowLyricTranslation = useSettingValue('player.isShowLyricTranslation')
 
   const handleDownload = useCallback(() => {
     const raw = playerState.playMusicInfo.musicInfo
@@ -287,6 +315,9 @@ export default () => {
   }, [])
 
   const lyricSize = LYRIC_SIZES[sizeIndex]
+  /** 开启注音/翻译且这首歌确实有扩展歌词时，每行多留一行小字高度 */
+  const hasLyricExtras = (isShowLyricRoma || isShowLyricTranslation) && lines.some(line => (line.extendedLyrics?.length ?? 0) > 0)
+  const lyricRowH = hasLyricExtras ? LYRIC_LINE_H + 18 : LYRIC_LINE_H
   /*
     播放器页底色永远是深色（封面糊底），所以不能直接用 c-primary：
     M3 在深色表面上用 tone 80 的 primary（浅而高彩度的柔和色），
@@ -328,7 +359,7 @@ export default () => {
   const landLyricContentStyle = useMemo(() => ({ paddingLeft: 0, paddingRight: 8 }), [])
   /** 歌词可视区高度：竖屏是算出来的，横屏是 flex 撑开的，统一用 onLayout 实测 */
   const [lyricH, setLyricH] = useState(0)
-  const lyricPad = Math.max(0, (lyricH || lyricAreaH) / 2 - LYRIC_LINE_H / 2)
+  const lyricPad = Math.max(0, (lyricH || lyricAreaH) / 2 - lyricRowH / 2)
 
   /*
     下滑关闭的位移值来自 playerTransition 模块（dragY）：
@@ -780,8 +811,8 @@ export default () => {
 
   const scrollToLine = useCallback((index: number, animated: boolean) => {
     if (index < 0) return
-    scrollRef.current?.scrollTo({ y: index * LYRIC_LINE_H, animated })
-  }, [])
+    scrollRef.current?.scrollTo({ y: index * lyricRowH, animated })
+  }, [lyricRowH])
 
   /** 上一次高亮的行，用来判断「跳太远」 */
   const prevLineRef = useRef(-1)
@@ -834,11 +865,12 @@ export default () => {
     <TouchableOpacity
       key={`${index}_${line.time}`}
       activeOpacity={0.85}
-      style={styles.lyricRow}
+      style={[styles.lyricRow, { height: lyricRowH }]}
       onPress={isLandscape ? undefined : handleToggleMode}
     >
       <LyricLine
         text={line.text}
+        extras={line.extendedLyrics ?? []}
         size={lyricSize}
         active={index === currentLine}
         startMs={line.time}
@@ -1285,6 +1317,7 @@ export default () => {
                         <TouchableOpacity activeOpacity={0.9} style={styles.singleLineArea} onPress={handleToggleMode}>
                           <LyricLine
                             text={currentLine >= 0 ? lines[currentLine].text : ''}
+                            extras={currentLine >= 0 ? (lines[currentLine].extendedLyrics ?? []) : []}
                             size={lyricSize + 4}
                             active={currentLine >= 0}
                             startMs={currentLine >= 0 ? lines[currentLine].time : 0}
@@ -1523,6 +1556,9 @@ const styles = {
   },
   lyricRow: { height: LYRIC_LINE_H, justifyContent: 'center' as const },
   lyricLine: { textAlign: 'center' as const },
+  lyricLineWrap: { alignItems: 'center' as const },
+  lyricExtras: { marginTop: 2, alignItems: 'center' as const },
+  lyricExtra: { textAlign: 'center' as const },
   karaokeWrap: { width: '100%' as const, justifyContent: 'center' as const },
   karaokeOverlay: { position: 'absolute' as const, top: 0, bottom: 0, overflow: 'hidden' as const },
   lyricActive: {

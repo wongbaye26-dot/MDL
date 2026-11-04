@@ -381,7 +381,7 @@
   "setting_play_show_bluetooth_full_lyric": "显示完整蓝牙歌词（需设备支持）",
   "setting_play_show_bluetooth_lyric": "显示蓝牙歌词",
   "setting_play_show_notification_image": "在通知栏显示歌曲专辑封面图片",
-  "setting_play_show_roma": "显示歌词罗马音（如果可用）",
+  "setting_play_show_roma": "显示歌词注音/罗马音（如果可用，粤语歌显示粤拼）",
   "setting_play_show_translation": "显示歌词翻译（如果可用）",
   "setting_player": "播放设置",
   "setting_player_save_play_time": "记住播放进度",
