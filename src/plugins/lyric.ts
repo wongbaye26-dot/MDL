@@ -57,7 +57,8 @@ const lrcTools = {
   setLyric() {
     const extendedLyrics = [] as string[]
     if (this.isShowTranslation && this.translationText) extendedLyrics.push(this.translationText)
-    if (this.isShowRoma && this.romaText) extendedLyrics.push(this.romaText)
+    // 注音/粤拼自动显示：有 romalrc 就展示，不再要求用户先去设置里手动打开
+    if (this.romaText) extendedLyrics.push(this.romaText)
     this.lrc!.setLyric(this.lyricText, extendedLyrics)
   },
 }

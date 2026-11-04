@@ -132,7 +132,7 @@ const LyricLine = memo(({ text, extras, active, startMs, endMs, playing, syncMs,
             size={Math.max(9, size * 0.5)}
             color={active ? 'rgba(255,255,255,0.72)' : 'rgba(255,255,255,0.32)'}
             style={[styles.lyricExtra, { textAlign: align }]}
-            numberOfLines={1}
+            numberOfLines={2}
           >{extra}</Text>
         ))}
       </View>
@@ -297,8 +297,7 @@ export default () => {
   const autoSaveEnabled = useSettingValue('download.autoSaveWhilePlaying')
   const isWordByWord = useSettingValue('player.isWordByWordLyric')
   const isSingleLine = useSettingValue('player.isSingleLineLyric')
-  const isShowLyricRoma = useSettingValue('player.isShowLyricRoma')
-  const isShowLyricTranslation = useSettingValue('player.isShowLyricTranslation')
+
 
   const handleDownload = useCallback(() => {
     const raw = playerState.playMusicInfo.musicInfo
@@ -316,8 +315,8 @@ export default () => {
 
   const lyricSize = LYRIC_SIZES[sizeIndex]
   /** 开启注音/翻译且这首歌确实有扩展歌词时，每行多留一行小字高度 */
-  const hasLyricExtras = (isShowLyricRoma || isShowLyricTranslation) && lines.some(line => (line.extendedLyrics?.length ?? 0) > 0)
-  const lyricRowH = hasLyricExtras ? LYRIC_LINE_H + 18 : LYRIC_LINE_H
+  const hasLyricExtras = lines.some(line => (line.extendedLyrics?.length ?? 0) > 0)
+  const lyricRowH = hasLyricExtras ? LYRIC_LINE_H + 28 : LYRIC_LINE_H
   /*
     播放器页底色永远是深色（封面糊底），所以不能直接用 c-primary：
     M3 在深色表面上用 tone 80 的 primary（浅而高彩度的柔和色），
