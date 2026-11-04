@@ -268,19 +268,6 @@ const patchs = [
     // 后一条补丁会把上一首从通知动作里去掉；这一步视为已完成，避免再次插入
     '上一首交给 MediaSession 原生 transport',
   ],
-  // One UI 9 的锁屏大播放器由 SystemUI 绘制：把「上一首」作为通知自定义 action 会被画成
-  // 没有圆形外框的方块。改为不把 previousCustomAction 加进通知动作列表，让系统用
-  // MediaSession 自带的 transport 按钮（与播放/下一首同一种圆形样式）。
-  [
-    path.join(rootPath, 'node_modules/react-native-track-player/android/src/main/java/com/guichaguri/trackplayer/service/metadata/MetadataManager.java'),
-    `        if(previousCustomAction != null) {
-            compact.add(builder.mActions.size());
-            builder.mActions.add(previousCustomAction);
-        }
-        addAction(rewindAction, PlaybackStateCompat.ACTION_REWIND, compact);`,
-    `        // 上一首交给 MediaSession 原生 transport（One UI 9 锁屏用系统圆形按钮渲染）
-        addAction(rewindAction, PlaybackStateCompat.ACTION_REWIND, compact);`,
-  ],
 ]
 
 ;(async() => {

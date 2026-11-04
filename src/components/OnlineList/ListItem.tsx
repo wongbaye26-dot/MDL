@@ -135,8 +135,10 @@ export default memo(({ item, index, showSource, onPress, onLongPress, onShowMenu
     )
   }
 
+  /** 列表模式显示专辑时给第二行多留一行高度：专辑名经常被歌手名挤掉 */
+  const showAlbum = isShowAlbumName && !!item.meta.albumName
   return (
-    <View style={{ ...styles.listItem, width: rowInfo.rowWidth, height: ITEM_HEIGHT, backgroundColor: isSelected ? theme['c-primary-background-hover'] : 'rgba(0,0,0,0)' }}>
+    <View style={{ ...styles.listItem, width: rowInfo.rowWidth, height: showAlbum ? ITEM_HEIGHT + 16 : ITEM_HEIGHT, backgroundColor: isSelected ? theme['c-primary-background-hover'] : 'rgba(0,0,0,0)' }}>
       <TouchableOpacity style={styles.listItemLeft} onPress={() => { onPress(item, index) }} onLongPress={handleLongPress}>
         { showRank ? <RankBadge index={index} /> : null }
         <Image url={item.meta.picUrl} style={showRank ? styles.coverWithRank : styles.cover} />
@@ -145,7 +147,7 @@ export default memo(({ item, index, showSource, onPress, onLongPress, onShowMenu
           <View style={styles.listItemSingle}>
             { tagInfo.type ? <Badge type={tagInfo.type}>{tagInfo.text}</Badge> : null }
             { showSource ? <Badge type="tertiary">{(item.source as string) === 'local' ? '本地' : item.source}</Badge> : null }
-            <Text style={styles.listItemSingleText} size={11} color={theme['c-500']} numberOfLines={1}>{singer}</Text>
+            <Text style={styles.listItemSingleText} size={11} color={theme['c-500']} numberOfLines={showAlbum ? 2 : 1}>{singer}</Text>
           </View>
         </View>
         {
