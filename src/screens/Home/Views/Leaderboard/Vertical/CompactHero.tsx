@@ -5,6 +5,7 @@ import { Icon } from '@/components/common/Icon'
 import { useTheme } from '@/store/theme/hook'
 import { createStyle } from '@/utils/tools'
 import { getLeaderboardHero, subscribeLeaderboardHero } from '@/utils/leaderboardHero'
+import HeaderSourceBar from './HeaderSourceBar'
 
 /**
  * 排行榜页头右侧的紧凑操作组。
@@ -28,6 +29,8 @@ export default memo(() => {
 
   return (
     <View style={styles.actions}>
+      {/* 来源图标组：和播放/下载同一水平线、同一行居中；多选时会自动隐藏 */}
+      <HeaderSourceBar />
       <TouchableOpacity
         style={{
           ...styles.btn,

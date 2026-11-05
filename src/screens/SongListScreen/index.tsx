@@ -10,6 +10,7 @@ import { pop } from '@/navigation'
 import { useTheme } from '@/store/theme/hook'
 import { createStyle } from '@/utils/tools'
 import SongList from '@/screens/Home/Views/SongList'
+import HeaderSourceBar from '@/screens/Home/Views/SongList/HeaderSourceBar'
 
 /**
  * 歌单广场（RNN 压栈的独立屏）。
@@ -36,12 +37,16 @@ export default ({ componentId }: { componentId: string }) => {
           </TouchableOpacity>
         )}
         right={(
-          <HeaderButton
-            icon='link-variant'
-            size={19}
-            color={theme['c-450']}
-            onPress={() => { global.app_event.openSonglistLink() }}
-          />
+          <View style={styles.headerRight}>
+            {/* 来源图标放到标题右侧空白处：和右侧「打开歌单链接」按钮同一水平线对齐 */}
+            <HeaderSourceBar />
+            <HeaderButton
+              icon='link-variant'
+              size={19}
+              color={theme['c-450']}
+              onPress={() => { global.app_event.openSonglistLink() }}
+            />
+          </View>
         )}
       />
       <View style={styles.content}>
@@ -62,5 +67,10 @@ const styles = createStyle({
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 0,
   },
 })

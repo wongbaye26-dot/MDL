@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { View } from 'react-native'
+import { Pressable, View } from 'react-native'
 
-import Chip from '@/components/common/Chip'
+import SearchTypeIcon, { type SearchTypeIconType } from '@/components/common/SearchTypeIcon'
+import { useTheme } from '@/store/theme/hook'
 import { createStyle } from '@/utils/tools'
 import { type SearchType } from '@/store/search/state'
 import { useI18n } from '@/lang'
@@ -14,6 +15,7 @@ const SEARCH_TYPE_LIST = [
 
 export default () => {
   const t = useI18n()
+  const theme = useTheme()
   const [type, setType] = useState<SearchType>('music')
 
   useEffect(() => {
@@ -23,7 +25,12 @@ export default () => {
   }, [])
 
   const list = useMemo(() => {
-    return SEARCH_TYPE_LIST.map(type => ({ label: t(`search_type_${type}`), id: type }))
+    return SEARCH_TYPE_LIST.map(type => ({
+      label: t(`search_type_${type}`),
+      id: type,
+      // 目前 SearchType 只有 music / songlist 两种，聚合不是搜索类型（聚合是音源 'all'）
+      icon: type as SearchTypeIconType,
+    }))
   }, [t])
 
   const handleTypeChange = (newType: SearchType) => {
@@ -35,14 +42,31 @@ export default () => {
   return (
     <View style={styles.row}>
       {
-        list.map(item => (
-          <Chip
-            key={item.id}
-            label={item.label}
-            active={item.id === type}
-            onPress={() => { if (item.id !== type) handleTypeChange(item.id) }}
-          />
-        ))
+        list.map(item => {
+          const active = item.id === type
+          // 和来源 SourceChip 完全同规格：34dp 透明热区 + 18dp 单色图标、无胶囊底。
+          // 选中=主题主色，未选中=c-450；按压时整体透明度下降给反馈。
+          const iconColor = active ? theme['c-primary'] : theme['c-450']
+          return (
+            <Pressable
+              key={item.id}
+              accessibilityRole='button'
+              accessibilityLabel={item.label}
+              accessibilityState={{ selected: active }}
+              hitSlop={6}
+              onPress={() => { if (!active) handleTypeChange(item.id) }}
+              style={({ pressed }) => ({
+                width: 34,
+                height: 34,
+                alignItems: 'center',
+                justifyContent: 'center',
+                opacity: pressed ? 0.5 : 1,
+              })}
+            >
+              <SearchTypeIcon type={item.icon} size={18} color={iconColor} />
+            </Pressable>
+          )
+        })
       }
     </View>
   )

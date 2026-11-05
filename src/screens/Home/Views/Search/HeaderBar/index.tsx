@@ -1,7 +1,7 @@
 import { useRef, forwardRef, useImperativeHandle, useMemo, useState } from 'react'
-import { ScrollView, TouchableOpacity, View } from 'react-native'
+import { Pressable, ScrollView, TouchableOpacity, View } from 'react-native'
 
-import Chip from '@/components/common/Chip'
+import SearchTypeIcon from '@/components/common/SearchTypeIcon'
 import { SourceChip } from '@/components/common/SourceLogo'
 import { Icon } from '@/components/common/Icon'
 import { useTheme } from '@/store/theme/hook'
@@ -122,16 +122,32 @@ export default forwardRef<HeaderBarType, HeaderBarProps>(({
                       onSourceChange(action)
                     }
                     // 品牌音源只显示品牌 logo（SourceChip 已带 accessibilityLabel=音源名）；
-                    // 「全部」不是品牌，继续用文字胶囊
+                    // 「聚合大会 / 聚合搜索」（音源 all）不是品牌，但用户要求也换成单色矢量图标：
+                    // 外观和 SourceChip 保持一致（34dp 透明热区 + 18dp 单色图标，无胶囊底），
+                    // 无障碍标签仍保留原来的「聚合大会 / 聚合搜索」文字
                     return action === 'all'
                       ? (
-                        <Chip
+                        <Pressable
                           key={action}
-                          size='sm'
-                          label={label}
-                          active={action === source}
+                          accessibilityRole='button'
+                          accessibilityLabel={label}
+                          accessibilityState={{ selected: action === source }}
+                          hitSlop={6}
                           onPress={handlePress}
-                        />
+                          style={({ pressed }) => ({
+                            width: 34,
+                            height: 34,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            opacity: pressed ? 0.5 : 1,
+                          })}
+                        >
+                          <SearchTypeIcon
+                            type='aggregate'
+                            size={18}
+                            color={action === source ? theme['c-primary'] : theme['c-450']}
+                          />
+                        </Pressable>
                         )
                       : (
                         <SourceChip

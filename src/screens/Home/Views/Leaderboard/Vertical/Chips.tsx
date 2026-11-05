@@ -1,42 +1,9 @@
 import { ScrollView, View } from 'react-native'
 
 import Chip from '@/components/common/Chip'
-import { SourceChip } from '@/components/common/SourceLogo'
 import { useTheme } from '@/store/theme/hook'
 import { createStyle } from '@/utils/tools'
-import { useSourceListI18n } from '@/components/SourceSelector'
-import leaderboardState, { type BoardItem } from '@/store/leaderboard/state'
-
-export const SourceChips = ({ active, onChange }: {
-  active: LX.OnlineSource
-  onChange: (source: LX.OnlineSource) => void
-}) => {
-  const sourceList = useSourceListI18n(leaderboardState.sources)
-
-  return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      style={styles.scroll}
-      contentContainerStyle={styles.sourceRow}
-    >
-      {
-        // 用户要求来源只显示品牌 LOGO（酷我/酷狗/QQ/网易云/咪咕），
-        // label（小X音乐）只作为无障碍标签保留；未识别自定义音源仍回退文字。
-        sourceList.map(({ label, action }) => (
-          <SourceChip
-            key={action}
-            source={action}
-            label={label}
-            size='sm'
-            active={action === active}
-            onPress={() => { if (action !== active) onChange(action as LX.OnlineSource) }}
-          />
-        ))
-      }
-    </ScrollView>
-  )
-}
+import { type BoardItem } from '@/store/leaderboard/state'
 
 export const BoardChips = ({ boards, activeId, onChange }: {
   boards: BoardItem[]
@@ -72,14 +39,6 @@ const styles = createStyle({
   scroll: {
     flexGrow: 0,
     flexShrink: 0,
-  },
-  sourceRow: {
-    // 来源行现在是纯图标按钮（34dp 触控区、18dp 图标），触控区左右各留 8：
-    // 这样图标的视觉左边缘正好落在 16 的内容边界上，和下面的榜单 chips 对齐
-    paddingLeft: 8,
-    paddingRight: 8,
-    paddingTop: 4,
-    alignItems: 'center',
   },
   boardRow: {
     paddingLeft: 16,

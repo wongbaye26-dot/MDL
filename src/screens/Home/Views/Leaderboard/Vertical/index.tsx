@@ -9,7 +9,8 @@ import boardState from '@/store/leaderboard/state'
 import MusicList, { type MusicListType } from '../MusicList'
 import { handlePlay } from '../listAction'
 import { addTasks } from '@/core/download'
-import { SourceChips, BoardChips } from './Chips'
+import { BoardChips } from './Chips'
+import { resetHeaderSources, setHeaderSources } from './headerSources'
 import { resetLeaderboardHero, setLeaderboardHero } from '@/utils/leaderboardHero'
 import PlayerBar from '@/components/player/PlayerBar'
 
@@ -17,9 +18,12 @@ import PlayerBar from '@/components/player/PlayerBar'
  * 排行榜（横竖屏共用）。
  *
  * 版面分三层，和本地音乐 / 下载中心一致：
- *   1. PageModal 的页头「排行榜」+ 右侧紧凑的播放/下载按钮（CompactHero）
- *   2. 两排横向滚动的筛选胶囊：音源 → 榜单（都在 16 的左右边距里）
+ *   1. PageModal 的页头「排行榜」+ 右侧「来源图标组 + 播放/下载按钮」（CompactHero）
+ *   2. 一排横向滚动的榜单 chips（16 的左右边距）
  *   3. 歌曲列表 + 底部悬浮 PlayerBar（列表底部由 OnlineList 预留 NAV_BAR_SPACE）
+ *
+ * 来源图标不再单独占一排：状态通过 headerSources 模块级 store 写给页头的
+ * CompactHero → HeaderSourceBar（导航层级隔了几层，用不了 props）。
  */
 export default () => {
   const musicListRef = useRef<MusicListType>(null)
@@ -101,6 +105,18 @@ export default () => {
 
   const activeName = boards.find(b => b.id === activeId)?.name ?? ''
 
+  // 把「来源列表 / 当前来源 / 切换回调」写给页头右侧的 HeaderSourceBar（同一个页头里隔层渲染）
+  useEffect(() => {
+    setHeaderSources({
+      visible: true,
+      sources: leaderboardState.sources,
+      active: source,
+      onChange: handleSourceChange,
+    })
+  }, [source, handleSourceChange])
+  // 退出排行榜子页时清掉，避免来源图标残留在其它页头
+  useEffect(() => () => { resetHeaderSources() }, [])
+
   // eslint-disable-next-line @typescript-eslint/no-confusing-void-expression
   const heroPlayAll = useCallback(() => { void handlePlayAll() }, [handlePlayAll])
   // eslint-disable-next-line @typescript-eslint/no-confusing-void-expression
@@ -115,7 +131,6 @@ export default () => {
   return (
     <View style={styles.container}>
       <View style={styles.filters}>
-        <SourceChips active={source} onChange={handleSourceChange} />
         <BoardChips boards={boards} activeId={activeId} onChange={handleBoardChange} />
       </View>
       <View style={styles.list}>

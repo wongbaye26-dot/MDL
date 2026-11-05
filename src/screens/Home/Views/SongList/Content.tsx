@@ -2,18 +2,17 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { ScrollView, View } from 'react-native'
 
 import Chip from '@/components/common/Chip'
-import { SourceChip } from '@/components/common/SourceLogo'
 import { useI18n } from '@/lang'
 import { useTheme } from '@/store/theme/hook'
 import { createStyle } from '@/utils/tools'
 import { getSongListSetting, saveSongListSetting } from '@/utils/data'
 import { getTags } from '@/core/songlist'
 import songlistState, { type Source, type TagInfoItem } from '@/store/songlist/state'
-import { useSourceListI18n } from '@/components/SourceSelector'
 import { navigations } from '@/navigation'
 import commonState from '@/store/common/state'
 import List, { type ListType } from './List'
 import OpenListModal, { type ModalType as OpenListModalType } from './HeaderBar/OpenList/Modal'
+import { resetHeaderSources, setHeaderSources } from './headerSources'
 
 interface SonglistInfo {
   source: Source
@@ -24,10 +23,10 @@ interface SonglistInfo {
 /**
  * 歌单广场的内容区。
  *
- * 版面和排行榜 / 本地音乐对齐：左右 16，筛选区两排胶囊——
- *   第一排是音源（sm 胶囊，横向滚动）；
- *   第二排是「排序 + 分类」（md 胶囊，横向滚动），两组之间用一条细竖线分隔。
- * 之前是三排（音源 / 排序 / 热门分类），把列表压得很低、页面显得空。
+ * 版面和排行榜 / 本地音乐对齐：左右 16，筛选区只剩一排「排序 + 分类」胶囊
+ * （md，横向滚动，两组之间用一条细竖线分隔）。
+ * 来源图标不再单独占一排：已移到页头标题右侧（SongListScreen / Home PageModal 的
+ * HeaderSourceBar），音源状态通过 headerSources 模块级 store 桥接到页头。
  */
 export default () => {
   const t = useI18n()
@@ -40,7 +39,6 @@ export default () => {
   const [tagId, setTagId] = useState('')
   const [tagName, setTagName] = useState('')
   const [hotTags, setHotTags] = useState<TagInfoItem[]>([])
-  const sourceList = useSourceListI18n(songlistState.sources)
   const sorts = songlistState.sortList[source] ?? []
 
   const loadHotTags = useCallback((src: Source) => {
@@ -109,6 +107,18 @@ export default () => {
     loadList(src, sId, '')
   }, [loadHotTags, loadList])
 
+  // 把「来源列表 / 当前来源 / 切换回调」写给页头右侧的 HeaderSourceBar（页头不在本组件内）
+  useEffect(() => {
+    setHeaderSources({
+      visible: true,
+      sources: songlistState.sources,
+      active: source,
+      onChange: handleSourceChange,
+    })
+  }, [source, handleSourceChange])
+  // 退出歌单广场时清掉，避免来源图标残留在别的页头
+  useEffect(() => () => { resetHeaderSources() }, [])
+
   const handleSortChange = useCallback((id: string) => {
     songlistInfo.current.sortId = id
     setSortId(id)
@@ -143,29 +153,7 @@ export default () => {
   return (
     <View style={styles.container}>
       <View style={styles.filters}>
-        {/* 第一排：音源 */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.hScroll}
-          contentContainerStyle={styles.sourceRow}
-        >
-          {
-            // 来源只显示品牌 LOGO（label 仅作无障碍标签），未识别自定义音源回退文字
-            sourceList.map(({ label, action }) => (
-              <SourceChip
-                key={action}
-                source={action}
-                label={label}
-                size='sm'
-                active={action === source}
-                onPress={() => { if (action !== source) handleSourceChange(action as Source) }}
-              />
-            ))
-          }
-        </ScrollView>
-
-        {/* 第二排：排序 + 分类（同一排横向滚动，细竖线分隔两组） */}
+        {/* 排序 + 分类（同一排横向滚动，细竖线分隔两组；来源图标已移到页头标题右侧） */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -228,13 +216,6 @@ const styles = createStyle({
   hScroll: {
     flexGrow: 0,
     flexShrink: 0,
-  },
-  sourceRow: {
-    // 纯图标来源行：触控区左右各留 8，图标视觉左边缘对齐 16 的内容边界
-    paddingLeft: 8,
-    paddingRight: 8,
-    paddingTop: 4,
-    alignItems: 'center',
   },
   filterRow: {
     flexDirection: 'row',

@@ -27,6 +27,7 @@ import PageModal from '../../Vertical/PageModal'
 import SongList from '../SongList'
 import Leaderboard from '../Leaderboard'
 import CompactHero from '../Leaderboard/Vertical/CompactHero'
+import SongListHeaderSourceBar from '../SongList/HeaderSourceBar'
 import Favorites, { FavoriteTabs, type FavoriteTab } from '../Mylist/Favorites'
 import LocalMusic, { type LocalTab } from '../LocalMusic'
 import { useBackHandler } from '@/utils/hooks/useBackHandler'
@@ -420,13 +421,17 @@ export default () => {
               title='歌单广场'
               onClose={() => { setModal(null) }}
               right={(
-                <TouchableOpacity
-                  style={styles.headerAction}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  onPress={() => { global.app_event.openSonglistLink() }}
-                >
-                  <Icon name='link-variant' size={19} color={theme['c-450']} />
-                </TouchableOpacity>
+                <View style={styles.headerRight}>
+                  {/* 歌单广场的来源图标移到页头标题右侧，和链接按钮同一水平线对齐 */}
+                  <SongListHeaderSourceBar />
+                  <TouchableOpacity
+                    style={styles.headerAction}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    onPress={() => { global.app_event.openSonglistLink() }}
+                  >
+                    <Icon name='link-variant' size={19} color={theme['c-450']} />
+                  </TouchableOpacity>
+                </View>
               )}
             >
               <SongList />
@@ -473,6 +478,11 @@ const styles = createStyle({
     height: 44,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 0,
   },
   cards: {
     // 左右留白在渲染时按视口宽度算（让卡片能停在正中），这里只留出上下缩放/倾斜的余量
