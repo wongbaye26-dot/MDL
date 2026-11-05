@@ -268,6 +268,131 @@ const patchs = [
     // 后一条补丁会把上一首从通知动作里去掉；这一步视为已完成，避免再次插入
     '上一首交给 MediaSession 原生 transport',
   ],
+  // ---- targetSdk 34+ / Android 16（API 36）兼容：react-native-track-player 2.1.2 ----
+  // 1) targetSdk 31+ 起创建 PendingIntent 必须显式指定 FLAG_IMMUTABLE/FLAG_MUTABLE。
+  //    库里的通知点击 Intent 没指定可变性，一播放就抛 IllegalArgumentException。
+  // 2) targetSdk 34+ 起前台服务必须声明 foregroundServiceType（manifest 由 app 层合并），
+  //    另外 targetSdk 31+ 后台启动前台服务可能抛 ForegroundServiceStartNotAllowedException。
+  //    这两类异常都不能让 App 崩溃：通知/前台服务失败时降级为「只记日志」。
+  // 锚点全部使用 2.1.2 上游原文，升级依赖后锚点消失会报错而不是写出坏文件。
+  [
+    path.join(rootPath, 'node_modules/react-native-track-player/android/src/main/java/com/guichaguri/trackplayer/service/MusicService.java'),
+    `import android.content.Intent;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.IBinder;`,
+    `import android.content.Intent;
+import android.content.pm.ServiceInfo;
+import android.os.Build;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.IBinder;
+import android.util.Log;`,
+  ],
+  [
+    path.join(rootPath, 'node_modules/react-native-track-player/android/src/main/java/com/guichaguri/trackplayer/service/MusicService.java'),
+    `    @Override
+    public void onCreate() {
+        super.onCreate();
+        String channel = Utils.getNotificationChannel(this);
+        startForeground(1, new NotificationCompat.Builder(this, channel).build());
+    }`,
+    `    @Override
+    public void onCreate() {
+        super.onCreate();
+        // targetSdk 31+：后台拉起前台服务可能抛 ForegroundServiceStartNotAllowedException；
+        // targetSdk 34+：服务没有声明 foregroundServiceType 会抛 MissingForegroundServiceTypeException。
+        // 这两类异常都不能让进程崩掉，失败时只记日志并结束服务。
+        try {
+            startForegroundWithNotification(Utils.getNotificationChannel(this));
+        } catch(Exception e) {
+            Log.e(Utils.LOG, "MusicService.onCreate startForeground failed", e);
+            stopSelf();
+        }
+    }
+
+    /**
+     * 启动前台服务。Android 10+ 显式带上 mediaPlayback 类型（manifest 里也声明了，
+     * 见 app 的 AndroidManifest.xml：Android 14+ 缺类型会直接抛异常）。
+     */
+    private void startForegroundWithNotification(String channel) {
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, channel);
+        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(1, builder.build(), ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
+        } else {
+            startForeground(1, builder.build());
+        }
+    }`,
+  ],
+  [
+    path.join(rootPath, 'node_modules/react-native-track-player/android/src/main/java/com/guichaguri/trackplayer/service/MusicService.java'),
+    `                // Sets the service to foreground with an empty notification
+                startForeground(1, new NotificationCompat.Builder(this, channel).build());
+                // Stops the service right after
+                stopSelf();`,
+    `                // Sets the service to foreground with an empty notification
+                // 这里通常发生在 App 退到后台（没有 React Activity）时，targetSdk 31+ 可能抛
+                // ForegroundServiceStartNotAllowedException；targetSdk 34+ 还可能缺 FGS 类型。
+                // 统一兜底：失败只记日志，服务马上结束，不影响 App 其它逻辑。
+                try {
+                    startForegroundWithNotification(channel);
+                } catch(Exception e) {
+                    Log.e(Utils.LOG, "MusicService.onStartForeground startForeground failed", e);
+                }
+                // Stops the service right after
+                stopSelf();`,
+  ],
+  [
+    path.join(rootPath, 'node_modules/react-native-track-player/android/src/main/java/com/guichaguri/trackplayer/service/metadata/MetadataManager.java'),
+    `import android.content.Context;
+import android.content.Intent;
+import android.graphics.Bitmap;`,
+    `import android.content.Context;
+import android.content.Intent;
+import android.content.pm.ServiceInfo;
+import android.graphics.Bitmap;`,
+  ],
+  [
+    path.join(rootPath, 'node_modules/react-native-track-player/android/src/main/java/com/guichaguri/trackplayer/service/metadata/MetadataManager.java'),
+    `import android.os.Build;
+import android.os.Bundle;`,
+    `import android.os.Build;
+import android.os.Bundle;
+import android.util.Log;`,
+  ],
+  [
+    path.join(rootPath, 'node_modules/react-native-track-player/android/src/main/java/com/guichaguri/trackplayer/service/metadata/MetadataManager.java'),
+    '        builder.setContentIntent(PendingIntent.getActivity(context, 0, openApp, PendingIntent.FLAG_CANCEL_CURRENT));',
+    `        // targetSdk 31+（Android 12）起 PendingIntent 必须显式指定可变性，
+        // 否则 PendingIntent.getActivity 抛 IllegalArgumentException，一播放就崩。
+        // 保留 FLAG_CANCEL_CURRENT 的语义：通知点击 Intent 需要能更新数据。
+        int contentIntentFlags = PendingIntent.FLAG_CANCEL_CURRENT;
+        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) contentIntentFlags |= PendingIntent.FLAG_IMMUTABLE;
+        builder.setContentIntent(PendingIntent.getActivity(context, 0, openApp, contentIntentFlags));`,
+  ],
+  [
+    path.join(rootPath, 'node_modules/react-native-track-player/android/src/main/java/com/guichaguri/trackplayer/service/metadata/MetadataManager.java'),
+    `        if(session.isActive()) {
+            service.startForeground(1, builder.build());
+        } else {
+            service.stopForeground(true);
+        }`,
+    `        if(session.isActive()) {
+            // targetSdk 31+ / 34+：FGS 启动失败（后台启动限制 / 通知权限 / 类型缺失）不能崩，
+            // 通知更新失败只影响通知栏展示，播放本身继续。
+            try {
+                if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    service.startForeground(1, builder.build(), ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
+                } else {
+                    service.startForeground(1, builder.build());
+                }
+            } catch(Exception e) {
+                Log.w(Utils.LOG, "MetadataManager.updateNotification startForeground failed", e);
+            }
+        } else {
+            service.stopForeground(true);
+        }`,
+  ],
 ]
 
 ;(async() => {

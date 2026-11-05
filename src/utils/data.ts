@@ -532,7 +532,11 @@ const INFO_NAMES = {
   version: 36,
 } as const
 type INFO_NAMES_Type = typeof INFO_NAMES
-const matchInfo = (scriptInfo: string) => {
+/**
+ * 解析自定义源脚本头注释里的 @name / @description / @author / @homepage / @version
+ * （同时导出给「音源管理」的在线更新检测复用）
+ */
+export const matchInfo = (scriptInfo: string) => {
   const infoArr = scriptInfo.split(/\r?\n/)
   const rxp = /^\s?\*\s?@(\w+)\s(.+)$/
   const infos: Partial<Record<keyof typeof INFO_NAMES, string>> = {}
@@ -552,7 +556,7 @@ const matchInfo = (scriptInfo: string) => {
 
   return infos as Record<keyof typeof INFO_NAMES, string>
 }
-export const addUserApi = async(script: string): Promise<LX.UserApi.UserApiInfo> => {
+export const addUserApi = async(script: string, importUrl?: string): Promise<LX.UserApi.UserApiInfo> => {
   const result = /^\/\*[\S|\s]+?\*\//.exec(script)
   if (!result) throw new Error(global.i18n.t('user_api_add_failed_tip'))
 
@@ -564,6 +568,8 @@ export const addUserApi = async(script: string): Promise<LX.UserApi.UserApiInfo>
     ...scriptInfo,
     allowShowUpdateAlert: true,
   }
+  // 在线导入时记录脚本地址，之后「检查更新」可以重新拉取脚本头版本号
+  if (importUrl && /^https?:\/\//.test(importUrl)) apiInfo.importUrl = importUrl
   userApis.push(apiInfo)
   await saveDataMultiple([
     [userApiPrefix, userApis],
@@ -589,6 +595,15 @@ export const setUserApiAllowShowUpdateAlert = async(id: string, enable: boolean)
   const targetApi = userApis?.find(api => api.id == id)
   if (!targetApi) return
   targetApi.allowShowUpdateAlert = enable
+  await saveData(userApiPrefix, userApis)
+}
+/**
+ * 局部更新某个自定义源的信息（音质矩阵缓存、上次检查更新时间等）
+ */
+export const updateUserApiInfo = async(id: string, patch: Partial<LX.UserApi.UserApiInfo>) => {
+  const targetApi = userApis?.find(api => api.id == id)
+  if (!targetApi) return
+  Object.assign(targetApi, patch)
   await saveData(userApiPrefix, userApis)
 }
 

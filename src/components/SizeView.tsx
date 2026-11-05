@@ -4,6 +4,7 @@ import commonState from '@/store/common/state'
 import settingState from '@/store/setting/state'
 import { setStatusbarHeight } from '@/core/common'
 import { windowSizeTools, getWindowSize } from '@/utils/windowSizeTools'
+import { onWindowSizeChange } from '@/utils/nativeModules/utils'
 
 const getStatusbarHeight = (winHeight: number, layoutHeight: number) => {
   const height = (!settingState.setting['common.alwaysKeepStatusbarHeight'] &&
@@ -18,9 +19,24 @@ export default memo(() => {
   const currentHeightRef = useRef(commonState.statusbarHeight)
   const sizeRef = useRef([0, 0])
   const dimensionsChangedRef = useRef(true)
+  const viewRef = useRef<View>(null)
   const handleLayout = useCallback(({ nativeEvent: { layout } }: LayoutChangeEvent | { nativeEvent: { layout: { width: number, height: number } } }) => {
     // console.log('handleLayout')
     if (!dimensionsChangedRef.current) return
+    /*
+      键盘弹起时窗口/根视图高度会临时变小（Android 15/16 edge-to-edge 下实测 891dp → 205dp），
+      这不是窗口形态变化：
+        - 用它重算 statusbarHeight 会让页头突然跳 36dp；
+        - windowSizeTools 会把它当成「横屏/小窗」，Home 切到横屏树并卸载竖屏树，
+          搜索框一聚焦整个搜索页就消失（targetSdk36 回归 P1）。
+      键盘收起后原生会再推一次 screen-size-changed，这里再用真实尺寸重新量。
+    */
+    const knownSize = windowSizeTools.getSize()
+    const insets = windowSizeTools.getInsets()
+    const keyboardTransient = insets.ime.bottom > 0 ||
+      (!insets.isInMultiWindowMode && knownSize.height > 0 &&
+        layout.height < knownSize.height * 0.7 && layout.height < 500)
+    if (keyboardTransient) return
     void getWindowSize().then(size => {
       dimensionsChangedRef.current = false
       // console.log(layout, size)
@@ -38,18 +54,22 @@ export default memo(() => {
       }
     })
   }, [])
+  // 分屏 / 小窗 / 导航栏模式切换后重新量一次根视图：
+  // Android 15/16 强制 edge-to-edge，这些场景 RN 的 Dimensions 不一定刷新，
+  // 尺寸由原生 screen-size-changed 主动推（windowSizeTools 也会用同一事件刷窗口尺寸），
+  // 这里负责让 statusbarHeight 跟着重算。
+  const remeasure = useCallback(() => {
+    dimensionsChangedRef.current = true
+    viewRef.current?.measureInWindow((x, y, width, height) => {
+      if (!width || !height) return
+      handleLayout({ nativeEvent: { layout: { width, height } } })
+    })
+  }, [handleLayout])
   useEffect(() => {
-    // let timeout: NodeJS.Timeout | null = null
     const subscription = Dimensions.addEventListener('change', () => {
       dimensionsChangedRef.current = true
-      // if (timeout) clearTimeout(timeout)
-      // timeout = setTimeout(() => {
-      //   timeout = null
-      //   viewRef.current?.measureInWindow((x, y, width, height) => {
-      //     handleLayout({ nativeEvent: { layout: { width, height } } })
-      //   })
-      // }, 100)
     })
+    const removeWindowSizeListener = onWindowSizeChange(remeasure)
 
     const handleSettingUpdate = (keys: Array<keyof LX.AppSetting>) => {
       if (!keys.includes('common.alwaysKeepStatusbarHeight') || !sizeRef.current[1]) return
@@ -64,9 +84,9 @@ export default memo(() => {
 
     return () => {
       subscription.remove()
+      removeWindowSizeListener()
       global.state_event.off('configUpdated', handleSettingUpdate)
     }
-  }, [])
-  return (<View style={StyleSheet.absoluteFill} onLayout={handleLayout} />)
+  }, [remeasure])
+  return (<View ref={viewRef} style={StyleSheet.absoluteFill} onLayout={handleLayout} />)
 }, () => true)
-

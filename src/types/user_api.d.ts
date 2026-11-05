@@ -23,6 +23,12 @@ declare namespace LX {
       homepage: string
       version: string
       sources?: UserApiSources
+      /** 在线导入时记录的原始脚本地址，用于「检查更新」重新拉取脚本头 */
+      importUrl?: string
+      /** 上次初始化成功后缓存下来的音质矩阵（每个音源支持哪些音质），避免非当前源无法展示 */
+      qualitys?: LX.QualityList
+      /** 上次在线检查更新的时间戳（毫秒） */
+      lastCheckAt?: number
     }
 
     interface UserApiStatus {

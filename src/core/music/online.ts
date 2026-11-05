@@ -39,6 +39,45 @@ export const setPic = (datas: {
  */
 
 
+/** 解析在线歌曲播放地址的结果：带上「实际」音源与音质（换源/降级后与请求值可能不同） */
+export interface OnlineMusicUrlDetail {
+  url: string
+  musicInfo: LX.Music.MusicInfoOnline
+  quality: LX.Quality
+  isFromCache: boolean
+}
+
+/**
+ * 解析在线歌曲的播放地址。
+ *
+ * 和只返回 url 的 getMusicUrl 相比，这里额外返回**实际**命中的音源与音质：
+ * 多音源自动换源之后，播放器要把换到的 musicInfo 记进 toggleMusicInfo、
+ * 把实际音质记进 playerState.playQuality，界面/状态栏才不会显示成「请求的音质」。
+ */
+export const resolveMusicUrl = async({ musicInfo, quality, isRefresh, allowToggleSource = true, onToggleSource = () => {}, forceToggleSource = false }: {
+  musicInfo: LX.Music.MusicInfoOnline
+  quality?: LX.Quality
+  isRefresh: boolean
+  allowToggleSource?: boolean
+  onToggleSource?: (musicInfo?: LX.Music.MusicInfoOnline) => void
+  /** 跳过当前音源直接换源（下载内容与音质不符时用） */
+  forceToggleSource?: boolean
+}): Promise<OnlineMusicUrlDetail> => {
+  const targetQuality = quality ?? getPlayQuality(settingState.setting['player.playQuality'], musicInfo)
+  // 强制换源时不能再走原音源的 URL 缓存，否则会拿回同一个错误音源
+  if (!forceToggleSource) {
+    const cachedUrl = await getStoreMusicUrl(musicInfo, targetQuality)
+    if (cachedUrl && !isRefresh) return { url: cachedUrl, musicInfo, quality: targetQuality, isFromCache: true }
+  }
+
+  return handleGetOnlineMusicUrl({ musicInfo, quality, onToggleSource, isRefresh, allowToggleSource, forceToggleSource }).then(({ url, quality: actualQuality, musicInfo: targetMusicInfo, isFromCache }) => {
+    // 缓存按「实际音源 + 实际音质」记：换源后如果还按原音源记，下次播放又会先走一遍失败
+    if (targetMusicInfo.id !== musicInfo.id && !isFromCache) void saveMusicUrl(targetMusicInfo, actualQuality, url)
+    void saveMusicUrl(musicInfo, actualQuality, url)
+    return { url, musicInfo: targetMusicInfo, quality: actualQuality, isFromCache }
+  })
+}
+
 export const getMusicUrl = async({ musicInfo, quality, isRefresh, allowToggleSource = true, onToggleSource = () => {} }: {
   musicInfo: LX.Music.MusicInfoOnline
   quality?: LX.Quality
@@ -52,15 +91,7 @@ export const getMusicUrl = async({ musicInfo, quality, isRefresh, allowToggleSou
 
   //   // return Promise.reject(new Error('该歌曲没有可播放的音频'))
   // }
-  const targetQuality = quality ?? getPlayQuality(settingState.setting['player.playQuality'], musicInfo)
-  const cachedUrl = await getStoreMusicUrl(musicInfo, targetQuality)
-  if (cachedUrl && !isRefresh) return cachedUrl
-
-  return handleGetOnlineMusicUrl({ musicInfo, quality, onToggleSource, isRefresh, allowToggleSource }).then(({ url, quality: targetQuality, musicInfo: targetMusicInfo, isFromCache }) => {
-    if (targetMusicInfo.id != musicInfo.id && !isFromCache) void saveMusicUrl(targetMusicInfo, targetQuality, url)
-    void saveMusicUrl(musicInfo, targetQuality, url)
-    return url
-  })
+  return (await resolveMusicUrl({ musicInfo, quality, isRefresh, allowToggleSource, onToggleSource })).url
 }
 
 export const getPicUrl = async({ musicInfo, listId, isRefresh, allowToggleSource = true, onToggleSource = () => {} }: {

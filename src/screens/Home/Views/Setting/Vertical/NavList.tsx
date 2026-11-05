@@ -4,7 +4,7 @@ import { View, TouchableOpacity, ScrollView } from 'react-native'
 import { useTheme } from '@/store/theme/hook'
 import { createStyle } from '@/utils/tools'
 import Text from '@/components/common/Text'
-import { SETTING_SCREENS, type SettingScreenIds } from '../Main'
+import { SETTING_SCREENS, normalizeSettingScreenId, type SettingScreenIds } from '../Main'
 import { useI18n } from '@/lang'
 import { BorderRadius, BorderWidths } from '@/theme'
 
@@ -41,7 +41,7 @@ const ListItem = memo(({ id, activeId, onPress }: {
 export default ({ onChangeId }: {
   onChangeId: (id: SettingScreenIds) => void
 }) => {
-  const [activeId, setActiveId] = useState(global.lx.settingActiveId)
+  const [activeId, setActiveId] = useState(() => normalizeSettingScreenId(global.lx.settingActiveId))
   const theme = useTheme()
 
   const handleChangeId = useCallback((id: SettingScreenIds) => {

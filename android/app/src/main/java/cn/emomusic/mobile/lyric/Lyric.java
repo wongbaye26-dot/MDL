@@ -7,6 +7,8 @@ import android.content.IntentFilter;
 import android.os.Bundle;
 import android.util.Log;
 
+import androidx.core.content.ContextCompat;
+
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.ReactApplicationContext;
@@ -68,7 +70,13 @@ public class Lyric extends LyricPlayer {
       }
     };
 
-    reactAppContext.registerReceiver(screenOnOffReceiver, theFilter);
+    try {
+      // targetSdk 34+：动态注册非系统广播必须显式声明是否导出，否则 SecurityException。
+      // SCREEN_ON/OFF 是受保护的系统广播，用 NOT_EXPORTED 即可。
+      ContextCompat.registerReceiver(reactAppContext, screenOnOffReceiver, theFilter, ContextCompat.RECEIVER_NOT_EXPORTED);
+    } catch (Exception e) {
+      Log.e("Lyric", "register screen state receiver failed", e);
+    }
   }
 
   // private void checkA2DPConnection(Context context) {

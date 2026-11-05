@@ -70,9 +70,16 @@ const main = () => {
   if (!fs.existsSync(APK_DIR)) throw new Error(`找不到产物目录：${APK_DIR}`)
   if (!fs.existsSync(DIST)) fs.mkdirSync(DIST, { recursive: true })
 
-  // 只归档 arm64-v8a 和 universal：前者给真机覆盖升级，后者给全新安装
+  // 归档三种包：
+  //  - arm64-v8a：新机型真机覆盖升级（versionCode 带 ABI 后缀，可覆盖同架构旧包）
+  //  - armeabi-v7a：老机型 / 部分车机
+  //  - universal：全新安装 / 不确定架构时用（versionCode 无 ABI 后缀，只能全新安装）
+  // 文件名映射：android/app/build.gradle 用 package.json 的 name 生成
+  //   em-music-vX.Y.Z-{abi}.apk / em-music-vX.Y.Z-universal.apk
+  // 归档后统一改名成 EmoMusic-vX.Y.Z-{abi}.apk。
   const wanted = [
     { abi: 'arm64-v8a', file: `em-music-v${version}-arm64-v8a.apk` },
+    { abi: 'armeabi-v7a', file: `em-music-v${version}-armeabi-v7a.apk` },
     { abi: 'universal', file: `em-music-v${version}-universal.apk` },
   ]
 
@@ -119,7 +126,7 @@ const main = () => {
   }
 
   console.log(`\n✅ v${version} 完成。dist 现有 ${fs.readdirSync(DIST).filter(f => f.endsWith('.apk')).length} 个 APK。`)
-  console.log('注意：arm64 包可覆盖升级；universal 包的 versionCode 不带 ABI 后缀，只能全新安装。')
+  console.log('注意：arm64-v8a / armeabi-v7a 包可覆盖升级同架构旧包；universal 包的 versionCode 不带 ABI 后缀，只能全新安装。')
 }
 
 main()

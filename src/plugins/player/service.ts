@@ -7,7 +7,7 @@ import { PLAY_MODES, registerNotificationListeners, isCurrentMusicLiked } from '
 // import { play as lrcPlay, pause as lrcPause } from '@/core/lyric'
 import { exitApp, updateSetting } from '@/core/common'
 import { getCurrentTrackId } from './playList'
-import { collectMusic, pause, play, playNext, playPrev, uncollectMusic } from '@/core/player/player'
+import { collectMusic, handlePlaybackErrorRetry, pause, play, playNext, playPrev, resetPlaybackErrorRetry, uncollectMusic } from '@/core/player/player'
 import settingState from '@/store/setting/state'
 import { log } from '@/utils/log'
 
@@ -119,6 +119,9 @@ const registerPlaybackService = async() => {
   TrackPlayer.addEventListener(TPEvent.PlaybackError, async(err: any) => {
     // 播放错误要留痕（设置 → 其他 → 日志），否则线上出问题查不到原因
     log.error('PlaybackError', err)
+    // URL 过期 / 源站 404 在多音源场景里很常见：先自动刷新地址、再强制换源各重试一次，
+    // 重试期间不要先把错误抛给界面（否则用户会看到报错闪一下、还得自己再点播放）
+    if (handlePlaybackErrorRetry()) return
     global.app_event.error()
     global.app_event.playerError()
   })
@@ -142,6 +145,8 @@ const registerPlaybackService = async() => {
         global.app_event.pause()
         break
       case TPState.Playing:
+        // 真正播起来了：清掉播放失败重试计数，下一首歌重新从「刷新地址」开始
+        resetPlaybackErrorRetry()
         global.app_event.playerPlaying()
         global.app_event.play()
         break

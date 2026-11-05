@@ -1,5 +1,5 @@
 import { action, state } from '@/store/userApi'
-import { addUserApi, getUserApiScript, removeUserApi as removeUserApiFromStore, setUserApiAllowShowUpdateAlert as setUserApiAllowShowUpdateAlertFromStore } from '@/utils/data'
+import { addUserApi, getUserApiScript, removeUserApi as removeUserApiFromStore, setUserApiAllowShowUpdateAlert as setUserApiAllowShowUpdateAlertFromStore, updateUserApiInfo as updateUserApiInfoFromStore } from '@/utils/data'
 import { destroy, loadScript } from '@/utils/nativeModules/userApi'
 import { log as writeLog } from '@/utils/log'
 
@@ -27,9 +27,10 @@ export const setUserApiList: typeof action['setUserApiList'] = (list) => {
   action.setUserApiList(list)
 }
 
-export const importUserApi = async(script: string) => {
-  const info = await addUserApi(script)
+export const importUserApi = async(script: string, importUrl?: string) => {
+  const info = await addUserApi(script, importUrl)
   action.addUserApi(info)
+  return info
 }
 
 export const removeUserApi = async(ids: string[]) => {
@@ -40,6 +41,14 @@ export const removeUserApi = async(ids: string[]) => {
 export const setUserApiAllowShowUpdateAlert = async(id: string, enable: boolean) => {
   await setUserApiAllowShowUpdateAlertFromStore(id, enable)
   action.setUserApiAllowShowUpdateAlert(id, enable)
+}
+
+/**
+ * 局部更新自定义源信息（音质矩阵缓存、上次检查更新时间等），并持久化
+ */
+export const updateUserApiInfo = async(id: string, patch: Partial<LX.UserApi.UserApiInfo>) => {
+  action.updateUserApiInfo(id, patch)
+  await updateUserApiInfoFromStore(id, patch)
 }
 
 export const log = {

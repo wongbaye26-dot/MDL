@@ -5,8 +5,32 @@ import {
   getMusicUrl as getOnlineMusicUrl,
   getPicUrl as getOnlinePicUrl,
   getLyricInfo as getOnlineLyricInfo,
+  resolveMusicUrl as resolveOnlineMusicUrl,
+  type OnlineMusicUrlDetail,
 } from './online'
 import { buildLyricInfo, getCachedLyricInfo } from './utils'
+
+/**
+ * 解析下载任务对应的在线播放地址。
+ *
+ * 返回实际命中的音源/音质：下载中心播放未完成的歌时如果发生了换源，
+ * 播放器也要按实际音源回写 toggleMusicInfo（和在线歌曲一致）。
+ */
+export const resolveMusicUrl = async({ musicInfo, isRefresh, allowToggleSource = true, onToggleSource = () => {}, forceToggleSource = false }: {
+  musicInfo: LX.Download.ListItem
+  isRefresh: boolean
+  onToggleSource?: (musicInfo?: LX.Music.MusicInfoOnline) => void
+  allowToggleSource?: boolean
+  forceToggleSource?: boolean
+}): Promise<OnlineMusicUrlDetail> => {
+  return resolveOnlineMusicUrl({
+    musicInfo: musicInfo.metadata.musicInfo,
+    isRefresh,
+    onToggleSource,
+    allowToggleSource,
+    forceToggleSource,
+  })
+}
 
 export const getMusicUrl = async({ musicInfo, isRefresh, allowToggleSource = true, onToggleSource = () => {} }: {
   musicInfo: LX.Download.ListItem

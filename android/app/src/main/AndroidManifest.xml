@@ -14,7 +14,23 @@
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- Android 13+（API 33）发通知需要运行时权限：没有它前台服务也能跑，但播放/下载通知不显示 -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Android 14+（API 34）前台服务：服务声明哪种 foregroundServiceType 就需要对应的普通权限，
+         缺少会抛 SecurityException（startForeground 失败） -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
 
+    <!--
+      targetSdk 36 / Android 16 的两个关键开关：
+      1. android:enableOnBackInvokedCallback="false"：Android 16 起预测性返回
+         （predictive back）默认开启，系统不再把 onBackPressed()/KEYCODE_BACK 分发给应用。
+         react-native-navigation 7.39 已迁移到 OnBackPressedDispatcher，但它与 RN JS
+         BackHandler 的组合行为无法在无设备时验证，这里先显式关掉，保持 legacy 返回行为。
+         后续迁移路线见 doc/android-16-compat.md。
+      2. Android 16 强制 edge-to-edge 且不可 opt-out，状态栏/导航栏留白由
+         MainActivity（WindowInsets listener）+ RN 侧（SizeView/statusbarHeight）处理。
+    -->
     <application
       android:name=".MainApplication"
       android:label="@string/app_name"
@@ -24,6 +40,7 @@
       android:roundIcon="@mipmap/ic_launcher_round"
       android:allowBackup="false"
       android:theme="@style/AppTheme"
+      android:enableOnBackInvokedCallback="false"
       tools:targetApi="n">
       <activity
         android:name=".dirpicker.DirectoryPickerActivity"
@@ -35,6 +52,7 @@
         android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"
         android:launchMode="singleTask"
         android:windowSoftInputMode="adjustResize"
+        android:resizeableActivity="true"
         android:exported="true">
         <intent-filter>
             <action android:name="android.intent.action.MAIN" />
@@ -99,6 +117,18 @@
           <data android:pathSuffix=".lxmc" tools:targetApi="s" />
         </intent-filter>
       </activity>
+
+      <!--
+        react-native-track-player 的播放服务（库 manifest 里已声明 exported=true + MEDIA_BUTTON filter）。
+        targetSdk 34+（Android 14）起：服务必须声明 foregroundServiceType，否则
+        service.startForeground() 会抛 MissingForegroundServiceTypeException 直接崩溃。
+        这里在 app 层把类型合并进来（与 FOREGROUND_SERVICE_MEDIA_PLAYBACK 权限配套），
+        不需要 tools:replace —— 库没有声明该属性，不会产生合并冲突。
+      -->
+      <service
+        android:name="com.guichaguri.trackplayer.service.MusicService"
+        android:foregroundServiceType="mediaPlayback"
+        android:exported="true" />
 
       <!-- Define a FileProvider for API24+ -->
       <!-- note this is the authority name used by other modules like rn-fetch-blob, easy to have conflicts -->

@@ -8,6 +8,8 @@ const { DownloadModule } = NativeModules as {
     pauseAll: () => void
     getTaskInfo: (id: string, path: string) => Promise<{ id: string, downloaded: number, isCompleted: boolean }>
     isTaskRunning: (id: string) => Promise<boolean>
+    /** 把普通路径的文件交给系统媒体库索引（老版本原生包没有这个方法） */
+    scanFile?: (path: string) => Promise<boolean>
     destroy: () => void
   }
 }
@@ -85,6 +87,22 @@ export const getTaskInfo = async(id: string, path: string) => {
 
 export const isTaskRunning = async(id: string) => {
   return assertSupported().isTaskRunning(id)
+}
+
+/**
+ * 把普通路径的文件交给系统媒体库（MediaScannerConnection）索引。
+ *
+ * 下载任务本身完成时原生已经扫过一次；这里给「SAF 目录复制完成」这条路径补扫，
+ * 否则复制到公共目录的文件在 MediaStore 里没有记录，重新扫描本地音乐时就找不到。
+ * 老版本原生包没有 scanFile 时静默跳过（返回 false）。
+ */
+export const scanFile = async(path: string): Promise<boolean> => {
+  if (!DownloadModule?.scanFile || !path) return false
+  try {
+    return await DownloadModule.scanFile(path)
+  } catch {
+    return false
+  }
 }
 
 export const destroy = () => {

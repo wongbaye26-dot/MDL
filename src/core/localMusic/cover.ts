@@ -1,4 +1,4 @@
-import { existsFile } from '@/utils/fs'
+import { downloadFile, existsFile, mkdir, stat, temporaryDirectoryPath, unlink } from '@/utils/fs'
 import { readPic } from '@/utils/localMediaMetadata'
 import { readAudioMeta } from '@/utils/directoryPicker'
 import musicSdk from '@/utils/musicSdk'
@@ -234,4 +234,87 @@ export const resolveLocalCover = async(
 
   if (!options.allowNetwork) return ''
   return fetchNetworkCover(item)
+}
+
+/* ───────────────── 下载入库用的封面持久化 ───────────────── */
+
+/** 封面缓存目录：和 readPic 抽内嵌封面共用，曲库里存的就是这些文件 */
+const coverCacheDir = `${temporaryDirectoryPath}/local-media-metadata`
+
+/** 稳定的短 hash：用文件路径当 key，同一首歌始终落到同一个缓存文件名 */
+const hashKey = (text: string) => {
+  let hash = 5381
+  for (let i = 0; i < text.length; i++) hash = ((hash << 5) + hash + text.charCodeAt(i)) | 0
+  return Math.abs(hash).toString(36)
+}
+
+/** 从图片 URL 里猜扩展名，猜不到按 jpg 处理 */
+const guessPicExt = (url: string) => {
+  try {
+    const path = url.split('?')[0]
+    const match = /\.(jpe?g|png|webp|gif|bmp)$/i.exec(path)
+    return match ? match[1].toLowerCase() : 'jpg'
+  } catch {
+    return 'jpg'
+  }
+}
+
+/**
+ * 把网络封面下载成**本地缓存文件**。
+ *
+ * 为什么不能直接把 http 地址存进曲库：本地音乐是用户「离线可听」的曲库，
+ * 封面却要联网才能显示，飞行模式 / 图床挂了就只剩占位块。
+ * 落成本地文件之后，曲库封面和歌曲文件是同一个生命周期。
+ *
+ * @returns 可用的封面地址（本地文件路径；失败返回 ''，交给调用方兜底）
+ */
+export const cacheRemoteCover = async(url: string, key: string): Promise<string> => {
+  if (!url) return ''
+  // 已经是本地文件（内嵌封面缓存 / 用户手动指定）：只要文件还在就直接用
+  if (!isRemoteUrl(url)) return await isCoverUsable(url) ? url : ''
+  const path = `${coverCacheDir}/netcover_${hashKey(key)}.${guessPicExt(url)}`
+  /** 文件存在且非空才算可用：上次下载中断可能留下 0 字节文件 */
+  const isValidFile = async() => {
+    const info = await stat(path).catch(() => null)
+    return info != null && Number(info.size) > 0
+  }
+  // 同一首歌反复补封面时不要重复下载
+  if (await existsFile(path).catch(() => false)) {
+    if (await isValidFile()) return path
+    await unlink(path).catch(() => {})
+  }
+  try { await mkdir(coverCacheDir) } catch {}
+  try {
+    const res = await downloadFile(url, path).promise
+    if (res.statusCode >= 200 && res.statusCode < 300 && await isValidFile()) return path
+  } catch {}
+  await unlink(path).catch(() => {})
+  return ''
+}
+
+/**
+ * 下载完成入库时，给曲库条目找一个「一定能显示」的封面：
+ *   内嵌封面 → 下载时拿到的网络封面 / 曲库已有封面（落成本地文件）→ 联网搜索。
+ *
+ * 即使写标签 / 写封面的原生步骤失败了，列表和播放器也还有封面可用。
+ */
+export const resolveDownloadedCover = async(item: LX.Music.MusicInfoLocal, extraPicUrl?: string | null): Promise<string> => {
+  // 1. 文件里已经写进去了（下载时 writeTaskExtras 写过）
+  const embedded = await readEmbeddedCover(item)
+  if (embedded) return embedded
+
+  // 2. 下载任务本来就知道封面地址（搜索结果自带的 img），优先用它
+  for (const url of [extraPicUrl, item.meta.picUrl]) {
+    if (!url) continue
+    if (!await isCoverUsable(url)) continue
+    const cached = await cacheRemoteCover(url, item.meta.filePath)
+    if (cached) return cached
+    // 下载失败也别直接放弃：网络地址本身还能显示，只是下次启动可能失效
+    if (isRemoteUrl(url)) return url
+  }
+
+  // 3. 联网搜一次（cover.ts 内部已做歌名+歌手匹配，避免配错封面）
+  const network = await fetchNetworkCover(item)
+  if (!network) return ''
+  return (await cacheRemoteCover(network, item.meta.filePath)) || network
 }

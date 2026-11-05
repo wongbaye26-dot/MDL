@@ -6,6 +6,7 @@ import MetaCache from './MetaCache'
 import DislikeList from './DislikeList'
 import Log from './Log'
 import Permissions from './Permissions'
+import DeviceCompat from './DeviceCompat'
 
 export default memo(() => {
   return (
@@ -19,6 +20,7 @@ export default memo(() => {
         <Log />
       </Section>
       <Permissions />
+      <DeviceCompat />
     </>
   )
 })

@@ -1,5 +1,7 @@
 package cn.emomusic.mobile.download;
 
+import android.content.Context;
+import android.media.MediaScannerConnection;
 import android.os.SystemClock;
 import android.util.Log;
 
@@ -31,6 +33,7 @@ public class DownloadTask implements Runnable {
   private final Map<String, String> headers;
   private final DownloadEvent event;
   private final Runnable onFinish;
+  private final Context context;
 
   private volatile boolean paused = false;
   private volatile boolean canceled = false;
@@ -41,13 +44,39 @@ public class DownloadTask implements Runnable {
   private long downloaded = 0;
   private long total = 0;
 
-  DownloadTask(String id, String url, String filePath, Map<String, String> headers, DownloadEvent event, Runnable onFinish) {
+  DownloadTask(String id, String url, String filePath, Map<String, String> headers, DownloadEvent event, Runnable onFinish, Context context) {
     this.id = id;
     this.url = url;
     this.filePath = filePath;
     this.headers = headers == null ? new HashMap<>() : headers;
     this.event = event;
     this.onFinish = onFinish;
+    this.context = context;
+  }
+
+  /**
+   * 下载完成后把文件交给系统媒体库索引。
+   *
+   * 为什么必须做：JS 层扫描本地音乐时优先用 MediaStore 按目录查文件，
+   * 刚写进公共目录的歌在系统索引之前是查不到的 —— 用户看到的就是
+   * 「下载完成，但本地音乐里没有 / 重新扫描也找不到」。
+   * 应用专属目录（Android/data、Android/obb）系统不会索引，跳过即可。
+   */
+  private void scanCompletedFile(File file) {
+    if (context == null || file == null || !file.exists()) return;
+    String path = file.getAbsolutePath();
+    // 只有外部存储里的文件才归 MediaStore 管：
+    // 应用私有目录（Android/data、Android/obb）系统不会索引；
+    // SAF 下载时用的缓存目录（/data/user/0/.../cache）也不该往媒体库里扫。
+    if (!path.startsWith("/storage/")) return;
+    if (path.contains("/Android/data/") || path.contains("/Android/obb/")) return;
+    try {
+      MediaScannerConnection.scanFile(context, new String[] { path }, null, null);
+      Log.d(TAG, "request media scan: " + path);
+    } catch (Exception e) {
+      // 扫描失败不影响下载结果，JS 侧还有「本地缓存条目 + 目录 walk」兜底
+      Log.w(TAG, "media scan failed: " + e.getMessage());
+    }
   }
 
   public String getId() {
@@ -115,6 +144,8 @@ public class DownloadTask implements Runnable {
       downloaded = targetFile.length();
       total = downloaded;
       running = false;
+      // 上次可能是「下载完但还没扫描就被杀进程」，这里补一次索引
+      scanCompletedFile(targetFile);
       event.complete(id, total);
       return;
     }
@@ -223,6 +254,10 @@ public class DownloadTask implements Runnable {
         copyFile(tempFile, targetFile);
         tempFile.delete();
       }
+
+      // 关键：写进公共目录后立刻让系统媒体库收录，
+      // 否则 MediaStore 查不到新文件，JS 扫描结果里就没有这首歌
+      scanCompletedFile(targetFile);
 
       running = false;
       event.complete(id, total > 0 ? total : downloaded);

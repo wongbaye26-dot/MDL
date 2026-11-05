@@ -20,13 +20,13 @@ import {
   removeTempPlayList,
 } from '@/core/player/tempPlayList'
 import { addRecentPlay } from '@/core/player/recentPlay'
-import { getMusicUrl, getPicPath, getLyricInfo } from '@/core/music'
-import { getPlayQuality } from '@/core/music/utils'
+import { resolveMusicUrl, getPicPath, getLyricInfo, type ResolvedMusicUrl } from '@/core/music'
+import { getPlayQuality, getSourceName } from '@/core/music/utils'
 import { requestMsg } from '@/utils/message'
 import { getRandom } from '@/utils/common'
 import { filterList } from './utils'
 import BackgroundTimer from 'react-native-background-timer'
-import { checkIgnoringBatteryOptimization, checkNotificationPermission, debounceBackgroundTimer } from '@/utils/tools'
+import { checkIgnoringBatteryOptimization, checkNotificationPermission, debounceBackgroundTimer, toast } from '@/utils/tools'
 import { LIST_IDS } from '@/config/constant'
 import { addListMusics, removeListMusics } from '@/core/list'
 import { addDislikeInfo } from '@/core/dislikeList'
@@ -109,11 +109,47 @@ const delayRetry = async(
     }
   })
 }
+/**
+ * 把「实际解析出的音源 / 音质」回写到播放状态。
+ *
+ * 多音源换源之后如果只拿到 url 不更新 state，界面会一直显示请求时的音源和音质
+ * （例如显示「无损 FLAC」，实际播的是备选音源的 320k）；而且下次播放还会先走一遍
+ * 已经失效的原音源、白等一次超时。所以这里做两件事：
+ *   1. 把实际音质写进 playerState.playQuality（进度条/播放页显示真实音质）；
+ *   2. 把换到的 musicInfo 记进 toggleMusicInfo（下次播放直接走可用音源）。
+ */
+const applyResolvedMusicUrl = (
+  musicInfo: LX.Music.MusicInfo | LX.Download.ListItem,
+  result: ResolvedMusicUrl,
+) => {
+  // 本地文件没有音质概念，不要覆盖 ''（否则会显示成上次播放的音质）
+  if (result.quality) playerState.playQuality = result.quality
+
+  // 下载任务播放时，歌曲信息挂在 metadata.musicInfo 上
+  const rootMusicInfo = 'progress' in musicInfo ? musicInfo.metadata.musicInfo : musicInfo
+  if (rootMusicInfo.source === 'local' || result.musicInfo.source === 'local') return
+
+  // 没换源（还是原来那首歌）：只是音质降级，不需要记 toggleMusicInfo
+  if (result.musicInfo.id === rootMusicInfo.id && result.musicInfo.source === rootMusicInfo.source) return
+
+  const recorded = rootMusicInfo.meta.toggleMusicInfo
+  if (recorded && recorded.id === result.musicInfo.id && recorded.source === result.musicInfo.source) {
+    // 已经记过同一个换源结果（这次就是用它播的），不要每次播放都弹提示
+    return
+  }
+
+  rootMusicInfo.meta.toggleMusicInfo = result.musicInfo
+  log.info(`toggle source success: ${rootMusicInfo.source} -> ${result.musicInfo.source}`)
+  // 只在真正换了音源时提示一次，让用户知道为什么音质/时长可能和原来不一样
+  toast(`${global.i18n.t('toggle_source')}: ${getSourceName(result.musicInfo.source)}`)
+}
+
 const getMusicPlayUrl = async(
   musicInfo: LX.Music.MusicInfo | LX.Download.ListItem,
   isRefresh = false,
   isRetryed = false,
   retryAttempt = 0,
+  forceToggleSource = false,
 ): Promise<string | null> => {
   // this.musicInfo.url = await getMusicPlayUrl(targetSong, type)
   setStatusText(global.i18n.t('player__getting_url'))
@@ -152,23 +188,26 @@ const getMusicPlayUrl = async(
   // const type = getPlayType(settingState.setting['player.isPlayHighQuality'], musicInfo)
   let toggleMusicInfo = ('progress' in musicInfo ? musicInfo.metadata.musicInfo : musicInfo).meta.toggleMusicInfo
 
-  return (toggleMusicInfo ? getMusicUrl({
+  return (toggleMusicInfo ? resolveMusicUrl({
     musicInfo: toggleMusicInfo,
     isRefresh,
     allowToggleSource: false,
   }) : Promise.reject(new Error('not found'))).catch(async() => {
-    return getMusicUrl({
+    return resolveMusicUrl({
       musicInfo,
       isRefresh,
+      forceToggleSource,
       onToggleSource(mInfo) {
         if (diffCurrentMusicInfo(musicInfo)) return
         setStatusText(global.i18n.t('toggle_source_try'))
       },
     })
-  }).then(url => {
+  }).then(result => {
     if (global.lx.isPlayedStop || diffCurrentMusicInfo(musicInfo)) return null
 
-    return url
+    // 拿到地址后把实际音源 / 音质回写，界面和后续播放都以此为准
+    applyResolvedMusicUrl(musicInfo, result)
+    return result.url
   }).catch(async err => {
     // console.log('err', err.message)
     if (global.lx.isPlayedStop ||
@@ -181,10 +220,73 @@ const getMusicPlayUrl = async(
       return delayRetry(musicInfo, isRefresh, retryAttempt)
     }
 
-    if (!isRetryed) return getMusicPlayUrl(musicInfo, isRefresh, true, retryAttempt)
+    if (!isRetryed) return getMusicPlayUrl(musicInfo, isRefresh, true, retryAttempt, forceToggleSource)
 
     throw err
   })
+}
+
+/* ───────────── 播放失败自动刷新地址 / 换源 ───────────── */
+
+/** 同一首歌连续 PlaybackError 的次数：第一次刷新地址，第二次强制换源，之后认输 */
+let playbackErrorKey = ''
+let playbackErrorCount = 0
+
+const getPlaybackErrorKey = (musicInfo: LX.Music.MusicInfo | LX.Download.ListItem) => {
+  const root = 'progress' in musicInfo ? musicInfo.metadata.musicInfo : musicInfo
+  return `${root.source}_${root.id}`
+}
+
+/** 播放成功 / 切歌时复位重试计数 */
+export const resetPlaybackErrorRetry = () => {
+  playbackErrorKey = ''
+  playbackErrorCount = 0
+}
+
+/**
+ * 播放器报告 PlaybackError 时调用（CDN 404/403、链接过期、源站返回错误页等）：
+ *  - 第 1 次：刷新播放地址后重试；
+ *  - 第 2 次：强制换到其它音源重试；
+ *  - 第 3 次起返回 false，交给界面报错 / 自动下一首。
+ *
+ * 为什么不直接在播放器里报错：URL 过期和「源站 404」是多音源场景最常见的失败，
+ * 用户点播放却看到一条错误、得自己再点一次，体验很差；这里静默重试两次，
+ * 成功就把换到的音源回写 toggleMusicInfo，下次播放不会再撞同一个坏地址。
+ *
+ * @returns 是否已经接管并开始重试
+ */
+export const handlePlaybackErrorRetry = (): boolean => {
+  const musicInfo = playerState.playMusicInfo.musicInfo
+  if (!musicInfo || global.lx.isPlayedStop) return false
+  const root = 'progress' in musicInfo ? musicInfo.metadata.musicInfo : musicInfo
+  if (root.source === 'local') return false
+  const key = getPlaybackErrorKey(musicInfo)
+  if (playbackErrorKey !== key) {
+    playbackErrorKey = key
+    playbackErrorCount = 0
+  }
+  if (playbackErrorCount >= 2) {
+    resetPlaybackErrorRetry()
+    return false
+  }
+  const forceToggle = playbackErrorCount >= 1
+  playbackErrorCount += 1
+  global.lx.gettingUrlId = createGettingUrlId(musicInfo)
+  setStatusText(global.i18n.t(forceToggle ? 'toggle_source_try' : 'player__getting_url'))
+  log.info(`[player] playback error retry (refresh=${String(!forceToggle)}, toggleSource=${String(forceToggle)})`)
+  void getMusicPlayUrl(musicInfo, true, true, 0, forceToggle).then((url) => {
+    if (!url) return
+    setResource(musicInfo, url, playerState.progress.nowPlayTime)
+  }).catch((err: any) => {
+    log.error(err)
+    setStatusText(err.message as string)
+    global.app_event.error()
+    global.app_event.playerError()
+    addDelayNextTimeout()
+  }).finally(() => {
+    if (musicInfo === playerState.playMusicInfo.musicInfo) clearLoadTimeout()
+  })
+  return true
 }
 
 export const setMusicUrl = (musicInfo: LX.Music.MusicInfo | LX.Download.ListItem, isRefresh?: boolean) => {
@@ -194,6 +296,7 @@ export const setMusicUrl = (musicInfo: LX.Music.MusicInfo | LX.Download.ListItem
   global.lx.gettingUrlId = createGettingUrlId(musicInfo)
   void getMusicPlayUrl(musicInfo, isRefresh).then((url) => {
     if (!url) return
+    resetPlaybackErrorRetry()
     setResource(musicInfo, url, playerState.progress.nowPlayTime)
   }).catch((err: any) => {
     log.error(err)

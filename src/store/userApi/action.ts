@@ -30,3 +30,14 @@ export const setUserApiAllowShowUpdateAlert = (id: string, enable: boolean) => {
 
   event.list_changed([...state.list])
 }
+
+/**
+ * 局部更新某个自定义源的信息（音质矩阵缓存、上次检查时间等）
+ */
+export const updateUserApiInfo = (id: string, patch: Partial<LX.UserApi.UserApiInfo>) => {
+  const targetIndex = state.list.findIndex(api => api.id == id)
+  if (targetIndex < 0) return
+  state.list.splice(targetIndex, 1, { ...state.list[targetIndex], ...patch })
+
+  event.list_changed([...state.list])
+}

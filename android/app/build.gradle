@@ -88,7 +88,7 @@ def jscFlavor = 'org.webkit:android-jsc:+'
  */
 def reactNativeArchitectures() {
     def value = project.getProperties().get("reactNativeArchitectures")
-    return value ? value.split(",") : ["armeabi-v7a", "x86", "x86_64", "arm64-v8a"]
+    return value ? value.split(",") : ["arm64-v8a", "armeabi-v7a"]
 }
 
 // Get version number
@@ -115,6 +115,14 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode verCode
         versionName verName
+
+        // 原生库只保留真机主流架构。
+        // 光靠 splits.abi.include 只能决定「拆出哪些 ABI 包」，universal 包仍会合并
+        // hermes / fbjni / jsc 等预编译依赖里的 x86/x86_64 —— 这里在 NDK 层再过滤一次，
+        // 保证 universal 包也不含模拟器架构（aapt badging 的 native-code 只有这两项）。
+        ndk {
+            abiFilters "arm64-v8a", "armeabi-v7a"
+        }
     }
 
     splits {
@@ -122,6 +130,8 @@ android {
             reset()
             enable enableSeparateBuildPerCPUArchitecture
             universalApk true  // If true, also generate a universal APK
+            // 只产出 arm64-v8a / armeabi-v7a 两个按架构拆分的包（+ universal）。
+            // 具体 ABI 由 gradle.properties 的 reactNativeArchitectures 决定，改那里即可。
             include (*reactNativeArchitectures())
         }
     }
@@ -162,6 +172,16 @@ android {
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
 
             signingConfig signingConfigs.release
+        }
+    }
+
+    // 只保留 arm64-v8a / armeabi-v7a 的原生库。
+    // splits 只决定「产出哪些按 ABI 拆分的包」，universal 包仍会合并依赖 AAR 里的全部 ABI
+    // （hermes / jsc / quickjs 等预编译 AAR 自带 x86/x86_64），所以这里再按 jniLibs 过滤一次，
+    // 保证 universal 包也只带两个真机架构（体积从 ~31MB 降到 ~24MB，且不会在 x86 模拟器误装）。
+    packaging {
+        jniLibs {
+            excludes += ["lib/x86/**", "lib/x86_64/**"]
         }
     }
 

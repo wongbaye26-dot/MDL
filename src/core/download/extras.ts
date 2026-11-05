@@ -1,8 +1,9 @@
 import settingState from '@/store/setting/state'
 import { writeMetadata, writePic } from '@/utils/localMediaMetadata'
-import { downloadFile, temporaryDirectoryPath, unlink, writeFile } from '@/utils/fs'
+import { downloadFile, stat, temporaryDirectoryPath, unlink, writeFile } from '@/utils/fs'
 import { getLyricInfo, getPicUrl } from '@/core/music/download'
 import { writeTextToSibling } from '@/utils/directoryPicker'
+import { log } from '@/utils/log'
 import { isSafPath, joinPath } from './utils'
 
 /**
@@ -56,23 +57,35 @@ export const writeTaskExtras = async(task: LX.Download.ListItem) => {
           await writeFile(filePath.replace(/\.[^.]+$/, '.lrc'), `\ufeff${lrc}`, 'utf8')
         }
       }
-    } catch {}
+    } catch (err) {
+      log.warn('write download lyric failed', err)
+    }
   }
 
-  // 先把封面下到本地，标签和封面两件事都要用
+  // 先把封面下到本地，标签和封面两件事都要用。
+  // 图床偶尔会超时 / 返回空文件：重试一次（第二次强制刷新取图地址），
+  // 实在拿不到就只写标签 —— 曲库封面还有本地音乐模块的「内嵌 → 缓存 → 联网」兜底链
   let picPath: string | null = null
   if (setting['download.isDownloadPic']) {
-    try {
-      const url = await getPicUrl({ musicInfo: task, isRefresh: false })
-      if (url) {
-        picPath = joinPath(temporaryDirectoryPath, `download_pic_${Date.now()}.jpg`)
-        await downloadFile(url, picPath).promise
+    for (let attempt = 0; attempt < 2 && !picPath; attempt++) {
+      try {
+        const url = await getPicUrl({ musicInfo: task, isRefresh: attempt > 0 })
+        if (!url) break
+        const path = joinPath(temporaryDirectoryPath, `download_pic_${Date.now()}.jpg`)
+        await downloadFile(url, path).promise
+        // RNFS 下载失败时也可能留下 0 字节文件，必须校验大小
+        const info = await stat(path).catch(() => null)
+        if (info && Number(info.size) > 0) picPath = path
+        else await unlink(path).catch(() => {})
+      } catch (err) {
+        log.warn('download cover failed', err)
       }
-    } catch {}
+    }
   }
 
   // SAF 优先写文档 uri（有授权就一定能写）；失败再退回真实路径
   const targets = isSaf ? [filePath, realPath].filter((p): p is string => !!p) : (realPath ? [realPath] : [])
+  let wrote = false
   for (const target of targets) {
     try {
       if (setting['download.isWriteMetadata']) {
@@ -83,8 +96,16 @@ export const writeTaskExtras = async(task: LX.Download.ListItem) => {
         })
       }
       if (picPath) await writePic(target, picPath)
+      wrote = true
       break
-    } catch {}
+    } catch (err) {
+      // 单个目标写失败（比如公共目录没有所有文件访问权限）就换下一个地址再试
+      log.warn(`write download metadata failed: ${target}`, err)
+    }
+  }
+  if (!wrote && targets.length) {
+    // 写标签/封面失败不影响下载结果，曲库封面会走兜底链，但日志要留一条方便排查
+    log.warn('write download metadata failed for all targets', task.metadata.filePath)
   }
 
   if (picPath) void unlink(picPath).catch(() => {})

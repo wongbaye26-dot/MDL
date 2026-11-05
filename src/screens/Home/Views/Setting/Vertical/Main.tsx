@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Animated, View, ScrollView, TouchableOpacity, StyleSheet } from 'react-native'
 
+import Source from '../settings/Source'
 import Basic from '../settings/Basic'
 import Player from '../settings/Player'
-import Search from '../settings/Search'
-import List from '../settings/List'
+import SearchList from '../settings/SearchList'
 import Download from '../settings/Download'
 import Other from '../settings/Other'
 import About from '../settings/About'
@@ -29,10 +29,10 @@ import { setNavActiveId } from '@/core/common'
 
 const getSection = (id: SettingScreenIds) => {
   switch (id) {
+    case 'source': return <Source />
     case 'player': return <Player />
-    case 'search': return <Search />
-    case 'list': return <List />
     case 'download': return <Download />
+    case 'searchlist': return <SearchList />
     case 'other': return <Other />
     case 'tools': return <Tools />
     case 'about': return <About />

@@ -14,14 +14,29 @@ import {
   findAudioByPath,
   deleteDocument,
   type AudioMeta,
+  type AudioFileItem,
 } from '@/utils/directoryPicker'
 import { formatPlayTime } from '@/utils'
 import { splitNameAndSinger } from '@/utils/songName'
+import { log } from '@/utils/log'
+import { resolveDownloadedCover } from './cover'
 
 /** 持久化存储键 */
 const STORAGE_KEY = 'local_music_list'
 /** 用户额外添加的扫描目录 */
 const DIRS_KEY = 'local_music_dirs'
+/**
+ * 「刚下载、还没被扫描确认」的曲库条目。
+ *
+ * 为什么要单独存一份：下载完成时 addLocalMusicFile 会把歌直接插进曲库，
+ * 但原生 MediaStore 索引 / SAF 枚举可能还有延迟，下一次整库扫描如果没扫到它，
+ * cachedList 就被扫描结果整体覆盖 —— 用户看到的就是「下载好的歌重扫一下又没了」。
+ * 这里把这类条目暂存起来：扫描结果里没有、但文件确实还在的，合并回列表；
+ * 一旦扫描自己能发现它，就从暂存里删掉，不会无限堆积。
+ */
+const PENDING_KEY = 'local_music_pending_added'
+/** 暂存条目最长保留时间：超过还没被任何一次扫描确认就丢弃（防止僵尸条目） */
+const PENDING_TTL = 7 * 24 * 60 * 60 * 1000
 /** 应用自己的目录可以直接读；公共目录要走 MediaStore / SAF */
 const isAppPrivateDir = (dir: string) => dir.includes('/Android/data/') || dir.includes('/Android/obb/')
 
@@ -275,6 +290,16 @@ export const setExtraDirs = async(dirs: ScanDir[]) => {
   await saveData(DIRS_KEY, next)
 }
 
+/** 读取「刚下载、还没被扫描确认」的曲库条目（见 PENDING_KEY 注释） */
+const getPendingAdded = async(): Promise<LX.Music.MusicInfoLocal[]> => {
+  const data = await getData<LX.Music.MusicInfoLocal[]>(PENDING_KEY)
+  return Array.isArray(data) ? data : []
+}
+
+const savePendingAdded = async(list: LX.Music.MusicInfoLocal[]) => {
+  await saveData(PENDING_KEY, list)
+}
+
 /** 全部扫描根目录：当前下载目录 + 用户额外目录，去重 */
 export const getScanDirs = async(): Promise<ScanDir[]> => {
   const downloadDir = await getDownloadScanDir()
@@ -302,47 +327,65 @@ const applyAudioMeta = (entry: DirEntry, audioMeta: AudioMeta) => {
 }
 
 /**
- * 公共目录扫描：SAF 枚举（准）+ MediaStore 元数据（快）。
+ * 公共目录扫描：目录直读 + SAF 枚举 + MediaStore 元数据，三路合并。
  *
- * 只用 MediaStore 会漏歌 —— 用户自己拷进来的目录系统经常不索引；
- * 只用 SAF 又拿不到系统整理的标题/专辑封面。所以以 SAF 的文件清单为准，
- * 用 MediaStore 的结果按路径补元数据，SAF 独有的再走 MediaMetadataRetriever。
+ * 只用 MediaStore 会漏歌 —— 刚下载完 / 用户自己拷进来的文件系统经常还没索引；
+ * 只用 SAF 又拿不到系统整理的标题/专辑封面；
+ * 只用目录直读则在分区存储下根本列不出公共目录。
+ * 所以以「文件清单」为准（直读 + SAF 取并集），用 MediaStore 的结果按路径补元数据，
+ * 直读到的、系统还没索引的文件再走 MediaMetadataRetriever（有「所有文件访问」权限时可读）。
  */
 const collectPublicDir = async(dir: ScanDir, out: DirEntry[], onProgress?: (count: number) => void) => {
   const msItems = await listAudioFiles(dir.path).catch(() => [])
   const treeItems = dir.treeUri ? await listTreeAudio(dir.treeUri) : []
 
-  if (!treeItems.length) {
-    if (!msItems.length) {
-      // 既没有 SAF 授权也没有系统索引，最后试一次文件系统（私有目录/老系统可行）
-      await walk(dir.path, 0, out)
-      return
-    }
-    for (const item of msItems) {
-      out.push({
-        name: item.name,
-        path: item.path,
-        isDirectory: false,
-        size: item.size,
-        mtime: item.mtime,
-        meta: {
-          title: item.title,
-          artist: item.artist,
-          album: item.album,
-          duration: item.duration,
-          picUrl: item.albumArt,
-          contentUri: item.contentUri,
-        },
-      })
-    }
-    return
+  const msByPath = new Map(msItems.map(item => [item.path, item]))
+  const treeByPath = new Map<string, AudioFileItem>()
+  for (const item of treeItems) {
+    treeByPath.set(item.path ?? `${dir.path}/${item.name}`, item)
   }
 
-  const msByPath = new Map(msItems.map(item => [item.path, item]))
+  const emitted = new Set<string>()
+  /** 三路结果按真实路径去重，谁先到用谁的文件信息，元数据逐路叠加 */
+
+  // 1. 目录直读：分区存储下公共目录通常列不出来（readDir 直接失败），
+  //    但「有所有文件访问权限」/ 老系统 / 下载完还没被索引时，只有它能列出新文件。
+  //    只做 best-effort：拿不到不报错，继续用 SAF / MediaStore。
+  const walked: DirEntry[] = []
+  await walk(dir.path, 0, walked)
+  for (const file of walked) {
+    if (emitted.has(file.path)) continue
+    emitted.add(file.path)
+    const ms = msByPath.get(file.path)
+    const tree = treeByPath.get(file.path)
+    out.push({
+      ...file,
+      mtime: file.mtime ?? ms?.mtime,
+      // 有系统索引 / SAF 条目才带 meta；两者都没有时不要建空 meta ——
+      // buildMusicInfo 看到 meta 存在就不会再走 readMetadata 读内嵌标签了，
+      // 而「刚下载、系统还没索引」的文件正好只有这条路能拿到歌手 / 专辑 / 封面
+      meta: (ms != null || tree != null)
+        ? {
+            title: ms?.title,
+            artist: ms?.artist,
+            album: ms?.album,
+            duration: ms?.duration,
+            picUrl: ms?.albumArt,
+            // SAF 文档 uri 是公共目录唯一稳定的播放 / 读标签地址
+            contentUri: tree?.uri ?? ms?.contentUri,
+          }
+        : undefined,
+    })
+    onProgress?.(out.length)
+  }
+
+  // 2. SAF 枚举：用户授权过的目录树一定能列全（包括系统没索引的文件）
   for (const item of treeItems) {
     const path = item.path ?? `${dir.path}/${item.name}`
+    if (emitted.has(path)) continue
     const ms = msByPath.get(path)
-    const entry: DirEntry = {
+    emitted.add(path)
+    out.push({
       name: item.name,
       path,
       isDirectory: false,
@@ -354,12 +397,31 @@ const collectPublicDir = async(dir: ScanDir, out: DirEntry[], onProgress?: (coun
         album: ms?.album,
         duration: ms?.duration,
         picUrl: ms?.albumArt,
-        // SAF 文档 uri 是「一定存在且一定能读」的播放地址，
-        // 系统没索引这个文件时只有它能救场（按路径打开会 EACCES）
         contentUri: item.uri ?? ms?.contentUri,
       },
-    }
-    out.push(entry)
+    })
+    onProgress?.(out.length)
+  }
+
+  // 3. MediaStore 兜底：系统索引里有、但目录列不出来 / 没 SAF 授权的文件
+  for (const item of msItems) {
+    if (emitted.has(item.path)) continue
+    emitted.add(item.path)
+    out.push({
+      name: item.name,
+      path: item.path,
+      isDirectory: false,
+      size: item.size,
+      mtime: item.mtime,
+      meta: {
+        title: item.title,
+        artist: item.artist,
+        album: item.album,
+        duration: item.duration,
+        picUrl: item.albumArt,
+        contentUri: item.contentUri,
+      },
+    })
     onProgress?.(out.length)
   }
 }
@@ -476,6 +538,43 @@ export const scanLocalMusic = async(
   await enrichMissingMeta(files, list, indexByPath, onProgress, onUpdate)
 
   list.sort((a, b) => a.name.localeCompare(b.name, 'zh-Hans-CN'))
+
+  // 合并「刚下载、这次还没扫到」的条目（见 PENDING_KEY 注释）：
+  // 文件确实还在才保留，删掉的歌不会被复活；扫到了的从暂存里移除。
+  try {
+    const pending = await getPendingAdded()
+    if (pending.length) {
+      const scannedPaths = new Set(list.map(item => item.meta.filePath))
+      const remain: LX.Music.MusicInfoLocal[] = []
+      let appended = false
+      for (const item of pending) {
+        const filePath = item.meta.filePath
+        if (!filePath || scannedPaths.has(filePath)) continue
+        if (filePath.startsWith('content://')) {
+          // content:// 文档 uri 没法用 existsFile 判断，只能靠扫描 SAF 目录确认；
+          // 超过 7 天还没被扫到就放弃，避免删掉的文件变成永远清不掉的僵尸条目
+          if (item.meta.mtime && Date.now() - item.meta.mtime > PENDING_TTL) continue
+          scannedPaths.add(filePath)
+          list.push(item)
+          remain.push(item)
+          appended = true
+          continue
+        }
+        if (await existsFile(filePath).catch(() => false)) {
+          scannedPaths.add(filePath)
+          list.push(item)
+          remain.push(item)
+          appended = true
+        }
+      }
+      if (appended) list.sort((a, b) => a.name.localeCompare(b.name, 'zh-Hans-CN'))
+      await savePendingAdded(remain)
+    }
+  } catch (err) {
+    // 暂存区读写失败不能影响扫描结果本身
+    log.error(err)
+  }
+
   // 只有完整扫完才替换内存缓存并持久化：
   // 中途失败 / 被中断时 cachedList 和磁盘上都还是上一次的完整列表，
   // 不会被半截数据覆盖（用户不会「扫一半发现歌少了一半」）
@@ -579,8 +678,15 @@ export const addLocalMusicFile = async(item: {
   singer?: string
   size?: number
   contentUri?: string
+  /** 下载时已知的封面地址（搜索结果自带的 img），优先于联网搜索 */
+  picUrl?: string
 }) => {
   if (!item.filePath) return
+  // 下载完成后用户可能立刻删任务/删文件，别把不存在的文件收进曲库
+  if (!item.filePath.startsWith('content://') && !await existsFile(item.filePath).catch(() => false)) {
+    log.warn(`add local music skipped, file not exists: ${item.filePath}`)
+    return
+  }
   const list = await getLocalMusicList()
   if (list.some(m => m.meta.filePath === item.filePath)) return
   // 传进来的是文件名（「歌手 - 歌名.flac」），歌名要把歌手摘掉再入库
@@ -606,12 +712,25 @@ export const addLocalMusicFile = async(item: {
   await saveData(STORAGE_KEY, next)
   emitLocalMusicUpdated(next)
 
-  // 下载时已经把封面写进文件了，顺手抽出来填进曲库，
-  // 不然「最近添加」「本地音乐」要等下一次重扫才有封面
-  void import('./cover').then(async({ readEmbeddedCover }) => {
-    const pic = await readEmbeddedCover(info).catch(() => '')
-    if (pic) await updateLocalMusicPic(info.meta.filePath, pic).catch(() => {})
-  }).catch(() => {})
+  // 记进「待扫描确认」列表：系统索引有延迟时，下一次整库扫描不会把这条覆盖掉
+  try {
+    const pending = await getPendingAdded()
+    if (!pending.some(m => m.meta.filePath === info.meta.filePath)) {
+      await savePendingAdded([...pending, info])
+    }
+  } catch (err) {
+    log.error(err)
+  }
+
+  // 封面：内嵌封面 → 下载时拿到的网络封面（落成本地文件）→ 联网搜索。
+  // 下载时写封面可能失败，所以这里必须再兜一层，保证曲库条目有可显示的封面。
+  try {
+    const pic = await resolveDownloadedCover(info, item.picUrl)
+    if (pic) await updateLocalMusicPic(info.meta.filePath, pic)
+  } catch (err) {
+    // 补封面失败不能影响入库结果
+    log.error(err)
+  }
 }
 
 /**

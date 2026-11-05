@@ -1,5 +1,6 @@
 package cn.emomusic.mobile.download;
 
+import android.media.MediaScannerConnection;
 import android.util.Log;
 
 import com.facebook.react.bridge.Arguments;
@@ -95,7 +96,7 @@ public class DownloadModule extends ReactContextBaseJavaModule {
     DownloadTask task = new DownloadTask(id, url, path, headers, event, () -> {
       DownloadTask current = holder[0];
       if (current != null) tasks.remove(id, current);
-    });
+    }, reactContext.getApplicationContext());
     holder[0] = task;
     tasks.put(id, task);
     task.start();
@@ -151,6 +152,44 @@ public class DownloadModule extends ReactContextBaseJavaModule {
   public void isTaskRunning(String id, Promise promise) {
     DownloadTask task = tasks.get(id);
     promise.resolve(task != null && task.isRunning());
+  }
+
+  /**
+   * 把某个已落盘的文件交给系统媒体库索引。
+   *
+   * 主要给 JS 层在「SAF 目录复制完成 / 私有目录迁移回公共目录」之后调用：
+   * 这些路径的写入不走 DownloadTask，没人触发扫描的话 MediaStore 里就没有记录，
+   * 重新扫描本地音乐时就会漏掉刚下好的歌。
+   *
+   * 应用专属目录系统不索引，直接返回 false。
+   */
+  @ReactMethod
+  public void scanFile(String path, Promise promise) {
+    if (path == null || path.isEmpty()) {
+      promise.resolve(false);
+      return;
+    }
+    // 只处理外部存储上的普通路径：content:// 交给 SAF 枚举，私有目录系统不索引
+    if (!path.startsWith("/storage/")) {
+      promise.resolve(false);
+      return;
+    }
+    if (path.contains("/Android/data/") || path.contains("/Android/obb/")) {
+      promise.resolve(false);
+      return;
+    }
+    try {
+      File file = new File(path);
+      if (!file.exists()) {
+        promise.resolve(false);
+        return;
+      }
+      MediaScannerConnection.scanFile(reactContext, new String[] { path }, null, null);
+      promise.resolve(true);
+    } catch (Exception e) {
+      Log.w(TAG, "scanFile failed: " + e.getMessage());
+      promise.resolve(false);
+    }
   }
 
   @ReactMethod
