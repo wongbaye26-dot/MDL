@@ -42,7 +42,8 @@ export default ({ componentId }: { componentId: string }) => {
             <HeaderSourceBar />
             <HeaderButton
               icon='link-variant'
-              size={19}
+              // 与品牌图标组的光学尺寸对齐（品牌字形约 20dp）
+              size={20}
               color={theme['c-450']}
               onPress={() => { global.app_event.openSonglistLink() }}
             />

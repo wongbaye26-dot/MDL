@@ -100,6 +100,8 @@ export default SourceLogo
 const SOURCE_CHIP_METRICS = {
   sm: { box: 34, icon: 18, hitSlop: 6 },
   md: { box: 38, icon: 20, hitSlop: 8 },
+  /** 页头图标组用：和 38~40dp 圆形按钮视觉等权 */
+  lg: { box: 38, icon: 22, hitSlop: 6 },
 }
 
 export interface SourceChipProps {
@@ -107,7 +109,7 @@ export interface SourceChipProps {
   /** 原「小X音乐」文字：无障碍标签 + 未识别音源的回退文字 */
   label: string
   active?: boolean
-  size?: 'sm' | 'md'
+  size?: 'sm' | 'md' | 'lg'
   onPress?: () => void
 }
 

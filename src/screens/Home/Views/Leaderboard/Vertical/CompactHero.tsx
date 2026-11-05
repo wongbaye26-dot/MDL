@@ -14,8 +14,8 @@ import HeaderSourceBar from './HeaderSourceBar'
  * 挤在一起（榜单名在胶囊里已经高亮，状态信息重复）。现在标题右侧只留两个
  * 38dp 圆形按钮：播放当前榜单 / 下载当前榜单；榜单名与歌曲数交给下面的胶囊。
  *
- * 样式对齐本地音乐 / 下载中心的页头操作组：38dp 圆形、icon 20、主色淡底、
- * 按钮间距 6，保证各页头看起来是同一套控件。
+ * 样式对齐本地音乐 / 下载中心的页头操作组：38dp 圆形、icon 20、主色淡底；
+ * 按钮之间、以及与左侧来源图标组之间统一 8dp 间距（v3.8.5 页头节奏统一）。
  */
 export default memo(() => {
   const theme = useTheme()
@@ -68,7 +68,8 @@ const styles = createStyle({
     width: 38,
     height: 38,
     borderRadius: 19,
-    marginLeft: 6,
+    // 与来源图标组、以及两个按钮之间统一 8dp 间距（来源图标组自身不带外边距）
+    marginLeft: 8,
     justifyContent: 'center',
     alignItems: 'center',
   },

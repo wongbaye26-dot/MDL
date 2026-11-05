@@ -424,13 +424,13 @@ export default () => {
                 <View style={styles.headerRight}>
                   {/* 歌单广场的来源图标移到页头标题右侧，和链接按钮同一水平线对齐 */}
                   <SongListHeaderSourceBar />
-                  <TouchableOpacity
-                    style={styles.headerAction}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  {/* 和独立页 SongListScreen 完全一致：PageHeader 的 40dp 圆形按钮 + icon 20 */}
+                  <HeaderButton
+                    icon='link-variant'
+                    size={20}
+                    color={theme['c-450']}
                     onPress={() => { global.app_event.openSonglistLink() }}
-                  >
-                    <Icon name='link-variant' size={19} color={theme['c-450']} />
-                  </TouchableOpacity>
+                  />
                 </View>
               )}
             >
@@ -472,12 +472,6 @@ export default () => {
 const styles = createStyle({
   container: {
     flex: 1,
-  },
-  headerAction: {
-    width: 44,
-    height: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   headerRight: {
     flexDirection: 'row',

@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Pressable, View } from 'react-native'
+import { Pressable } from 'react-native'
 
 import SearchTypeIcon, { type SearchTypeIconType } from '@/components/common/SearchTypeIcon'
 import { useTheme } from '@/store/theme/hook'
-import { createStyle } from '@/utils/tools'
 import { type SearchType } from '@/store/search/state'
 import { useI18n } from '@/lang'
 import { getSearchSetting } from '@/utils/data'
@@ -13,7 +12,12 @@ const SEARCH_TYPE_LIST = [
   'songlist',
 ] as const
 
-export default () => {
+export default ({ boxSize = 38, iconSize = 22 }: {
+  /** 图标热区边长（dp），和来源 SourceChip 的 lg 档位一致 */
+  boxSize?: number
+  /** 单色图标边长（dp） */
+  iconSize?: number
+} = {}) => {
   const t = useI18n()
   const theme = useTheme()
   const [type, setType] = useState<SearchType>('music')
@@ -39,12 +43,14 @@ export default () => {
     global.app_event.searchTypeChanged(newType)
   }
 
+  // 返回 Fragment：两个图标按钮直接作为筛选行（space-between 那一行）的子项参与均分，
+  // 这样「歌曲/歌单」和分隔线、来源图标之间的间距才会完全均匀、整行铺满竖屏宽度。
   return (
-    <View style={styles.row}>
+    <>
       {
         list.map(item => {
           const active = item.id === type
-          // 和来源 SourceChip 完全同规格：34dp 透明热区 + 18dp 单色图标、无胶囊底。
+          // 和来源 SourceChip 的 lg 档位同规格：38dp 透明热区 + 22dp 单色图标、无胶囊底。
           // 选中=主题主色，未选中=c-450；按压时整体透明度下降给反馈。
           const iconColor = active ? theme['c-primary'] : theme['c-450']
           return (
@@ -56,25 +62,18 @@ export default () => {
               hitSlop={6}
               onPress={() => { if (!active) handleTypeChange(item.id) }}
               style={({ pressed }) => ({
-                width: 34,
-                height: 34,
+                width: boxSize,
+                height: boxSize,
                 alignItems: 'center',
                 justifyContent: 'center',
                 opacity: pressed ? 0.5 : 1,
               })}
             >
-              <SearchTypeIcon type={item.icon} size={18} color={iconColor} />
+              <SearchTypeIcon type={item.icon} size={iconSize} color={iconColor} />
             </Pressable>
           )
         })
       }
-    </View>
+    </>
   )
 }
-
-const styles = createStyle({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-})

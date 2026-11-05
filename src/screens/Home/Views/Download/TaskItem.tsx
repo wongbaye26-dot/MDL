@@ -6,6 +6,8 @@ import { Icon } from '@/components/common/Icon'
 import { useTheme } from '@/store/theme/hook'
 import { createStyle } from '@/utils/tools'
 import { QUALITY_LABEL, formatSize } from '@/core/download/utils'
+import { SOURCE_LOGO_MAP, isKnownSource } from '@/components/common/SourceLogo'
+import { getSourceName } from '@/core/music/utils'
 
 const SUCCESS = '#34D399'
 const DANGER = '#F87171'
@@ -26,6 +28,19 @@ const getQualityTextWidth = (label: string) => {
     else width += 9
   }
   return Math.ceil(width) + 10
+}
+
+/**
+ * 下载来源展示名。
+ *
+ * - 主流音源（kw/kg/tx/wy/mg）用正式品牌名（酷我音乐 / 酷狗音乐 / QQ音乐 / 网易云音乐 / 咪咕音乐），
+ *   和搜索页品牌图标共用一份 SOURCE_LOGO_MAP，避免两处文案对不上；
+ * - 自定义音源取脚本里注册的音源显示名（musicSdk.sources[].name），取不到时退回 source id。
+ */
+const getSourceLabel = (source?: string) => {
+  if (!source) return ''
+  if (isKnownSource(source)) return SOURCE_LOGO_MAP[source].name
+  return getSourceName(source as LX.Source)
 }
 
 const getStatusText = (task: LX.Download.ListItem) => {
@@ -79,6 +94,9 @@ export default memo(({
   const musicInfo = task.metadata.musicInfo
   /** 音质短标签：和「选择下载音质」弹窗同一套文案（320k / 128k 完整显示，不缩成一个字） */
   const qualityLabel = QUALITY_LABEL[task.metadata.quality] ?? task.metadata.quality
+  /** 下载来源：拼在状态行末尾（所有状态都拼，保持单行省略） */
+  const sourceLabel = getSourceLabel(task.metadata.musicInfo.source)
+  const statusText = getStatusText(task)
 
   return (
     <View style={styles.row}>
@@ -140,7 +158,9 @@ export default memo(({
         <View style={{ ...styles.progressTrack, backgroundColor: theme['c-primary-alpha-700'] }}>
           <View style={{ ...styles.progressBar, width: `${progress}%`, backgroundColor: isCompleted ? SUCCESS : isError ? DANGER : theme['c-primary'] }} />
         </View>
-        <Text size={10} color={statusColor ?? theme['c-450']} numberOfLines={1}>{getStatusText(task)}</Text>
+        <Text size={10} color={statusColor ?? theme['c-450']} numberOfLines={1}>
+          {sourceLabel ? `${statusText} · ${sourceLabel}` : statusText}
+        </Text>
       </TouchableOpacity>
 
       <TouchableOpacity

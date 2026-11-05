@@ -106,63 +106,71 @@ export default forwardRef<HeaderBarType, HeaderBarProps>(({
         keyboardShown
           ? null
           : (
-            <View style={styles.filterRow}>
-              <SearchTypeSelector />
+            /*
+              一整行铺满竖屏宽度：歌曲/歌单（Fragment 直接作为这一行的子项）+ 分隔线 +
+              聚合 + 5 个品牌图标，共 8 个图标。
+              contentContainerStyle 用 flexGrow + space-between：
+              - 竖屏放得下时整行撑满，8 个图标之间的间距完全均分；
+              - 极窄屏 / 横屏放不下时才退化成横向滚动，不会把图标挤变形。
+              每个图标热区 38dp、图标 22dp；容器左右 padding 8 = 内容边距 16 - (38-22)/2，
+              所以图标字形左右正好落在页面内容边距（16dp）上。
+            */
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.filterScroll}
+              contentContainerStyle={styles.filterContent}
+            >
+              <SearchTypeSelector boxSize={38} iconSize={22} />
               <View style={{ ...styles.divider, backgroundColor: theme['c-primary-alpha-700'] }} />
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.sourceRow}
-              >
-                {
-                  sourceLabels.map(({ label, action }) => {
-                    const handlePress = () => {
-                      if (action === source) return
-                      setSource(action)
-                      onSourceChange(action)
-                    }
-                    // 品牌音源只显示品牌 logo（SourceChip 已带 accessibilityLabel=音源名）；
-                    // 「聚合大会 / 聚合搜索」（音源 all）不是品牌，但用户要求也换成单色矢量图标：
-                    // 外观和 SourceChip 保持一致（34dp 透明热区 + 18dp 单色图标，无胶囊底），
-                    // 无障碍标签仍保留原来的「聚合大会 / 聚合搜索」文字
-                    return action === 'all'
-                      ? (
-                        <Pressable
-                          key={action}
-                          accessibilityRole='button'
-                          accessibilityLabel={label}
-                          accessibilityState={{ selected: action === source }}
-                          hitSlop={6}
-                          onPress={handlePress}
-                          style={({ pressed }) => ({
-                            width: 34,
-                            height: 34,
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            opacity: pressed ? 0.5 : 1,
-                          })}
-                        >
-                          <SearchTypeIcon
-                            type='aggregate'
-                            size={18}
-                            color={action === source ? theme['c-primary'] : theme['c-450']}
-                          />
-                        </Pressable>
-                        )
-                      : (
-                        <SourceChip
-                          key={action}
-                          source={action}
-                          label={label}
-                          size='sm'
-                          active={action === source}
-                          onPress={handlePress}
+              {
+                sourceLabels.map(({ label, action }) => {
+                  const handlePress = () => {
+                    if (action === source) return
+                    setSource(action)
+                    onSourceChange(action)
+                  }
+                  // 品牌音源只显示品牌 logo（SourceChip 已带 accessibilityLabel=音源名）；
+                  // 「聚合大会 / 聚合搜索」（音源 all）不是品牌，但用户要求也换成单色矢量图标，
+                  // 这里用同规格的 38dp 热区 + 22dp 聚合图标，无障碍标签仍保留原文字
+                  return action === 'all'
+                    ? (
+                      <Pressable
+                        key={action}
+                        accessibilityRole='button'
+                        accessibilityLabel={label}
+                        accessibilityState={{ selected: action === source }}
+                        hitSlop={4}
+                        onPress={handlePress}
+                        style={({ pressed }) => ({
+                          width: 38,
+                          height: 38,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          opacity: pressed ? 0.5 : 1,
+                        })}
+                      >
+                        <SearchTypeIcon
+                          type='aggregate'
+                          size={22}
+                          color={action === source ? theme['c-primary'] : theme['c-450']}
                         />
-                        )
-                  })
-                }
-              </ScrollView>
-            </View>
+                      </Pressable>
+                      )
+                    : (
+                      <SourceChip
+                        key={action}
+                        source={action}
+                        label={label}
+                        // 品牌图标用 lg 档位：38dp 热区 / 22dp 图标，和类型图标、聚合图标一致
+                        size='lg'
+                        active={action === source}
+                        onPress={handlePress}
+                      />
+                      )
+                })
+              }
+            </ScrollView>
             )
       }
     </View>
@@ -200,20 +208,29 @@ const styles = createStyle({
   searchIcon: {
     marginRight: 6,
   },
-  filterRow: {
+  /** 横向筛选行：高度跟着内容走，不参与父级纵向伸缩 */
+  filterScroll: {
+    flexGrow: 0,
+    flexShrink: 0,
+  },
+  /**
+   * 筛选行（横向）内容容器：
+   * flexGrow 让它在竖屏撑满整行，space-between 把多余宽度均分成图标间距；
+   * 窄屏放不下时内容保持自身宽度、由 ScrollView 横向滚动。
+   * padding 8 = 页面内容边距 16 − (38dp 热区 − 22dp 图标)/2，保证图标字形对齐内容边距。
+   */
+  filterContent: {
+    flexGrow: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingLeft: 16,
-    paddingRight: 12,
+    justifyContent: 'space-between',
+    paddingLeft: 8,
+    paddingRight: 8,
     paddingTop: 8,
+    paddingBottom: 4,
   },
   divider: {
     width: 1,
-    height: 14,
-    marginLeft: 4,
-    marginRight: 10,
-  },
-  sourceRow: {
-    alignItems: 'center',
+    height: 20,
   },
 })
