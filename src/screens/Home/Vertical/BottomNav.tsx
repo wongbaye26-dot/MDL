@@ -1,16 +1,15 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Animated, Easing, PanResponder, StyleSheet, View, TouchableOpacity } from 'react-native'
-import Svg, { Circle } from 'react-native-svg'
 import LinearGradient from 'react-native-linear-gradient'
 
-import { Icon } from '@/components/common/Icon'
 import TabIcon, { type TabIconName } from '@/components/common/TabIcon'
-import Image from '@/components/common/Image'
 import Glass from '@/components/common/Glass'
 import CapsuleProgress from '@/components/common/CapsuleProgress'
+import AlbumDiscSpin, { DISC_SIZE, DISC_RING_SIZE } from '@/components/common/AlbumDiscSpin'
+import CapsuleSheen from '@/components/player/CapsuleSheen'
 import { useTheme } from '@/store/theme/hook'
 import { useNavActiveId } from '@/store/common/hook'
-import { usePlayerMusicInfo, useProgress, useIsPlay } from '@/store/player/hook'
+import { useProgress } from '@/store/player/hook'
 import { NAV_MENUS } from '@/config/constant'
 import { setNavActiveId } from '@/core/common'
 import { useSettingValue } from '@/store/setting/hook'
@@ -49,10 +48,10 @@ const BAR_PADDING = 1
  * 看着就「顶满圆底」。
  */
 const ICON_SIZE = 27
-/** 右侧专辑圆盘（飞牛实测 49dp） */
-const DISC_SIZE = 48
-/** 圆盘外的进度光环 */
-const RING_SIZE = 54
+/**
+ * 右侧专辑圆盘尺寸（48 / 外圈 54）直接来自共用组件 AlbumDiscSpin，
+ * 和横竖屏迷你播放器 / 子页播放条是同一个来源，保证「完全对齐」。
+ */
 
 /** 四个入口用设计稿的矢量图标（48×48 线性），选中态靠实心变体 + 圆底区分 */
 const MENU_ICONS: Record<string, TabIconName> = {
@@ -76,57 +75,6 @@ const SLOT_INDEX: Record<string, number> = {
 const ACTIVE_LEFT = BAR_PADDING + (SLOT_WIDTH - ACTIVE_SIZE) / 2
 /** 圆底垂直居中：胶囊高 − 圆底，上下各留一半 */
 const ACTIVE_TOP = (BAR_HEIGHT - ACTIVE_SIZE) / 2
-
-/**
- * 圆盘外的进度：一圈柔光，不是实线。
- * 三层同心圆环（宽 → 窄、淡 → 亮）叠出「发光」的观感，再整体做呼吸动画。
- */
-const ProgressRing = ({ ratio, color, breathe }: {
-  ratio: number
-  color: string
-  breathe: Animated.Value
-}) => {
-  const center = RING_SIZE / 2
-  const r = center - 1
-  const c = 2 * Math.PI * r
-  const clamped = Math.max(0, Math.min(1, ratio))
-
-  if (clamped <= 0.002) {
-    // 没进度时只留一圈极淡的静态环，提示这里可以显示进度
-    return (
-      <Svg width={RING_SIZE} height={RING_SIZE} style={styles.ring} pointerEvents='none'>
-        <Circle cx={center} cy={center} r={r - 1} fill='none' stroke={color} strokeWidth={1} strokeOpacity={0.10} />
-      </Svg>
-    )
-  }
-
-  const arc = (width: number, opacity: number) => (
-    <Circle
-      cx={center}
-      cy={center}
-      r={r}
-      fill='none'
-      stroke={color}
-      strokeWidth={width}
-      strokeOpacity={opacity}
-      strokeLinecap='round'
-      strokeDasharray={[c * clamped, c]}
-      transform={`rotate(-90 ${center} ${center})`}
-    />
-  )
-
-  return (
-    <Animated.View style={{ ...styles.ring, opacity: breathe }} pointerEvents='none'>
-      <Svg width={RING_SIZE} height={RING_SIZE}>
-        {/* 外晕 → 中光 → 细芯，整体很淡，和胶囊那圈光同一套语言 */}
-        {arc(6.5, 0.05)}
-        {arc(4, 0.10)}
-        {arc(2.2, 0.22)}
-        {arc(1.1, 0.42)}
-      </Svg>
-    </Animated.View>
-  )
-}
 
 const NavSlot = ({ active, onPress, icon, iconColor }: {
   active: boolean
@@ -175,49 +123,12 @@ const NavSlot = ({ active, onPress, icon, iconColor }: {
   )
 }
 
-const AlbumDisc = ({ pic }: { pic?: string | null }) => {
-  const isPlay = useIsPlay()
-  const spin = useRef(new Animated.Value(0)).current
-
-  useEffect(() => {
-    if (!isPlay) return
-    const anim = Animated.loop(Animated.timing(spin, {
-      toValue: 1,
-      duration: 14000,
-      easing: Easing.linear,
-      useNativeDriver: true,
-    }))
-    anim.start()
-    return () => { anim.stop() }
-  }, [isPlay, spin])
-
-  const inner = pic
-    ? <Image url={pic} style={styles.album} />
-    : (
-      <View style={{ ...styles.album, backgroundColor: 'rgba(255,255,255,0.14)' }}>
-        <Icon name='music_time' rawSize={18} color='rgba(255,255,255,0.8)' />
-      </View>
-      )
-
-  return (
-    <Animated.View
-      style={{
-        ...styles.albumWrap,
-        transform: [{ rotate: spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }],
-      }}
-    >
-      {inner}
-    </Animated.View>
-  )
-}
-
 export default memo(() => {
   const theme = useTheme()
   const activeId = useNavActiveId()
-  const musicInfo = usePlayerMusicInfo()
   const { progress } = useProgress()
   const isDark = theme.isDark
-  const progressStyle = useSettingValue('common.navProgressStyle') ?? 'border'
+  const progressStyle = useSettingValue('common.navProgressStyle') ?? 'ring'
   const [barSize, setBarSize] = useState({ w: 0, h: 0 })
   /** 圆盘节点：打开播放器时量它的屏幕位置作为共享元素动画起点 */
   const discRef = useRef<View>(null)
@@ -343,14 +254,12 @@ export default memo(() => {
           pointerEvents='none'
         />
 
-        {/* 0.5dp 极淡高光描边：不是边框线，只是让胶囊边缘在背景上「亮」一圈 */}
-        <View
-          pointerEvents='none'
-          style={{
-            ...styles.highlightEdge,
-            borderColor: isDark ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.75)',
-          }}
-        />
+        {/*
+          边缘描边弱化成「跑马灯呼吸」的局部高光：
+          不再画一圈完整实线，而是上下两条很薄的白色光带沿长边缓慢移动，
+          整体透明度再做慢呼吸。光带被胶囊圆角裁切，绕到端部会自然消失。
+        */}
+        <CapsuleSheen width={barSize.w} height={barSize.h} dark={isDark} />
 
         {/* 播放进度：沿胶囊边缘的一圈柔光，没有边框线 */}
         <CapsuleProgress
@@ -392,13 +301,18 @@ export default memo(() => {
             if (menu.id === 'nav_player') {
               return (
                 <TouchableOpacity key={menu.id} style={styles.item} activeOpacity={0.85} onPress={openPlayer}>
+                  {/*
+                    圆盘用共用组件 AlbumDiscSpin：尺寸 / 描边 / 高光 / 阴影 / 自转 / 进度环
+                    和横竖屏迷你播放器完全同源。
+                    「border」样式下也保留常显的圆环轨道（只是不画进度弧），
+                    避免老用户存过旧默认值却看不到圆环；「none」才整个关掉。
+                  */}
                   <View ref={discRef} collapsable={false} style={styles.discWrap}>
-                    {
-                      progressStyle === 'ring'
-                        ? <ProgressRing ratio={progress} color={theme['c-primary']} breathe={breathe} />
-                        : null
-                    }
-                    <AlbumDisc pic={musicInfo.pic} />
+                    <AlbumDiscSpin
+                      progress={progressStyle === 'ring' ? progress : 0}
+                      showRing={progressStyle !== 'none'}
+                      dark={isDark}
+                    />
                   </View>
                 </TouchableOpacity>
               )
@@ -458,15 +372,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     height: BAR_HEIGHT * 0.55,
   },
-  highlightEdge: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
-    borderRadius: BAR_RADIUS,
-    borderWidth: 0.5,
-  },
   item: {
     width: SLOT_WIDTH,
     height: '100%',
@@ -481,25 +386,9 @@ const styles = StyleSheet.create({
     height: ACTIVE_SIZE,
     borderRadius: ACTIVE_SIZE / 2,
   },
-  ring: {
-    position: 'absolute',
-  },
   discWrap: {
-    width: RING_SIZE,
-    height: RING_SIZE,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  albumWrap: {
-    width: DISC_SIZE,
-    height: DISC_SIZE,
-    borderRadius: DISC_SIZE / 2,
-    overflow: 'hidden',
-  },
-  album: {
-    width: DISC_SIZE,
-    height: DISC_SIZE,
-    borderRadius: DISC_SIZE / 2,
+    width: DISC_RING_SIZE,
+    height: DISC_RING_SIZE,
     justifyContent: 'center',
     alignItems: 'center',
   },

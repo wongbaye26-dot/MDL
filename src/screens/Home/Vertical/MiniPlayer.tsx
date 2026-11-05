@@ -1,18 +1,18 @@
-import { memo, useRef } from 'react'
-import { View, TouchableOpacity } from 'react-native'
+import { memo, useEffect, useRef, useState } from 'react'
+import { Animated, Easing, View, TouchableOpacity } from 'react-native'
 import LinearGradient from 'react-native-linear-gradient'
 import Text from '@/components/common/Text'
 import { Icon } from '@/components/common/Icon'
-import Image from '@/components/common/Image'
-import CoverPlaceholder from '@/components/common/CoverPlaceholder'
 import Glass from '@/components/common/Glass'
+import CapsuleProgress from '@/components/common/CapsuleProgress'
+import AlbumDiscSpin, { DISC_SIZE, DISC_RING_SIZE } from '@/components/common/AlbumDiscSpin'
+import CapsuleSheen from '@/components/player/CapsuleSheen'
 import { useTheme } from '@/store/theme/hook'
 import { usePlayerMusicInfo, useIsPlay, useProgress } from '@/store/player/hook'
 import { useSettingValue } from '@/store/setting/hook'
 import { useKeyboard } from '@/utils/hooks'
 import { playNext, togglePlay } from '@/core/player/player'
 import { measureStartRect, openPlayerWithTransition } from '@/utils/playerOpen'
-import { getPlayerPalette } from '@/theme/playerPalette'
 import PlayGlyph from '../Views/Player/PlayGlyph'
 import { createStyle } from '@/utils/tools'
 import { contrastOn } from '@/theme/solid'
@@ -21,51 +21,70 @@ import { cleanSongName } from '@/utils/songName'
 /**
  * 横屏内容区底部的迷你播放器。
  *
- * 之前点它走的是 LX 老路由（已随旧播放器一并移除），会跳到旧版横屏播放页；
- * 现在和竖屏胶囊里的圆盘一样，直接切 nav_player（我们自己的播放器页）。
- * 视觉也换成和胶囊同一层玻璃 + 主题强调色。
+ * 和竖屏胶囊 / 子页 PlayerBar 是同一套语言：
+ *  - 磨砂玻璃 + 上半部反光 + 底部内阴影，没有一圈完整的描边线；
+ *  - 边缘高光是「跑马灯呼吸」的局部光带（CapsuleSheen），和胶囊导航同款；
+ *  - 左侧圆盘直接复用 `AlbumDiscSpin`：48dp 盘面 + 54dp 进度环 + 描边/高光/阴影，
+ *    和胶囊右侧的专辑圆盘**完全一致**，不再各写一个 38dp 圆角方块；
+ *  - 播放进度可用边缘光（CapsuleProgress），和胶囊共用同一个进度样式设置。
  *
  * 点进播放器走和圆盘同一个共享元素 helper（utils/playerOpen）：
- * 起点就是左边这块小封面，量它的屏幕位置交给飞行封面。
+ * 起点就是左边这块小圆盘，量它的屏幕位置交给飞行封面。
  */
 export default memo(() => {
   const theme = useTheme()
   const musicInfo = usePlayerMusicInfo()
   const isPlay = useIsPlay()
   const { progress } = useProgress()
+  const progressStyle = useSettingValue('common.navProgressStyle') ?? 'ring'
   const autoHidePlayBar = useSettingValue('common.autoHidePlayBar')
   const { keyboardShown } = useKeyboard()
-  const palette = getPlayerPalette(theme)
   const isDark = theme.isDark
-  /** 封面节点：打开播放器时量它的屏幕位置作为共享元素动画起点 */
-  const coverRef = useRef<View>(null)
+  const [barSize, setBarSize] = useState({ w: 0, h: 0 })
+  /** 圆盘节点：打开播放器时量它的屏幕位置作为共享元素动画起点 */
+  const discRef = useRef<View>(null)
+
+  /** 呼吸灯：和胶囊 / PlayerBar 同一份节奏（native driver，不占 JS 线程） */
+  const breathe = useRef(new Animated.Value(0.62)).current
+  useEffect(() => {
+    const anim = Animated.loop(Animated.sequence([
+      Animated.timing(breathe, { toValue: 1, duration: 1900, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(breathe, { toValue: 0.62, duration: 1900, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+    ]))
+    anim.start()
+    return () => { anim.stop() }
+  }, [breathe])
 
   if (autoHidePlayBar && keyboardShown) return null
   if (!musicInfo.name) return null
   const songName = cleanSongName(musicInfo.name, musicInfo.singer)
+  const ratio = Math.max(0, Math.min(1, progress))
 
   const openPlayer = () => {
     openPlayerWithTransition(done => {
-      measureStartRect(coverRef.current, done)
+      // 共享元素只算 48dp 的盘面，外面 54dp 的进度环不算进飞行封面
+      measureStartRect(discRef.current, done, DISC_SIZE)
     })
   }
 
   return (
     <View style={styles.wrap} pointerEvents='box-none'>
       <View
+        onLayout={e => {
+          const { width, height } = e.nativeEvent.layout
+          setBarSize(prev => (Math.abs(prev.w - width) < 0.5 && Math.abs(prev.h - height) < 0.5) ? prev : { w: width, h: height })
+        }}
         style={[
           styles.card,
           isDark ? null : styles.cardLight,
           isDark
             ? {
                 backgroundColor: 'rgba(24,18,34,0.20)',
-                borderColor: 'rgba(255,255,255,0.16)',
                 shadowColor: '#000000',
               }
             : {
                 // 亮色：只留很薄一层白，靠 BlurView 透出背后颜色，不做「整块白」
                 backgroundColor: 'rgba(255,255,255,0.10)',
-                borderColor: 'rgba(255,255,255,0.75)',
                 shadowColor: '#6E6285',
               },
         ]}
@@ -73,10 +92,10 @@ export default memo(() => {
         <Glass
           blurRadius={24}
           tint={isDark ? 'rgba(22,17,30,0.42)' : 'rgba(255,255,255,0.14)'}
-          radius={22}
+          radius={BAR_RADIUS}
         />
 
-        {/* 亮色：薄玻璃靠这层顶部高光 + 底部内阴影撑厚度（深色分支保持原样，不叠这两层） */}
+        {/* 亮色：薄玻璃靠这层顶部高光 + 底部内阴影撑厚度（深色分支保持原样） */}
         {isDark
           ? null
           : (
@@ -95,18 +114,30 @@ export default memo(() => {
             </>
             )}
 
+        {/* 边缘高光：和胶囊同一套「跑马灯呼吸」，没有完整描边线 */}
+        <CapsuleSheen width={barSize.w} height={barSize.h} dark={isDark} />
+
+        {/* 播放进度：贴着胶囊边缘的一圈柔光（和胶囊 / PlayerBar 同一个组件、同一份设置） */}
+        <CapsuleProgress
+          width={barSize.w}
+          height={barSize.h}
+          progress={progressStyle === 'border' ? ratio : 0}
+          color={theme['c-primary']}
+          breathe={breathe}
+        />
+
         <TouchableOpacity
           style={styles.infoArea}
           activeOpacity={0.75}
           onPress={openPlayer}
         >
-          {/* 封面包一层才能当测量节点（Image / CoverPlaceholder 都不是原生 View） */}
-          <View ref={coverRef} collapsable={false} style={styles.cover}>
-            {
-              musicInfo.pic
-                ? <Image url={musicInfo.pic} style={styles.coverImg} />
-                : <CoverPlaceholder name={songName} size={38} radius={11} />
-            }
+          {/* 圆盘包一层原生 View 才能当测量节点（AlbumDiscSpin 不是原生 View） */}
+          <View ref={discRef} collapsable={false} style={styles.discWrap}>
+            <AlbumDiscSpin
+              progress={progressStyle === 'ring' ? ratio : 0}
+              showRing={progressStyle !== 'none'}
+              dark={isDark}
+            />
           </View>
           <View style={styles.textArea}>
             <Text size={13} numberOfLines={1} style={isDark ? styles.name : [styles.name, styles.lightTextShadow]}>{songName}</Text>
@@ -126,14 +157,14 @@ export default memo(() => {
         <TouchableOpacity style={styles.btn} activeOpacity={0.6} onPress={() => { void playNext() }}>
           <Icon name='nextMusic' color={theme['c-primary']} size={20} />
         </TouchableOpacity>
-
-        <View style={{ ...styles.progressTrack, backgroundColor: palette.track }}>
-          <View style={{ ...styles.progressBar, width: `${Math.max(0, Math.min(100, progress))}%`, backgroundColor: palette.accent }} />
-        </View>
       </View>
     </View>
   )
 })
+
+/** 和底部胶囊同高（59dp）的全圆角，横屏时收窄居中 */
+const BAR_HEIGHT = 59
+const BAR_RADIUS = BAR_HEIGHT / 2
 
 const styles = createStyle({
   wrap: {
@@ -149,13 +180,11 @@ const styles = createStyle({
     alignItems: 'center',
     width: '100%',
     maxWidth: 360,
-    height: 59,
-    borderRadius: 29.5,
-    borderWidth: 0.5,
-    paddingLeft: 8,
+    height: BAR_HEIGHT,
+    borderRadius: BAR_RADIUS,
+    // 左内边距和胶囊 / PlayerBar 一致：进度环左缘距条边 3dp，圆盘才和胶囊对得上
+    paddingLeft: 3,
     paddingRight: 6,
-    paddingTop: 6,
-    paddingBottom: 6,
     elevation: 10,
     shadowOpacity: 0.26,
     shadowRadius: 18,
@@ -195,20 +224,17 @@ const styles = createStyle({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  cover: {
-    width: 38,
-    height: 38,
-    borderRadius: 11,
-    overflow: 'hidden',
-  },
-  coverImg: {
-    width: '100%',
-    height: '100%',
+  discWrap: {
+    width: DISC_RING_SIZE,
+    height: DISC_RING_SIZE,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   textArea: {
     flexGrow: 1,
     flexShrink: 1,
-    marginLeft: 10,
+    // 和 PlayerBar / 胶囊圆盘右侧的间距一致
+    marginLeft: 6,
     marginRight: 6,
   },
   name: {
@@ -235,15 +261,5 @@ const styles = createStyle({
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  progressTrack: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: 2,
-  },
-  progressBar: {
-    height: '100%',
   },
 })

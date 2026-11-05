@@ -10,6 +10,24 @@ import { QUALITY_LABEL, formatSize } from '@/core/download/utils'
 const SUCCESS = '#34D399'
 const DANGER = '#F87171'
 
+/**
+ * 音质文案的显式文本宽度（dp）。
+ *
+ * Android 上 RN 给 Text 的测量宽度比实际渲染窄约一个字符，TextView 又能把超出自身
+ * 布局宽度的字形裁掉 —— 所以「320k」最后一个 k 会被裁成「320」（没有省略号，
+ * 单纯少一个字），光给外层 View 加宽没用，必须给 **Text 本身** 一个足够宽的布局宽度。
+ * 这里按 10sp 字号逐字估算（拉丁/数字 9dp、CJK 12dp、空格 5dp）再留 10dp 余量。
+ */
+const getQualityTextWidth = (label: string) => {
+  let width = 0
+  for (const ch of label) {
+    if (ch === ' ') width += 5
+    else if (/[\u2e80-\u9fff\uff00-\uffef]/.test(ch)) width += 12
+    else width += 9
+  }
+  return Math.ceil(width) + 10
+}
+
 const getStatusText = (task: LX.Download.ListItem) => {
   switch (task.status) {
     case 'completed':
@@ -59,9 +77,11 @@ export default memo(({
   const progress = isCompleted ? 100 : Math.max(0, Math.min(100, task.progress || 0))
   const statusColor = getStatusColor(task)
   const musicInfo = task.metadata.musicInfo
+  /** 音质短标签：和「选择下载音质」弹窗同一套文案（320k / 128k 完整显示，不缩成一个字） */
+  const qualityLabel = QUALITY_LABEL[task.metadata.quality] ?? task.metadata.quality
 
   return (
-    <View style={{ ...styles.card, backgroundColor: theme['c-primary-alpha-900'], borderColor: theme['c-primary-alpha-800'] }}>
+    <View style={styles.row}>
       <TouchableOpacity
         style={styles.coverWrap}
         activeOpacity={0.8}
@@ -97,11 +117,28 @@ export default memo(({
       >
         <View style={styles.titleRow}>
           <Text numberOfLines={1} size={14} style={styles.name}>{musicInfo.name}</Text>
-          <View style={{ ...styles.qualityTag, backgroundColor: theme['c-primary-alpha-800'] }}>
-            <Text size={9} color={theme['c-primary-light-200']}>{QUALITY_LABEL[task.metadata.quality] ?? task.metadata.quality}</Text>
-          </View>
         </View>
-        <Text size={11} color={theme['c-450']} numberOfLines={1} style={styles.singer}>{musicInfo.singer || '未知歌手'}</Text>
+        {/*
+          音质 badge 单独放在第二行（和歌手同一行）：
+          之前塞在歌名同一行里，Android 的 Text 测量比实际渲染窄 0.5~1dp，
+          `numberOfLines={1}` 就会把「320k」省成「32...」。挪到第二行后 badge
+          不再和歌名抢宽度，auto width 能拿到完整字宽；同时去掉 numberOfLines，
+          文案短、不会被省略。样式仍和「选择下载音质」弹窗的标签一致。
+        */}
+        <View style={styles.metaRow}>
+          <View style={{
+            ...styles.qualityTag,
+            backgroundColor: theme['c-primary-alpha-900'],
+            borderColor: theme['c-primary-alpha-700'],
+          }}>
+            <Text
+              size={10}
+              color={theme['c-primary-light-200']}
+              style={{ width: getQualityTextWidth(qualityLabel), textAlign: 'center' }}
+            >{qualityLabel}</Text>
+          </View>
+          <Text size={11} color={theme['c-450']} numberOfLines={1} style={styles.singer}>{musicInfo.singer || '未知歌手'}</Text>
+        </View>
         <View style={{ ...styles.progressTrack, backgroundColor: theme['c-primary-alpha-700'] }}>
           <View style={{ ...styles.progressBar, width: `${progress}%`, backgroundColor: isCompleted ? SUCCESS : isError ? DANGER : theme['c-primary'] }} />
         </View>
@@ -123,18 +160,14 @@ export default memo(({
 })
 
 const styles = createStyle({
-  card: {
+  /** 非卡片列表行：透明底 + 行内边距，和本地音乐列表同一套排布 */
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginLeft: 16,
-    marginRight: 16,
-    marginBottom: 10,
-    paddingLeft: 10,
-    paddingRight: 2,
-    paddingTop: 10,
-    paddingBottom: 10,
-    borderRadius: 18,
-    borderWidth: 0.5,
+    paddingLeft: 16,
+    paddingRight: 4,
+    paddingTop: 8,
+    paddingBottom: 8,
   },
   coverWrap: {
     width: 46,
@@ -162,21 +195,37 @@ const styles = createStyle({
     alignItems: 'center',
   },
   name: {
-    flexGrow: 0,
+    flexGrow: 1,
     flexShrink: 1,
     fontWeight: '500',
   },
+  /** 第二行：音质 badge + 歌手（badge 不和歌名抢宽度，不会再被省略成「32...」） */
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 3,
+    marginBottom: 6,
+  },
+  /**
+   * 音质标签：放在第二行、auto width（不再和歌名抢宽度）。
+   * 右侧 padding 给得比左侧宽（14 vs 6）：Android 上 Text 测量宽度会比实际渲染少
+   * 约一个字符，右侧多留的空白正好补偿，badge 里的文案就不会被挤到第二行/裁掉。
+   */
   qualityTag: {
-    marginLeft: 6,
-    paddingLeft: 5,
-    paddingRight: 5,
-    paddingTop: 1,
-    paddingBottom: 1,
-    borderRadius: 4,
+    flexShrink: 0,
+    flexGrow: 0,
+    minHeight: 17,
+    paddingLeft: 6,
+    paddingRight: 6,
+    borderRadius: 8.5,
+    borderWidth: 0.5,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 6,
   },
   singer: {
-    marginTop: 2,
-    marginBottom: 6,
+    flexGrow: 1,
+    flexShrink: 1,
   },
   progressTrack: {
     height: 3,

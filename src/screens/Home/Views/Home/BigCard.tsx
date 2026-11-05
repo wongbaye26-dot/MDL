@@ -116,26 +116,61 @@ const BarsArt = ({ compact, phase }: { compact: boolean, phase: number }) => {
   )
 }
 
-/** 歌单：黑胶唱片缓慢旋转，高光固定不转（像头顶打下来的光） */
+/**
+ * 歌单：黑胶唱片。
+ *
+ * 这里踩过一个坑：最初只有「唱片缓慢自转」一个动画，转速 15s/圈，
+ * 但唱片本身是**径向对称**的（同心圆纹路 + 圆形标签 + 圆孔），转起来在视觉上
+ * 几乎没有任何位移感 —— 真机两帧截图 diff 能证明像素在变，人眼却完全看不出来，
+ * 用户反馈就是「歌单广场卡片没有动态效果」。
+ *
+ * 所以现在补了两个**非对称**的持续动效（都走 native driver）：
+ *  1. 两道高光绕盘心公转（4.8s 一圈，和唱片转速不同步，一眼能看出在动）；
+ *  2. 唱片后面一团光晕做 2.4s 的呼吸（亮度 + 缩放缓慢起伏）。
+ * 唱片自转保留，三个速度不同步，看起来就是「一张正在放的黑胶」。
+ */
 const VinylArt = ({ compact, label }: { compact: boolean, label: string }) => {
   const spin = useRef(new Animated.Value(0)).current
+  const orbit = useRef(new Animated.Value(0)).current
+  const breathe = useRef(new Animated.Value(0)).current
 
   useEffect(() => {
-    const loop = Animated.loop(Animated.timing(spin, {
-      toValue: 1,
-      duration: 15000,
-      easing: Easing.linear,
-      useNativeDriver: true,
-    }))
-    loop.start()
-    return () => { loop.stop() }
-  }, [spin])
+    const loops = [
+      // 唱片自转：15s 一圈，慢到不抢戏
+      Animated.loop(Animated.timing(spin, {
+        toValue: 1,
+        duration: 15000,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      })),
+      // 公转高光：4.8s 绕盘心一圈，非对称、肉眼可见
+      Animated.loop(Animated.timing(orbit, {
+        toValue: 1,
+        duration: 4800,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      })),
+      // 盘后呼吸光晕：2.4s 一次亮暗起伏
+      Animated.loop(Animated.sequence([
+        Animated.timing(breathe, { toValue: 1, duration: 1200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(breathe, { toValue: 0, duration: 1200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      ])),
+    ]
+    loops.forEach(loop => { loop.start() })
+    return () => { loops.forEach(loop => { loop.stop() }) }
+  }, [spin, orbit, breathe])
 
   const disc = compact ? 88 : 110
   const radius = disc / 2
   const grooveOuter = disc * 0.74
   const grooveInner = disc * 0.55
   const labelSize = disc * 0.34
+  // 光晕比唱片大一圈：像唱片被一束光托着
+  const haloPad = disc * 0.10
+  const haloSize = disc + haloPad * 2
+  // 公转高光：细长的白色光斑，放在盘面上下两端，绕盘心转
+  const glintW = disc * 0.34
+  const glintH = Math.max(3, disc * 0.075)
 
   return (
     <View
@@ -149,6 +184,36 @@ const VinylArt = ({ compact, label }: { compact: boolean, label: string }) => {
         top: compact ? 8 : 12,
       }}
     >
+      {/* 呼吸光晕：两层半透明圆叠出「柔光」（RN 没有径向渐变，用同心圆降透明度代替） */}
+      <Animated.View
+        pointerEvents='none'
+        style={{
+          position: 'absolute',
+          left: -haloPad * 2.4,
+          top: -haloPad * 2.4,
+          width: disc + haloPad * 4.8,
+          height: disc + haloPad * 4.8,
+          borderRadius: (disc + haloPad * 4.8) / 2,
+          backgroundColor: 'rgba(255,255,255,0.16)',
+          opacity: breathe.interpolate({ inputRange: [0, 1], outputRange: [0.18, 0.55] }),
+          transform: [{ scale: breathe.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1.10] }) }],
+        }}
+      />
+      <Animated.View
+        pointerEvents='none'
+        style={{
+          position: 'absolute',
+          left: -haloPad,
+          top: -haloPad,
+          width: haloSize,
+          height: haloSize,
+          borderRadius: haloSize / 2,
+          backgroundColor: 'rgba(255,255,255,0.22)',
+          opacity: breathe.interpolate({ inputRange: [0, 1], outputRange: [0.16, 0.44] }),
+          transform: [{ scale: breathe.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1.08] }) }],
+        }}
+      />
+
       <Animated.View
         style={{
           width: disc,
@@ -170,8 +235,25 @@ const VinylArt = ({ compact, label }: { compact: boolean, label: string }) => {
           <View style={styles.vinylHole} />
         </View>
       </Animated.View>
-      {/* 高光固定在盘面左上，不跟唱片一起转 */}
-      <View style={{ ...styles.vinylShine, width: disc * 0.44, height: disc * 0.2, borderRadius: disc * 0.1, left: disc * 0.14, top: disc * 0.14 }} />
+
+      {/* 绕盘心公转的两道高光（上下各一，跟着同一个旋转变换走）：这是「一眼可见」的动效来源 */}
+      <Animated.View
+        pointerEvents='none'
+        style={{
+          position: 'absolute',
+          left: 0,
+          top: 0,
+          width: disc,
+          height: disc,
+          transform: [{ rotate: orbit.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }],
+        }}
+      >
+        <View style={{ position: 'absolute', left: (disc - glintW) / 2, top: disc * 0.06, width: glintW, height: glintH, borderRadius: glintH / 2, backgroundColor: 'rgba(255,255,255,0.22)' }} />
+        <View style={{ position: 'absolute', left: (disc - glintW) / 2, top: disc * 0.94 - glintH, width: glintW, height: glintH, borderRadius: glintH / 2, backgroundColor: 'rgba(255,255,255,0.16)' }} />
+      </Animated.View>
+
+      {/* 高光固定在盘面左上，不跟唱片一起转（固定光源） */}
+      <View style={{ ...styles.vinylShine, width: disc * 0.44, height: disc * 0.2, borderRadius: disc * 0.1, left: disc * 0.14, top: disc * 0.14, backgroundColor: 'rgba(255,255,255,0.12)' }} />
     </View>
   )
 }
@@ -515,7 +597,6 @@ const styles = createStyle({
   },
   vinylShine: {
     position: 'absolute',
-    backgroundColor: 'rgba(255,255,255,0.16)',
     transform: [{ rotate: '-32deg' }],
   },
   rippleWrap: {

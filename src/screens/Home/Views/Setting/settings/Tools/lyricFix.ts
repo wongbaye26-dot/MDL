@@ -30,10 +30,14 @@ export interface LyricFixSummary {
   stopped: boolean
 }
 
+export type LyricFixItemStatus = 'written' | 'notFound' | 'failed'
+
 export interface LyricFixCallbacks {
   onProgress: (progress: LyricFixProgress) => void
   shouldStop: () => boolean
   isAlive: () => boolean
+  /** 单首处理结果回调（批量修复用来收集失败清单） */
+  onItemResult?: (item: LX.Music.MusicInfoLocal, status: LyricFixItemStatus) => void
 }
 
 /** 单首歌词请求最多等 20 秒：音源挂住时不能让整批一直停在某一首 */
@@ -117,18 +121,23 @@ export const runLyricFix = async(
       // 超时 / 接口异常：算失败，不占用「没找到」的名额（用户重试可能就好了）
       if (!lyricInfo) {
         summary.failed++
+        callbacks.onItemResult?.(item, 'failed')
       } else {
         const lyric = (lyricInfo.lyric ?? '').trim()
         if (!lyric) {
           summary.notFound++
+          callbacks.onItemResult?.(item, 'notFound')
         } else if (await writeLyricFile(item, lyric)) {
           summary.written++
+          callbacks.onItemResult?.(item, 'written')
         } else {
           summary.failed++
+          callbacks.onItemResult?.(item, 'failed')
         }
       }
     } catch {
       summary.failed++
+      callbacks.onItemResult?.(item, 'failed')
     }
     callbacks.onProgress({ done: i + 1, total })
   }

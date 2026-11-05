@@ -13,6 +13,7 @@ import {
   InfoLine,
   PreviewList,
   ProgressLine,
+  ReportButtons,
   SecondaryButton,
   SummaryChips,
   type PreviewRow,
@@ -109,6 +110,9 @@ export default memo(({ health, scanning, onChanged }: Props) => {
       {running ? <ProgressLine label='正在移除' done={progress.done} total={progress.total} /> : null}
 
       {summary ? <SummaryChips chips={chips} /> : null}
+      {summary ? <ReportButtons getTitle={() => '无效条目清理结果'} getLines={() => [
+        `已从曲库移除 ${summary.removed} 首无效条目（未删除任何文件），失败 ${summary.failed} 首`,
+      ]} /> : null}
 
       {!scanning && rows.length ? <PreviewList rows={rows} /> : null}
 

@@ -8,14 +8,14 @@ import { updateSetting } from '@/core/common'
 import { createStyle } from '@/utils/tools'
 
 const STYLES = [
-  { value: 'border', label: '胶囊描边', desc: '进度就是胶囊的边框本身，播到哪儿亮到哪儿' },
-  { value: 'ring', label: '封面圆环', desc: '进度做成封面外圈的细圆环，围着专辑封面转' },
+  { value: 'ring', label: '封面圆环', desc: '默认：进度是封面外圈的细圆环，围着专辑封面转；没进度时也保留一圈淡色轨道' },
+  { value: 'border', label: '胶囊描边', desc: '进度贴着胶囊边缘发光，播到哪儿亮到哪儿' },
   { value: 'none', label: '关闭', desc: '只在播放器页显示进度，底部胶囊不显示' },
 ] as const
 
 /** 底部胶囊的播放进度样式 */
 export default memo(() => {
-  const current = useSettingValue('common.navProgressStyle') ?? 'border'
+  const current = useSettingValue('common.navProgressStyle') ?? 'ring'
 
   return (
     <SubTitle title='底部胶囊进度条'>

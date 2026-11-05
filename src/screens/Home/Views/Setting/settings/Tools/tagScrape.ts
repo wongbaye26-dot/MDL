@@ -32,10 +32,14 @@ export interface TagScrapeSummary {
   stopped: boolean
 }
 
+export type TagScrapeItemStatus = 'file' | 'libraryOnly' | 'notFound'
+
 export interface TagScrapeCallbacks {
   onProgress: (progress: TagScrapeProgress) => void
   shouldStop: () => boolean
   isAlive: () => boolean
+  /** 单首处理结果回调（批量修复用来收集失败清单） */
+  onItemResult?: (item: LX.Music.MusicInfoLocal, status: TagScrapeItemStatus) => void
 }
 
 /** 文件里或其他地方已经有能显示的封面？有就不用再下载 */
@@ -48,12 +52,12 @@ const hasUsableCover = async(item: LX.Music.MusicInfoLocal): Promise<boolean> =>
 const scrapeOne = async(
   entry: TagIncompleteItem,
   summary: TagScrapeSummary,
-): Promise<void> => {
+): Promise<TagScrapeItemStatus> => {
   const { item } = entry
   const match = await scrapeLocalMusic(item)
   if (!match) {
     summary.notFound++
-    return
+    return 'notFound'
   }
 
   // 只补标签，封面写文件交给上面的「封面修复」：刮削批量大，少一次整文件重写快很多。
@@ -80,6 +84,7 @@ const scrapeOne = async(
     await updateLocalMusicPic(item.meta.filePath, match.picUrl)
     summary.cover++
   }
+  return result.target ? 'file' : 'libraryOnly'
 }
 
 /** 批量刮削：可中途停止，已完成的结果保留，返回分项统计 */
@@ -97,10 +102,12 @@ export const runTagScrape = async(
       break
     }
     try {
-      await scrapeOne(items[i], summary)
+      const status = await scrapeOne(items[i], summary)
+      callbacks.onItemResult?.(items[i].item, status)
     } catch {
       // 单首失败（文件被占用 / 写入报错）不影响后面的歌
       summary.notFound++
+      callbacks.onItemResult?.(items[i].item, 'notFound')
     }
     callbacks.onProgress({ done: i + 1, total })
   }

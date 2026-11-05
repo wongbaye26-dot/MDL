@@ -11,6 +11,7 @@ import {
   removeTask as nativeRemoveTask,
   pauseAll as nativePauseAll,
   type DownloadEventPayload,
+  type StartTaskOptions,
 } from '@/utils/nativeModules/download'
 import { existsFile, mkdir, moveFile, readDir, stat, unlink, writeFile } from '@/utils/fs'
 import { copyFileToTree, deleteDocument, documentUriToRealPath, findAudioByPath } from '@/utils/directoryPicker'
@@ -54,6 +55,19 @@ let savePathPromise: Promise<string> | null = null
 const getTask = (id: string) => downloadAction.getTaskById(id)
 
 /**
+ * 单任务分段下载的并发连接数：按当前同时下载的任务数自适应。
+ *
+ * 5 个任务 × 3 连接 = 15 个 TCP 连接，弱网 / 小水管的源上反而更慢，
+ * 所以任务越多单任务线程越少，总连接数控制在 8 以内。
+ */
+const getDownloadThreads = () => {
+  const running = runningIds.size
+  if (running <= 1) return 3
+  if (running === 2) return 2
+  return 1
+}
+
+/**
  * 校验下载结果：文件存在且大小与预期相符。
  * 校验本身失败（如 SAF 目录读不到 stat）时放行，避免误判。
  */
@@ -68,6 +82,18 @@ const verifyDownloadedFile = async(path: string, expected: number): Promise<bool
   } catch (err) {
     return true
   }
+}
+
+/**
+ * 清掉任务的全部临时文件：.part（断点数据）+ .part.seg（分段下载的进度标记）。
+ *
+ * 分段下载的标记文件不删干净会让下一次断点续传按错误的分段信息继续，
+ * 所以所有「作废旧文件 / 重试 / 删除任务」的地方都必须走这里。
+ */
+const removeTempFiles = async(filePath: string) => {
+  if (!filePath) return
+  await unlink(`${filePath}.part`).catch(() => {})
+  await unlink(`${filePath}.part.seg`).catch(() => {})
 }
 
 /**
@@ -259,7 +285,7 @@ const requeueBadFile = async(
   const filePath = task.metadata.filePath
   if (filePath) {
     await unlink(filePath).catch(() => {})
-    await unlink(`${filePath}.part`).catch(() => {})
+    await removeTempFiles(filePath)
   }
   const retryCount = options.retryCount ?? (task.retryCount ?? 0) + 1
   // 重试上限沿用 retryCount：重下几次都还是坏内容就停下来报错，避免无限循环
@@ -404,7 +430,7 @@ const handleComplete = async(id: string, total: number) => {
     if (retryCount <= 2) {
       // 删掉不完整的文件，否则原生层会认为「文件已存在」而直接再次报完成
       await unlink(filePath).catch(() => {})
-      await unlink(`${filePath}.part`).catch(() => {})
+      await removeTempFiles(filePath)
       downloadAction.updateTask(id, {
         status: 'waiting',
         isComplate: false,
@@ -711,11 +737,11 @@ export const startTask = async(id: string) => {
       // 目标文件变了（换源降级 / 歌手名带进文件名）：旧的正式文件和断点残留都作废，
       // 否则原生层会认为「文件已存在」直接报完成，或者把两个文件的内容拼到一起
       await unlink(oldPath).catch(() => {})
-      await unlink(`${oldPath}.part`).catch(() => {})
+      await removeTempFiles(oldPath)
     } else if (isRefresh) {
       // 刷新下载地址（链接过期 / 换源）：不同 CDN 的分片不保证一致，必须从头下
       await unlink(filePath).catch(() => {})
-      await unlink(`${filePath}.part`).catch(() => {})
+      await removeTempFiles(filePath)
     }
 
     const qualityChanged = quality !== latest.metadata.quality ||
@@ -731,7 +757,14 @@ export const startTask = async(id: string) => {
       },
       statusText: '',
     })
-    nativeStartTask({ id, url: resolved.url, path: filePath })
+    // threads 是给原生的分段下载参数（1~4），原生包不支持时会自动忽略并单连接下载
+    const startOptions: StartTaskOptions & { threads?: number } = {
+      id,
+      url: resolved.url,
+      path: filePath,
+      threads: getDownloadThreads(),
+    }
+    nativeStartTask(startOptions)
   } catch (err: any) {
     runningIds.delete(id)
     log.error(err)
@@ -786,6 +819,7 @@ export const removeTask = (id: string, isRemoveFile = true) => {
   }
   if (isRemoveFile && task.metadata.filePath) {
     void unlink(task.metadata.filePath).catch(() => {})
+    void removeTempFiles(task.metadata.filePath)
   }
   downloadAction.removeTasks([id])
   scheduleSave()
@@ -799,8 +833,8 @@ export const retryTask = async(id: string) => {
   // 重新下载前先删掉旧文件，否则会被当作已完成
   if (task.isComplate && task.metadata.filePath) {
     await unlink(task.metadata.filePath).catch(() => {})
-    // 残留的 .part 会和新的下载内容拼错，必须一起清
-    await unlink(`${task.metadata.filePath}.part`).catch(() => {})
+    // 残留的 .part / .part.seg 会和新的下载内容拼错，必须一起清
+    await removeTempFiles(task.metadata.filePath)
   }
   downloadAction.updateTask(id, {
     status: 'waiting',

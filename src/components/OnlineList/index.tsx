@@ -28,10 +28,18 @@ export interface OnlineListProps {
   hideModeBar?: boolean
   /**
    * 初始视图模式。
-   * 榜单这类需要「卡片行」的场景直接传 'card'（配合 hideModeBar 隐藏切换栏）；
-   * 不传保持原来的列表视图。注意：这是初始值，隐藏切换栏后不会再有别处改它。
+   * 需要「卡片行」的场景直接传 'card'（配合 hideModeBar 隐藏切换栏）；
+   * 不传保持列表视图（排行榜、歌单详情都用列表视图）。
+   * 注意：这是初始值，隐藏切换栏后不会再有别处改它。
    */
   viewMode?: 'list' | 'card'
+  /**
+   * 源数据没带单曲封面时，异步按歌曲拉取在线封面（带缓存 / 失败不重试 / 分批重渲染）。
+   * 目前只有歌单详情需要：部分音源的歌单详情接口不返回单曲封面。
+   */
+  autoFetchPic?: boolean
+  /** 封面兜底图（一般传歌单封面），补图回来前先顶上 */
+  fallbackPicUrl?: string
   /** 列表为空且加载结束时的占位视图 */
   ListEmptyComponent?: ListProps['ListEmptyComponent']
 }
@@ -51,6 +59,8 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
   showRank,
   hideModeBar,
   viewMode: initialViewMode = 'list',
+  autoFetchPic,
+  fallbackPicUrl,
   ListEmptyComponent,
 }, ref) => {
   const listRef = useRef<ListType>(null)
@@ -59,7 +69,7 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
   const listMusicMultiAddRef = useRef<ListAddMultiType>(null)
   const listMenuRef = useRef<ListMenuType>(null)
   const downloadModalRef = useRef<DownloadQualityModalType>(null)
-  // viewMode 默认跟父级传入的初始模式走（榜单 = 卡片行）；没有切换栏时它就固定是这个值
+  // viewMode 默认跟父级传入的初始模式走；没有切换栏时它就固定是这个值
   const [viewMode, setViewMode] = useState<'list' | 'card'>(initialViewMode)
   const theme = useTheme()
   // 主色实心段上的字：按主色亮度自动取黑/白
@@ -178,6 +188,8 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
           rowType={rowType}
           viewMode={viewMode}
           showRank={showRank}
+          autoFetchPic={autoFetchPic}
+          fallbackPicUrl={fallbackPicUrl}
           ListEmptyComponent={ListEmptyComponent}
         />
         <MultipleModeBar

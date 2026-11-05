@@ -6,6 +6,7 @@ import {
   PanResponder,
   ScrollView,
   StatusBar as RNStatusBar,
+  Text as RNText,
   TouchableOpacity,
   View,
   Image as RNImage,
@@ -29,6 +30,7 @@ import { useLrcSet, useLrcPlay, type Line } from '@/plugins/lyric'
 import * as Jyutping from '@/utils/jyutping/index.js'
 import playerState from '@/store/player/state'
 import { collectMusic, playList, playNext, playPrev, togglePlay, uncollectMusic } from '@/core/player/player'
+import { toggleTranslation } from '@/core/lyric'
 import { setCurrentTime, getDuration } from '@/plugins/player'
 import { removeListMusics } from '@/core/list'
 import { setNowPlayTime, setMaxplayTime } from '@/core/player/progress'
@@ -77,10 +79,16 @@ const MODE_LABEL: Record<PlayMode, string> = {
 /** 歌词字号（当前行）。非当前行 = 当前行 / 1.14（飞牛实测 19.5 : 17.1） */
 const LYRIC_SIZES = [17.5, 20, 22.5, 25.5]
 const LYRIC_NORMAL_RATIO = 1.14
+/**
+ * 歌词行内文本的行高系数：主歌词和翻译/注音都用它。
+ * 行高必须显式给：长外文行会折行，行数（1~3）决定这一行的实际高度，
+ * 行高不再写死，否则开翻译后每行固定 +40dp，行距看起来就是空的。
+ */
+const LYRIC_LINE_HEIGHT_RATIO = 1.34
 /** 作词/作曲等 credit 行：这些行通常很长，需要允许折行 */
 const LYRIC_META_RXP = /^(作词|作曲|编曲|制作人|词|曲|监制|出品|OP|SP|吉他|贝斯|鼓|和声|混音|母带|录音|弦乐|制作助理|统筹|发行|策划|封面|文案)\s*[:：]/
 
-/** 歌词行高：飞牛实测 112.6px / 2.625 = 42.9dp */
+/** 歌词行最小行高：飞牛实测 112.6px / 2.625 = 42.9dp（含翻译/注音时按内容自动变高） */
 const LYRIC_LINE_H = 42.9
 /**
  * 底部整块高度：10 + 信息行 44 + 14 + 进度 51 + 29 + 控制 56 + 32 = 236
@@ -107,10 +115,26 @@ const findLine = (lines: Line[], timeMs: number) => {
   return index
 }
 
+/** 扩展行里区分「中文翻译」和「罗马音/粤拼注音」：翻译以中文为主，注音是拉丁字母 */
+const CJK_CHAR_RXP = /[\u3400-\u4dbf\u4e00-\u9fff]/g
+const LATIN_CHAR_RXP = /[A-Za-z\u00c0-\u024f\u0e00-\u0e7f\u0400-\u04ff]/g
+const CJK_LINE_RXP = /[\u3400-\u4dbf\u4e00-\u9fff]/
+const hasCjk = (text: string) => CJK_LINE_RXP.test(text)
+const isTranslationExtra = (text: string) => {
+  const cjk = text.match(CJK_CHAR_RXP)?.length ?? 0
+  if (!cjk) return false
+  const latin = text.match(LATIN_CHAR_RXP)?.length ?? 0
+  return cjk / (cjk + latin) >= 0.3
+}
+
 /**
  * 歌词行。飞牛：当前行纯白 + 加粗 + 字号放大，其余行统一半透明白（没有距离渐隐）。
+ *
+ * 行高不再固定：长英文/泰文等外文行会折行（最多 3 行），外文歌词下面的中文翻译/
+ * 罗马音/粤拼按实际内容高度排在正下方，开翻译后行距只多出翻译本身那一行的高度。
+ * 翻译行（中文）比注音行（罗马音/粤拼）略大、更亮一点，两种扩展行一眼能区分。
  */
-const LyricLine = memo(({ text, extras, active, startMs, endMs, playing, syncMs, size, wrap, wordByWord, activeColor, align = 'center' }: {
+const LyricLine = memo(({ text, extras, active, startMs, endMs, playing, syncMs, size, wordByWord, activeColor, align = 'center' }: {
   text: string
   /** lrc 的翻译/罗马音/粤拼等扩展行（设置开启时由 lrc parser 提供） */
   extras: string[]
@@ -120,25 +144,39 @@ const LyricLine = memo(({ text, extras, active, startMs, endMs, playing, syncMs,
   playing: boolean
   syncMs: number
   size: number
-  wrap: boolean
   wordByWord: boolean
   /** 当前行高亮色：跟随主题（Material You 主色） */
   activeColor: string
   /** 横屏和歌名一样左对齐，竖屏居中 */
   align?: 'center' | 'left'
 }) => {
+  /** 主歌词行高（折行时每行都按这个高度） */
+  const lineHeight = size * LYRIC_LINE_HEIGHT_RATIO
+  /** 翻译/注音比主歌词小一半左右，行高同样按字号算，避免行距被撑开 */
+  const extraSize = Math.max(9, size * 0.5)
   const extraNodes = extras.length
     ? (
       <View style={styles.lyricExtras}>
-        {extras.map((extra, i) => (
-          <Text
-            key={`${i}_${extra}`}
-            size={Math.max(9, size * 0.5)}
-            color={active ? 'rgba(255,255,255,0.72)' : 'rgba(255,255,255,0.32)'}
-            style={[styles.lyricExtra, { textAlign: align }]}
-            numberOfLines={3}
-          >{extra}</Text>
-        ))}
+        {extras.map((extra, i) => {
+          const isTranslation = isTranslationExtra(extra)
+          // 注音行比翻译行再小一点、淡一点：翻译是要读的内容，注音只是辅助
+          const fontSize = isTranslation ? extraSize : extraSize * 0.92
+          return (
+            <Text
+              key={`${i}_${extra}`}
+              size={u(fontSize)}
+              color={isTranslation
+                ? (active ? 'rgba(255,255,255,0.82)' : 'rgba(255,255,255,0.44)')
+                : (active ? 'rgba(255,255,255,0.56)' : 'rgba(255,255,255,0.27)')}
+              style={[
+                styles.lyricExtra,
+                { textAlign: align, lineHeight: fontSize * LYRIC_LINE_HEIGHT_RATIO },
+                i > 0 ? styles.lyricExtraGap : null,
+              ]}
+              numberOfLines={3}
+            >{extra}</Text>
+          )
+        })}
       </View>
       )
     : null
@@ -148,8 +186,8 @@ const LyricLine = memo(({ text, extras, active, startMs, endMs, playing, syncMs,
         <Text
           size={u(size / LYRIC_NORMAL_RATIO)}
           color='rgba(255,255,255,0.38)'
-          style={[styles.lyricLine, { textAlign: align }]}
-          numberOfLines={wrap ? 3 : 1}
+          style={[styles.lyricLine, { textAlign: align, lineHeight: lineHeight / LYRIC_NORMAL_RATIO }]}
+          numberOfLines={3}
         >{text || ' '}</Text>
         {extraNodes}
       </View>
@@ -162,8 +200,8 @@ const LyricLine = memo(({ text, extras, active, startMs, endMs, playing, syncMs,
         <Text
           size={u(size)}
           color={activeColor}
-          style={{ ...styles.lyricLine, textAlign: align, ...styles.lyricActive }}
-          numberOfLines={wrap ? 3 : 1}
+          style={{ ...styles.lyricLine, textAlign: align, ...styles.lyricActive, lineHeight }}
+          numberOfLines={3}
         >{text || ' '}</Text>
         {extraNodes}
       </View>
@@ -187,10 +225,12 @@ const LyricLine = memo(({ text, extras, active, startMs, endMs, playing, syncMs,
 })
 
 /**
- * 卡拉 OK 式逐字歌词：用像素宽度裁切高亮层，而不是按字符 slice。
+ * 卡拉 OK 式逐字歌词。
  *
- * 关键点：
- * - 高亮层宽度 = 行宽 × 当前行进度，进度由本组件自己的 rAF 插值；
+ * - 单行：用像素宽度裁切高亮层（高亮层宽度 = 行宽 × 当前行进度，进度由本组件自己的
+ *   rAF 插值），高亮随唱推进是连续的；
+ * - 折行（长英文/泰文行）：高亮层没法按像素横着裁，改成在同一段 Text 里把已唱部分
+ *   用内嵌 span 染色。折行位置由整段文本决定，所以不会裁字、也不会跳行；
  * - Player 只在「换行」时 setState，不跟着 60fps 重渲染整个播放器页面；
  * - 暂停/继续用 syncMs 重新对齐，seek 后最多 1 秒内自动跟上（歌词行不变的情况）。
  */
@@ -206,6 +246,7 @@ const KaraokeText = memo(({ text, size, activeColor, align, startMs, endMs, play
 }) => {
   const [lineWidth, setLineWidth] = useState(0)
   const [containerWidth, setContainerWidth] = useState(0)
+  const [textHeight, setTextHeight] = useState(0)
   const [ratio, setRatio] = useState(0)
   const syncRef = useRef(syncMs)
   syncRef.current = syncMs
@@ -240,8 +281,41 @@ const KaraokeText = memo(({ text, size, activeColor, align, startMs, endMs, play
     if (!playing) setRatio(ratioAt(syncMs))
   }, [syncMs, playing, ratioAt])
 
+  const lineHeight = size * LYRIC_LINE_HEIGHT_RATIO
+  // 折行判断：显式行高下，1 行 = lineHeight，2 行 = 2×lineHeight
+  const wrapped = textHeight > lineHeight * 1.5
   const progress = Math.max(0, Math.min(1, ratio))
   const overlayLeft = align === 'center' ? Math.max(0, (containerWidth - lineWidth) / 2) : 0
+  const highlightStyle = { color: activeColor }
+  const measureHeight = (h: number) => {
+    if (h > 0 && Math.abs(h - textHeight) > 0.5) setTextHeight(h)
+  }
+
+  if (wrapped) {
+    // 折行：同一段 Text 内嵌套 span 染色，折行位置和文字位置都不变，不会切字
+    const visibleChars = Math.min(text.length, Math.round(progress * text.length))
+    return (
+      <View
+        style={[styles.karaokeWrap, { alignItems: align === 'center' ? 'center' : 'flex-start' }]}
+        onLayout={e => {
+          const w = e.nativeEvent.layout.width
+          if (w > 0 && Math.abs(w - containerWidth) > 0.5) setContainerWidth(w)
+        }}
+      >
+        <Text
+          size={u(size)}
+          color='rgba(255,255,255,0.32)'
+          style={[styles.lyricLine, styles.lyricActive, { textAlign: align, lineHeight }]}
+          numberOfLines={3}
+          onLayout={e => { measureHeight(e.nativeEvent.layout.height) }}
+        >
+          <RNText style={highlightStyle}>{text.slice(0, visibleChars)}</RNText>
+          {text.slice(visibleChars) || null}
+        </Text>
+      </View>
+    )
+  }
+
   return (
     <View
       style={[styles.karaokeWrap, { alignItems: align === 'center' ? 'center' : 'flex-start' }]}
@@ -250,12 +324,18 @@ const KaraokeText = memo(({ text, size, activeColor, align, startMs, endMs, play
         if (w > 0 && Math.abs(w - containerWidth) > 0.5) setContainerWidth(w)
       }}
     >
+      {/*
+        底色层和上面按进度裁切的高亮层必须用完全相同的字体样式（含加粗），
+        否则英文在「非加粗测量宽度 / 加粗渲染」之间会差几个 px：
+        高亮层宽度不够，唱到最后末尾一两个字母会被裁掉（就是用户说的「显示不全」）。
+      */}
       <Text
         size={u(size)}
         color='rgba(255,255,255,0.32)'
-        style={[styles.lyricLine, { textAlign: align }]}
-        numberOfLines={1}
+        style={[styles.lyricLine, styles.lyricActive, { textAlign: align, lineHeight }]}
+        numberOfLines={3}
         onLayout={e => {
+          measureHeight(e.nativeEvent.layout.height)
           const w = e.nativeEvent.layout.width
           if (w > 0 && Math.abs(w - lineWidth) > 0.5) setLineWidth(w)
         }}
@@ -266,7 +346,7 @@ const KaraokeText = memo(({ text, size, activeColor, align, startMs, endMs, play
             <Text
               size={u(size)}
               color={activeColor}
-              style={[styles.lyricLine, styles.lyricActive, { width: lineWidth, textAlign: align }]}
+              style={[styles.lyricLine, styles.lyricActive, { width: lineWidth, textAlign: align, lineHeight }]}
               numberOfLines={1}
             >{text || ' '}</Text>
           </View>
@@ -302,6 +382,15 @@ export default () => {
   const isWordByWord = useSettingValue('player.isWordByWordLyric')
   const isAutoJyutping = useSettingValue('player.isAutoJyutping')
   const isSingleLine = useSettingValue('player.isSingleLineLyric')
+  const isShowLyricTranslation = useSettingValue('player.isShowLyricTranslation')
+
+  /** 歌词工具行的「翻译」开关：和设置页的「显示翻译歌词」是同一个设置 */
+  const handleToggleTranslation = useCallback(() => {
+    const next = !isShowLyricTranslation
+    updateSetting({ 'player.isShowLyricTranslation': next })
+    void toggleTranslation(next)
+    if (next) toast('歌词翻译已开启')
+  }, [isShowLyricTranslation])
 
 
   const handleDownload = useCallback(() => {
@@ -319,22 +408,30 @@ export default () => {
   }, [])
 
   const lyricSize = LYRIC_SIZES[sizeIndex]
-  /** 音源自带注音/翻译优先；没有时按设置用本地粤拼词典自动生成 */
+  /**
+   * 音源自带注音/翻译优先；没有时按设置用本地粤拼词典自动生成。
+   * 行高不再写死：开翻译/注音后每行高度由「主歌词折行数 + 扩展行实际行数」撑开，
+   * 只有真的有翻译/拼音的行才变高，相邻行距不会再被固定 +40dp 撑得很空。
+   */
   const lyricExtras = useMemo(() => lines.map(line => {
     if (line.extendedLyrics?.length) return line.extendedLyrics
     if (!isAutoJyutping) return []
     const text = line.text?.trim()
     if (!text) return []
+    // 只有中文行才生成粤拼：英文/泰文等外文行词典会输出占位符 […]，不能当注音行显示
+    if (!hasCjk(text)) return []
     try {
-      const jyutping = Jyutping.getJyutpingText(text).replace(/[0-9]/g, '').replace(/\s+/g, ' ').trim()
+      const jyutping = Jyutping.getJyutpingText(text)
+        .replace(/\[…\]/g, '')
+        .replace(/[0-9]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
       return jyutping ? [jyutping] : []
     } catch {
       return []
     }
   }), [lines, isAutoJyutping])
-  const hasLyricExtras = lyricExtras.some(extras => extras.length > 0)
-  const hasLongCreditLine = lines.some(line => LYRIC_META_RXP.test(line.text.trim()) && line.text.trim().length > 12)
-  const lyricRowH = LYRIC_LINE_H + (hasLyricExtras ? 40 : 0) + (hasLongCreditLine ? 30 : 0)
+
   /*
     播放器页底色永远是深色（封面糊底），所以不能直接用 c-primary：
     M3 在深色表面上用 tone 80 的 primary（浅而高彩度的柔和色），
@@ -376,7 +473,7 @@ export default () => {
   const landLyricContentStyle = useMemo(() => ({ paddingLeft: 0, paddingRight: 8 }), [])
   /** 歌词可视区高度：竖屏是算出来的，横屏是 flex 撑开的，统一用 onLayout 实测 */
   const [lyricH, setLyricH] = useState(0)
-  const lyricPad = Math.max(0, (lyricH || lyricAreaH) / 2 - lyricRowH / 2)
+  const lyricPad = Math.max(0, (lyricH || lyricAreaH) / 2 - LYRIC_LINE_H / 2)
 
   /*
     下滑关闭的位移值来自 playerTransition 模块（dragY）：
@@ -829,14 +926,36 @@ export default () => {
   }, [queueVisible])
 
   const scrollRef = useRef<ScrollView>(null)
-  /** 行高固定 + 上下等长 spacer，当前行居中就是滚到 index * 行高 */
+  /** 每行实际布局（y / 高度）：行高按内容变高（折行、翻译/注音），滚动要按实测位置居中 */
+  const rowLayouts = useRef<Array<{ y: number, h: number } | undefined>>([])
+  const lyricViewHRef = useRef(lyricH || lyricAreaH)
+  lyricViewHRef.current = lyricH || lyricAreaH
+  const lyricPadRef = useRef(lyricPad)
+  lyricPadRef.current = lyricPad
   const currentLineRef = useRef(currentLine)
   currentLineRef.current = currentLine
+  /** 行高变化（变高亮行 / 翻译开关）后，如果变的是当前行就重新居中 */
+  const handleRowLayout = useCallback((index: number, e: LayoutChangeEvent) => {
+    const { y, height } = e.nativeEvent.layout
+    const prev = rowLayouts.current[index]
+    if (prev && Math.abs(prev.y - y) < 0.5 && Math.abs(prev.h - height) < 0.5) return
+    rowLayouts.current[index] = { y, h: height }
+    if (index !== currentLineRef.current) return
+    const viewH = lyricViewHRef.current
+    if (viewH <= 0) return
+    scrollRef.current?.scrollTo({ y: Math.max(0, y + height / 2 - viewH / 2), animated: false })
+  }, [])
 
   const scrollToLine = useCallback((index: number, animated: boolean) => {
     if (index < 0) return
-    scrollRef.current?.scrollTo({ y: index * lyricRowH, animated })
-  }, [lyricRowH])
+    const viewH = lyricViewHRef.current
+    const layout = rowLayouts.current[index]
+    // 还没量到实际布局时按最小行高估：量到之后 onContentSizeChange / onLayout 会再校正一次
+    const y = layout
+      ? layout.y + layout.h / 2 - viewH / 2
+      : lyricPadRef.current + index * LYRIC_LINE_H + LYRIC_LINE_H / 2 - viewH / 2
+    scrollRef.current?.scrollTo({ y: Math.max(0, y), animated })
+  }, [])
 
   /** 上一次高亮的行，用来判断「跳太远」 */
   const prevLineRef = useRef(-1)
@@ -844,6 +963,7 @@ export default () => {
   useEffect(() => {
     prevLineRef.current = -1
     currentLineRef.current = -1
+    rowLayouts.current = []
     setCurrentLine(-1)
   }, [lines])
 
@@ -888,12 +1008,13 @@ export default () => {
     }).start()
   }, [coverAnim, pic])
 
-  /** 歌词行（横竖屏共用；横屏下点击不切模式） */
+  /** 歌词行（横竖屏共用；横屏下点击不切模式）。行高按内容自适应（折行/翻译/注音都会变高） */
   const lyricRowNodes = lines.map((line, index) => (
     <TouchableOpacity
       key={`${index}_${line.time}`}
       activeOpacity={0.85}
-      style={[styles.lyricRow, { height: lyricRowH }]}
+      style={styles.lyricRow}
+      onLayout={e => { handleRowLayout(index, e) }}
       onPress={isLandscape ? undefined : handleToggleMode}
     >
       <LyricLine
@@ -905,7 +1026,6 @@ export default () => {
         endMs={lines[index + 1]?.time ?? (maxTime * 1000 || line.time + 4000)}
         playing={isPlay}
         syncMs={progress.nowPlayTime * 1000}
-        wrap={hasLongCreditLine}
         wordByWord={isWordByWord && !LYRIC_META_RXP.test(line.text.trim())}
         activeColor={accent}
         align={isLandscape ? 'left' : 'center'}
@@ -1354,7 +1474,6 @@ export default () => {
                             endMs={currentLine >= 0 ? (lines[currentLine + 1]?.time ?? (maxTime * 1000 || lines[currentLine].time + 4000)) : 4000}
                             playing={isPlay}
                             syncMs={progress.nowPlayTime * 1000}
-                            wrap={hasLongCreditLine}
                             wordByWord={isWordByWord && !(currentLine >= 0 && LYRIC_META_RXP.test(lines[currentLine].text.trim()))}
                             activeColor={accent}
                           />
@@ -1431,13 +1550,26 @@ export default () => {
                   <TouchableOpacity style={styles.toolBtn} onPress={handleSizeChange} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
                     <Icon name='format-size' size={u(21)} color='rgba(255,255,255,0.88)' />
                   </TouchableOpacity>
+                  {/* 歌词翻译（显示中文翻译）：和设置页「显示翻译歌词」同一开关 */}
+                  <TouchableOpacity
+                    style={styles.toolBtn}
+                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                    onPress={handleToggleTranslation}
+                  >
+                    <Icon
+                      name='translate'
+                      size={u(21)}
+                      color={isShowLyricTranslation ? accent : 'rgba(255,255,255,0.42)'}
+                    />
+                  </TouchableOpacity>
+                  {/* 本地自动粤拼（原来的 translate 图标位置换成了真正的翻译开关） */}
                   <TouchableOpacity
                     style={styles.toolBtn}
                     hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                     onPress={() => { updateSetting({ 'player.isAutoJyutping': !isAutoJyutping }) }}
                   >
                     <Icon
-                      name='translate'
+                      name='ideogram-cjk'
                       size={u(21)}
                       color={isAutoJyutping ? accent : 'rgba(255,255,255,0.42)'}
                     />
@@ -1626,11 +1758,13 @@ const styles = {
   lyricSizeChipActive: { backgroundColor: 'rgba(255,255,255,0.9)' },
   lyricSwitchRow: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 12 },
   lyricSwitchDesc: { marginTop: 3 },
-  lyricRow: { height: LYRIC_LINE_H, justifyContent: 'center' as const },
+  lyricRow: { minHeight: LYRIC_LINE_H, justifyContent: 'center' as const, paddingVertical: 2 },
   lyricLine: { textAlign: 'center' as const },
   lyricLineWrap: { alignItems: 'center' as const },
   lyricExtras: { width: '100%' as const, marginTop: 2, alignItems: 'center' as const },
   lyricExtra: { width: '100%' as const, textAlign: 'center' as const },
+  /** 同一行有多条扩展（翻译+粤拼/罗马音）时，两条之间留一点缝，不糊成一片 */
+  lyricExtraGap: { marginTop: 1 },
   karaokeWrap: { width: '100%' as const, justifyContent: 'center' as const },
   karaokeOverlay: { position: 'absolute' as const, top: 0, bottom: 0, overflow: 'hidden' as const },
   lyricActive: {

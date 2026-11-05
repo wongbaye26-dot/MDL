@@ -96,17 +96,18 @@ export default forwardRef<MusicListType, MusicListProps>(({ onListChange }, ref)
     })
   }
 
-  // viewMode='card'：榜单歌曲用卡片行，长按 / ⋮ 弹出的悬浮菜单浮在卡片上更好看
+  // 列表样式对齐歌单详情：用 OnlineList 默认的 list 行（42dp 圆角封面 + 单行标题），
+  // 不再用卡片行；名次徽章由 showRank 保留，音质角标、时长、⋮ 菜单、多选、下拉刷新/加载更多都在列表行里。
+  // autoFetchPic：kg/bd 的榜单接口同样不返回单曲封面，列表行会露占位图，这里和歌单详情用同一套补图。
   return <OnlineList
     ref={listRef}
     onPlayList={handlePlayList}
     onRefresh={handleRefresh}
     onLoadMore={handleLoadMore}
     checkHomePagerIdle
-    rowType='medium'
     showRank
     hideModeBar
-    viewMode='card'
+    autoFetchPic
     ListEmptyComponent={<EmptyState icon='leaderboard' title='这个榜单暂时没有歌曲' tip='换一个榜单或音源试试' />}
    />
 })

@@ -10,6 +10,7 @@ import { cleanSongName } from '@/utils/songName'
 import { useTheme } from '@/store/theme/hook'
 import { contrastOn } from '@/theme/solid'
 import { createStyle } from '@/utils/tools'
+import { copyReport, exportReport } from './report'
 
 /**
  * 音乐工具 UI 零件：中性卡片 + 统计块 + 按钮 + 进度条 + 汇总 chip + 带封面的预览列表。
@@ -341,6 +342,48 @@ export const PreviewList = memo(({ rows }: { rows: PreviewRow[] }) => {
         ))
       }
     </ScrollView>
+  )
+})
+
+/** 结果导出按钮组：复制到剪贴板 / 导出日志文件（批量任务汇总用） */
+export const ReportButtons = memo(({ getTitle, getLines, disabled }: {
+  /** 导出文件标题 */
+  getTitle: () => string
+  /** 清单行（每行一条） */
+  getLines: () => string[]
+  disabled?: boolean
+}) => {
+  const [exporting, setExporting] = useState(false)
+
+  const handleCopy = () => {
+    copyReport(getLines().join('\n'))
+  }
+
+  const handleExport = async() => {
+    if (exporting) return
+    setExporting(true)
+    try {
+      await exportReport(getTitle(), getLines())
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  return (
+    <ButtonRow>
+      <SecondaryButton
+        label='复制结果'
+        icon='content-copy'
+        disabled={disabled === true || exporting}
+        onPress={handleCopy}
+      />
+      <SecondaryButton
+        label={exporting ? '导出中…' : '导出日志'}
+        icon='file-export-outline'
+        disabled={disabled === true || exporting}
+        onPress={() => { void handleExport() }}
+      />
+    </ButtonRow>
   )
 })
 

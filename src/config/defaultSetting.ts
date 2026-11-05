@@ -1,5 +1,6 @@
 const defaultSetting: LX.AppSetting = {
-  version: '2.1',
+  // 设置版本号：设置项结构/默认值有变更时 +0.1，配合 migrateSettingValues 做一次性迁移
+  version: '2.2',
   'common.isAutoTheme': true,
   'common.langId': null,
   'common.apiSource': '',
@@ -27,7 +28,7 @@ const defaultSetting: LX.AppSetting = {
   'player.isAutoCleanPlayedList': false,
   'player.isHandleAudioFocus': true,
   'player.isEnableAudioOffload': false,
-  'player.isShowLyricTranslation': false,
+  'player.isShowLyricTranslation': true,
   'player.isShowLyricRoma': false,
   'player.isAutoJyutping': false,
   'player.isShowNotificationImage': true,
@@ -89,8 +90,8 @@ const defaultSetting: LX.AppSetting = {
   'player.isSingleLineLyric': false,
   // 底部导航胶囊左右滑动切歌
   'common.navSwipeSwitch': true,
-  // 底部胶囊进度样式
-  'common.navProgressStyle': 'border',
+  // 底部胶囊进度样式：默认显示封面外圈圆环（progress=0 也保留一圈淡色轨道）
+  'common.navProgressStyle': 'ring',
 }
 
 export default defaultSetting

@@ -3,7 +3,7 @@ import defaultSetting from '@/config/defaultSetting'
 import { getData, removeData, saveData } from '@/plugins/storage'
 import migrateSetting from './migrateSetting'
 import settingState from '@/store/setting/state'
-import { migrateMetaData, migrateListData } from './migrate'
+import { migrateMetaData, migrateListData, migrateSettingValues } from './migrate'
 import { exitApp, tipDialog } from '@/utils/tools'
 
 // 业务相关工具方法
@@ -103,6 +103,11 @@ export const initSetting = async() => {
     }
   }
 
+  /*
+    设置项的一次性迁移必须放在 updateSetting 之前：
+    updateSetting 会把 version 直接写成当前版本号，之后再判断就永远「不需要迁移」了。
+  */
+  setting = migrateSettingValues(setting)
   // console.log(setting)
   const updatedSetting = updateSetting(setting, true)
   void saveData(storageDataPrefix.setting, updatedSetting.setting)

@@ -1,9 +1,33 @@
-import { filterMusicList, toNewMusicInfo } from '@/utils'
+import { compareVer, filterMusicList, toNewMusicInfo } from '@/utils'
 import { LIST_IDS, storageDataPrefix, storageDataPrefixOld } from '@/config/constant'
 import { getAllKeys, getData, getDataMultiple, removeData, saveData } from '@/plugins/storage'
 import { allMusicList, listDataOverwrite, userLists } from '@/utils/listManage'
 import { saveListMusics, saveUserList } from '@/utils/data'
 
+
+/**
+ * 设置项的一次性版本迁移（每次启动初始化时跑一次，靠 version 保证幂等）。
+ *
+ * v2.2：
+ *  - 底部胶囊的默认进度样式从「胶囊描边(border)」改成「封面圆环(ring)」；
+ *  - 歌词翻译默认开启（外文歌词下方显示中文翻译，源/补翻译有 tlyric 时生效）。
+ *
+ * 老用户存储里已经有旧的默认值，而 mergeSetting 会优先保留用户已存的值 ——
+ * 只改 defaultSetting 对老用户不生效，所以这里按设置版本号做一次迁移：
+ *  - 只有 version < 2.2 的旧设置才迁移，之后 version 会写成 2.2，不会再跑；
+ *  - 只改上面这两个字段，其它设置项原样保留；
+ *  - 用户在新版里手动改回去之后，version 已是 2.2，不会被再次覆盖。
+ */
+export const migrateSettingValues = <T extends Partial<LX.AppSetting> | null>(setting: T): T => {
+  if (!setting) return setting
+  if (compareVer(setting.version ?? '0', '2.2') >= 0) return setting
+  if (setting['common.navProgressStyle'] === 'border') {
+    setting['common.navProgressStyle'] = 'ring'
+  }
+  // 歌词翻译是 v3.8.0 的新默认行为：老用户升级后一次开启，之后可自己关
+  setting['player.isShowLyricTranslation'] = true
+  return setting
+}
 
 interface OldUserListInfo {
   name: string

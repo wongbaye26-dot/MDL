@@ -54,7 +54,8 @@ public class DownloadModule extends ReactContextBaseJavaModule {
 
   /**
    * 开始一个下载任务
-   * opts: { id, url, path, headers }
+   * opts: { id, url, path, headers, threads }
+   * threads：分段下载的并发连接数（1~4），服务端不支持 Range 时原生会自动回落单连接
    */
   @ReactMethod
   public void startTask(ReadableMap opts) {
@@ -62,6 +63,14 @@ public class DownloadModule extends ReactContextBaseJavaModule {
     String url = opts.getString("url");
     String path = opts.getString("path");
     if (id == null || url == null || path == null) return;
+
+    int threads = 3;
+    if (opts.hasKey("threads") && !opts.isNull("threads")) {
+      try {
+        threads = opts.getInt("threads");
+      } catch (Exception ignored) {
+      }
+    }
 
     Map<String, String> headers = new HashMap<>();
     if (opts.hasKey("headers") && !opts.isNull("headers")) {
@@ -96,7 +105,7 @@ public class DownloadModule extends ReactContextBaseJavaModule {
     DownloadTask task = new DownloadTask(id, url, path, headers, event, () -> {
       DownloadTask current = holder[0];
       if (current != null) tasks.remove(id, current);
-    }, reactContext.getApplicationContext());
+    }, reactContext.getApplicationContext(), threads);
     holder[0] = task;
     tasks.put(id, task);
     task.start();

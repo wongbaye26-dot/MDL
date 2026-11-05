@@ -14,6 +14,8 @@ export type List = NonNullable<InitState['sourceList'][keyof InitState['sourceLi
 
 interface HistorySearchProps {
   onSearch: (keyword: string) => void
+  /** 键盘弹出 / 可视区很矮时的紧凑布局（小胶囊、更小的标题间距，保证能多显示几行） */
+  compact?: boolean
 }
 export interface HistorySearchType {
   show: () => void
@@ -24,6 +26,7 @@ export default forwardRef<HistorySearchType, HistorySearchProps>((props, ref) =>
   const isUnmountedRef = useRef(false)
   const t = useI18n()
   const theme = useTheme()
+  const compact = props.compact === true
 
   useEffect(() => {
     isUnmountedRef.current = false
@@ -60,22 +63,23 @@ export default forwardRef<HistorySearchType, HistorySearchProps>((props, ref) =>
 
   return (
     <View>
-      <View style={styles.titleContent}>
-        <Text size={14} style={styles.title}>{t('search_history_search')}</Text>
+      <View style={compact ? styles.titleContentCompact : styles.titleContent}>
+        <Text size={compact ? 12 : 14} style={styles.title}>{t('search_history_search')}</Text>
         <TouchableOpacity
           onPress={handleClear}
           style={styles.titleBtn}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Icon name="eraser" color={theme['c-350']} size={14} />
+          <Icon name="eraser" color={theme['c-350']} size={compact ? 12 : 14} />
         </TouchableOpacity>
       </View>
-      <View style={styles.list}>
+      <View style={compact ? styles.listCompact : styles.list}>
         {
           list.map(keyword => (
             <View key={keyword} style={styles.chipWrap}>
               <Chip
                 soft
+                size={compact ? 'sm' : 'md'}
                 label={keyword}
                 onPress={() => { props.onSearch(keyword) }}
                 onLongPress={() => { handleRemove(keyword) }}
@@ -95,6 +99,11 @@ const styles = createStyle({
     alignItems: 'center',
     paddingTop: 22,
   },
+  titleContentCompact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: 12,
+  },
   title: {
     fontWeight: '700',
   },
@@ -106,6 +115,11 @@ const styles = createStyle({
     flexDirection: 'row',
     flexWrap: 'wrap',
     marginTop: 8,
+  },
+  listCompact: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 5,
   },
   chipWrap: {
     marginBottom: 8,

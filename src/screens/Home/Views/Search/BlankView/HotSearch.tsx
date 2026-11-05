@@ -13,12 +13,17 @@ const HOT_LIMIT = 10
  * 一行放 2 个热词，10 条正好 5 行。
  * 之前是 5 列 × 2 行，一行太窄，长关键词会被截断成省略号；改成两列宽胶囊后
  * 关键词能完整显示，整体高度也只比原来多三行（历史搜索仍在下方）。
+ *
+ * 键盘弹起后可视高度会被压得很矮（只剩一两行热词的高度），这时切 compact：
+ * 胶囊/间距收一档，标题也变小，保证一屏能看到多行、并且可以继续往下滚。
  */
 const COLUMNS = 2
 const RANK_COLORS = ['#F5B942', '#C9D3E0', '#D8915F']
 
 interface ListProps {
   onSearch: (keyword: string) => void
+  /** 键盘弹出 / 可视区很矮时的紧凑布局 */
+  compact?: boolean
 }
 export interface HotSearchType {
   show: (source: Source) => void
@@ -30,6 +35,7 @@ export default forwardRef<HotSearchType, ListProps>((props, ref) => {
   const [list, setList] = useState<List>([])
   const t = useI18n()
   const theme = useTheme()
+  const compact = props.compact === true
 
   const isUnmountedRef = useRef(false)
   useEffect(() => {
@@ -52,27 +58,30 @@ export default forwardRef<HotSearchType, ListProps>((props, ref) => {
 
   return (
     <View>
-      <Text size={14} style={styles.title}>{t('search_hot_search')}</Text>
-      <View style={styles.list}>
+      <Text
+        size={compact ? 12 : 14}
+        style={compact ? styles.titleCompact : styles.title}
+      >{t('search_hot_search')}</Text>
+      <View style={compact ? styles.listCompact : styles.list}>
         {
           list.slice(0, HOT_LIMIT).map((keyword, index) => (
-            <View key={keyword} style={styles.cell}>
+            <View key={keyword} style={compact ? styles.cellCompact : styles.cell}>
               <TouchableOpacity
                 activeOpacity={0.7}
                 style={{
-                  ...styles.chip,
+                  ...(compact ? styles.chipCompact : styles.chip),
                   backgroundColor: theme['c-primary-alpha-900'],
                   borderColor: theme['c-primary-alpha-700'],
                 }}
                 onPress={() => { props.onSearch(keyword) }}
               >
                 <Text
-                  size={9.5}
+                  size={compact ? 9 : 9.5}
                   color={index < 3 ? RANK_COLORS[index] : theme['c-400']}
                   style={styles.rank}
                 >{index + 1}</Text>
                 {/* 两列宽胶囊：正常长度的热词完整显示，特别长的再省略号 */}
-                <Text size={11.5} numberOfLines={1} style={styles.word}>{keyword}</Text>
+                <Text size={compact ? 10.5 : 11.5} numberOfLines={1} style={styles.word}>{keyword}</Text>
               </TouchableOpacity>
             </View>
           ))
@@ -87,10 +96,19 @@ const styles = createStyle({
     paddingTop: 16,
     fontWeight: '700',
   },
+  titleCompact: {
+    paddingTop: 8,
+    fontWeight: '700',
+  },
   list: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     marginTop: 6,
+  },
+  listCompact: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 4,
   },
   /** 2 列等分：每格 50%，左右各留 4dp 间隙 */
   cell: {
@@ -99,6 +117,12 @@ const styles = createStyle({
     paddingRight: 4,
     paddingBottom: 8,
   },
+  cellCompact: {
+    width: `${100 / COLUMNS}%`,
+    paddingLeft: 3,
+    paddingRight: 3,
+    paddingBottom: 6,
+  },
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -106,6 +130,15 @@ const styles = createStyle({
     paddingLeft: 10,
     paddingRight: 10,
     borderRadius: 15,
+    borderWidth: 0.5,
+  },
+  chipCompact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 26,
+    paddingLeft: 8,
+    paddingRight: 8,
+    borderRadius: 13,
     borderWidth: 0.5,
   },
   rank: {

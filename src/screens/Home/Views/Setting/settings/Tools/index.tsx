@@ -5,13 +5,16 @@ import Text from '@/components/common/Text'
 import { useTheme } from '@/store/theme/hook'
 import { formatSize } from '@/core/download/utils'
 import { createStyle, toast } from '@/utils/tools'
-import { createEmptyHealth, scanLibraryHealth, type LibraryHealth } from './health'
+import { buildHealthReport, createEmptyHealth, scanLibraryHealth, type LibraryHealth } from './health'
 import { isToolsBusy } from './taskLock'
-import { Card, HeroCard, type HeroStat } from './parts'
+import { Card, HeroCard, ReportButtons, type HeroStat } from './parts'
+import BatchRepairSection from './BatchRepairSection'
 import CoverFixSection from './CoverFixSection'
 import TagScrapeSection from './TagScrapeSection'
 import LyricFixSection from './LyricFixSection'
 import InvalidEntriesSection from './InvalidEntriesSection'
+import DuplicateSection from './DuplicateSection'
+import RenameSection from './RenameSection'
 
 /**
  * 音乐工具：曲库体检 + 批量补封面 / 刮削标签 / 补歌词 / 清理无效条目。
@@ -94,6 +97,24 @@ export default memo(() => {
       value: count(health.invalid.length),
       tone: health.invalid.length ? 'warning' : 'primary',
     },
+    {
+      key: 'duplicate',
+      label: '重复多余',
+      value: count(health.duplicateExtras),
+      tone: health.duplicateExtras ? 'warning' : 'primary',
+    },
+    {
+      key: 'lowBitrate',
+      label: '低码率',
+      value: count(health.lowBitrate.length),
+      tone: health.lowBitrate.length ? 'warning' : 'primary',
+    },
+    {
+      key: 'duration',
+      label: '时长异常',
+      value: count(health.durationAbnormal.length),
+      tone: health.durationAbnormal.length ? 'warning' : 'primary',
+    },
   ]
 
   const subtitle = scanning
@@ -112,10 +133,21 @@ export default memo(() => {
         refreshDisabled={scanning}
       />
 
+      <BatchRepairSection health={health} scanning={scanning} onChanged={handleChanged} />
       <CoverFixSection health={health} scanning={scanning} onChanged={handleChanged} />
       <TagScrapeSection health={health} scanning={scanning} onChanged={handleChanged} />
       <LyricFixSection health={health} scanning={scanning} onChanged={handleChanged} />
       <InvalidEntriesSection health={health} scanning={scanning} onChanged={handleChanged} />
+      <DuplicateSection health={health} scanning={scanning} onChanged={handleChanged} />
+      <RenameSection health={health} scanning={scanning} onChanged={handleChanged} />
+
+      <Card title='体检报告' desc='把当前统计与待处理清单复制 / 导出成文本，方便反馈问题'>
+        <ReportButtons
+          getTitle={() => '曲库体检报告'}
+          getLines={() => buildHealthReport(health)}
+          disabled={firstScan}
+        />
+      </Card>
 
       <Card title='说明'>
         <View style={styles.textBlock}>
@@ -136,6 +168,14 @@ export default memo(() => {
           </Text>
           <Text size={11.5} color={theme['c-450']} style={styles.paragraph}>
             无效条目是曲库里记录的文件已经不存在的歌：「从曲库移除」只会删掉曲库记录，不会删除磁盘文件。
+          </Text>
+          <Text size={11.5} color={theme['c-450']} style={styles.paragraph}>
+            一键修复会按「补封面 → 刮削标签 → 补歌词」的顺序处理所有待修复内容，串行执行避免真机 IO 互相拖慢；
+            跑完可以把失败清单复制或导出日志。
+          </Text>
+          <Text size={11.5} color={theme['c-450']} style={styles.paragraph}>
+            重复歌曲只从曲库移除多余记录（每组保留体积最大的一首），不会删除磁盘文件；
+            批量重命名先预览再执行，支持 {'{歌名}'} {'{歌手}'} {'{专辑}'} 占位符。
           </Text>
           <Text size={11.5} color={theme['c-450']} style={styles.lastParagraph}>
             批量任务同一时间只会跑一个；处理过程可以随时停止，已完成的结果会保留。

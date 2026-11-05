@@ -219,7 +219,8 @@ const styles = createStyle({
     paddingBottom: 6,
   },
   listContent: {
-    paddingTop: 4,
+    // 任务行已改成无卡片列表样式，这里只留一点与页头的呼吸间距
+    paddingTop: 6,
     paddingBottom: NAV_BAR_SPACE,
   },
   empty: {

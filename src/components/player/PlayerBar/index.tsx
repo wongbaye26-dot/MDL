@@ -8,7 +8,8 @@ import MarqueeText from '@/components/common/MarqueeText'
 import { Icon } from '@/components/common/Icon'
 import Glass from '@/components/common/Glass'
 import CapsuleProgress from '@/components/common/CapsuleProgress'
-import AlbumDiscSpin from '@/components/common/AlbumDiscSpin'
+import AlbumDiscSpin, { DISC_SIZE } from '@/components/common/AlbumDiscSpin'
+import CapsuleSheen from '@/components/player/CapsuleSheen'
 import { useTheme } from '@/store/theme/hook'
 import { usePlayerMusicInfo, useIsPlay, useProgress } from '@/store/player/hook'
 import { useSettingValue } from '@/store/setting/hook'
@@ -31,7 +32,8 @@ import { cleanSongName } from '@/utils/songName'
 const openPlayerTab = (discRef: React.RefObject<View | null>, isHome: boolean) => {
   const homeId = commonState.componentIds.home
   openPlayerFromBar(
-    done => { measureStartRect(discRef.current, done) },
+    // 起点只算 48dp 的盘面，外面 54dp 的进度环不算进飞行封面
+    done => { measureStartRect(discRef.current, done, DISC_SIZE) },
     homeId && !isHome
       ? () => {
           try {
@@ -54,7 +56,7 @@ const BAR_RADIUS = BAR_HEIGHT / 2
  *
  * 整体就是底部胶囊「横过来」：同样的高度 59、全圆角、磨砂玻璃 + 顶部高光、
  * **没有边框**、进度走边缘光晕（和胶囊同一套 `CapsuleProgress`）。
- * 左侧是会旋转的圆形封面（外圈进度环也跟胶囊共用 `navProgressStyle` 设置），
+ * 左侧圆盘和底部胶囊 / 横竖屏迷你播放器共用 `AlbumDiscSpin`（48dp 盘面 + 54dp 进度环），
  * 中间歌名歌手、右侧播放/下一曲。
  */
 export default memo(({ isHome = false }: { isHome?: boolean }) => {
@@ -63,7 +65,7 @@ export default memo(({ isHome = false }: { isHome?: boolean }) => {
   const isPlay = useIsPlay()
   const { progress } = useProgress()
   const autoHidePlayBar = useSettingValue('common.autoHidePlayBar')
-  const progressStyle = useSettingValue('common.navProgressStyle') ?? 'border'
+  const progressStyle = useSettingValue('common.navProgressStyle') ?? 'ring'
   const { keyboardShown } = useKeyboard()
   const isDark = theme.isDark
   const [barSize, setBarSize] = useState({ w: 0, h: 0 })
@@ -126,19 +128,19 @@ export default memo(({ isHome = false }: { isHome?: boolean }) => {
           pointerEvents='none'
         />
 
-        {/* 亮色：底部内阴影 + 0.5dp 细描边撑出玻璃边界（深色分支保持原样） */}
+        {/* 亮色：底部内阴影撑出玻璃厚度（原来那条 0.5dp 实线描边已去掉） */}
         {isDark
           ? null
           : (
-            <>
-              <LinearGradient
-                colors={['rgba(150,140,170,0)', 'rgba(150,140,170,0.22)']}
-                style={styles.innerShade}
-                pointerEvents='none'
-              />
-              <View pointerEvents='none' style={styles.highlightEdge} />
-            </>
+            <LinearGradient
+              colors={['rgba(150,140,170,0)', 'rgba(150,140,170,0.22)']}
+              style={styles.innerShade}
+              pointerEvents='none'
+            />
             )}
+
+        {/* 和胶囊同一套「跑马灯呼吸」局部高光：没有完整描边线，光沿上下边缘缓慢移动 */}
+        <CapsuleSheen width={barSize.w} height={barSize.h} dark={isDark} />
 
         {/* 进度：贴着胶囊边缘的一圈柔光（和底部胶囊同一个组件、同一份设置） */}
         <CapsuleProgress
@@ -153,8 +155,8 @@ export default memo(({ isHome = false }: { isHome?: boolean }) => {
           {/* 会转的圆盘 + 外圈进度环；包一层原生 View 才能量共享元素起点 */}
           <View ref={discRef} collapsable={false}>
             <AlbumDiscSpin
-              progress={ratio}
-              showRing={progressStyle === 'ring'}
+              progress={progressStyle === 'ring' ? ratio : 0}
+              showRing={progressStyle !== 'none'}
               dark={isDark}
             />
           </View>
@@ -229,16 +231,6 @@ const styles = createStyle({
     right: 0,
     bottom: 0,
     height: BAR_HEIGHT * 0.55,
-  },
-  highlightEdge: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
-    borderRadius: BAR_RADIUS,
-    borderWidth: 0.5,
-    borderColor: 'rgba(255,255,255,0.75)',
   },
   lightTextShadow: {
     // 亮色玻璃上是深色文字：给白色微阴影，透到深色背景上也能读

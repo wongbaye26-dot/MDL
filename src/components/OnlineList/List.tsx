@@ -14,6 +14,7 @@ import { useI18n } from '@/lang'
 import Text from '@/components/common/Text'
 import { handlePlay } from './listAction'
 import { useSettingValue } from '@/store/setting/hook'
+import useAutoFetchPicUrls, { getCachedPicUrl } from './useAutoFetchPicUrls'
 
 type FlatListType = FlatListProps<LX.Music.MusicInfoOnline>
 
@@ -33,6 +34,10 @@ export interface ListProps {
   rowType?: RowInfoType
   viewMode?: 'list' | 'card'
   showRank?: boolean
+  /** 源数据没带封面时，异步按歌曲拉取在线封面（歌单详情用；默认关闭） */
+  autoFetchPic?: boolean
+  /** 源数据没带封面、补图又还没回来时用的兜底封面（一般传歌单封面） */
+  fallbackPicUrl?: string
   ListEmptyComponent?: FlatListType['ListEmptyComponent']
 }
 export interface ListType {
@@ -61,6 +66,8 @@ const List = forwardRef<ListType, ListProps>(({
   rowType,
   viewMode = 'list',
   showRank,
+  autoFetchPic,
+  fallbackPicUrl,
   ListEmptyComponent,
 }, ref) => {
   // const t = useI18n()
@@ -77,6 +84,16 @@ const List = forwardRef<ListType, ListProps>(({
   const rowInfo = useRef(getRowInfo(rowType))
   const isShowAlbumName = useSettingValue('list.isShowAlbumName')
   const isShowInterval = useSettingValue('list.isShowInterval')
+  // 歌单详情：源接口不回单曲封面，这里异步补图并缓存（其它列表不开启，行为不变）
+  const fetchedPicUrls = useAutoFetchPicUrls(currentList, !!autoFetchPic)
+  /**
+   * 行的封面地址：源数据自带 > 异步补到的 > 歌单封面兜底。
+   * 全部为空时保持 undefined，Image 组件会显示原来的占位图。
+   */
+  const getItemPicUrl = (item: LX.Music.MusicInfoOnline) => {
+    if (item.meta.picUrl) return item.meta.picUrl
+    return fetchedPicUrls[item.id] ?? getCachedPicUrl(item.id) ?? fallbackPicUrl
+  }
   // const currentListIdRef = useRef('')
   // console.log('render music list')
 
@@ -200,6 +217,7 @@ const List = forwardRef<ListType, ListProps>(({
       item={item}
       index={index}
       showSource={showSource}
+      picUrl={getItemPicUrl(item)}
       onPress={handlePress}
       onLongPress={handleLongPress}
       onShowMenu={onShowMenu}

@@ -6,7 +6,8 @@ import Text from '@/components/common/Text'
 import { Icon } from '@/components/common/Icon'
 import Glass from '@/components/common/Glass'
 import CapsuleProgress from '@/components/common/CapsuleProgress'
-import AlbumDiscSpin from '@/components/common/AlbumDiscSpin'
+import AlbumDiscSpin, { DISC_SIZE } from '@/components/common/AlbumDiscSpin'
+import CapsuleSheen from '@/components/player/CapsuleSheen'
 import PicImage from '@/components/common/PicImage'
 import MusicList from './MusicList'
 import { playList, togglePlay } from '@/core/player/player'
@@ -80,7 +81,7 @@ const MiniPlayer = memo(({ onOpenQueue }: { onOpenQueue: () => void }) => {
   const musicInfo = usePlayerMusicInfo()
   const isPlay = useIsPlay()
   const { progress } = useProgress()
-  const progressStyle = useSettingValue('common.navProgressStyle') ?? 'border'
+  const progressStyle = useSettingValue('common.navProgressStyle') ?? 'ring'
   const autoHidePlayBar = useSettingValue('common.autoHidePlayBar')
   const { keyboardShown } = useKeyboard()
   const isDark = theme.isDark
@@ -101,8 +102,8 @@ const MiniPlayer = memo(({ onOpenQueue }: { onOpenQueue: () => void }) => {
 
   const openPlayer = useCallback(() => {
     openPlayerWithTransition(done => {
-      // 飞行的封面按圆盘（40dp）算，外圈那圈 54dp 的进度环不算进起点
-      measureStartRect(coverRef.current, done, 40)
+      // 飞行的封面按圆盘（48dp）算，外圈那圈 54dp 的进度环不算进起点
+      measureStartRect(coverRef.current, done, DISC_SIZE)
     })
   }, [])
 
@@ -149,19 +150,19 @@ const MiniPlayer = memo(({ onOpenQueue }: { onOpenQueue: () => void }) => {
           pointerEvents='none'
         />
 
-        {/* 亮色：底部内阴影 + 0.5dp 细描边撑出玻璃边界（深色分支保持原样） */}
+        {/* 亮色：底部内阴影撑出玻璃厚度（原来那条 0.5dp 实线描边已去掉） */}
         {isDark
           ? null
           : (
-            <>
-              <LinearGradient
-                colors={['rgba(150,140,170,0)', 'rgba(150,140,170,0.22)']}
-                style={styles.playerInnerShade}
-                pointerEvents='none'
-              />
-              <View pointerEvents='none' style={styles.playerHighlightEdge} />
-            </>
+            <LinearGradient
+              colors={['rgba(150,140,170,0)', 'rgba(150,140,170,0.22)']}
+              style={styles.playerInnerShade}
+              pointerEvents='none'
+            />
             )}
+
+        {/* 和胶囊同一套「跑马灯呼吸」局部高光 */}
+        <CapsuleSheen width={barSize.w} height={barSize.h} dark={isDark} />
 
         <CapsuleProgress
           width={barSize.w}
@@ -180,10 +181,8 @@ const MiniPlayer = memo(({ onOpenQueue }: { onOpenQueue: () => void }) => {
           {/* 封面包一层才能当共享元素起点（AlbumDiscSpin 不是原生 View） */}
           <View ref={coverRef} collapsable={false} style={styles.playerCover}>
             <AlbumDiscSpin
-              discSize={40}
-              ringSize={54}
-              progress={ratio}
-              showRing={progressStyle === 'ring'}
+              progress={progressStyle === 'ring' ? ratio : 0}
+              showRing={progressStyle !== 'none'}
               dark={isDark}
             />
           </View>
@@ -523,7 +522,8 @@ const styles = createStyle({
     maxWidth: 292,
     height: PLAYER_BAR_HEIGHT,
     borderRadius: PLAYER_BAR_RADIUS,
-    paddingLeft: 8,
+    // 和胶囊 / PlayerBar / 横屏迷你播放器一致：进度环左缘距条边 3dp
+    paddingLeft: 3,
     paddingRight: 4,
     elevation: 10,
     shadowOpacity: 0.26,
@@ -551,16 +551,6 @@ const styles = createStyle({
     right: 0,
     bottom: 0,
     height: PLAYER_BAR_HEIGHT * 0.55,
-  },
-  playerHighlightEdge: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
-    borderRadius: PLAYER_BAR_RADIUS,
-    borderWidth: 0.5,
-    borderColor: 'rgba(255,255,255,0.75)',
   },
   lightTextShadow: {
     // 亮色玻璃上是深色文字：给白色微阴影，透到深色背景上也能读

@@ -13,6 +13,7 @@ import {
   PrimaryButton,
   PreviewList,
   ProgressLine,
+  ReportButtons,
   SecondaryButton,
   SummaryChips,
   type PreviewRow,
@@ -34,6 +35,8 @@ export default memo(({ health, scanning, onChanged }: Props) => {
   const aliveRef = useRef(true)
   const runningRef = useRef(false)
   const stopRef = useRef(false)
+  const failuresRef = useRef<string[]>([])
+  const [failures, setFailures] = useState<string[]>([])
 
   useEffect(() => {
     aliveRef.current = true
@@ -53,14 +56,21 @@ export default memo(({ health, scanning, onChanged }: Props) => {
     setRunning(true)
     setStopping(false)
     setSummary(null)
+    failuresRef.current = []
+    setFailures([])
     try {
       const result = await runLyricFix(items, {
         onProgress: setProgress,
         shouldStop: () => stopRef.current,
         isAlive: () => aliveRef.current,
+        onItemResult: (item, status) => {
+          if (status === 'written') return
+          failuresRef.current.push(`${cleanSongName(item.name, item.singer)} - ${item.singer || '未知歌手'}（${status === 'notFound' ? '无歌词' : '失败'}）`)
+        },
       })
       if (!aliveRef.current) return
       setSummary(result)
+      setFailures([...failuresRef.current])
       toast(result.stopped
         ? `已停止：写入 ${result.written} 首（无歌词 ${result.notFound} / 失败 ${result.failed}）`
         : `歌词补全完成：写入 ${result.written} 首` +
@@ -122,6 +132,10 @@ export default memo(({ health, scanning, onChanged }: Props) => {
       {running ? <ProgressLine label='正在补歌词' done={progress.done} total={progress.total} /> : null}
 
       {summary ? <SummaryChips chips={chips} /> : null}
+      {summary ? <ReportButtons getTitle={() => '歌词补全结果'} getLines={() => [
+        `写入 ${summary.written} 首，无歌词 ${summary.notFound} 首，失败 ${summary.failed} 首`,
+        ...(failures.length ? ['明细：', ...failures] : []),
+      ]} /> : null}
 
       {!scanning && rows.length ? <PreviewList rows={rows} /> : null}
 

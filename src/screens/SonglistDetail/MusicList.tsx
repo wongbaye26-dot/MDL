@@ -113,6 +113,13 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const header = useMemo(() => <Header ref={headerRef} componentId={componentId} />, [])
 
+  /**
+   * 封面兜底：歌单封面（Header 概览卡同款）。
+   * 部分音源（kw/kg）的歌单详情接口不返回单曲专辑封面，列表先显示歌单封面，
+   * autoFetchPic 再按歌曲异步补真正的专辑封面。
+   */
+  const fallbackPicUrl = info.img ?? songlistState.listDetailInfo.info.img
+
   return <OnlineList
     ref={listRef}
     onPlayList={handlePlayList}
@@ -120,6 +127,8 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId }, ref) 
     onLoadMore={handleLoadMore}
     ListHeaderComponent={header}
     hideModeBar
+    autoFetchPic
+    fallbackPicUrl={fallbackPicUrl}
     ListEmptyComponent={<EmptyState icon='playlist-music' title='这个歌单还没有歌曲' tip='下拉可以刷新试试' />}
     // progressViewOffset={}
    />

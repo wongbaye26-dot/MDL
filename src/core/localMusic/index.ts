@@ -734,6 +734,36 @@ export const addLocalMusicFile = async(item: {
 }
 
 /**
+ * 文件被重命名 / 移动后，同步更新曲库条目。
+ *
+ * 曲库条目的 id 由 filePath 派生（`local_${filePath}`），所以路径变了 id 必须一起换，
+ * 否则页面 key、播放列表引用都会指向旧路径。这里只改曲库记录，不动文件本身 ——
+ * 文件操由调用方（音乐工具的批量重命名）完成。
+ */
+export const updateLocalMusicFilePath = async(oldPath: string, newPath: string): Promise<void> => {
+  if (!oldPath || !newPath || oldPath === newPath) return
+  const list = await getLocalMusicList()
+  const index = list.findIndex(m => m.meta.filePath === oldPath)
+  if (index < 0) return
+  const item = list[index]
+  const updated: LX.Music.MusicInfoLocal = {
+    ...item,
+    id: `local_${newPath}`,
+    meta: {
+      ...item.meta,
+      filePath: newPath,
+      songId: newPath,
+      ext: extname(newPath),
+    },
+  }
+  // 整条替换成新对象：页面里行的 memo 靠引用变化决定要不要重渲染
+  list[index] = updated
+  cachedList = list
+  await saveData(STORAGE_KEY, list)
+  emitLocalMusicUpdated(list)
+}
+
+/**
  * 更新某首歌的封面地址并持久化。
  * 补封面 / 联网找到封面后都要走这里，否则列表读的还是旧值。
  */

@@ -13,6 +13,7 @@ import {
   PrimaryButton,
   PreviewList,
   ProgressLine,
+  ReportButtons,
   SummaryChips,
   type PreviewRow,
 } from './parts'
@@ -31,6 +32,8 @@ export default memo(({ health, scanning, onChanged }: Props) => {
 
   const aliveRef = useRef(true)
   const fixingRef = useRef(false)
+  const failuresRef = useRef<string[]>([])
+  const [failures, setFailures] = useState<string[]>([])
 
   useEffect(() => {
     aliveRef.current = true
@@ -54,13 +57,20 @@ export default memo(({ health, scanning, onChanged }: Props) => {
     fixingRef.current = true
     setFixing(true)
     setSummary(null)
+    failuresRef.current = []
+    setFailures([])
     try {
       const result = await fixCovers(healable, missing, {
         onProgress: setProgress,
         isAlive: () => aliveRef.current,
+        onItemResult: (item, status) => {
+          if (status !== 'notFound') return
+          failuresRef.current.push(`${cleanSongName(item.name, item.singer)} - ${item.singer || '未知歌手'}`)
+        },
       })
       if (!aliveRef.current) return
       setSummary(result)
+      setFailures([...failuresRef.current])
       const fixed = result.local + result.network + result.libraryOnly
       toast(`补封面完成：成功 ${fixed} 首${result.notFound ? `，未找到 ${result.notFound} 首` : ''}`)
       onChanged()
@@ -113,6 +123,11 @@ export default memo(({ health, scanning, onChanged }: Props) => {
             )
           : null
       }
+
+      {summary ? <ReportButtons getTitle={() => '补封面结果'} getLines={() => [
+        `成功 ${summary.local + summary.network + summary.libraryOnly} 首（本地 ${summary.local} / 网络 ${summary.network} / 仅曲库 ${summary.libraryOnly}），未找到 ${summary.notFound} 首`,
+        ...(failures.length ? ['未找到清单：', ...failures] : []),
+      ]} /> : null}
 
       {!scanning && rows.length ? <PreviewList rows={rows} /> : null}
 

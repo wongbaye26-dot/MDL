@@ -34,9 +34,12 @@ export interface CoverFixSummary {
 export interface CoverFixCallbacks {
   onProgress: (progress: TaskProgress) => void
   isAlive: () => boolean
+  /** 单首处理结果回调（批量修复用来收集失败清单） */
+  onItemResult?: (item: LX.Music.MusicInfoLocal, result: CoverFixSummaryKeys) => void
 }
 
 type FixResult = keyof CoverFixSummary
+export type CoverFixSummaryKeys = FixResult
 
 /** 处理一首真缺封面的歌 */
 const fixOne = async(item: LX.Music.MusicInfoLocal): Promise<FixResult> => {
@@ -105,12 +108,15 @@ export const fixCovers = async(
       if (embedded && filePath) {
         await updateLocalMusicPic(filePath, embedded)
         summary.local++
+        callbacks.onItemResult?.(item, 'local')
       } else {
         // 扫描到这里之后文件被删 / 被改了：按未找到处理
         summary.notFound++
+        callbacks.onItemResult?.(item, 'notFound')
       }
     } catch {
       summary.notFound++
+      callbacks.onItemResult?.(item, 'notFound')
     }
     callbacks.onProgress({ done: ++done, total })
   }
@@ -119,10 +125,13 @@ export const fixCovers = async(
   for (const item of missingCovers) {
     if (!callbacks.isAlive()) break
     try {
-      summary[await fixOne(item)]++
+      const result = await fixOne(item)
+      summary[result]++
+      callbacks.onItemResult?.(item, result)
     } catch {
       // 单首文件损坏 / 网络异常都不应该让整批停下
       summary.notFound++
+      callbacks.onItemResult?.(item, 'notFound')
     }
     callbacks.onProgress({ done: ++done, total })
   }

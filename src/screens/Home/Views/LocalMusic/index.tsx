@@ -15,6 +15,7 @@ import {
 
 import Text from '@/components/common/Text'
 import { Icon } from '@/components/common/Icon'
+import Input from '@/components/common/Input'
 import Clipboard from '@react-native-clipboard/clipboard'
 import PageHeader from '@/components/common/PageHeader'
 import MiniTag from '@/components/common/MiniTag'
@@ -25,7 +26,6 @@ import { createStyle, toast } from '@/utils/tools'
 import { formatSize, formatSampleRate } from '@/core/download/utils'
 import { getLocalMusicList, getScanPartialList, subscribeScanPartialList, scanLocalMusicInBackground, isScanning, useScanState, getTotalSize, deleteLocalMusic, getScanDirs, getExtraDirs, setExtraDirs, type ScanDir } from '@/core/localMusic'
 import { pickDirectory, isDirectoryPickerSupported } from '@/utils/directoryPicker'
-import { getData, saveData } from '@/plugins/storage'
 import { cleanSongName } from '@/utils/songName'
 import { addListMusics, getListMusics, overwriteListMusics, removeListMusics } from '@/core/list'
 import listAction from '@/store/list/action'
@@ -39,8 +39,6 @@ import SongActionSheet, { type SongAction } from './SongActionSheet'
 import SongInfoPage from './SongInfoPage'
 
 const LOCAL_LIST_ID = 'local_music'
-/** 列表/卡片偏好的存储键 */
-const VIEW_MODE_KEY = '@local_music_view_mode'
 /** 授权失效的提示色（主题里没有 warning 语义色，这里固定一个在深浅底上都读得出来的琥珀色） */
 const WARN_COLOR = '#E8A33D'
 /**
@@ -128,8 +126,14 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
   const [folderPath, setFolderPath] = useState<string | null>(null)
   /** 授权失效、需要用户重新选一次的目录 */
   const [needAuth, setNeedAuth] = useState<ScanDir[]>([])
-  /** 歌曲行的呈现方式：列表 / 卡片（持久化，重进页面保持上次选择） */
-  const [viewMode, setViewMode] = useState<'list' | 'card'>('list')
+  /**
+   * 页内搜索关键词。
+   *
+   * 输入框里边的值（立即回显）和真正用于过滤的关键词分开：曲库上千首时
+   * 每敲一个字都全量 filter 会把输入法卡住，过滤走 deferred 值（低优先级）。
+   */
+  const [searchText, setSearchText] = useState('')
+  const deferredSearchText = useDeferredValue(searchText)
   const mountedRef = useRef(true)
   /**
    * 是否已经从「事件 / 扫描结果」拿到过比缓存读取更新的列表。
@@ -147,17 +151,6 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
     return () => {
       mountedRef.current = false
     }
-  }, [])
-
-  useEffect(() => {
-    void getData<'list' | 'card'>(VIEW_MODE_KEY).then(mode => {
-      if (mode === 'list' || mode === 'card') setViewMode(mode)
-    })
-  }, [])
-
-  const changeViewMode = useCallback((mode: 'list' | 'card') => {
-    setViewMode(mode)
-    void saveData(VIEW_MODE_KEY, mode)
   }, [])
 
   const handleScan = useCallback(async() => {
@@ -287,6 +280,24 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
 
   const totalSize = useMemo(() => formatSize(getTotalSize(list)), [list])
 
+  /** 输入框里的即时关键词（控制「搜索模式」UI，立即回显） */
+  const searchKeyword = searchText.trim()
+  const searching = searchKeyword.length > 0
+  /** 真正用于过滤的小写关键词（延迟值：曲库上千首时逐字全量 filter 会卡住输入法） */
+  const filterKeyword = deferredSearchText.trim().toLowerCase()
+  /**
+   * 页内搜索结果：跨页签在全部歌曲里按「歌名 / 歌手 / 专辑」实时过滤。
+   * null 表示不在搜索态，列表继续走页签逻辑。
+   */
+  const searchResults = useMemo(() => {
+    if (!filterKeyword) return null
+    return list.filter(item => (
+      cleanSongName(item.name, item.singer).toLowerCase().includes(filterKeyword) ||
+      (item.singer ?? '').toLowerCase().includes(filterKeyword) ||
+      (item.meta.albumName ?? '').toLowerCase().includes(filterKeyword)
+    ))
+  }, [list, filterKeyword])
+
   /** id → 在原列表里的下标（分组后仍然按原列表播放） */
   const indexOfId = useMemo(() => {
     const map = new Map<string, number>()
@@ -340,6 +351,9 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
       index: position ?? indexOfId.get(item.id) ?? 0,
     })
 
+    // 搜索：直接平铺命中结果，不受当前页签 / 二级页限制
+    if (searchResults) return searchResults.map((item, i) => toSongRow(item, i))
+
     // 二级页：某张专辑 / 某个艺人的歌
     if (detail) {
       return list
@@ -387,7 +401,7 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
         ? { type: 'album', key, title: key, count: items.length, cover: items[0] }
         // 艺人头像直接借这个艺人第一首有封面的歌，没有封面就用首字圆形占位
         : { type: 'artist', key, title: key, count: items.length, cover: items.find(it => it.meta.picUrl) ?? items[0] })
-  }, [detail, deferredTab, list, indexOfId, folderTree, folderPath])
+  }, [detail, deferredTab, list, indexOfId, folderTree, folderPath, searchResults])
 
   // 下滑关闭：回到下载中心。
   // onClose 放进 ref：外层每次重渲染都会传新闭包，如果进 useMemo 依赖，
@@ -457,12 +471,25 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
     if (contentOffset.y <= 0 && (velocity?.y ?? 0) < -0.3) closeWithSlide()
   }, [closeWithSlide])
 
-  const handlePlay = useCallback(async(index: number) => {
-    if (!list.length) return
-    await overwriteListMusics(LIST_IDS.TEMP, list)
+  /** 清空搜索（回到当前页签） */
+  const clearSearch = useCallback(() => { setSearchText('') }, [])
+
+  /**
+   * 播放某一首。
+   *
+   * 以「当前列表队列」为准：搜索态用命中结果当临时播放列表，
+   * 非搜索态用完整曲库（页签/二级页只是展示顺序不同，播放队列始终是整库）。
+   * index 通过 id 在队列里定位，避免分组/排序后下标对不上播错歌。
+   */
+  const handlePlay = useCallback(async(item: LX.Music.MusicInfoLocal) => {
+    const queue = searchResults ?? list
+    if (!queue.length) return
+    const index = queue.findIndex(music => music.id === item.id)
+    if (index < 0) return
+    await overwriteListMusics(LIST_IDS.TEMP, queue)
     listAction.setTempListMeta({ id: LOCAL_LIST_ID })
     void playList(LIST_IDS.TEMP, index)
-  }, [list])
+  }, [list, searchResults])
 
   /** 添加一个扫描目录（系统目录选择器） */
   const handleAddDir = useCallback(async() => {
@@ -533,8 +560,8 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
    * 行的点击 / 菜单回调做成稳定引用，
    * 这样 LocalRow 的 memo 才生效（否则每次渲染都传新闭包，等于没 memo）。
    */
-  const handleRowPress = useCallback((item: LX.Music.MusicInfoLocal, index: number) => {
-    void handlePlay(index)
+  const handleRowPress = useCallback((item: LX.Music.MusicInfoLocal) => {
+    void handlePlay(item)
   }, [handlePlay])
 
   const handleOpenSheet = useCallback((item: LX.Music.MusicInfoLocal) => {
@@ -549,10 +576,9 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
     const item = sheetItem
     if (!item) return
     setSheetVisible(false)
-    const index = indexOfId.get(item.id) ?? 0
     switch (action) {
       case 'play':
-        void handlePlay(index)
+        void handlePlay(item)
         break
       case 'playNext':
         // isTop 会插到「稍后播放」列表头部，playNext 取头部 → 就是下一首播放
@@ -583,11 +609,14 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
         musicAddRef.current?.show({ musicInfo: item, listId: '', isMove: false })
         break
       case 'album':
+        // 从搜索结果跳专辑/艺人时先退出搜索态，否则列表还停在搜索结果上
+        setSearchText('')
         setTab('album')
         setFolderPath(null)
         setDetail({ type: 'album', title: item.meta.albumName || '未知专辑' })
         break
       case 'artist':
+        setSearchText('')
         setTab('artist')
         setFolderPath(null)
         setDetail({ type: 'artist', title: item.singer || '未知歌手' })
@@ -616,7 +645,7 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
         )
         break
     }
-  }, [sheetItem, sheetLoved, indexOfId, handlePlay, handleDelete])
+  }, [sheetItem, sheetLoved, handlePlay, handleDelete])
 
   const renderItem = useCallback(({ item: row }: { item:
   | { type: 'song', key: string, item: LX.Music.MusicInfoLocal, index: number }
@@ -690,17 +719,16 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
       <LocalRow
         item={item}
         index={index}
-        card={viewMode === 'card'}
         onPress={handleRowPress}
         onMore={handleOpenSheet}
       />
     )
-  }, [theme, handleRowPress, handleOpenSheet, viewMode])
+  }, [theme, handleRowPress, handleOpenSheet])
 
   /** 二级页「播放全部」：从这一组的第一首开始播 */
   const handlePlayGroup = useCallback(() => {
     const first = rows.find(r => r.type === 'song')
-    if (first && first.type === 'song') void handlePlay(first.index)
+    if (first && first.type === 'song') void handlePlay(first.item)
   }, [rows, handlePlay])
 
   return (
@@ -720,10 +748,12 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
             </View>
           )}
           right={(
+            /* 只保留「扫描文件夹」「重新扫描」两个圆按钮，尺寸/底色/图标大小和下载中心页头完全一致 */
             <View style={styles.headerActions}>
               <TouchableOpacity
                 style={{ ...styles.headerBtn, backgroundColor: theme['c-primary-alpha-900'] }}
                 activeOpacity={0.8}
+                accessibilityLabel='扫描文件夹'
                 onPress={() => { setDirModal(true) }}
               >
                 <Icon name='folder-cog' size={20} color={theme['c-font']} />
@@ -736,30 +766,31 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
               >
                 <Icon name='refresh' size={20} color={theme['c-font']} />
               </TouchableOpacity>
-              <TouchableOpacity
-                style={{
-                  ...styles.headerBtn,
-                  backgroundColor: viewMode === 'list' ? theme['c-primary'] : theme['c-primary-alpha-900'],
-                }}
-                activeOpacity={0.8}
-                onPress={() => { changeViewMode('list') }}
-              >
-                <Icon name='format-list-bulleted' size={20} color={viewMode === 'list' ? contrastOn(theme['c-primary']) : theme['c-font']} />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={{
-                  ...styles.headerBtn,
-                  backgroundColor: viewMode === 'card' ? theme['c-primary'] : theme['c-primary-alpha-900'],
-                }}
-                activeOpacity={0.8}
-                onPress={() => { changeViewMode('card') }}
-              >
-                <Icon name='view-grid-outline' size={20} color={viewMode === 'card' ? contrastOn(theme['c-primary']) : theme['c-font']} />
-              </TouchableOpacity>
             </View>
           )}
         />
       )}
+
+      {/* 页内搜索：按歌名 / 歌手 / 专辑实时过滤（搜索态下结果跨页签平铺） */}
+      <View style={styles.searchWrap}>
+        <View style={{
+          ...styles.searchBox,
+          backgroundColor: theme['c-primary-alpha-900'],
+          borderColor: theme['c-primary-alpha-700'],
+        }}>
+          <Icon name='search-2' size={15} color={theme['c-450']} style={styles.searchIcon} />
+          <Input
+            value={searchText}
+            onChangeText={setSearchText}
+            placeholder='搜索本地歌曲、歌手或专辑'
+            style={styles.searchInput}
+            clearBtn={searchText.length > 0}
+            returnKeyType='search'
+            accessibilityLabel='搜索本地音乐'
+          />
+        </View>
+      </View>
+
       {
         (scanning || needAuth.length > 0)
           ? <View style={{
@@ -813,57 +844,75 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
       }
 
       {
-        detail
+        // 搜索态：页签让位给结果说明（搜索范围永远是全部歌曲，避免「搜了却搜不到当前页签外」）
+        searching
           ? (
-            <View style={styles.detailBar}>
+            <View style={styles.searchSummary}>
+              <Icon name='search-2' size={13} color={theme['c-450']} />
+              <Text size={11} color={theme['c-450']} numberOfLines={1} style={styles.searchSummaryText}>
+                {searchResults
+                  ? `在全部歌曲中搜到 ${searchResults.length} 首`
+                  : '正在搜索…'}
+              </Text>
               <TouchableOpacity
-                onPress={() => { setDetail(null) }}
-                style={styles.detailBack}
+                onPress={clearSearch}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <Icon name='chevron-left' size={20} color={theme['c-font']} />
-              </TouchableOpacity>
-              <View style={styles.detailInfo}>
-                <Text size={15} numberOfLines={1} style={styles.detailTitle}>{detail.title}</Text>
-                <Text size={10} color={theme['c-450']} numberOfLines={1} style={styles.groupMeta}>
-                  {detail.type === 'album' ? '专辑' : '艺人'} · {rows.length} 首
-                </Text>
-              </View>
-              <TouchableOpacity
-                onPress={handlePlayGroup}
-                style={{ ...styles.playAll, backgroundColor: theme['c-primary'] }}
-                activeOpacity={0.85}
-              >
-                <Icon name='play' size={12} color={contrastOn(theme['c-primary'])} />
-                <Text size={11} color={contrastOn(theme['c-primary'])} style={styles.playAllText}>播放全部</Text>
+                <Text size={11} color={theme['c-primary']}>清除搜索</Text>
               </TouchableOpacity>
             </View>
             )
-          : (
-            <View style={styles.tabBar}>
-              <View style={styles.tabRow}>
-                {
-                  TABS.map(item => (
-                    <TabButton
-                      key={item.key}
-                      label={item.label}
-                      active={tab === item.key}
-                      onPress={() => {
-                        if (tab === item.key) return
-                        setTab(item.key)
-                        setFolderPath(null)
-                        setDetail(null)
-                      }}
-                    />
-                  ))
-                }
+          : detail
+            ? (
+              <View style={styles.detailBar}>
+                <TouchableOpacity
+                  onPress={() => { setDetail(null) }}
+                  style={styles.detailBack}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Icon name='chevron-left' size={20} color={theme['c-font']} />
+                </TouchableOpacity>
+                <View style={styles.detailInfo}>
+                  <Text size={15} numberOfLines={1} style={styles.detailTitle}>{detail.title}</Text>
+                  <Text size={10} color={theme['c-450']} numberOfLines={1} style={styles.groupMeta}>
+                    {detail.type === 'album' ? '专辑' : '艺人'} · {rows.length} 首
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={handlePlayGroup}
+                  style={{ ...styles.playAll, backgroundColor: theme['c-primary'] }}
+                  activeOpacity={0.85}
+                >
+                  <Icon name='play' size={12} color={contrastOn(theme['c-primary'])} />
+                  <Text size={11} color={contrastOn(theme['c-primary'])} style={styles.playAllText}>播放全部</Text>
+                </TouchableOpacity>
               </View>
-            </View>
-            )
+              )
+            : (
+              <View style={styles.tabBar}>
+                <View style={styles.tabRow}>
+                  {
+                    TABS.map(item => (
+                      <TabButton
+                        key={item.key}
+                        label={item.label}
+                        active={tab === item.key}
+                        onPress={() => {
+                          if (tab === item.key) return
+                          setTab(item.key)
+                          setFolderPath(null)
+                          setDetail(null)
+                        }}
+                      />
+                    ))
+                  }
+                </View>
+              </View>
+              )
       }
 
       {
-        !detail && tab === 'folder' && folderPath
+        !searching && !detail && tab === 'folder' && folderPath
           ? (
             <View style={styles.crumbRow}>
               <TouchableOpacity
@@ -907,18 +956,43 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
         onScroll={e => { scrollY.current = e.nativeEvent.contentOffset.y }}
         onScrollEndDrag={handleScrollEndDrag}
         refreshControl={refreshControl}
+        // 搜索时键盘开着也要能直接点结果播放（默认会先吃掉一次点击去收键盘）
+        keyboardShouldPersistTaps='handled'
         ListEmptyComponent={(
-          <View style={styles.empty}>
-            <View style={{ ...styles.emptyIcon, backgroundColor: theme['c-primary-alpha-900'] }}>
-              <Icon name='music_time' size={26} color={theme['c-400']} />
-            </View>
-            <Text size={13} style={styles.emptyTitle}>
-              {inited && !scanning ? '下载目录里还没有音乐' : '正在扫描下载目录…'}
-            </Text>
-            <Text size={11} color={theme['c-450']} style={styles.emptyTip}>
-              下载完成的歌曲会自动保存在这里，扫描后即可离线播放
-            </Text>
-          </View>
+          searching && searchResults
+            ? (
+              <View style={styles.empty}>
+                <View style={{ ...styles.emptyIcon, backgroundColor: theme['c-primary-alpha-900'] }}>
+                  <Icon name='music-note-off' size={26} color={theme['c-400']} />
+                </View>
+                <Text size={13} style={styles.emptyTitle} numberOfLines={2}>
+                  {`没有找到「${searchKeyword}」`}
+                </Text>
+                <Text size={11} color={theme['c-450']} style={styles.emptyTip}>
+                  试试歌名、歌手或专辑名里的其他关键词
+                </Text>
+                <TouchableOpacity
+                  style={{ ...styles.emptyBtn, backgroundColor: theme['c-primary'] }}
+                  activeOpacity={0.85}
+                  onPress={clearSearch}
+                >
+                  <Text size={12} color={contrastOn(theme['c-primary'])} style={styles.emptyBtnText}>清空搜索</Text>
+                </TouchableOpacity>
+              </View>
+              )
+            : (
+              <View style={styles.empty}>
+                <View style={{ ...styles.emptyIcon, backgroundColor: theme['c-primary-alpha-900'] }}>
+                  <Icon name='music_time' size={26} color={theme['c-400']} />
+                </View>
+                <Text size={13} style={styles.emptyTitle}>
+                  {inited && !scanning ? '下载目录里还没有音乐' : '正在扫描下载目录…'}
+                </Text>
+                <Text size={11} color={theme['c-450']} style={styles.emptyTip}>
+                  下载完成的歌曲会自动保存在这里，扫描后即可离线播放
+                </Text>
+              </View>
+              )
         )}
       />
 
@@ -1017,12 +1091,10 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
   )
 }
 
-const LocalRow = memo(({ item, index, card = false, onPress, onMore }: {
+const LocalRow = memo(({ item, index, onPress, onMore }: {
   item: LX.Music.MusicInfoLocal
   index: number
-  /** 卡片模式：带边框底色的独立卡片（和搜索/排行榜的「卡片」同一套 token） */
-  card?: boolean
-  onPress: (item: LX.Music.MusicInfoLocal, index: number) => void
+  onPress: (item: LX.Music.MusicInfoLocal) => void
   /** 打开「更多」底部 Sheet（点行尾 ⋮ 或长按整行） */
   onMore: (item: LX.Music.MusicInfoLocal) => void
 }) => {
@@ -1043,21 +1115,15 @@ const LocalRow = memo(({ item, index, card = false, onPress, onMore }: {
   }, [item.meta.sampleRate])
 
   return (
-    <View style={card
-      ? {
-          ...styles.cardRow,
-          backgroundColor: theme['c-primary-alpha-900'],
-          borderColor: theme['c-primary-alpha-700'],
-        }
-      : styles.row}>
+    <View style={styles.row}>
       <TouchableOpacity
-        style={card ? styles.cardMain : styles.rowMain}
+        style={styles.rowMain}
         activeOpacity={0.7}
-        onPress={() => { onPress(item, index) }}
+        onPress={() => { onPress(item) }}
         onLongPress={() => { onMore(item) }}
         delayLongPress={320}
       >
-        {card ? null : <Text size={11} color={theme['c-350']} style={styles.index}>{index + 1}</Text>}
+        <Text size={11} color={theme['c-350']} style={styles.index}>{index + 1}</Text>
         <Cover item={item} />
         <View style={styles.info}>
           <Text size={15} numberOfLines={1} style={styles.name}>{songName}</Text>
@@ -1119,6 +1185,44 @@ const styles = createStyle({
   container: {
     flex: 1,
   },
+  /** 页内搜索：和搜索页/歌单页的搜索框同一套圆角语言 */
+  searchWrap: {
+    paddingLeft: 16,
+    paddingRight: 16,
+    paddingTop: 6,
+    paddingBottom: 2,
+  },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 0.5,
+    paddingLeft: 12,
+    paddingRight: 4,
+  },
+  searchIcon: {
+    marginRight: 6,
+  },
+  searchInput: {
+    height: 34,
+    paddingLeft: 0,
+    fontSize: 13,
+  },
+  /** 搜索态下代替页签的结果说明行 */
+  searchSummary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingLeft: 16,
+    paddingRight: 16,
+    paddingTop: 8,
+    paddingBottom: 6,
+  },
+  searchSummaryText: {
+    flexGrow: 1,
+    flexShrink: 1,
+    marginLeft: 5,
+  },
   scanCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1173,57 +1277,10 @@ const styles = createStyle({
     height: 6,
     borderRadius: 3,
   },
-  /** 页签 + 列表/卡片分段控件同处一行 */
+  /** 页签行（列表/卡片切换已移除，只剩页签） */
   tabBar: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  segmentWrap: {
-    flexShrink: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: 4,
-    marginRight: 16,
-    borderRadius: 14,
-    borderWidth: 0.5,
-    padding: 2,
-  },
-  segment: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: 24,
-    paddingLeft: 8,
-    paddingRight: 9,
-    borderRadius: 12,
-  },
-  segmentText: {
-    marginLeft: 3,
-    fontWeight: '600',
-  },
-  cardRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: 14,
-    marginRight: 14,
-    marginTop: 5,
-    marginBottom: 5,
-    paddingRight: 6,
-    borderRadius: 14,
-    borderWidth: 0.5,
-  },
-  cardMain: {
-    flexGrow: 1,
-    flexShrink: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingLeft: 10,
-    paddingTop: 8,
-    paddingBottom: 8,
-  },
-  tabScroll: {
-    // 和右侧的「列表/卡片」同处一行，所以要能横向伸缩
-    flexGrow: 1,
-    flexShrink: 1,
   },
   tabItem: {
     flex: 1,
@@ -1452,5 +1509,19 @@ const styles = createStyle({
     marginTop: 6,
     textAlign: 'center',
     lineHeight: 16,
+  },
+  /** 搜索无结果时的「清空搜索」按钮 */
+  emptyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 32,
+    paddingLeft: 18,
+    paddingRight: 18,
+    borderRadius: 16,
+    marginTop: 16,
+  },
+  emptyBtnText: {
+    fontWeight: '600',
   },
 })

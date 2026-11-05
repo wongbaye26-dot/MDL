@@ -55,10 +55,12 @@ const RankBadge = ({ index }: { index: number }) => {
   )
 }
 
-export default memo(({ item, index, showSource, onPress, onLongPress, onShowMenu, selectedList, rowInfo, isShowAlbumName, isShowInterval, viewMode = 'list', showRank }: {
+export default memo(({ item, index, showSource, picUrl, onPress, onLongPress, onShowMenu, selectedList, rowInfo, isShowAlbumName, isShowInterval, viewMode = 'list', showRank }: {
   item: LX.Music.MusicInfoOnline
   index: number
   showSource?: boolean
+  /** 已解析好的封面地址：源数据没带封面时由列表层补全（歌单详情的兜底） */
+  picUrl?: string
   onPress: (item: LX.Music.MusicInfoOnline, index: number) => void
   /** 长按：除歌曲外还带出手指按下的屏幕位置，供悬浮菜单就近弹出 */
   onLongPress: (item: LX.Music.MusicInfoOnline, index: number, position: Position) => void
@@ -113,9 +115,9 @@ export default memo(({ item, index, showSource, onPress, onLongPress, onShowMenu
         },
       ]}>
         <TouchableOpacity style={styles.cardLeft} activeOpacity={0.75} onPress={() => { onPress(item, index) }} onLongPress={handleLongPress}>
-          {/* 卡片行也要保留名次（排行榜直接传 viewMode='card'） */}
+          {/* 卡片行也要保留名次（排行榜已改用 list 行，card 模式留给搜索等调用方） */}
           { showRank ? <View style={styles.cardRank}><RankBadge index={index} /></View> : null }
-          <Image url={item.meta.picUrl} style={styles.cardCover} />
+          <Image url={picUrl} style={styles.cardCover} />
           <View style={styles.cardInfo}>
             <Text size={14} numberOfLines={1} style={styles.cardName}>{item.name}</Text>
             {/* 音质 / 来源角标：和列表模式保持一致，切卡片后不丢信息 */}
@@ -141,7 +143,7 @@ export default memo(({ item, index, showSource, onPress, onLongPress, onShowMenu
     <View style={{ ...styles.listItem, width: rowInfo.rowWidth, height: showAlbum ? ITEM_HEIGHT + 16 : ITEM_HEIGHT, backgroundColor: isSelected ? theme['c-primary-background-hover'] : 'rgba(0,0,0,0)' }}>
       <TouchableOpacity style={styles.listItemLeft} onPress={() => { onPress(item, index) }} onLongPress={handleLongPress}>
         { showRank ? <RankBadge index={index} /> : null }
-        <Image url={item.meta.picUrl} style={showRank ? styles.coverWithRank : styles.cover} />
+        <Image url={picUrl} style={showRank ? styles.coverWithRank : styles.cover} />
         <View style={styles.itemInfo}>
           <Text numberOfLines={1}>{item.name}</Text>
           <View style={styles.listItemSingle}>
@@ -169,6 +171,8 @@ export default memo(({ item, index, showSource, onPress, onLongPress, onShowMenu
     // showSource 必须参与比较：搜索结果的「本地/来源」标记会随本地匹配变化，
     // 漏掉它的话旧行会被 memo 挡住不重渲染，出现「徽标不显示 / 刷新后才出现」。
     prevProps.showSource === nextProps.showSource &&
+    // 封面补全后只更新这一行的地址，不参与比较的话新封面进不来
+    prevProps.picUrl === nextProps.picUrl &&
     nextProps.selectedList.includes(nextProps.item) == prevProps.selectedList.includes(nextProps.item)
   )
 })

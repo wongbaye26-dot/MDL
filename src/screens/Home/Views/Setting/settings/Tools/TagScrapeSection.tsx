@@ -13,6 +13,7 @@ import {
   PrimaryButton,
   PreviewList,
   ProgressLine,
+  ReportButtons,
   SecondaryButton,
   SummaryChips,
   type PreviewRow,
@@ -33,6 +34,8 @@ export default memo(({ health, scanning, onChanged }: Props) => {
 
   const aliveRef = useRef(true)
   const runningRef = useRef(false)
+  const failuresRef = useRef<string[]>([])
+  const [failures, setFailures] = useState<string[]>([])
   /** 用户点了停止：批量循环在每首歌开始前检查一次 */
   const stopRef = useRef(false)
 
@@ -54,14 +57,21 @@ export default memo(({ health, scanning, onChanged }: Props) => {
     setRunning(true)
     setStopping(false)
     setSummary(null)
+    failuresRef.current = []
+    setFailures([])
     try {
       const result = await runTagScrape(items, {
         onProgress: setProgress,
         shouldStop: () => stopRef.current,
         isAlive: () => aliveRef.current,
+        onItemResult: (item, status) => {
+          if (status !== 'notFound') return
+          failuresRef.current.push(`${cleanSongName(item.name, item.singer)} - ${item.singer || '未知歌手'}`)
+        },
       })
       if (!aliveRef.current) return
       setSummary(result)
+      setFailures([...failuresRef.current])
       const done = result.file + result.libraryOnly
       toast(result.stopped
         ? `已停止：处理 ${done} 首（写入文件 ${result.file} / 仅曲库 ${result.libraryOnly}）`
@@ -120,6 +130,10 @@ export default memo(({ health, scanning, onChanged }: Props) => {
       {running ? <ProgressLine label='正在刮削' done={progress.done} total={progress.total} /> : null}
 
       {summary ? <SummaryChips chips={chips} /> : null}
+      {summary ? <ReportButtons getTitle={() => '标签刮削结果'} getLines={() => [
+        `写入文件 ${summary.file} 首，仅曲库 ${summary.libraryOnly} 首，未找到 ${summary.notFound} 首，顺带补封面 ${summary.cover} 首`,
+        ...(failures.length ? ['未找到清单：', ...failures] : []),
+      ]} /> : null}
 
       {!scanning && rows.length ? <PreviewList rows={rows} /> : null}
 
