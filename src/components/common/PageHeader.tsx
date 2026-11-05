@@ -15,8 +15,12 @@ export const PAGE_HEADER_COMPACT_H = 56
 
 /**
  * 统一的页面头部（首页 / 下载中心 / 我的 共用）。
- * 标题 21sp 800 字重 + 可选副标题，右侧是 44dp 圆形图标按钮，
+ * 标题 21sp 800 字重 + 可选副标题，右侧是 38dp 圆形图标按钮，
  * 让三个主 Tab 的头部结构、字号、间距完全一致。
+ *
+ * 右侧按钮（HeaderButton）和本地音乐 / 下载中心 / 排行榜页头的操作按钮是**同一套**
+ * Material You 规格：38dp 正圆 + 20dp 图标 + 主色淡底(c-primary-alpha-900) + 0.8 按压反馈。
+ * 之前这里是 44dp/21dp，比其它页头大一圈，首页搜索键看起来像另一套控件。
  */
 export default memo(({
   title,
@@ -74,8 +78,8 @@ export default memo(({
   )
 })
 
-/** 头部右侧的圆形图标按钮 */
-export const HeaderButton = memo(({ icon, onPress, size = 21, color }: {
+/** 头部右侧的圆形图标按钮（和本地音乐 / 下载中心 / 排行榜页头同一套 Material You 规格） */
+export const HeaderButton = memo(({ icon, onPress, size = 20, color }: {
   icon: string
   onPress?: () => void
   size?: number
@@ -149,9 +153,9 @@ const styles = createStyle({
     marginLeft: 10,
   },
   btn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     justifyContent: 'center',
     alignItems: 'center',
   },

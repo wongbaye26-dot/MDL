@@ -17,6 +17,8 @@ export default memo(() => {
       </Section>
       <Section title='其他'>
         <DislikeList />
+      </Section>
+      <Section title='日志'>
         <Log />
       </Section>
       <Permissions />

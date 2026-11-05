@@ -5,11 +5,13 @@ import Text from '@/components/common/Text'
 import Image from '@/components/common/Image'
 import CoverPlaceholder from '@/components/common/CoverPlaceholder'
 import { Icon } from '@/components/common/Icon'
+import Tag from '@/components/common/Tag'
 import { isCoverUsable, readEmbeddedCover } from '@/core/localMusic/cover'
 import { cleanSongName } from '@/utils/songName'
 import { useTheme } from '@/store/theme/hook'
 import { contrastOn } from '@/theme/solid'
 import { createStyle } from '@/utils/tools'
+import { setSpText } from '@/utils/pixelRatio'
 import { copyReport, exportReport } from './report'
 
 /**
@@ -23,10 +25,11 @@ import { copyReport, exportReport } from './report'
 /** 问题数字的提示色（主题里没有 warning 语义色，用这个在深浅底上都读得出来） */
 const WARN_COLOR = '#E8A33D'
 
-const cardBackground = (theme: LX.ActiveTheme) => theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.75)'
-const cardBorder = (theme: LX.ActiveTheme) => theme.isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.05)'
-const dividerColor = (theme: LX.ActiveTheme) => theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)'
-const tileBackground = (theme: LX.ActiveTheme) => theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)'
+// 和设置页其它卡片同一套 Material You 主色淡底，不再用中性灰白卡片
+const cardBackground = (theme: LX.ActiveTheme) => theme['c-primary-alpha-900']
+const cardBorder = (theme: LX.ActiveTheme) => theme['c-primary-alpha-700']
+const dividerColor = (theme: LX.ActiveTheme) => theme['c-primary-alpha-700']
+const tileBackground = (theme: LX.ActiveTheme) => theme['c-primary-alpha-800']
 
 /** 分区卡片：标题 + 说明 + 内容 */
 export const Card = memo(({ title, desc, right, children }: {
@@ -246,7 +249,15 @@ export const SummaryChips = memo(({ chips }: { chips: SummaryChip[] }) => {
             : chip.tone === 'primary' ? theme['c-primary'] : theme['c-450']
           return (
             <View key={chip.key} style={{ ...styles.chip, backgroundColor: tileBackground(theme), borderColor: dividerColor(theme) }}>
-              <Text size={10.5} color={color}>{chip.label} {chip.value}</Text>
+              <Text
+                size={10.5}
+                color={color}
+                style={{
+                  includeFontPadding: false,
+                  textAlignVertical: 'center',
+                  lineHeight: setSpText(12),
+                }}
+              >{chip.label} {chip.value}</Text>
             </View>
           )
         })
@@ -309,8 +320,9 @@ export interface PreviewRow {
   item: LX.Music.MusicInfoLocal
   title: string
   sub?: string
-  /** 右侧小字（如「缺歌手 · 缺专辑」） */
+  /** 右侧状态标签（如「将改名」「冲突」「SAF 跳过」） */
   tags?: string
+  tagTone?: 'primary' | 'warning' | 'muted' | 'success' | 'danger'
 }
 
 /** 待处理列表：最多传 30 条进来，太多会把设置页拉得很长；列表本身可滚动 */
@@ -337,7 +349,7 @@ export const PreviewList = memo(({ rows }: { rows: PreviewRow[] }) => {
               <Text size={12.5} numberOfLines={1} style={styles.listTitle}>{row.title}</Text>
               {row.sub ? <Text size={10} color={theme['c-450']} numberOfLines={1} style={styles.listSub}>{row.sub}</Text> : null}
             </View>
-            {row.tags ? <Text size={9.5} color={WARN_COLOR} numberOfLines={1} style={styles.listTags}>{row.tags}</Text> : null}
+            {row.tags ? <Tag label={row.tags} size='sm' tone={row.tagTone ?? 'muted'} style={styles.listTags} /> : null}
           </View>
         ))
       }
@@ -539,14 +551,17 @@ const styles = createStyle({
     paddingBottom: 6,
   },
   chip: {
-    borderRadius: 8,
+    height: 22,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 11,
     borderWidth: 0.5,
-    paddingLeft: 8,
-    paddingRight: 8,
-    paddingTop: 4,
-    paddingBottom: 4,
+    paddingLeft: 9,
+    paddingRight: 9,
     marginRight: 6,
     marginBottom: 6,
+    flexShrink: 0,
   },
   empty: {
     flexDirection: 'row',

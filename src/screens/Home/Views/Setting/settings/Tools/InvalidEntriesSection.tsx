@@ -1,7 +1,5 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
-import { Alert } from 'react-native'
-
-import { toast } from '@/utils/tools'
+import { confirmDialog, toast } from '@/utils/tools'
 import { cleanSongName } from '@/utils/songName'
 import type { LibraryHealth } from './health'
 import { removeInvalidEntries, type InvalidCleanSummary } from './invalid'
@@ -70,14 +68,15 @@ export default memo(({ health, scanning, onChanged }: Props) => {
 
   const handlePress = useCallback(() => {
     if (runningRef.current || !items.length) return
-    Alert.alert(
-      '从曲库移除无效条目',
-      `曲库里有 ${items.length} 首歌的文件已经不存在了。\n\n只会删除曲库记录，不会删除任何磁盘文件。`,
-      [
-        { text: '取消', style: 'cancel' },
-        { text: '移除', style: 'destructive', onPress: () => { void doRemove() } },
-      ],
-    )
+    void confirmDialog({
+      title: '从曲库移除无效条目',
+      message: `曲库里有 ${items.length} 首歌的文件已经不存在了。\n\n只会删除曲库记录，不会删除任何磁盘文件。`,
+      cancelButtonText: '取消',
+      confirmButtonText: '移除',
+      danger: true,
+    }).then(confirm => {
+      if (confirm) void doRemove()
+    })
   }, [items.length, doRemove])
 
   const rows: PreviewRow[] = items.slice(0, 30).map(item => ({

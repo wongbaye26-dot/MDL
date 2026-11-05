@@ -106,13 +106,18 @@ const styles = createStyle({
     borderRadius: 12,
     borderWidth: 0.8,
     justifyContent: 'center',
+    alignItems: 'center',
     paddingLeft: 12,
     paddingRight: 12,
   },
   pillText: {
     fontWeight: '500',
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
   pillTextActive: {
     fontWeight: '700',
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
 })

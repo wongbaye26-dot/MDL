@@ -80,6 +80,19 @@ const MODE_LABEL: Record<PlayMode, string> = {
 const LYRIC_SIZES = [17.5, 20, 22.5, 25.5]
 const LYRIC_NORMAL_RATIO = 1.14
 /**
+ * 当前高亮行在档位字号上再大一点点：按档位比例取（17.5→+1.3、20→+1.5、
+ * 22.5→+1.7、25.5→+1.9sp；单行歌词模式字号更大，封顶 +2），随档位自然变化。
+ * 非当前行不变（仍然 = 档位字号 / 1.14）。
+ */
+const LYRIC_HIGHLIGHT_SIZE_RATIO = 0.075
+const LYRIC_HIGHLIGHT_SIZE_MIN = 1
+const LYRIC_HIGHLIGHT_SIZE_MAX = 2
+/**
+ * 当前高亮行的实际字号。主歌词层、逐字高亮的底字层和高亮层、行高都必须用同一个值：
+ * 三层字号不一致时，英文逐字高亮会按旧宽度裁切，末尾字母会被切掉。
+ */
+const getHighlightLyricSize = (size: number) => size + Math.min(LYRIC_HIGHLIGHT_SIZE_MAX, Math.max(LYRIC_HIGHLIGHT_SIZE_MIN, size * LYRIC_HIGHLIGHT_SIZE_RATIO))
+/**
  * 歌词行内文本的行高系数：主歌词和翻译/注音都用它。
  * 行高必须显式给：长外文行会折行，行数（1~3）决定这一行的实际高度，
  * 行高不再写死，否则开翻译后每行固定 +40dp，行距看起来就是空的。
@@ -150,8 +163,13 @@ const LyricLine = memo(({ text, extras, active, startMs, endMs, playing, syncMs,
   /** 横屏和歌名一样左对齐，竖屏居中 */
   align?: 'center' | 'left'
 }) => {
-  /** 主歌词行高（折行时每行都按这个高度） */
+  /** 非当前行字号：用档位字号 / 1.14，保持原来的视觉比例不变 */
+  const normalSize = size / LYRIC_NORMAL_RATIO
+  /** 当前高亮行字号：比其它行再大一点点（+1.3~1.9sp，随档位变化） */
+  const highlightSize = getHighlightLyricSize(size)
+  /** 主歌词行高（折行时每行都按这个高度）；高亮行按高亮字号单独算，行高自适应 */
   const lineHeight = size * LYRIC_LINE_HEIGHT_RATIO
+  const highlightLineHeight = highlightSize * LYRIC_LINE_HEIGHT_RATIO
   /** 翻译/注音比主歌词小一半左右，行高同样按字号算，避免行距被撑开 */
   const extraSize = Math.max(9, size * 0.5)
   const extraNodes = extras.length
@@ -184,7 +202,7 @@ const LyricLine = memo(({ text, extras, active, startMs, endMs, playing, syncMs,
     return (
       <View style={[styles.lyricLineWrap, { alignItems: align === 'center' ? 'center' : 'flex-start' }]}>
         <Text
-          size={u(size / LYRIC_NORMAL_RATIO)}
+          size={u(normalSize)}
           color='rgba(255,255,255,0.38)'
           style={[styles.lyricLine, { textAlign: align, lineHeight: lineHeight / LYRIC_NORMAL_RATIO }]}
           numberOfLines={3}
@@ -198,9 +216,9 @@ const LyricLine = memo(({ text, extras, active, startMs, endMs, playing, syncMs,
     return (
       <View style={[styles.lyricLineWrap, { alignItems: align === 'center' ? 'center' : 'flex-start' }]}>
         <Text
-          size={u(size)}
+          size={u(highlightSize)}
           color={activeColor}
-          style={{ ...styles.lyricLine, textAlign: align, ...styles.lyricActive, lineHeight }}
+          style={{ ...styles.lyricLine, textAlign: align, ...styles.lyricActive, lineHeight: highlightLineHeight }}
           numberOfLines={3}
         >{text || ' '}</Text>
         {extraNodes}
@@ -211,7 +229,7 @@ const LyricLine = memo(({ text, extras, active, startMs, endMs, playing, syncMs,
     <View style={[styles.lyricLineWrap, { alignItems: align === 'center' ? 'center' : 'flex-start' }]}>
       <KaraokeText
         text={text}
-        size={size}
+        size={highlightSize}
         activeColor={activeColor}
         align={align}
         startMs={startMs}

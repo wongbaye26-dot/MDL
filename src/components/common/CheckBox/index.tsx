@@ -114,7 +114,10 @@ const styles = createStyle({
     paddingRight: 3,
   },
   name: {
-    marginTop: 2,
+    // 之前用 marginTop: 2 目测对齐，实际会让文字比左侧勾选框低一截；
+    // 容器已经是 alignItems: 'center'，这里只关掉 Android 文字额外 padding 即可
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
   helpBtn: {
     // backgroundColor: 'rgba(0, 0, 0, 0.2)',

@@ -4,6 +4,7 @@ import { TouchableOpacity, View } from 'react-native'
 import Section from '../../components/Section'
 import Button from '../../components/Button'
 import Text from '@/components/common/Text'
+import Tag from '@/components/common/Tag'
 import { Icon } from '@/components/common/Icon'
 import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
@@ -60,15 +61,7 @@ export default memo(() => {
               <View style={styles.nameWrap}>
                 <Text size={16} numberOfLines={1} style={styles.name}>{name}</Text>
               </View>
-              {
-                activeApi?.version
-                  ? (
-                    <View style={{ ...styles.tag, backgroundColor: theme['c-primary-alpha-800'] }}>
-                      <Text size={9} color={theme['c-450']}>{formatVersion(activeApi.version)}</Text>
-                    </View>
-                    )
-                  : null
-              }
+              {activeApi?.version ? <Tag label={formatVersion(activeApi.version)} size='sm' tone='muted' style={styles.tag} /> : null}
             </View>
             <View style={styles.statusRow}>
               <View style={{ ...styles.dot, backgroundColor: statusColor }} />
@@ -125,6 +118,9 @@ export default memo(() => {
 })
 
 const styles = createStyle({
+  tag: {
+    marginLeft: 6,
+  },
   content: {
     paddingLeft: 14,
     paddingRight: 14,
@@ -160,15 +156,6 @@ const styles = createStyle({
   },
   name: {
     fontWeight: '700',
-  },
-  tag: {
-    flexShrink: 0,
-    marginLeft: 6,
-    paddingLeft: 6,
-    paddingRight: 6,
-    paddingTop: 1,
-    paddingBottom: 1,
-    borderRadius: 5,
   },
   statusRow: {
     flexDirection: 'row',

@@ -2,6 +2,8 @@ import { memo, useEffect, useRef } from 'react'
 import { Animated, Easing } from 'react-native'
 import LinearGradient from 'react-native-linear-gradient'
 
+import { useSettingValue } from '@/store/setting/hook'
+
 /**
  * 胶囊边缘的「跑马灯 + 呼吸」高光。
  *
@@ -18,6 +20,12 @@ import LinearGradient from 'react-native-linear-gradient'
  *
  * 两个方向的平移共用同一个 `sweep` 值（上边从左到右、下边从右到左），
  * 所以只跑一个循环就能得到对向滑动的效果，省一半开销。
+ *
+ * 只在「胶囊描边(border)」进度样式下渲染：封面圆环(ring)是默认样式，要求外圈干净、
+ * 不要外圈动画；关闭(none)更不用说。这里直接读设置自行判断，而不是让每个调用方
+ * 各写一遍 —— 底部胶囊、子页 PlayerBar、横屏迷你播放器、收藏页迷你条共用这个组件，
+ * 在组件内统一拦截才能保证「ring 模式哪里都没有跑马灯」。
+ * 非 border 模式连动画都不启动（省电），也不会挂载任何光带。
  */
 
 /** 一趟跑马灯要多久：5.6s 走完全长，慢到不抢内容、又明显能看出来 */
@@ -38,10 +46,14 @@ export default memo(({
   height: number
   dark?: boolean
 }) => {
+  const progressStyle = useSettingValue('common.navProgressStyle') ?? 'ring'
+  /** 跑马灯是「胶囊描边」样式专属的外圈动效；ring / none 一律不渲染、不起动画 */
+  const enabled = progressStyle === 'border'
   const sweep = useRef(new Animated.Value(0)).current
   const glow = useRef(new Animated.Value(GLOW_MIN)).current
 
   useEffect(() => {
+    if (!enabled) return
     const sweepAnim = Animated.loop(Animated.timing(sweep, {
       toValue: 1,
       duration: SWEEP_DURATION,
@@ -58,10 +70,10 @@ export default memo(({
       sweepAnim.stop()
       glowAnim.stop()
     }
-  }, [sweep, glow])
+  }, [enabled, sweep, glow])
 
-  // 还没量到布局时先不画，避免 0 宽度的光带从坐标原点闪一下
-  if (width <= 0 || height <= 0) return null
+  // ring / none 模式不挂载光带；还没量到布局时也不画，避免 0 宽度的光带闪一下
+  if (!enabled || width <= 0 || height <= 0) return null
 
   /** 光带长度：约胶囊一半，短了像一条线，长了看不出移动 */
   const bandWidth = Math.max(72, width * 0.46)

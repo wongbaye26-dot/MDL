@@ -3,6 +3,7 @@ import { TouchableOpacity, View } from 'react-native'
 
 import Section from '../../components/Section'
 import Text from '@/components/common/Text'
+import Tag from '@/components/common/Tag'
 import { Icon } from '@/components/common/Icon'
 import CheckBox from '@/components/common/CheckBox'
 import Chip from '@/components/common/Chip'
@@ -96,16 +97,8 @@ const ListItem = ({
             <View style={styles.nameWrap}>
               <Text size={14.5} numberOfLines={1} style={styles.name}>{item.name}</Text>
             </View>
-            {item.version ? <Text size={9} color={theme['c-450']} style={styles.version}>{formatVersion(item.version)}</Text> : null}
-            {
-              active
-                ? (
-                  <View style={{ ...styles.activeTag, backgroundColor: theme['c-primary'] }}>
-                    <Text size={9} color='#FFFFFF'>{t('setting_source_current_tag')}</Text>
-                  </View>
-                  )
-                : null
-            }
+            {item.version ? <Tag label={formatVersion(item.version)} size='sm' tone='muted' style={styles.version} /> : null}
+            {active ? <Tag label={t('setting_source_current_tag')} size='sm' bg={theme['c-primary']} color='#FFFFFF' style={styles.activeTag} /> : null}
           </View>
           <Text size={10.5} color={theme['c-450']} numberOfLines={1} style={styles.subLine}>
             {subLine.length ? subLine : item.id}
@@ -354,17 +347,10 @@ const styles = createStyle({
     fontWeight: '600',
   },
   version: {
-    flexShrink: 0,
     marginLeft: 6,
   },
   activeTag: {
-    flexShrink: 0,
     marginLeft: 6,
-    paddingLeft: 6,
-    paddingRight: 6,
-    paddingTop: 1,
-    paddingBottom: 1,
-    borderRadius: 5,
   },
   subLine: {
     marginTop: 3,

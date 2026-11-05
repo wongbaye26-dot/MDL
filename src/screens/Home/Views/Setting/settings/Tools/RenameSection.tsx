@@ -1,10 +1,10 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
-import { Alert, TextInput, View } from 'react-native'
+import { TextInput, View } from 'react-native'
 
 import Text from '@/components/common/Text'
 import { getLocalMusicList } from '@/core/localMusic'
 import { useTheme } from '@/store/theme/hook'
-import { createStyle, toast } from '@/utils/tools'
+import { confirmDialog, createStyle, toast } from '@/utils/tools'
 import type { LibraryHealth } from './health'
 import {
   DEFAULT_RENAME_TEMPLATE,
@@ -37,12 +37,12 @@ interface Props {
   onChanged: () => void
 }
 
-const STATUS_TAG: Record<RenamePreviewItem['status'], string> = {
-  ok: '将改名',
-  unchanged: '名字相同',
-  conflict: '冲突',
-  saf: 'SAF 跳过',
-  invalid: '无效',
+const STATUS_TAG: Record<RenamePreviewItem['status'], { label: string, tone: 'primary' | 'muted' | 'warning' }> = {
+  ok: { label: '将改名', tone: 'primary' },
+  unchanged: { label: '名字相同', tone: 'muted' },
+  conflict: { label: '冲突', tone: 'warning' },
+  saf: { label: 'SAF 跳过', tone: 'muted' },
+  invalid: { label: '无效', tone: 'warning' },
 }
 
 /**
@@ -134,15 +134,15 @@ export default memo(({ health, scanning, onChanged }: Props) => {
 
   const handleRun = useCallback(() => {
     if (!preview || !stat?.ok || !okPreviewItem) return
-    Alert.alert(
-      '批量重命名',
-      `将重命名 ${stat.ok} 首歌曲，同时改名同名 .lrc 并更新曲库。\n\n` +
-      `模板：${template}\n示例：${renderRenameName(okPreviewItem, template)}`,
-      [
-        { text: '取消', style: 'cancel' },
-        { text: '开始改名', onPress: () => { void doRename() } },
-      ],
-    )
+    void confirmDialog({
+      title: '批量重命名',
+      message: `将重命名 ${stat.ok} 首歌曲，同时改名同名 .lrc 并更新曲库。\n\n` +
+        `模板：${template}\n示例：${renderRenameName(okPreviewItem, template)}`,
+      cancelButtonText: '取消',
+      confirmButtonText: '开始改名',
+    }).then(confirm => {
+      if (confirm) void doRename()
+    })
   }, [preview, stat, okPreviewItem, template, doRename])
 
   const rows: PreviewRow[] = (preview ?? [])
@@ -153,7 +153,8 @@ export default memo(({ health, scanning, onChanged }: Props) => {
       item: item.item,
       title: item.newName || '（渲染为空）',
       sub: `原名：${item.oldName || '未知'}${item.reason ? ` · ${item.reason}` : ''}`,
-      tags: STATUS_TAG[item.status],
+      tags: STATUS_TAG[item.status].label,
+      tagTone: STATUS_TAG[item.status].tone,
     }))
 
   const chips = stat

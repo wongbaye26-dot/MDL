@@ -52,7 +52,18 @@ export default ({ label, active = false, soft = false, size = 'md', icon, onPres
         style={{ ...(isSm ? styles.chipSm : styles.chipMd), backgroundColor, borderColor }}
       >
         { icon ? <Icon name={icon} size={isSm ? 10 : 11} color={color} style={styles.icon} /> : null }
-        <Text size={isSm ? 11 : 12} color={color} numberOfLines={1} style={styles.label}>{label}</Text>
+        <Text
+          size={isSm ? 11 : 12}
+          color={color}
+          numberOfLines={1}
+          style={{
+            ...styles.label,
+            // 胶囊是固定高度 + alignItems center 的，这里再关掉 Android 字号自带的
+            // 上下 font padding，保证中英数混排时文字都在胶囊正中间
+            includeFontPadding: false,
+            textAlignVertical: 'center',
+          }}
+        >{label}</Text>
       </TouchableOpacity>
     </Animated.View>
   )

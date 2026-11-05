@@ -9,6 +9,7 @@ import { COMPONENT_IDS } from '@/config/constant'
 import Vertical from './Vertical'
 import Horizontal from './Horizontal'
 import PlayerTransition from './Vertical/PlayerTransition'
+import AppDialogHost from '@/components/common/AppDialog'
 import { requestStartupPermissions } from '@/core/permissions'
 
 
@@ -50,6 +51,8 @@ export default ({ componentId }: Props) => {
           转场层如果挂在里面会跟着一起飞走（实测飞行封面会跑到屏幕外）。
         */}
         {isHorizontalMode ? null : <PlayerTransition />}
+        {/* 全局 Material You 弹窗宿主：Home 常驻，一个实例覆盖所有页面（RN Modal 是 Activity 级 Dialog） */}
+        <AppDialogHost />
       </PageContent>
     </CutoutCompensator>
   )

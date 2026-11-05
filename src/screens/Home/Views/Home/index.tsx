@@ -246,7 +246,11 @@ export default () => {
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={{ paddingBottom: NAV_BAR_SPACE }}>
+      {/* 首页主滚动：不要右侧滚动条（Material You 的滚动容器默认不画 indicator） */}
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: NAV_BAR_SPACE }}
+        showsVerticalScrollIndicator={false}
+      >
         <PageHeader
           title='Emo音乐'
           right={<HeaderButton icon='search-2' onPress={() => { setSearchVisible(true) }} />}

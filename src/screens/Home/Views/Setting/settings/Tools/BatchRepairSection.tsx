@@ -1,9 +1,9 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
-import { Alert, ScrollView, StyleSheet, View } from 'react-native'
+import { ScrollView, StyleSheet, View } from 'react-native'
 
 import Text from '@/components/common/Text'
 import { useTheme } from '@/store/theme/hook'
-import { createStyle, toast } from '@/utils/tools'
+import { confirmDialog, createStyle, toast } from '@/utils/tools'
 import {
   buildBatchRepairReport,
   countBatchRepairTotal,
@@ -90,15 +90,15 @@ export default memo(({ health, scanning, onChanged }: Props) => {
 
   const handlePress = useCallback(() => {
     if (runningRef.current || !total) return
-    Alert.alert(
-      '一键修复曲库',
-      `将按「补封面 → 刮削标签 → 补歌词」的顺序处理 ${total} 首歌曲。\n\n` +
-      '过程可以随时停止，已完成的结果会保留；联网请求较多，建议在 Wi-Fi 下进行。',
-      [
-        { text: '取消', style: 'cancel' },
-        { text: '开始', onPress: () => { void handleStart() } },
-      ],
-    )
+    void confirmDialog({
+      title: '一键修复曲库',
+      message: `将按「补封面 → 刮削标签 → 补歌词」的顺序处理 ${total} 首歌曲。\n\n` +
+        '过程可以随时停止，已完成的结果会保留；联网请求较多，建议在 Wi-Fi 下进行。',
+      cancelButtonText: '取消',
+      confirmButtonText: '开始',
+    }).then(confirm => {
+      if (confirm) void handleStart()
+    })
   }, [total, handleStart])
 
   const handleStop = useCallback(() => {

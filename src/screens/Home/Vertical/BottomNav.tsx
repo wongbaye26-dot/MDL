@@ -142,16 +142,21 @@ export default memo(() => {
     return () => { registerDiscNode(null) }
   }, [])
 
-  /** 呼吸灯：进度层的整体透明度缓慢起伏（native driver，不占 JS 线程） */
+  /**
+   * 呼吸灯：描边模式边缘进度光的整体透明度缓慢起伏（native driver，不占 JS 线程）。
+   * ring / none 模式不会挂载边缘进度光，这里也直接把动画停掉 —— 默认样式下胶囊常驻，
+   * 不该留一个没人用的动画在 UI 线程空转。
+   */
   const breathe = useRef(new Animated.Value(0.62)).current
   useEffect(() => {
+    if (progressStyle !== 'border') return
     const anim = Animated.loop(Animated.sequence([
       Animated.timing(breathe, { toValue: 1, duration: 1900, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
       Animated.timing(breathe, { toValue: 0.62, duration: 1900, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
     ]))
     anim.start()
     return () => { anim.stop() }
-  }, [breathe])
+  }, [breathe, progressStyle])
 
   const openPlayer = useCallback(() => {
     if (activeId === 'nav_player') return
@@ -255,20 +260,41 @@ export default memo(() => {
         />
 
         {/*
-          边缘描边弱化成「跑马灯呼吸」的局部高光：
-          不再画一圈完整实线，而是上下两条很薄的白色光带沿长边缓慢移动，
-          整体透明度再做慢呼吸。光带被胶囊圆角裁切，绕到端部会自然消失。
+          进度样式按用户设置分流（Material You）：
+          - 胶囊描边（border）：跑马灯呼吸光带 + 贴着边缘的进度光（一圈柔光，不是线）。
+            这是「描边」样式专属的外圈动效；
+          - 封面圆环（ring，迁移后的默认）：外圈保持「干净」——不画任何动画光带，
+            只留 0.5dp 极淡静态 outline 定义胶囊边界（M3 的 outline-variant 做法），
+            进度完全交给右侧封面圆环；
+          - 关闭（none）：外圈什么都不画。
         */}
-        <CapsuleSheen width={barSize.w} height={barSize.h} dark={isDark} />
-
-        {/* 播放进度：沿胶囊边缘的一圈柔光，没有边框线 */}
-        <CapsuleProgress
-          width={barSize.w}
-          height={barSize.h}
-          progress={progressStyle === 'border' ? progress : 0}
-          color={theme['c-primary']}
-          breathe={breathe}
-        />
+        {
+          progressStyle === 'border'
+            ? (
+              <>
+                <CapsuleSheen width={barSize.w} height={barSize.h} dark={isDark} />
+                <CapsuleProgress
+                  width={barSize.w}
+                  height={barSize.h}
+                  progress={progress}
+                  color={theme['c-primary']}
+                  breathe={breathe}
+                />
+              </>
+              )
+            : progressStyle === 'ring'
+              ? (
+                <View
+                  pointerEvents='none'
+                  style={{
+                    ...styles.outline,
+                    // 极淡的 Material You outline-variant：只看得出胶囊边界，不像一条实线
+                    borderColor: isDark ? 'rgba(255,255,255,0.09)' : 'rgba(110,98,133,0.16)',
+                  }}
+                />
+                )
+              : null
+        }
 
         {/*
           选中圆底只画一颗：切换 Tab 时沿槽位 translateX 用 spring 滑过去，
@@ -357,6 +383,16 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.5,
     shadowRadius: 32,
     shadowOffset: { width: 0, height: 14 },
+  },
+  /** 封面圆环模式下的极淡静态描边：只定义边界，不带任何动画 */
+  outline: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    borderRadius: BAR_RADIUS,
+    borderWidth: 0.5,
   },
   gloss: {
     position: 'absolute',

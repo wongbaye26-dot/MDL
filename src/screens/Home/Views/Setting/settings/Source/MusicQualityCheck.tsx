@@ -4,6 +4,7 @@ import { View } from 'react-native'
 import Section from '../../components/Section'
 import Button from '../../components/Button'
 import Text from '@/components/common/Text'
+import Tag from '@/components/common/Tag'
 import Input from '@/components/common/Input'
 import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
@@ -52,15 +53,7 @@ const ResultItem = ({ result }: { result: SourceCheckResult }) => {
           <Text size={12.5} numberOfLines={1} style={styles.resultName}>{result.sourceName}</Text>
         </View>
         <Text size={10} color={statusColor} style={styles.resultStatus}>{statusText}</Text>
-        {
-          result.bestQuality
-            ? (
-              <View style={{ ...styles.bestTag, backgroundColor: theme['c-primary-alpha-700'] }}>
-                <Text size={9} color={theme['c-primary-light-200']}>{t('setting_source_check_best')} {qualityLabel(result.bestQuality)}</Text>
-              </View>
-              )
-            : null
-        }
+        {result.bestQuality ? <Tag label={`${t('setting_source_check_best')} ${qualityLabel(result.bestQuality)}`} size='sm' tone='primary' style={styles.bestTag} /> : null}
         {result.latencyMs != null ? <Text size={9.5} color={theme['c-450']} style={styles.latency}>{result.latencyMs}ms</Text> : null}
       </View>
       {
@@ -345,12 +338,6 @@ const styles = createStyle({
   },
   bestTag: {
     marginLeft: 6,
-    paddingLeft: 6,
-    paddingRight: 6,
-    paddingTop: 1,
-    paddingBottom: 1,
-    borderRadius: 5,
-    flexShrink: 0,
   },
   latency: {
     marginLeft: 6,

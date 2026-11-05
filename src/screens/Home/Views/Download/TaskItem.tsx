@@ -117,15 +117,13 @@ export default memo(({
       >
         <View style={styles.titleRow}>
           <Text numberOfLines={1} size={14} style={styles.name}>{musicInfo.name}</Text>
-        </View>
-        {/*
-          音质 badge 单独放在第二行（和歌手同一行）：
-          之前塞在歌名同一行里，Android 的 Text 测量比实际渲染窄 0.5~1dp，
-          `numberOfLines={1}` 就会把「320k」省成「32...」。挪到第二行后 badge
-          不再和歌名抢宽度，auto width 能拿到完整字宽；同时去掉 numberOfLines，
-          文案短、不会被省略。样式仍和「选择下载音质」弹窗的标签一致。
-        */}
-        <View style={styles.metaRow}>
+          {/*
+            音质 badge 放回歌名后面（用户要求）。
+            关键在于「给 badge 里的 Text 本身显式宽度」：Android 上 RN 的文本测量
+            比实际渲染窄 0.5~1dp，只给外层 View 加宽时 TextView 仍会裁掉超出自身
+            布局宽度的字形；这里用 getQualityTextWidth(label) 直接把 Text 的布局宽度
+            给足，配合外层 flexShrink: 0，320k/128k/Hi-Res/FLAC 无损 都能完整显示。
+          */}
           <View style={{
             ...styles.qualityTag,
             backgroundColor: theme['c-primary-alpha-900'],
@@ -137,8 +135,8 @@ export default memo(({
               style={{ width: getQualityTextWidth(qualityLabel), textAlign: 'center' }}
             >{qualityLabel}</Text>
           </View>
-          <Text size={11} color={theme['c-450']} numberOfLines={1} style={styles.singer}>{musicInfo.singer || '未知歌手'}</Text>
         </View>
+        <Text size={11} color={theme['c-450']} numberOfLines={1} style={styles.singer}>{musicInfo.singer || '未知歌手'}</Text>
         <View style={{ ...styles.progressTrack, backgroundColor: theme['c-primary-alpha-700'] }}>
           <View style={{ ...styles.progressBar, width: `${progress}%`, backgroundColor: isCompleted ? SUCCESS : isError ? DANGER : theme['c-primary'] }} />
         </View>
@@ -195,21 +193,18 @@ const styles = createStyle({
     alignItems: 'center',
   },
   name: {
-    flexGrow: 1,
+    // 歌名只占自己需要的宽度（长了才省略），badge 紧跟在后面；
+    // 两者都在同一行时，badge 的 flexShrink: 0 保证不被歌名挤压。
+    flexGrow: 0,
     flexShrink: 1,
     fontWeight: '500',
   },
-  /** 第二行：音质 badge + 歌手（badge 不和歌名抢宽度，不会再被省略成「32...」） */
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 3,
-    marginBottom: 6,
-  },
   /**
-   * 音质标签：放在第二行、auto width（不再和歌名抢宽度）。
-   * 右侧 padding 给得比左侧宽（14 vs 6）：Android 上 Text 测量宽度会比实际渲染少
-   * 约一个字符，右侧多留的空白正好补偿，badge 里的文案就不会被挤到第二行/裁掉。
+   * 音质标签：回到歌名行，和歌名之间留 6dp。
+   *
+   * 宽度不靠 auto width：内部 Text 用 getQualityTextWidth(label) 显式给宽
+   * （Android 文本测量偏窄，只加外层宽度会被 TextView 裁字），外层只负责不参与压缩
+   * 和「选择下载音质」弹窗同款的细描边圆角胶囊。
    */
   qualityTag: {
     flexShrink: 0,
@@ -221,11 +216,14 @@ const styles = createStyle({
     borderWidth: 0.5,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 6,
+    marginLeft: 6,
   },
+  /** 歌手单独一行（恢复 v3.7.0 的行距） */
   singer: {
     flexGrow: 1,
     flexShrink: 1,
+    marginTop: 2,
+    marginBottom: 6,
   },
   progressTrack: {
     height: 3,

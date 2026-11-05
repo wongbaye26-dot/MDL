@@ -1,17 +1,13 @@
 import { memo } from 'react'
-import { StyleSheet, View } from 'react-native'
 
-import Text from './Text'
+import Tag from './Tag'
 import { useTheme } from '@/store/theme/hook'
 
 /**
  * 小标签：一行文字 + 浅色圆角底。
  *
- * 注意两点（都是踩过的坑）：
- * 1. **必须用 View 包 Text**：`flexShrink` 在 RN 的 Text 上不起作用，
- *    直接给 Text 加背景时，放在 flex row 里会被压成「Material...」。
- * 2. 外层 View 一定要 `flexShrink: 0`，否则它自己也会被压缩，
- *    宽度算成很小、文字被裁。
+ * 对齐和尺寸统一走 `Tag`（固定高度 + 垂直居中 + 关掉 Android 字体额外 padding），
+ * 这里只保留旧 API（text / color / bg）兼容各页面调用方。
  */
 export default memo(({ text, color, bg }: {
   text: string
@@ -20,21 +16,12 @@ export default memo(({ text, color, bg }: {
 }) => {
   const theme = useTheme()
   return (
-    <View style={[styles.tag, { backgroundColor: bg ?? theme['c-primary-alpha-900'] }]}>
-      <Text size={9.5} color={color ?? theme['c-450']}>{text}{'\u2009'}</Text>
-    </View>
+    <Tag
+      label={text}
+      size='sm'
+      bg={bg ?? theme['c-primary-alpha-900']}
+      color={color ?? theme['c-450']}
+      style={{ marginRight: 5 }}
+    />
   )
-})
-
-const styles = StyleSheet.create({
-  tag: {
-    flexShrink: 0,
-    flexGrow: 0,
-    paddingLeft: 5,
-    paddingRight: 8,
-    paddingTop: 2,
-    paddingBottom: 2,
-    borderRadius: 5,
-    marginRight: 5,
-  },
 })

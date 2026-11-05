@@ -2,6 +2,7 @@ import { useCallback } from 'react'
 import { View, TouchableOpacity } from 'react-native'
 
 import Text from '@/components/common/Text'
+import Tag from '@/components/common/Tag'
 import { confirmDialog, createStyle } from '@/utils/tools'
 import { useSheetPalette } from '@/components/common/ActionSheet/palette'
 import { contrastOn } from '@/theme/solid'
@@ -63,24 +64,8 @@ const ListItem = ({ item, activeId, onRemove, onChangeAllowShowUpdateAlert }: {
             <View style={styles.nameWrap}>
               <Text size={15} numberOfLines={1} color={palette.text} style={styles.name}>{item.name}</Text>
             </View>
-            {
-              item.version
-                ? (
-                  <View style={{ ...styles.versionTag, backgroundColor: palette.bg }}>
-                    <Text size={9} color={palette.textSecondary}>{formatVersionName(item.version)}</Text>
-                  </View>
-                  )
-                : null
-            }
-            {
-              active
-                ? (
-                  <View style={{ ...styles.activeTag, backgroundColor: palette.primary }}>
-                    <Text size={9} color={onPrimary}>当前启用</Text>
-                  </View>
-                  )
-                : null
-            }
+            {item.version ? <Tag label={formatVersionName(item.version)} size='sm' bg={palette.bg} color={palette.textSecondary} style={styles.versionTag} /> : null}
+            {active ? <Tag label='当前启用' size='sm' bg={palette.primary} color={onPrimary} style={styles.activeTag} /> : null}
           </View>
           {
             item.description || item.author
@@ -231,22 +216,10 @@ const styles = createStyle({
     fontWeight: '600',
   },
   versionTag: {
-    flexShrink: 0,
     marginLeft: 6,
-    paddingLeft: 5,
-    paddingRight: 5,
-    paddingTop: 1,
-    paddingBottom: 1,
-    borderRadius: 5,
   },
   activeTag: {
-    flexShrink: 0,
     marginLeft: 6,
-    paddingLeft: 6,
-    paddingRight: 6,
-    paddingTop: 1,
-    paddingBottom: 1,
-    borderRadius: 5,
   },
   desc: {
     marginTop: 5,

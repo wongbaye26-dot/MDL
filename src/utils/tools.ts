@@ -11,6 +11,7 @@ import { scaleSizeH, scaleSizeW, setSpText } from './pixelRatio'
 import { toOldMusicInfo } from './index'
 import { stringMd5 } from 'react-native-quick-md5'
 import { windowSizeTools } from '@/utils/windowSizeTools'
+import { isAppDialogAvailable, showAppDialog } from '@/components/common/AppDialog/service'
 
 
 // https://stackoverflow.com/a/47349998
@@ -189,7 +190,31 @@ export const confirmDialog = async({
   cancelButtonText = global.i18n.t('dialog_cancel'),
   confirmButtonText = global.i18n.t('dialog_confirm'),
   bgClose = true,
+  danger = false,
+}: {
+  title?: string
+  message?: string
+  cancelButtonText?: string
+  confirmButtonText?: string
+  bgClose?: boolean
+  /** 危险操作（删除/清理）：确认按钮用危险色，与 Material You 的 error 语义一致 */
+  danger?: boolean
 }) => {
+  // 优先走 App 内统一 Material You 弹窗；宿主不在（启动早期/特殊页面）时回退系统 Alert，行为不变
+  if (isAppDialogAvailable()) {
+    return new Promise<boolean>(resolve => {
+      showAppDialog({
+        title,
+        message,
+        bgClose,
+        onDismiss: () => { resolve(false) },
+        actions: [
+          { text: cancelButtonText, style: 'cancel', onPress: () => { resolve(false) } },
+          { text: confirmButtonText, style: danger ? 'danger' : 'primary', onPress: () => { resolve(true) } },
+        ],
+      })
+    })
+  }
   return new Promise<boolean>(resolve => {
     Alert.alert(title, message, [
       {
@@ -219,6 +244,19 @@ export const tipDialog = async({
   btnText = global.i18n.t('dialog_confirm'),
   bgClose = true,
 }) => {
+  if (isAppDialogAvailable()) {
+    return new Promise<void>(resolve => {
+      showAppDialog({
+        title,
+        message,
+        bgClose,
+        onDismiss: () => { resolve() },
+        actions: [
+          { text: btnText, style: 'primary', onPress: () => { resolve() } },
+        ],
+      })
+    })
+  }
   return new Promise<void>(resolve => {
     Alert.alert(title, message, [
       {
@@ -246,6 +284,35 @@ export const checkNotificationPermission = async() => {
   if (isHide != null) return
   const enabled = await isNotificationsEnabled()
   if (enabled) return
+  if (isAppDialogAvailable()) {
+    return new Promise<void>((resolve) => {
+      const handleAgree = () => {
+        requestAnimationFrame(() => {
+          void requestNotificationPermission().then((result) => {
+            if (!result) toast(global.i18n.t('disagree_tip'))
+            resolve()
+          })
+        })
+      }
+      showAppDialog({
+        title: global.i18n.t('notifications_check_title'),
+        message: global.i18n.t('notifications_check_tip'),
+        bgClose: false,
+        actions: [
+          { text: global.i18n.t('agree_go'), style: 'primary', onPress: handleAgree },
+          { text: global.i18n.t('disagree'), onPress: () => { toast(global.i18n.t('disagree_tip')); resolve() } },
+          {
+            text: global.i18n.t('never_show'),
+            onPress: () => {
+              void saveData(storageDataPrefix.notificationTipEnable, '1')
+              toast(global.i18n.t('disagree_tip'))
+              resolve()
+            },
+          },
+        ],
+      })
+    })
+  }
   return new Promise<void>((resolve) => {
     Alert.alert(
       global.i18n.t('notifications_check_title'),
@@ -288,6 +355,35 @@ export const checkIgnoringBatteryOptimization = async() => {
   if (isHide != null) return
   const enabled = await isIgnoringBatteryOptimization()
   if (enabled) return
+  if (isAppDialogAvailable()) {
+    return new Promise<void>((resolve) => {
+      const handleAgree = () => {
+        requestAnimationFrame(() => {
+          void requestIgnoreBatteryOptimization().then((result) => {
+            if (!result) toast(global.i18n.t('disagree_tip'))
+            resolve()
+          })
+        })
+      }
+      showAppDialog({
+        title: global.i18n.t('ignoring_battery_optimization_check_title'),
+        message: global.i18n.t('ignoring_battery_optimization_check_tip'),
+        bgClose: false,
+        actions: [
+          { text: global.i18n.t('agree_to'), style: 'primary', onPress: handleAgree },
+          { text: global.i18n.t('disagree'), onPress: () => { toast(global.i18n.t('disagree_tip')); resolve() } },
+          {
+            text: global.i18n.t('never_show'),
+            onPress: () => {
+              void saveData(storageDataPrefix.ignoringBatteryOptimizationTipEnable, '1')
+              toast(global.i18n.t('disagree_tip'))
+              resolve()
+            },
+          },
+        ],
+      })
+    })
+  }
   return new Promise<void>((resolve) => {
     Alert.alert(
       global.i18n.t('ignoring_battery_optimization_check_title'),

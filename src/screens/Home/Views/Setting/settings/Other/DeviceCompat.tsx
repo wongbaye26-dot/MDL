@@ -1,8 +1,10 @@
 import { memo, useCallback, useEffect, useState } from 'react'
-import { AppState, TouchableOpacity, View } from 'react-native'
+import { AppState, View } from 'react-native'
 
 import Section from '../../components/Section'
+import SettingRow from '../../components/SettingRow'
 import Text from '@/components/common/Text'
+import Tag from '@/components/common/Tag'
 import { Icon } from '@/components/common/Icon'
 import { useTheme } from '@/store/theme/hook'
 import { createStyle, isAndroid, toast } from '@/utils/tools'
@@ -24,7 +26,7 @@ interface RowProps {
   title: string
   desc?: string
   stateText?: string
-  stateColor?: string
+  stateTone?: 'success' | 'warning' | 'muted'
   onPress?: () => void
 }
 
@@ -104,23 +106,16 @@ export default memo(() => {
 
   if (!isAndroid) return null
 
-  const Row = ({ icon, title, desc, stateText, stateColor, onPress }: RowProps) => (
-    <TouchableOpacity
-      style={styles.row}
-      activeOpacity={0.7}
-      disabled={onPress == null}
+  const Row = ({ icon, title, desc, stateText, stateTone, onPress }: RowProps) => (
+    <SettingRow
+      icon={icon}
+      title={title}
+      desc={desc}
       onPress={onPress}
-    >
-      <View style={{ ...styles.iconWrap, backgroundColor: theme['c-primary-alpha-900'] }}>
-        <Icon name={icon} size={17} color={theme['c-primary']} />
-      </View>
-      <View style={styles.info}>
-        <Text size={14} numberOfLines={1}>{title}</Text>
-        {desc ? <Text size={11} color={theme['c-450']} numberOfLines={2} style={styles.desc}>{desc}</Text> : null}
-      </View>
-      {stateText ? <Text size={11} color={stateColor ?? theme['c-450']} style={styles.stateText}>{stateText}</Text> : null}
-      {onPress ? <Icon name='chevron-right' size={16} color={theme['c-350']} /> : null}
-    </TouchableOpacity>
+      right={stateText
+        ? <Tag label={stateText} size='sm' tone={stateTone ?? 'muted'} />
+        : onPress ? <Icon name='chevron-right' size={16} color={theme['c-350']} /> : null}
+    />
   )
 
   const brandTips = getBrandTips(brandInfo?.brandKey ?? 'generic')
@@ -140,7 +135,7 @@ export default memo(() => {
           title='通知权限'
           desc='播放控制通知、下载进度通知必需（Android 13+ 需手动允许）'
           stateText={status == null ? '检测中…' : status.notificationsEnabled ? '已开启' : '去开启'}
-          stateColor={status?.notificationsEnabled ? theme['c-primary'] : theme['c-450']}
+          stateTone={status?.notificationsEnabled ? 'success' : 'muted'}
           onPress={() => { void handleNotification() }}
         />
         <Row
@@ -148,7 +143,7 @@ export default memo(() => {
           title='所有文件访问权限'
           desc='写入公共 Music 目录、重扫本地曲库需要（Android 11+）'
           stateText={status == null ? '检测中…' : status.allFilesAccess ? '已允许' : '去开启'}
-          stateColor={status?.allFilesAccess ? theme['c-primary'] : theme['c-450']}
+          stateTone={status?.allFilesAccess ? 'success' : 'muted'}
           onPress={() => { void handleAllFiles() }}
         />
         <Row
@@ -156,7 +151,7 @@ export default memo(() => {
           title='电池优化'
           desc='允许后台运行，避免锁屏/切后台后播放被系统清理'
           stateText={status == null ? '检测中…' : status.ignoringBatteryOptimization ? '已允许' : '受限'}
-          stateColor={status?.ignoringBatteryOptimization ? theme['c-primary'] : theme['c-450']}
+          stateTone={status?.ignoringBatteryOptimization ? 'success' : 'warning'}
           onPress={() => { void handleBattery() }}
         />
         <Row
@@ -194,35 +189,6 @@ export default memo(() => {
 })
 
 const styles = createStyle({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingLeft: 12,
-    paddingRight: 14,
-    paddingTop: 10,
-    paddingBottom: 10,
-  },
-  iconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 10,
-  },
-  info: {
-    flexGrow: 1,
-    flexShrink: 1,
-    paddingRight: 8,
-  },
-  desc: {
-    marginTop: 2,
-    lineHeight: 15,
-  },
-  stateText: {
-    marginRight: 5,
-    fontWeight: '600',
-  },
   tips: {
     paddingLeft: 14,
     paddingRight: 14,

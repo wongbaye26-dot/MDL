@@ -1,18 +1,23 @@
 import { memo, useRef, useState, useEffect } from 'react'
 import { View } from 'react-native'
 import { getLogs, clearLogs } from '@/utils/log'
-// import { gzip, ungzip } from 'pako'
 
-import SubTitle from '../../components/SubTitle'
-import Button from '../../components/Button'
-import { createStyle, toast } from '@/utils/tools'
+import SettingRow from '../../components/SettingRow'
 import ConfirmAlert, { type ConfirmAlertType } from '@/components/common/ConfirmAlert'
 import CheckBoxItem from '../../components/CheckBoxItem'
+import { Icon } from '@/components/common/Icon'
+import { useTheme } from '@/store/theme/hook'
+import { toast } from '@/utils/tools'
 import { useI18n } from '@/lang'
 import Text from '@/components/common/Text'
 
+/**
+ * 错误日志：开关 + 「查看日志」行统一成设置页卡片行语言，
+ * 日志内容沿用 App 内 ConfirmAlert 弹窗（不是系统 Alert）。
+ */
 export default memo(() => {
   const t = useI18n()
+  const theme = useTheme()
   const alertRef = useRef<ConfirmAlertType>(null)
   const [logText, setLogText] = useState('')
   const isUnmountedRef = useRef(true)
@@ -23,7 +28,6 @@ export default memo(() => {
     void getLogs().then(log => {
       if (isUnmountedRef.current) return
       const logArr = log.split(/^----lx log----\n|\n----lx log----\n|\n----lx log----$/)
-      // console.log(logArr)
       logArr.reverse()
       setLogText(logArr.join('\n\n').replace(/^\n+|\n+$/, ''))
     })
@@ -51,7 +55,6 @@ export default memo(() => {
     global.lx.isEnableUserApiLog = enable
   }
 
-
   useEffect(() => {
     isUnmountedRef.current = false
     return () => {
@@ -59,17 +62,21 @@ export default memo(() => {
     }
   }, [])
 
+  const dividerStyle = { height: 0.5, marginLeft: 14, backgroundColor: theme['c-primary-alpha-700'] }
+
   return (
-    <>
-      <SubTitle title={t('setting_other_log')}>
-        <View style={styles.checkBox}>
-          <CheckBoxItem check={isEnableSyncErrorLog} label={t('setting_other_log_sync_log')} onChange={handleSetEnableSyncErrorLog} />
-          <CheckBoxItem check={isEnableUserApiLog} label={t('setting_other_log_user_api_log')} onChange={handleSetEnableUserApiLog} />
-        </View>
-        <View style={styles.btn}>
-          <Button onPress={openLogModal}>{t('setting_other_log_btn_show')}</Button>
-        </View>
-      </SubTitle>
+    <View>
+      <CheckBoxItem check={isEnableSyncErrorLog} label={t('setting_other_log_sync_log')} onChange={handleSetEnableSyncErrorLog} />
+      <View style={dividerStyle} />
+      <CheckBoxItem check={isEnableUserApiLog} label={t('setting_other_log_user_api_log')} onChange={handleSetEnableUserApiLog} />
+      <View style={dividerStyle} />
+      <SettingRow
+        icon='file-document-outline'
+        title={t('setting_other_log_btn_show')}
+        desc={t('setting_other_log')}
+        onPress={openLogModal}
+        right={<Icon name='chevron-right' size={16} color={theme['c-350']} />}
+      />
       <ConfirmAlert
         ref={alertRef}
         cancelText={t('setting_other_log_btn_hide')}
@@ -77,27 +84,15 @@ export default memo(() => {
         onConfirm={handleCleanLog}
         showConfirm={!!logText}
         reverseBtn={true}
-        >
+      >
         <View onStartShouldSetResponder={() => true}>
           {
             logText
-              ? <Text selectable size={13}>{ logText }</Text>
+              ? <Text selectable size={13}>{logText}</Text>
               : <Text size={13}>{t('setting_other_log_tip_null')}</Text>
           }
         </View>
       </ConfirmAlert>
-    </>
+    </View>
   )
-})
-
-const styles = createStyle({
-  checkBox: {
-    // CheckBoxItem 自带 14 的左内边距，SubTitle 也有 14，
-    // 这里抵消一层，让开关行和卡片里其它行左边缘对齐（之前是 -25，会明显偏左）
-    marginLeft: -14,
-    paddingBottom: 12,
-  },
-  btn: {
-    flexDirection: 'row',
-  },
 })

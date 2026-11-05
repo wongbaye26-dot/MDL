@@ -1,22 +1,21 @@
 import { memo, useState, useEffect } from 'react'
-import { StyleSheet, View } from 'react-native'
+import { View } from 'react-native'
 
-// import { gzip, ungzip } from 'pako'
-
-import SubTitle from '../../components/SubTitle'
+import SettingRow from '../../components/SettingRow'
 import Button from '../../components/Button'
-import { toast } from '@/utils/tools'
+import { toast, createStyle } from '@/utils/tools'
 import { useI18n } from '@/lang'
-import Text from '@/components/common/Text'
 import { clearLyric, clearOtherSource, getMetaCache } from '@/utils/data'
 
+/**
+ * 歌曲信息缓存：和资源缓存同一套行语言，清理按钮放到标题下方一行。
+ */
 export default memo(() => {
   const t = useI18n()
   const [otherSourceCleaning, setOtherSourceCleaning] = useState(false)
   const [lyricCleaning, setLyricCleaning] = useState(false)
   const [cacheInfo, setCacheInfo] = useState<{
     otherSourceKeys: null | string[]
-    // musicUrlKeys: null | string[]
     lyricKeys: null | string[]
   }>({ otherSourceKeys: null, lyricKeys: null })
 
@@ -48,36 +47,32 @@ export default memo(() => {
     })
   }
 
-
   useEffect(() => {
     handleGetMetaCache()
   }, [])
 
+  const otherSourceNum = cacheInfo.otherSourceKeys == null ? t('setting_other_cache_getting') : String(cacheInfo.otherSourceKeys.length)
+  const lyricNum = cacheInfo.lyricKeys == null ? t('setting_other_cache_getting') : String(cacheInfo.lyricKeys.length)
+
   return (
-    <>
-      <SubTitle title={t('setting__other_meta_cache')}>
-        <View style={styles.cacheSize}>
-          <Text>{cacheInfo.otherSourceKeys == null ? t('setting_other_cache_getting') : `${t('setting__other_other_source_label')}${cacheInfo.otherSourceKeys.length}`}</Text>
-          {/* <Text>{cacheInfo.musicUrlKeys == null ? t('setting_other_cache_getting') : `${t('setting__other_music_url_label')}${cacheInfo.musicUrlKeys.length}`}</Text> */}
-          <Text>{cacheInfo.lyricKeys == null ? t('setting_other_cache_getting') : `${t('setting__other_lyric_raw_label')}${cacheInfo.lyricKeys.length}`}</Text>
-        </View>
-        <View style={styles.clearBtn}>
-          <Button disabled={otherSourceCleaning} onPress={handleCleanOtherSourceCache}>{t('setting__other_other_source_clear_btn')}</Button>
-          {/* <Button disabled={cleaning} onPress={handleCleanMusicUrlCache}>{t('setting__other_music_url_clear_btn')}</Button> */}
-          <Button disabled={lyricCleaning} onPress={handleCleanLyricKeysCache}>{t('setting__other_lyric_raw_clear_btn')}</Button>
-        </View>
-      </SubTitle>
-    </>
+    <SettingRow
+      icon='database-outline'
+      title='歌曲信息缓存'
+      desc={`${t('setting__other_other_source_label')}${otherSourceNum} · ${t('setting__other_lyric_raw_label')}${lyricNum}`}
+    >
+      <View style={styles.btns}>
+        <Button disabled={otherSourceCleaning} onPress={handleCleanOtherSourceCache}>{t('setting__other_other_source_clear_btn')}</Button>
+        <Button disabled={lyricCleaning} onPress={handleCleanLyricKeysCache}>{t('setting__other_lyric_raw_clear_btn')}</Button>
+      </View>
+    </SettingRow>
   )
 })
 
-const styles = StyleSheet.create({
-  cacheSize: {
-    marginBottom: 5,
-  },
-  clearBtn: {
-    gap: 5,
+const styles = createStyle({
+  btns: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    marginTop: 6,
+    marginLeft: -10,
   },
 })

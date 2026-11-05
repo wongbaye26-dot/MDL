@@ -3,6 +3,7 @@ import { View } from 'react-native'
 
 import Section from '../../components/Section'
 import Text from '@/components/common/Text'
+import Tag from '@/components/common/Tag'
 import Chip from '@/components/common/Chip'
 import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
@@ -32,15 +33,7 @@ export default memo(() => {
                 <View key={source} style={styles.row}>
                   <View style={styles.head}>
                     <Text size={13} numberOfLines={1} style={styles.sourceName}>{getSourceDisplayName(source)}</Text>
-                    {
-                      topQuality
-                        ? (
-                          <View style={{ ...styles.topTag, backgroundColor: theme['c-primary-alpha-700'] }}>
-                            <Text size={9} color={theme['c-primary-light-200']}>{qualityLabel(topQuality)}</Text>
-                          </View>
-                          )
-                        : null
-                    }
+                    {topQuality ? <Tag label={qualityLabel(topQuality)} size='sm' tone='primary' style={styles.topTag} /> : null}
                   </View>
                   <View style={styles.chips}>
                     {
@@ -85,11 +78,6 @@ const styles = createStyle({
   },
   topTag: {
     marginLeft: 8,
-    paddingLeft: 6,
-    paddingRight: 6,
-    paddingTop: 1,
-    paddingBottom: 1,
-    borderRadius: 5,
   },
   chips: {
     flexDirection: 'row',

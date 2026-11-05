@@ -1,11 +1,12 @@
 import { memo } from 'react'
-import { Switch, TouchableOpacity, View } from 'react-native'
+import { TouchableOpacity, View } from 'react-native'
 
 import { type CheckBoxProps } from '@/components/common/CheckBox'
 import { Icon } from '@/components/common/Icon'
 import Text from '@/components/common/Text'
 import { useTheme } from '@/store/theme/hook'
 import { createStyle, tipDialog } from '@/utils/tools'
+import Toggle from './Toggle'
 
 
 export default memo(({ check, label, children, onChange, helpTitle, helpDesc, disabled = false }: CheckBoxProps) => {
@@ -47,14 +48,7 @@ export default memo(({ check, label, children, onChange, helpTitle, helpDesc, di
             )
           : null
       }
-      <Switch
-        value={check}
-        disabled={disabled}
-        onValueChange={onChange}
-        trackColor={{ false: theme['c-primary-alpha-700'], true: theme['c-primary'] }}
-        thumbColor='#FFFFFF'
-        style={styles.switch}
-      />
+      <Toggle value={check} disabled={disabled} />
     </TouchableOpacity>
   )
 })
@@ -64,7 +58,7 @@ const styles = createStyle({
     flexDirection: 'row',
     alignItems: 'center',
     paddingLeft: 14,
-    paddingRight: 10,
+    paddingRight: 14,
     paddingTop: 11,
     paddingBottom: 11,
   },
@@ -78,8 +72,5 @@ const styles = createStyle({
   },
   help: {
     marginRight: 6,
-  },
-  switch: {
-    transform: [{ scale: 0.82 }],
   },
 })

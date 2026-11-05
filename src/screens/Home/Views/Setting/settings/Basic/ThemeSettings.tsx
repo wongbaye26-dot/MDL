@@ -190,6 +190,8 @@ const styles = createStyle({
   modeLabel: {
     marginLeft: 6,
     fontWeight: '500',
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
   colorHead: {
     flexDirection: 'row',

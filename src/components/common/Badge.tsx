@@ -1,23 +1,21 @@
 import { memo, useMemo } from 'react'
 import { createStyle } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
+import { setSpText } from '@/utils/pixelRatio'
 import Text from './Text'
 // const menuItemHeight = 42
 // const menuItemWidth = 100
 
 const styles = createStyle({
   text: {
-    // paddingLeft: 4,
-    // paddingRight: 4,
-    // borderRadius: 2,
-    // lineHeight: 12,
-    // marginTop: 2,
     marginRight: 5,
     fontWeight: '400',
-    // marginRight: 5,
-    // marginBottom: 2,
-    // alignSelf: 'flex-start',
     alignSelf: 'center',
+    // 和行内 11sp 文本同一基线：关掉字体额外 padding，行高压到和字号匹配，
+    // 避免中英数混排时角标看起来比右侧文字低半像素
+    includeFontPadding: false,
+    textAlignVertical: 'center',
+    lineHeight: setSpText(11),
   },
 })
 

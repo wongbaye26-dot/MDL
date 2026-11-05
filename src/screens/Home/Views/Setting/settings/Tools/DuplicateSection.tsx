@@ -1,8 +1,6 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
-import { Alert } from 'react-native'
-
 import { cleanSongName } from '@/utils/songName'
-import { toast } from '@/utils/tools'
+import { confirmDialog, toast } from '@/utils/tools'
 import {
   buildDuplicateReport,
   removeDuplicateEntries,
@@ -78,15 +76,16 @@ export default memo(({ health, scanning, onChanged }: Props) => {
 
   const handlePress = useCallback(() => {
     if (runningRef.current || !extrasCount) return
-    Alert.alert(
-      '清理重复歌曲',
-      `曲库里有 ${groups.length} 组重复（共 ${extrasCount} 首多余）。\n\n` +
-      '每组保留体积最大的一首，其余只从曲库移除记录，不会删除任何磁盘文件。',
-      [
-        { text: '取消', style: 'cancel' },
-        { text: '清理', style: 'destructive', onPress: () => { void doRemove() } },
-      ],
-    )
+    void confirmDialog({
+      title: '清理重复歌曲',
+      message: `曲库里有 ${groups.length} 组重复（共 ${extrasCount} 首多余）。\n\n` +
+        '每组保留体积最大的一首，其余只从曲库移除记录，不会删除任何磁盘文件。',
+      cancelButtonText: '取消',
+      confirmButtonText: '清理',
+      danger: true,
+    }).then(confirm => {
+      if (confirm) void doRemove()
+    })
   }, [groups.length, extrasCount, doRemove])
 
   const rows: PreviewRow[] = groups.slice(0, 30).map(group => {
@@ -98,6 +97,7 @@ export default memo(({ health, scanning, onChanged }: Props) => {
       title: cleanSongName(keep.name, keep.singer),
       sub: `${keep.singer || '未知歌手'} · 组内 ${group.items.length} 首，保留体积最大的这首`,
       tags: `重复 ${rest} 首`,
+      tagTone: 'muted' as const,
     }
   })
 
