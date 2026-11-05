@@ -3,14 +3,15 @@ import { View, TouchableOpacity } from 'react-native'
 
 import Text from '@/components/common/Text'
 import { Icon } from '@/components/common/Icon'
+import Section from '../components/Section'
 import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
 import { useSettingValue } from '@/store/setting/hook'
 import { useStatus, useUserApiList } from '@/store/userApi'
 import { createStyle } from '@/utils/tools'
 import { QUALITY_LABEL } from '@/core/download/utils'
-import { SETTING_SCREENS, type SettingScreenIds } from '../Main'
-import { SCREEN_META } from '../components/screenMeta'
+import { type SettingScreenIds } from '../Main'
+import { SCREEN_META, SCREEN_GROUPS } from '../components/screenMeta'
 
 // 存储里的语言值是 zh_cn 这种下划线写法，映射表用的是连字符，取之前统一一下
 const LANG_LABEL: Record<string, string> = {
@@ -22,8 +23,9 @@ const LANG_LABEL: Record<string, string> = {
 const onOff = (value: boolean | undefined) => value ? '开' : '关'
 
 /**
- * 设置首页列表行：36dp 彩色圆角图标 + 标题 + 一行实时摘要 + 右侧 chevron。
- * 整组行放在一张 Material You 卡片里，行间 0.5dp 分隔线（和设置子页 Section 一致）。
+ * 设置首页列表行：40dp 彩色圆角图标 + 标题 + 一行实时摘要 + 右侧 chevron。
+ * 行高/左右内边距比 v3.8.2 放宽，整页按分组拆成 3 张 Section 卡，
+ * 卡片圆角/描边/底色/组标题/分隔线全部复用子设置页的 Section 组件，视觉语言完全一致。
  */
 const Row = memo(({ id, title, preview, onPress }: {
   id: SettingScreenIds
@@ -41,13 +43,13 @@ const Row = memo(({ id, title, preview, onPress }: {
       onPress={() => { onPress(id) }}
     >
       <View style={{ ...styles.iconWrap, backgroundColor: `${meta.color}2E` }}>
-        <Icon name={meta.icon} size={19} color={meta.color} />
+        <Icon name={meta.icon} size={20} color={meta.color} />
       </View>
       <View style={styles.info}>
-        <Text size={14.5} numberOfLines={1} style={styles.title}>{title}</Text>
+        <Text size={15} numberOfLines={1} style={styles.title}>{title}</Text>
         <Text size={11} color={theme['c-450']} numberOfLines={1} style={styles.preview}>{preview}</Text>
       </View>
-      <Icon name='chevron-right' size={17} color={theme['c-350']} />
+      <Icon name='chevron-right' size={18} color={theme['c-350']} />
     </TouchableOpacity>
   )
 })
@@ -95,25 +97,23 @@ export default ({ onPress }: { onPress: (id: SettingScreenIds) => void }) => {
 
   return (
     <View style={styles.container}>
-      <View style={{
-        ...styles.card,
-        backgroundColor: theme['c-primary-alpha-900'],
-        borderColor: theme['c-primary-alpha-700'],
-      }}>
-        {
-          SETTING_SCREENS.map((id, index) => (
-            <View key={id}>
-              {index > 0 ? <View style={{ ...styles.divider, backgroundColor: theme['c-primary-alpha-700'] }} /> : null}
-              <Row
-                id={id}
-                title={t(`setting_${id}` as 'setting_basic')}
-                preview={previews[id]}
-                onPress={onPress}
-              />
-            </View>
-          ))
-        }
-      </View>
+      {
+        SCREEN_GROUPS.map(group => (
+          <Section key={group.title} title={group.title}>
+            {
+              group.ids.map(id => (
+                <Row
+                  key={id}
+                  id={id}
+                  title={t(`setting_${id}` as 'setting_basic')}
+                  preview={previews[id]}
+                  onPress={onPress}
+                />
+              ))
+            }
+          </Section>
+        ))
+      }
     </View>
   )
 }
@@ -122,28 +122,24 @@ const styles = createStyle({
   container: {
     paddingLeft: 16,
     paddingRight: 16,
-  },
-  card: {
-    borderRadius: 18,
-    borderWidth: 0.5,
-    overflow: 'hidden',
+    paddingTop: 2,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    minHeight: 60,
-    paddingLeft: 14,
-    paddingRight: 12,
-    paddingTop: 10,
-    paddingBottom: 10,
+    minHeight: 72,
+    paddingLeft: 16,
+    paddingRight: 16,
+    paddingTop: 14,
+    paddingBottom: 14,
   },
   iconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
+    width: 40,
+    height: 40,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 15,
     flexShrink: 0,
   },
   info: {
@@ -156,10 +152,7 @@ const styles = createStyle({
     fontWeight: '600',
   },
   preview: {
-    marginTop: 3,
-  },
-  divider: {
-    height: 0.5,
-    marginLeft: 14,
+    marginTop: 4,
+    lineHeight: 15,
   },
 })

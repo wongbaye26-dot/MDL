@@ -12,11 +12,13 @@ import { useI18n } from '@/lang'
 
 type FlatListType = FlatListProps<SettingScreenIds>
 
-const ITEM_HEIGHT = scaleSizeH(46)
+// 和竖屏列表同一档呼吸感：行高 54dp（放不下时可滚动）
+const ITEM_HEIGHT = scaleSizeH(54)
 
 /**
- * 横屏设置左侧导航：和竖屏设置首页同一套列表语言
- * （36dp 彩色圆角图标 + 标题 + 选中态主色高亮，顺序与 SETTING_SCREENS 一致）。
+ * 横屏设置左侧导航：与竖屏设置首页同一套列表语言
+ * （彩色圆角图标 + 标题 + 选中态主色高亮，顺序与 SETTING_SCREENS 一致）。
+ * 行高/图标比 v3.8.2 放宽，内容超过可视高度时列表可滚动。
  */
 const ListItem = memo(({ id, activeId, onPress }: {
   onPress: (item: SettingScreenIds) => void
@@ -39,19 +41,19 @@ const ListItem = memo(({ id, activeId, onPress }: {
         onPress={() => { onPress(id) }}
       >
         <View style={{ ...styles.iconWrap, backgroundColor: `${meta.color}2E` }}>
-          <Icon name={meta.icon} size={16} color={meta.color} />
+          <Icon name={meta.icon} size={18} color={meta.color} />
         </View>
         <View style={styles.titleWrap}>
           <Text
             numberOfLines={1}
-            size={13.5}
+            size={14}
             color={active ? theme['c-primary'] : theme['c-font']}
             style={active ? styles.rowTextActive : styles.rowText}
           >
             {t(`setting_${id}`)}
           </Text>
         </View>
-        {active ? <Icon name='chevron-right' size={14} color={theme['c-primary']} /> : null}
+        {active ? <Icon name='chevron-right' size={15} color={theme['c-primary']} /> : null}
       </TouchableOpacity>
     </View>
   )
@@ -96,6 +98,7 @@ export default ({ onChangeId }: {
       windowSize={9}
       removeClippedSubviews={true}
       initialNumToRender={18}
+      showsVerticalScrollIndicator={false}
       renderItem={renderItem}
       keyExtractor={getkey}
       getItemLayout={getItemLayout}
@@ -104,9 +107,10 @@ export default ({ onChangeId }: {
 }
 
 const styles = createStyle({
+  // 撑满左侧导航卡片可视高度：8 项在横屏放不下时列表可以滚动
   container: {
+    flexGrow: 1,
     flexShrink: 1,
-    flexGrow: 0,
   },
   listItem: {
     justifyContent: 'center',
@@ -116,18 +120,18 @@ const styles = createStyle({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 42,
-    borderRadius: 12,
-    paddingLeft: 8,
+    height: 48,
+    borderRadius: 14,
+    paddingLeft: 10,
     paddingRight: 8,
   },
   iconWrap: {
-    width: 28,
-    height: 28,
-    borderRadius: 9,
+    width: 32,
+    height: 32,
+    borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 8,
+    marginRight: 12,
     flexShrink: 0,
   },
   titleWrap: {

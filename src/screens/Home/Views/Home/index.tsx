@@ -253,7 +253,7 @@ export default () => {
       >
         <PageHeader
           title='Emo音乐'
-          right={<HeaderButton icon='search-2' onPress={() => { setSearchVisible(true) }} />}
+          right={<HeaderButton icon='search' iconSet='material' onPress={() => { setSearchVisible(true) }} />}
         />
 
         {/*

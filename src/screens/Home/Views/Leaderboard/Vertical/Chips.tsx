@@ -74,9 +74,12 @@ const styles = createStyle({
     flexShrink: 0,
   },
   sourceRow: {
-    paddingLeft: 16,
-    paddingRight: 16,
-    paddingTop: 6,
+    // 来源行现在是纯图标按钮（34dp 触控区、18dp 图标），触控区左右各留 8：
+    // 这样图标的视觉左边缘正好落在 16 的内容边界上，和下面的榜单 chips 对齐
+    paddingLeft: 8,
+    paddingRight: 8,
+    paddingTop: 4,
+    alignItems: 'center',
   },
   boardRow: {
     paddingLeft: 16,

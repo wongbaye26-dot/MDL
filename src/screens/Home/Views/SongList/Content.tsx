@@ -230,9 +230,11 @@ const styles = createStyle({
     flexShrink: 0,
   },
   sourceRow: {
-    paddingLeft: 16,
-    paddingRight: 16,
-    paddingTop: 2,
+    // 纯图标来源行：触控区左右各留 8，图标视觉左边缘对齐 16 的内容边界
+    paddingLeft: 8,
+    paddingRight: 8,
+    paddingTop: 4,
+    alignItems: 'center',
   },
   filterRow: {
     flexDirection: 'row',

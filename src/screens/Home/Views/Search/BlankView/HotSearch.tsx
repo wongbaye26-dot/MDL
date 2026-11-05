@@ -58,7 +58,7 @@ export default forwardRef<HotSearchType, ListProps>((props, ref) => {
   if (!list.length) return null
 
   /**
-   * 胶囊内文字的垂直居中样式。
+   * 胶囊内文字的**垂直**居中样式（不控制水平对齐，水平方向按用户要求靠左）。
    *
    * Android 的 TextView 默认带上下字体额外留白，固定高度胶囊里会显得偏上/偏下；
    * 这里关掉额外留白、用 textAlignVertical 居中，并把 lineHeight 压到字号 +2
@@ -144,7 +144,8 @@ const styles = createStyle({
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    // 用户要求：序号 + 热词从左往右排，不居中；左侧 padding 固定
+    justifyContent: 'flex-start',
     height: 30,
     paddingLeft: 10,
     paddingRight: 10,
@@ -154,7 +155,7 @@ const styles = createStyle({
   chipCompact: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     height: 26,
     paddingLeft: 8,
     paddingRight: 8,
@@ -167,8 +168,9 @@ const styles = createStyle({
     fontWeight: '700',
   },
   word: {
-    // 不 flexGrow：让「序号 + 热词」整体在胶囊里水平居中；太长时再省略
+    // 靠左排：热词占满序号右侧剩余宽度，超长时才省略
+    flexGrow: 1,
     flexShrink: 1,
-    textAlign: 'center',
+    textAlign: 'left',
   },
 })
