@@ -1,13 +1,11 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Animated, Easing, Modal, ScrollView, TouchableOpacity, View } from 'react-native'
+import { Modal, ScrollView, TouchableOpacity, View } from 'react-native'
 import LinearGradient from 'react-native-linear-gradient'
 
 import Text from '@/components/common/Text'
 import { Icon } from '@/components/common/Icon'
 import Glass from '@/components/common/Glass'
-import CapsuleProgress from '@/components/common/CapsuleProgress'
 import AlbumDiscSpin, { DISC_SIZE } from '@/components/common/AlbumDiscSpin'
-import CapsuleSheen from '@/components/player/CapsuleSheen'
 import PicImage from '@/components/common/PicImage'
 import MusicList from './MusicList'
 import { playList, togglePlay } from '@/core/player/player'
@@ -72,7 +70,7 @@ const useListCounts = () => {
  * 底部迷你播放器。
  *
  * 和榜单/歌单详情页的 PlayerBar、底部胶囊导航同一套玻璃语言：
- * 磨砂玻璃 + 顶部高光 + 边缘进度光晕，圆形会转的封面。
+ * 磨砂玻璃 + 顶部高光 + 圆形会转的封面；进度只走封面圆环（胶囊描边功能已在 v3.8.2 下线）。
  * 这里额外多一个「队列」入口（打开本页的播放队列弹层），
  * 点击封面/歌名歌手则切到播放器页（和底部导航圆盘走同一个入口）。
  */
@@ -85,20 +83,8 @@ const MiniPlayer = memo(({ onOpenQueue }: { onOpenQueue: () => void }) => {
   const autoHidePlayBar = useSettingValue('common.autoHidePlayBar')
   const { keyboardShown } = useKeyboard()
   const isDark = theme.isDark
-  const [barSize, setBarSize] = useState({ w: 0, h: 0 })
   /** 封面节点：打开播放器时量它的屏幕位置作为共享元素动画起点 */
   const coverRef = useRef<View>(null)
-
-  /** 呼吸灯：和胶囊/播放条同一份节奏 */
-  const breathe = useRef(new Animated.Value(0.62)).current
-  useEffect(() => {
-    const anim = Animated.loop(Animated.sequence([
-      Animated.timing(breathe, { toValue: 1, duration: 1900, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      Animated.timing(breathe, { toValue: 0.62, duration: 1900, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-    ]))
-    anim.start()
-    return () => { anim.stop() }
-  }, [breathe])
 
   const openPlayer = useCallback(() => {
     openPlayerWithTransition(done => {
@@ -115,10 +101,6 @@ const MiniPlayer = memo(({ onOpenQueue }: { onOpenQueue: () => void }) => {
   return (
     <View style={styles.playerWrap} pointerEvents='box-none'>
       <View
-        onLayout={e => {
-          const { width, height } = e.nativeEvent.layout
-          setBarSize(prev => (Math.abs(prev.w - width) < 0.5 && Math.abs(prev.h - height) < 0.5) ? prev : { w: width, h: height })
-        }}
         style={[
           styles.playerCard,
           isDark ? null : styles.playerCardLight,
@@ -160,17 +142,6 @@ const MiniPlayer = memo(({ onOpenQueue }: { onOpenQueue: () => void }) => {
               pointerEvents='none'
             />
             )}
-
-        {/* 和胶囊同一套「跑马灯呼吸」局部高光 */}
-        <CapsuleSheen width={barSize.w} height={barSize.h} dark={isDark} />
-
-        <CapsuleProgress
-          width={barSize.w}
-          height={barSize.h}
-          progress={progressStyle === 'border' ? ratio : 0}
-          color={theme['c-primary']}
-          breathe={breathe}
-        />
 
         {/* 点封面/歌名歌手进播放器页：和底部导航圆盘、迷你播放条走同一个转场入口 */}
         <TouchableOpacity

@@ -1,5 +1,5 @@
-import { memo, useEffect, useRef, useState } from 'react'
-import { Animated, Easing, TouchableOpacity, View } from 'react-native'
+import { memo, useRef } from 'react'
+import { TouchableOpacity, View } from 'react-native'
 import { Navigation } from 'react-native-navigation'
 import LinearGradient from 'react-native-linear-gradient'
 
@@ -7,9 +7,7 @@ import Text from '@/components/common/Text'
 import MarqueeText from '@/components/common/MarqueeText'
 import { Icon } from '@/components/common/Icon'
 import Glass from '@/components/common/Glass'
-import CapsuleProgress from '@/components/common/CapsuleProgress'
 import AlbumDiscSpin, { DISC_SIZE } from '@/components/common/AlbumDiscSpin'
-import CapsuleSheen from '@/components/player/CapsuleSheen'
 import { useTheme } from '@/store/theme/hook'
 import { usePlayerMusicInfo, useIsPlay, useProgress } from '@/store/player/hook'
 import { useSettingValue } from '@/store/setting/hook'
@@ -54,10 +52,10 @@ const BAR_RADIUS = BAR_HEIGHT / 2
 /**
  * 列表页底部的迷你播放器。
  *
- * 整体就是底部胶囊「横过来」：同样的高度 59、全圆角、磨砂玻璃 + 顶部高光、
- * **没有边框**、进度走边缘光晕（和胶囊同一套 `CapsuleProgress`）。
+ * 整体就是底部胶囊「横过来」：同样的高度 59、全圆角、磨砂玻璃 + 顶部高光、**没有边框**。
  * 左侧圆盘和底部胶囊 / 横竖屏迷你播放器共用 `AlbumDiscSpin`（48dp 盘面 + 54dp 进度环），
- * 中间歌名歌手、右侧播放/下一曲。
+ * 进度只走封面圆环（`common.navProgressStyle` 的 ring / 关闭两档；胶囊描边功能已在
+ * v3.8.2 下线）；中间歌名歌手、右侧播放/下一曲。
  */
 export default memo(({ isHome = false }: { isHome?: boolean }) => {
   const theme = useTheme()
@@ -68,20 +66,8 @@ export default memo(({ isHome = false }: { isHome?: boolean }) => {
   const progressStyle = useSettingValue('common.navProgressStyle') ?? 'ring'
   const { keyboardShown } = useKeyboard()
   const isDark = theme.isDark
-  const [barSize, setBarSize] = useState({ w: 0, h: 0 })
   /** 左侧圆盘节点：打开播放器时量它的屏幕位置作为共享元素动画起点 */
   const discRef = useRef<View>(null)
-
-  /** 呼吸灯：和胶囊同一份节奏 */
-  const breathe = useRef(new Animated.Value(0.62)).current
-  useEffect(() => {
-    const anim = Animated.loop(Animated.sequence([
-      Animated.timing(breathe, { toValue: 1, duration: 1900, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      Animated.timing(breathe, { toValue: 0.62, duration: 1900, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-    ]))
-    anim.start()
-    return () => { anim.stop() }
-  }, [breathe])
 
   if (autoHidePlayBar && keyboardShown) return null
   if (!musicInfo.name) return null
@@ -92,10 +78,6 @@ export default memo(({ isHome = false }: { isHome?: boolean }) => {
   return (
     <View style={styles.wrap}>
       <View
-        onLayout={e => {
-          const { width, height } = e.nativeEvent.layout
-          setBarSize(prev => (Math.abs(prev.w - width) < 0.5 && Math.abs(prev.h - height) < 0.5) ? prev : { w: width, h: height })
-        }}
         style={[
           styles.card,
           isDark ? null : styles.cardLight,
@@ -138,18 +120,6 @@ export default memo(({ isHome = false }: { isHome?: boolean }) => {
               pointerEvents='none'
             />
             )}
-
-        {/* 和胶囊同一套「跑马灯呼吸」局部高光：没有完整描边线，光沿上下边缘缓慢移动 */}
-        <CapsuleSheen width={barSize.w} height={barSize.h} dark={isDark} />
-
-        {/* 进度：贴着胶囊边缘的一圈柔光（和底部胶囊同一个组件、同一份设置） */}
-        <CapsuleProgress
-          width={barSize.w}
-          height={barSize.h}
-          progress={progressStyle === 'border' ? ratio : 0}
-          color={theme['c-primary']}
-          breathe={breathe}
-        />
 
         <TouchableOpacity style={styles.infoArea} activeOpacity={0.75} onPress={() => { openPlayerTab(discRef, isHome) }}>
           {/* 会转的圆盘 + 外圈进度环；包一层原生 View 才能量共享元素起点 */}

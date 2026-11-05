@@ -4,14 +4,20 @@ import { View, TouchableOpacity, FlatList, type FlatListProps } from 'react-nati
 import { useTheme } from '@/store/theme/hook'
 import { createStyle } from '@/utils/tools'
 import Text from '@/components/common/Text'
+import { Icon } from '@/components/common/Icon'
 import { scaleSizeH } from '@/utils/pixelRatio'
 import { SETTING_SCREENS, normalizeSettingScreenId, type SettingScreenIds } from '../Main'
+import { SCREEN_META } from '../components/screenMeta'
 import { useI18n } from '@/lang'
 
 type FlatListType = FlatListProps<SettingScreenIds>
 
 const ITEM_HEIGHT = scaleSizeH(46)
 
+/**
+ * 横屏设置左侧导航：和竖屏设置首页同一套列表语言
+ * （36dp 彩色圆角图标 + 标题 + 选中态主色高亮，顺序与 SETTING_SCREENS 一致）。
+ */
 const ListItem = memo(({ id, activeId, onPress }: {
   onPress: (item: SettingScreenIds) => void
   activeId: string
@@ -20,26 +26,32 @@ const ListItem = memo(({ id, activeId, onPress }: {
   const theme = useTheme()
   const t = useI18n()
   const active = activeId === id
+  const meta = SCREEN_META[id]
 
   return (
     <View style={{ ...styles.listItem, height: ITEM_HEIGHT }}>
       <TouchableOpacity
         style={{
-          ...styles.pill,
+          ...styles.row,
           backgroundColor: active ? theme['c-primary-alpha-800'] : 'transparent',
-          borderColor: active ? theme['c-primary-alpha-500'] : 'transparent',
         }}
-        activeOpacity={0.75}
+        activeOpacity={0.7}
         onPress={() => { onPress(id) }}
       >
-        <Text
-          numberOfLines={1}
-          size={14}
-          color={active ? theme['c-primary'] : theme['c-font']}
-          style={active ? styles.pillTextActive : styles.pillText}
-        >
-          {t(`setting_${id}`)}
-        </Text>
+        <View style={{ ...styles.iconWrap, backgroundColor: `${meta.color}2E` }}>
+          <Icon name={meta.icon} size={16} color={meta.color} />
+        </View>
+        <View style={styles.titleWrap}>
+          <Text
+            numberOfLines={1}
+            size={13.5}
+            color={active ? theme['c-primary'] : theme['c-font']}
+            style={active ? styles.rowTextActive : styles.rowText}
+          >
+            {t(`setting_${id}`)}
+          </Text>
+        </View>
+        {active ? <Icon name='chevron-right' size={14} color={theme['c-primary']} /> : null}
       </TouchableOpacity>
     </View>
   )
@@ -98,24 +110,37 @@ const styles = createStyle({
   },
   listItem: {
     justifyContent: 'center',
+    paddingLeft: 6,
+    paddingRight: 6,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 42,
+    borderRadius: 12,
     paddingLeft: 8,
     paddingRight: 8,
   },
-  pill: {
-    height: 38,
-    borderRadius: 12,
-    borderWidth: 0.8,
+  iconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 9,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingLeft: 12,
-    paddingRight: 12,
+    marginRight: 8,
+    flexShrink: 0,
   },
-  pillText: {
+  titleWrap: {
+    flexGrow: 1,
+    flexShrink: 1,
+    minWidth: 0,
+  },
+  rowText: {
     fontWeight: '500',
     includeFontPadding: false,
     textAlignVertical: 'center',
   },
-  pillTextActive: {
+  rowTextActive: {
     fontWeight: '700',
     includeFontPadding: false,
     textAlignVertical: 'center',

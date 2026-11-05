@@ -5,15 +5,16 @@ import SourceName from './SourceName'
 import Language from './Language'
 import FontSize from './FontSize'
 import ShareType from './ShareType'
-import IsStartupAutoPlay from './IsStartupAutoPlay'
 import IsHomePageScroll from './IsHomePageScroll'
-import IsAllowProgressBarSeek from './IsAllowProgressBarSeek'
 import { ThemeModeSelector, MaterialYouColors } from './ThemeSettings'
 import { useI18n } from '@/lang/i18n'
 
 /**
- * 基础设置：外观 / 主题色 / 启动 / 界面。
- * 音源选择已经搬到独立的「音源管理」大卡，这里只保留「歌曲来源名称」这种显示偏好。
+ * 基本设置：外观 / 主题色 / 界面 / 分享。
+ *
+ * - 音源选择已经搬到独立的「音源管理」；
+ * - 「启动后自动播放」「允许通过底栏进度条调整播放进度」这两个播放行为项
+ *   已按用户要求移动到「播放设置」（设置首页 → 播放设置 → 启动与播放）。
  */
 export default memo(() => {
   const t = useI18n()
@@ -26,12 +27,8 @@ export default memo(() => {
       <Section title='主题色'>
         <MaterialYouColors />
       </Section>
-      <Section title='启动与播放'>
-        <IsStartupAutoPlay />
-      </Section>
       <Section title='界面'>
         <IsHomePageScroll />
-        <IsAllowProgressBarSeek />
         <FontSize />
         <Language />
         <SourceName />

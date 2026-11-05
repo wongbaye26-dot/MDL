@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { ScrollView, View } from 'react-native'
 
 import Chip from '@/components/common/Chip'
+import { SourceChip } from '@/components/common/SourceLogo'
 import { useI18n } from '@/lang'
 import { useTheme } from '@/store/theme/hook'
 import { createStyle } from '@/utils/tools'
@@ -150,11 +151,13 @@ export default () => {
           contentContainerStyle={styles.sourceRow}
         >
           {
+            // 来源只显示品牌 LOGO（label 仅作无障碍标签），未识别自定义音源回退文字
             sourceList.map(({ label, action }) => (
-              <Chip
+              <SourceChip
                 key={action}
-                size='sm'
+                source={action}
                 label={label}
+                size='sm'
                 active={action === source}
                 onPress={() => { if (action !== source) handleSourceChange(action as Source) }}
               />

@@ -1,12 +1,10 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react'
 import { Animated, Easing, PanResponder, StyleSheet, View, TouchableOpacity } from 'react-native'
 import LinearGradient from 'react-native-linear-gradient'
 
 import TabIcon, { type TabIconName } from '@/components/common/TabIcon'
 import Glass from '@/components/common/Glass'
-import CapsuleProgress from '@/components/common/CapsuleProgress'
 import AlbumDiscSpin, { DISC_SIZE, DISC_RING_SIZE } from '@/components/common/AlbumDiscSpin'
-import CapsuleSheen from '@/components/player/CapsuleSheen'
 import { useTheme } from '@/store/theme/hook'
 import { useNavActiveId } from '@/store/common/hook'
 import { useProgress } from '@/store/player/hook'
@@ -129,7 +127,6 @@ export default memo(() => {
   const { progress } = useProgress()
   const isDark = theme.isDark
   const progressStyle = useSettingValue('common.navProgressStyle') ?? 'ring'
-  const [barSize, setBarSize] = useState({ w: 0, h: 0 })
   /** 圆盘节点：打开播放器时量它的屏幕位置作为共享元素动画起点 */
   const discRef = useRef<View>(null)
 
@@ -141,22 +138,6 @@ export default memo(() => {
     registerDiscNode(discRef.current, DISC_SIZE)
     return () => { registerDiscNode(null) }
   }, [])
-
-  /**
-   * 呼吸灯：描边模式边缘进度光的整体透明度缓慢起伏（native driver，不占 JS 线程）。
-   * ring / none 模式不会挂载边缘进度光，这里也直接把动画停掉 —— 默认样式下胶囊常驻，
-   * 不该留一个没人用的动画在 UI 线程空转。
-   */
-  const breathe = useRef(new Animated.Value(0.62)).current
-  useEffect(() => {
-    if (progressStyle !== 'border') return
-    const anim = Animated.loop(Animated.sequence([
-      Animated.timing(breathe, { toValue: 1, duration: 1900, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      Animated.timing(breathe, { toValue: 0.62, duration: 1900, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-    ]))
-    anim.start()
-    return () => { anim.stop() }
-  }, [breathe, progressStyle])
 
   const openPlayer = useCallback(() => {
     if (activeId === 'nav_player') return
@@ -214,10 +195,6 @@ export default memo(() => {
     <View style={styles.wrap} pointerEvents='box-none'>
       <View
         {...(swipeEnabled ? panResponder.panHandlers : null)}
-        onLayout={e => {
-          const { width, height } = e.nativeEvent.layout
-          setBarSize(prev => (Math.abs(prev.w - width) < 0.5 && Math.abs(prev.h - height) < 0.5) ? prev : { w: width, h: height })
-        }}
         style={{
           ...styles.bar,
           // 模糊不可用时的兜底色：亮色下只留很薄一层白，让背景颜色透上来（不然成一块白）
@@ -260,40 +237,26 @@ export default memo(() => {
         />
 
         {/*
-          进度样式按用户设置分流（Material You）：
-          - 胶囊描边（border）：跑马灯呼吸光带 + 贴着边缘的进度光（一圈柔光，不是线）。
-            这是「描边」样式专属的外圈动效；
-          - 封面圆环（ring，迁移后的默认）：外圈保持「干净」——不画任何动画光带，
+          进度样式只剩两档（Material You）：
+          - 封面圆环（ring，默认）：外圈保持「干净」——不画任何动画光带，
             只留 0.5dp 极淡静态 outline 定义胶囊边界（M3 的 outline-variant 做法），
             进度完全交给右侧封面圆环；
           - 关闭（none）：外圈什么都不画。
+          「胶囊描边 + 跑马灯呼吸」在 v3.8.2 已随功能下线删除。
         */}
         {
-          progressStyle === 'border'
+          progressStyle === 'ring'
             ? (
-              <>
-                <CapsuleSheen width={barSize.w} height={barSize.h} dark={isDark} />
-                <CapsuleProgress
-                  width={barSize.w}
-                  height={barSize.h}
-                  progress={progress}
-                  color={theme['c-primary']}
-                  breathe={breathe}
-                />
-              </>
+              <View
+                pointerEvents='none'
+                style={{
+                  ...styles.outline,
+                  // 极淡的 Material You outline-variant：只看得出胶囊边界，不像一条实线
+                  borderColor: isDark ? 'rgba(255,255,255,0.09)' : 'rgba(110,98,133,0.16)',
+                }}
+              />
               )
-            : progressStyle === 'ring'
-              ? (
-                <View
-                  pointerEvents='none'
-                  style={{
-                    ...styles.outline,
-                    // 极淡的 Material You outline-variant：只看得出胶囊边界，不像一条实线
-                    borderColor: isDark ? 'rgba(255,255,255,0.09)' : 'rgba(110,98,133,0.16)',
-                  }}
-                />
-                )
-              : null
+            : null
         }
 
         {/*

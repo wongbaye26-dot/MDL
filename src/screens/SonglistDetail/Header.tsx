@@ -158,7 +158,9 @@ const styles = createStyle({
   actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    // 用户要求三个操作胶囊作为一组在卡片里水平居中；多选操作条在 PageHeader 右侧
+    // （SelectionBarSlot），不在这行里，所以居中不会影响多选管理入口
+    justifyContent: 'center',
   },
   coverWrap: {
     flexGrow: 0,

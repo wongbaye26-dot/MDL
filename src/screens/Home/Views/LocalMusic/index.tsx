@@ -1,6 +1,5 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, memo } from 'react'
 import {
-  Alert,
   Animated,
   FlatList,
   PanResponder,
@@ -18,11 +17,11 @@ import { Icon } from '@/components/common/Icon'
 import Input from '@/components/common/Input'
 import Clipboard from '@react-native-clipboard/clipboard'
 import PageHeader from '@/components/common/PageHeader'
-import MiniTag from '@/components/common/MiniTag'
+import Tag from '@/components/common/Tag'
 import ListMusicAdd, { type MusicAddModalType } from '@/components/MusicAddModal'
 import { useTheme } from '@/store/theme/hook'
 import { contrastOn } from '@/theme/solid'
-import { createStyle, toast } from '@/utils/tools'
+import { confirmDialog, createStyle, toast } from '@/utils/tools'
 import { formatSize, formatSampleRate } from '@/core/download/utils'
 import { getLocalMusicList, getScanPartialList, subscribeScanPartialList, scanLocalMusicInBackground, isScanning, useScanState, getTotalSize, deleteLocalMusic, getScanDirs, getExtraDirs, setExtraDirs, type ScanDir } from '@/core/localMusic'
 import { pickDirectory, isDirectoryPickerSupported } from '@/utils/directoryPicker'
@@ -34,6 +33,7 @@ import { playList } from '@/core/player/player'
 import { addTempPlayList } from '@/core/player/tempPlayList'
 import { LIST_IDS, NAV_BAR_SPACE } from '@/config/constant'
 import { useWindowSize } from '@/utils/hooks'
+import { setSpText } from '@/utils/pixelRatio'
 import { CoverImage } from './cover'
 import SongActionSheet, { type SongAction } from './SongActionSheet'
 import SongInfoPage from './SongInfoPage'
@@ -63,6 +63,13 @@ const TABS = [
   { key: 'recent', label: '最近添加', icon: 'clock-outline' },
 ] as const
 
+/** 胶囊内文字居中样式：和 components/common/Tag 同一套规则（render 时按当前字号算 lineHeight） */
+const chipText = (fontSize: number) => ({
+  includeFontPadding: false,
+  textAlignVertical: 'center' as const,
+  lineHeight: setSpText(fontSize + 2),
+})
+
 /** 页签按钮单独抽出来：内联渲染时每次切页整排都会重渲染，切起来发涩 */
 const TabButton = memo(({ label, active, onPress }: {
   label: string
@@ -80,9 +87,12 @@ const TabButton = memo(({ label, active, onPress }: {
       }}
       onPress={onPress}
     >
-      <Text size={11} color={active ? contrastOn(theme['c-primary']) : theme['c-450']} numberOfLines={1}>
-        {label}
-      </Text>
+      <Text
+        size={11}
+        color={active ? contrastOn(theme['c-primary']) : theme['c-450']}
+        numberOfLines={1}
+        style={[styles.tabText, chipText(11)]}
+      >{label}</Text>
     </TouchableOpacity>
   )
 })
@@ -635,14 +645,17 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
         void handleDelete(item, false)
         break
       case 'deleteFile':
-        Alert.alert(
-          '删除文件',
-          `确定删除「${cleanSongName(item.name, item.singer)}」的文件吗？此操作不可恢复。`,
-          [
-            { text: '取消', style: 'cancel' },
-            { text: '删除', style: 'destructive', onPress: () => { void handleDelete(item, true) } },
-          ],
-        )
+        // App 内 Material You 确认弹窗（危险色按钮）；语义与原 Alert.alert 一致：
+        // 取消/点遮罩什么都不做，只有确认才删文件
+        void confirmDialog({
+          title: '删除文件',
+          message: `确定删除「${cleanSongName(item.name, item.singer)}」的文件吗？此操作不可恢复。`,
+          cancelButtonText: '取消',
+          confirmButtonText: '删除',
+          danger: true,
+        }).then(confirmed => {
+          if (confirmed) void handleDelete(item, true)
+        })
         break
     }
   }, [sheetItem, sheetLoved, handlePlay, handleDelete])
@@ -743,8 +756,8 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
           title='本地音乐'
           subtitle={(
             <View style={styles.headerTags}>
-              {list.length ? <MiniTag text={`${list.length} 首`} /> : null}
-              {totalSize ? <MiniTag text={totalSize.replace(/\s+/g, '')} /> : null}
+              {list.length ? <Tag label={`${list.length} 首`} style={styles.headerTag} /> : null}
+              {totalSize ? <Tag label={totalSize.replace(/\s+/g, '')} style={styles.headerTag} /> : null}
             </View>
           )}
           right={(
@@ -837,7 +850,7 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
           onPress={() => { void handleScan() }}
         >
           <Icon name='refresh' size={12} color={contrastOn(theme['c-primary'])} />
-          <Text size={11} color={contrastOn(theme['c-primary'])} style={styles.scanBtnText}>{scanning ? '扫描中' : '扫描'}</Text>
+          <Text size={11} color={contrastOn(theme['c-primary'])} style={[styles.scanBtnText, chipText(11)]}>{scanning ? '扫描中' : '扫描'}</Text>
         </TouchableOpacity>
       </View>
           : null
@@ -849,7 +862,7 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
           ? (
             <View style={styles.searchSummary}>
               <Icon name='search-2' size={13} color={theme['c-450']} />
-              <Text size={11} color={theme['c-450']} numberOfLines={1} style={styles.searchSummaryText}>
+              <Text size={11} color={theme['c-450']} numberOfLines={1} style={[styles.searchSummaryText, chipText(11)]}>
                 {searchResults
                   ? `在全部歌曲中搜到 ${searchResults.length} 首`
                   : '正在搜索…'}
@@ -858,7 +871,7 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
                 onPress={clearSearch}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <Text size={11} color={theme['c-primary']}>清除搜索</Text>
+                <Text size={11} color={theme['c-primary']} style={[styles.searchClearText, chipText(11)]}>清除搜索</Text>
               </TouchableOpacity>
             </View>
             )
@@ -884,7 +897,7 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
                   activeOpacity={0.85}
                 >
                   <Icon name='play' size={12} color={contrastOn(theme['c-primary'])} />
-                  <Text size={11} color={contrastOn(theme['c-primary'])} style={styles.playAllText}>播放全部</Text>
+                  <Text size={11} color={contrastOn(theme['c-primary'])} style={[styles.playAllText, chipText(11)]}>播放全部</Text>
                 </TouchableOpacity>
               </View>
               )
@@ -976,7 +989,7 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
                   activeOpacity={0.85}
                   onPress={clearSearch}
                 >
-                  <Text size={12} color={contrastOn(theme['c-primary'])} style={styles.emptyBtnText}>清空搜索</Text>
+                  <Text size={12} color={contrastOn(theme['c-primary'])} style={[styles.emptyBtnText, chipText(12)]}>清空搜索</Text>
                 </TouchableOpacity>
               </View>
               )
@@ -1075,7 +1088,7 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
                     onPress={() => { void handleAddDir() }}
                   >
                     <Icon name='folder-plus' size={14} color={contrastOn(theme['c-primary'])} />
-                    <Text size={13} color={contrastOn(theme['c-primary'])} style={styles.addDirText}>添加文件夹</Text>
+                    <Text size={13} color={contrastOn(theme['c-primary'])} style={[styles.addDirText, chipText(13)]}>添加文件夹</Text>
                   </TouchableOpacity>
                   )
                 : <Text size={11} color={theme['c-450']} style={styles.dirTip}>当前版本不支持选择目录</Text>
@@ -1129,10 +1142,10 @@ const LocalRow = memo(({ item, index, onPress, onMore }: {
           <Text size={15} numberOfLines={1} style={styles.name}>{songName}</Text>
           <Text size={11.5} color={theme['c-450']} numberOfLines={1} style={styles.meta}>{subLine}</Text>
           <View style={styles.thirdRow}>
-            {item.interval ? <MiniTag text={item.interval} /> : null}
-            <MiniTag text={item.meta.ext.toUpperCase()} />
-            {rate ? <MiniTag text={rate} /> : null}
-            {item.meta.bitrate ? <MiniTag text={`${item.meta.bitrate}kbps`} /> : null}
+            {item.interval ? <Tag label={item.interval} style={styles.thirdTag} /> : null}
+            <Tag label={item.meta.ext.toUpperCase()} style={styles.thirdTag} />
+            {rate ? <Tag label={rate} style={styles.thirdTag} /> : null}
+            {item.meta.bitrate ? <Tag label={`${item.meta.bitrate}kbps`} style={styles.thirdTag} /> : null}
           </View>
         </View>
       </TouchableOpacity>
@@ -1173,6 +1186,18 @@ const styles = createStyle({
     alignItems: 'center',
     flexWrap: 'wrap',
     marginTop: 5,
+  },
+  /** 页头小标签：Tag 已经保证垂直居中，这里只补原来的右边距 */
+  headerTag: {
+    marginRight: 5,
+  },
+  /** 页签胶囊文字（居中细节由 chipText() 在渲染时补，这里只留字重） */
+  tabText: {
+    fontWeight: '500',
+  },
+  /** 歌曲行第三行的小标签（Tag 组件） */
+  thirdTag: {
+    marginRight: 5,
   },
   headerBtn: {
     width: 38,
@@ -1222,6 +1247,10 @@ const styles = createStyle({
     flexGrow: 1,
     flexShrink: 1,
     marginLeft: 5,
+  },
+  /** 摘要行右侧「清除搜索」 */
+  searchClearText: {
+    fontWeight: '500',
   },
   scanCard: {
     flexDirection: 'row',

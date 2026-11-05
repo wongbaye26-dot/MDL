@@ -1,6 +1,6 @@
 const defaultSetting: LX.AppSetting = {
   // 设置版本号：设置项结构/默认值有变更时 +0.1，配合 migrateSettingValues 做一次性迁移
-  version: '2.2',
+  version: '2.3',
   'common.isAutoTheme': true,
   'common.langId': null,
   'common.apiSource': '',

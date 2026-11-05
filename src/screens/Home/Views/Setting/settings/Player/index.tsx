@@ -16,6 +16,9 @@ import IsWordByWordLyric from './IsWordByWordLyric'
 import IsSingleLineLyric from './IsSingleLineLyric'
 import NavSwipeSwitch from './NavSwipeSwitch'
 import NavProgressStyle from './NavProgressStyle'
+// 「启动与播放」两个播放行为项由基本设置移入本页（组件文件也已搬到 Player 目录）
+import IsStartupAutoPlay from './IsStartupAutoPlay'
+import IsAllowProgressBarSeek from './IsAllowProgressBarSeek'
 
 export default memo(() => {
   return (
@@ -27,6 +30,10 @@ export default memo(() => {
         <IsEnableAudioOffload />
         <PlayHighQuality />
         <NavSwipeSwitch />
+      </Section>
+      <Section title='启动与播放'>
+        <IsStartupAutoPlay />
+        <IsAllowProgressBarSeek />
       </Section>
       <NavProgressStyle />
       <Section title='歌词'>

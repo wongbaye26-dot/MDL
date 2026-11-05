@@ -1,6 +1,7 @@
 import { ScrollView, View } from 'react-native'
 
 import Chip from '@/components/common/Chip'
+import { SourceChip } from '@/components/common/SourceLogo'
 import { useTheme } from '@/store/theme/hook'
 import { createStyle } from '@/utils/tools'
 import { useSourceListI18n } from '@/components/SourceSelector'
@@ -20,11 +21,14 @@ export const SourceChips = ({ active, onChange }: {
       contentContainerStyle={styles.sourceRow}
     >
       {
+        // 用户要求来源只显示品牌 LOGO（酷我/酷狗/QQ/网易云/咪咕），
+        // label（小X音乐）只作为无障碍标签保留；未识别自定义音源仍回退文字。
         sourceList.map(({ label, action }) => (
-          <Chip
+          <SourceChip
             key={action}
-            size='sm'
+            source={action}
             label={label}
+            size='sm'
             active={action === active}
             onPress={() => { if (action !== active) onChange(action as LX.OnlineSource) }}
           />

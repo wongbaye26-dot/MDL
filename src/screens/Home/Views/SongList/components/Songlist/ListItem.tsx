@@ -8,6 +8,7 @@ import { Icon } from '@/components/common/Icon'
 import { NAV_SHEAR_NATIVE_IDS } from '@/config/constant'
 import { useTheme } from '@/store/theme/hook'
 import Image from '@/components/common/Image'
+import { setSpText } from '@/utils/pixelRatio'
 
 /**
  * 歌单广场的两列大卡片。
@@ -77,14 +78,20 @@ const styles = createStyle({
     bottom: 7,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     height: 19,
-    paddingLeft: 5,
-    paddingRight: 7,
+    // 左右 padding 对称，图标+文字整体才会在胶囊里居中（旧版 5/7 偏左）
+    paddingLeft: 6,
+    paddingRight: 6,
     borderRadius: 10,
     backgroundColor: 'rgba(0, 0, 0, 0.46)',
   },
   playText: {
     marginLeft: 2,
+    // Tag/Chip 同款：关掉 Android 字体额外 padding 并把 lineHeight 压到字号+2
+    includeFontPadding: false,
+    textAlignVertical: 'center',
+    lineHeight: setSpText(12),
   },
   sourceLabel: {
     position: 'absolute',
@@ -96,6 +103,10 @@ const styles = createStyle({
     paddingBottom: 2,
     borderBottomLeftRadius: 10,
     backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    includeFontPadding: false,
+    textAlignVertical: 'center',
+    lineHeight: setSpText(11),
+    textAlign: 'center',
   },
   name: {
     marginTop: 8,

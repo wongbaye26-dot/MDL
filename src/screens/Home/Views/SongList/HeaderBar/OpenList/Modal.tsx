@@ -5,6 +5,7 @@ import Text from '@/components/common/Text'
 import Input, { type InputType } from '@/components/common/Input'
 import { Icon } from '@/components/common/Icon'
 import { createStyle } from '@/utils/tools'
+import { setSpText } from '@/utils/pixelRatio'
 import { useSheetPalette } from '@/components/common/ActionSheet/palette'
 import { contrastOn } from '@/theme/solid'
 import { useKeyboard, useWindowSize } from '@/utils/hooks'
@@ -282,9 +283,15 @@ const styles = createStyle({
   },
   btnText: {
     fontWeight: '600',
+    includeFontPadding: false,
+    textAlignVertical: 'center',
+    lineHeight: setSpText(16),
   },
   confirmText: {
     marginLeft: 6,
     fontWeight: '600',
+    includeFontPadding: false,
+    textAlignVertical: 'center',
+    lineHeight: setSpText(16),
   },
 })

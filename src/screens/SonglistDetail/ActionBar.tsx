@@ -2,6 +2,7 @@ import { memo, useRef } from 'react'
 import { View, TouchableOpacity } from 'react-native'
 
 import { createStyle } from '@/utils/tools'
+import { setSpText } from '@/utils/pixelRatio'
 import { useTheme } from '@/store/theme/hook'
 import { contrastOn } from '@/theme/solid'
 import { Icon } from '@/components/common/Icon'
@@ -84,6 +85,9 @@ const styles = createStyle({
     flexGrow: 0,
     flexShrink: 0,
     paddingTop: 12,
+    // 按钮间距用 gap：胶囊本身不再带 marginRight，整组左右两侧留白对称，
+    // 外层 actionRow 才能把这一组真正居中（留边距会偏左半格）
+    gap: 8,
   },
   pillCompact: {
     width: 32,
@@ -93,20 +97,25 @@ const styles = createStyle({
     paddingRight: 0,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 6,
   },
   pill: {
     flexDirection: 'row',
     alignItems: 'center',
+    // 图标 + 文字作为一组左右居中，padding 必须左右对称（旧版 12/13 会让内容整体偏左 0.5dp）
+    justifyContent: 'center',
     height: 32,
     paddingLeft: 12,
-    paddingRight: 13,
+    paddingRight: 12,
     borderRadius: 16,
-    marginRight: 8,
   },
   pillText: {
     marginLeft: 5,
     fontWeight: '600',
+    // 和 Tag / Chip 同一套配方：关掉 Android 字体额外 padding，lineHeight 压到字号+2，
+    // 字形才会在 32dp 胶囊里垂直居中（只靠 alignItems center 会偏下约 1dp）
+    includeFontPadding: false,
+    textAlignVertical: 'center',
+    lineHeight: setSpText(14),
   },
   textBtn: {
     height: 32,

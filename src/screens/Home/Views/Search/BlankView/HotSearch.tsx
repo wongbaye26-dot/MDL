@@ -7,6 +7,7 @@ import Text from '@/components/common/Text'
 import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
 import { createStyle } from '@/utils/tools'
+import { setSpText } from '@/utils/pixelRatio'
 
 const HOT_LIMIT = 10
 /**
@@ -56,6 +57,19 @@ export default forwardRef<HotSearchType, ListProps>((props, ref) => {
 
   if (!list.length) return null
 
+  /**
+   * 胶囊内文字的垂直居中样式。
+   *
+   * Android 的 TextView 默认带上下字体额外留白，固定高度胶囊里会显得偏上/偏下；
+   * 这里关掉额外留白、用 textAlignVertical 居中，并把 lineHeight 压到字号 +2
+   * （和 components/common/Tag 的规则一致），中英数混排也能对齐。
+   */
+  const centerText = (fontSize: number) => ({
+    includeFontPadding: false,
+    textAlignVertical: 'center' as const,
+    lineHeight: setSpText(fontSize + 2),
+  })
+
   return (
     <View>
       <Text
@@ -78,10 +92,14 @@ export default forwardRef<HotSearchType, ListProps>((props, ref) => {
                 <Text
                   size={compact ? 9 : 9.5}
                   color={index < 3 ? RANK_COLORS[index] : theme['c-400']}
-                  style={styles.rank}
+                  style={{ ...styles.rank, ...centerText(compact ? 9 : 9.5) }}
                 >{index + 1}</Text>
                 {/* 两列宽胶囊：正常长度的热词完整显示，特别长的再省略号 */}
-                <Text size={compact ? 10.5 : 11.5} numberOfLines={1} style={styles.word}>{keyword}</Text>
+                <Text
+                  size={compact ? 10.5 : 11.5}
+                  numberOfLines={1}
+                  style={{ ...styles.word, ...centerText(compact ? 10.5 : 11.5) }}
+                >{keyword}</Text>
               </TouchableOpacity>
             </View>
           ))
@@ -126,6 +144,7 @@ const styles = createStyle({
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     height: 30,
     paddingLeft: 10,
     paddingRight: 10,
@@ -135,6 +154,7 @@ const styles = createStyle({
   chipCompact: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     height: 26,
     paddingLeft: 8,
     paddingRight: 8,
@@ -147,7 +167,8 @@ const styles = createStyle({
     fontWeight: '700',
   },
   word: {
-    flexGrow: 1,
+    // 不 flexGrow：让「序号 + 热词」整体在胶囊里水平居中；太长时再省略
     flexShrink: 1,
+    textAlign: 'center',
   },
 })

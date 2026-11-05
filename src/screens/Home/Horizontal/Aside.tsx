@@ -1,15 +1,12 @@
-import { memo, useEffect, useRef, useState } from 'react'
-import { Animated, Easing, StyleSheet, TouchableOpacity, View } from 'react-native'
+import { memo, useEffect, useRef } from 'react'
+import { Animated, StyleSheet, TouchableOpacity, View } from 'react-native'
 import LinearGradient from 'react-native-linear-gradient'
 
 import TabIcon, { type TabIconName } from '@/components/common/TabIcon'
 import AlbumDiscButton from '@/components/common/AlbumDiscButton'
 import Glass from '@/components/common/Glass'
-import CapsuleProgress from '@/components/common/CapsuleProgress'
 import { useNavActiveId } from '@/store/common/hook'
 import { useTheme } from '@/store/theme/hook'
-import { useProgress } from '@/store/player/hook'
-import { useSettingValue } from '@/store/setting/hook'
 import { NAV_MENUS, HORIZONTAL_NAV_SPACE } from '@/config/constant'
 import type { InitState } from '@/store/common/state'
 import { setNavActiveId } from '@/core/common'
@@ -21,7 +18,8 @@ type IdType = InitState['navActiveId']
  *
  * 尺寸全部对齐竖屏 BottomNav（飞牛实测值）：
  *   宽 59（= 竖屏的高）、全圆角 29.5、圆底 52、槽位 58、图标 27、**没有边框**、
- *   同一层磨砂玻璃 + 高光 + 边缘进度光晕。
+ *   同一层磨砂玻璃 + 高光。播放进度只走竖屏胶囊/迷你播放器的封面圆环，
+ *   「胶囊描边」边缘进度光已在 v3.8.2 下线，这里不再画边缘光晕。
  *
  * 同样不用 createStyle：它把 width 走 scaleSizeW、height 走 scaleSizeH、
  * borderRadius 走 setSpText，三者系数不同，圆底会被拉成椭圆。
@@ -98,31 +96,13 @@ const MenuItem = ({ id, icon, dark, active, onPress }: {
 export default memo(() => {
   const theme = useTheme()
   const navActiveId = useNavActiveId()
-  const { progress } = useProgress()
-  const progressStyle = useSettingValue('common.navProgressStyle') ?? 'border'
   const isDark = theme.isDark
   /** 播放器页是深色底，导航也切深色玻璃 */
   const dark = isDark || navActiveId === 'nav_player'
-  const [barSize, setBarSize] = useState({ w: 0, h: 0 })
-
-  /** 呼吸灯：和竖屏同一份节奏 */
-  const breathe = useRef(new Animated.Value(0.62)).current
-  useEffect(() => {
-    const anim = Animated.loop(Animated.sequence([
-      Animated.timing(breathe, { toValue: 1, duration: 1900, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      Animated.timing(breathe, { toValue: 0.62, duration: 1900, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-    ]))
-    anim.start()
-    return () => { anim.stop() }
-  }, [breathe])
 
   return (
     <View style={styles.wrap} pointerEvents='box-none'>
       <View
-        onLayout={e => {
-          const { width, height } = e.nativeEvent.layout
-          setBarSize(prev => (Math.abs(prev.w - width) < 0.5 && Math.abs(prev.h - height) < 0.5) ? prev : { w: width, h: height })
-        }}
         style={[
           styles.container,
           dark ? null : styles.containerLight,
@@ -171,15 +151,6 @@ export default memo(() => {
               <View pointerEvents='none' style={styles.highlightEdge} />
             </>
             )}
-
-        {/* 边缘进度光晕：没有边框，只有贴着边缘的一圈柔光 */}
-        <CapsuleProgress
-          width={barSize.w}
-          height={barSize.h}
-          progress={progressStyle === 'border' ? progress : 0}
-          color={theme['c-primary']}
-          breathe={breathe}
-        />
 
         {
           NAV_MENUS.map(menu => (

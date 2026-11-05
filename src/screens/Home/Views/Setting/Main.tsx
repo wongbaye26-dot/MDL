@@ -1,21 +1,25 @@
 import { forwardRef, useImperativeHandle, useMemo, useState } from 'react'
 
-import Source from './settings/Source'
-import Basic from './settings/Basic'
 import Player from './settings/Player'
-import SearchList from './settings/SearchList'
 import Download from './settings/Download'
-import Other from './settings/Other'
+import Source from './settings/Source'
+import SearchList from './settings/SearchList'
 import Tools from './settings/Tools'
+import Basic from './settings/Basic'
+import Other from './settings/Other'
 import About from './settings/About'
 
+/**
+ * 设置分类顺序（按使用频率重排）：播放 → 下载 → 音源 → 搜索与列表 → 工具 → 基本 → 其他 → 关于。
+ * id 保持不变，`global.lx.settingActiveId` 里的旧值仍能定位到同一个页面。
+ */
 export const SETTING_SCREENS = [
-  'source',
-  'basic',
   'player',
   'download',
+  'source',
   'searchlist',
   'tools',
+  'basic',
   'other',
   'about',
 ] as const
@@ -58,12 +62,12 @@ const Main = forwardRef<MainType, {}>((props, ref) => {
 
   const component = useMemo(() => {
     switch (id) {
-      case 'source': return <Source />
       case 'player': return <Player />
       case 'download': return <Download />
+      case 'source': return <Source />
       case 'searchlist': return <SearchList />
-      case 'other': return <Other />
       case 'tools': return <Tools />
+      case 'other': return <Other />
       case 'about': return <About />
       case 'basic':
       default: return <Basic />

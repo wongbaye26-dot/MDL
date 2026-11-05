@@ -2,6 +2,7 @@ import { useRef, forwardRef, useImperativeHandle, useMemo, useState } from 'reac
 import { ScrollView, TouchableOpacity, View } from 'react-native'
 
 import Chip from '@/components/common/Chip'
+import { SourceChip } from '@/components/common/SourceLogo'
 import { Icon } from '@/components/common/Icon'
 import { useTheme } from '@/store/theme/hook'
 import { useStatusbarHeight } from '@/store/common/hook'
@@ -114,19 +115,35 @@ export default forwardRef<HeaderBarType, HeaderBarProps>(({
                 contentContainerStyle={styles.sourceRow}
               >
                 {
-                  sourceLabels.map(({ label, action }) => (
-                    <Chip
-                      key={action}
-                      size='sm'
-                      label={label}
-                      active={action === source}
-                      onPress={() => {
-                        if (action === source) return
-                        setSource(action)
-                        onSourceChange(action)
-                      }}
-                    />
-                  ))
+                  sourceLabels.map(({ label, action }) => {
+                    const handlePress = () => {
+                      if (action === source) return
+                      setSource(action)
+                      onSourceChange(action)
+                    }
+                    // 品牌音源只显示品牌 logo（SourceChip 已带 accessibilityLabel=音源名）；
+                    // 「全部」不是品牌，继续用文字胶囊
+                    return action === 'all'
+                      ? (
+                        <Chip
+                          key={action}
+                          size='sm'
+                          label={label}
+                          active={action === source}
+                          onPress={handlePress}
+                        />
+                        )
+                      : (
+                        <SourceChip
+                          key={action}
+                          source={action}
+                          label={label}
+                          size='sm'
+                          active={action === source}
+                          onPress={handlePress}
+                        />
+                        )
+                  })
                 }
               </ScrollView>
             </View>

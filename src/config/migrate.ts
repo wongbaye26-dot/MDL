@@ -8,24 +8,38 @@ import { saveListMusics, saveUserList } from '@/utils/data'
 /**
  * 设置项的一次性版本迁移（每次启动初始化时跑一次，靠 version 保证幂等）。
  *
+ * 老用户存储里已经有旧的默认值，而 mergeSetting 会优先保留用户已存的值 ——
+ * 只改 defaultSetting 对老用户不生效，所以这里按设置版本号做迁移。
+ * 每段只负责自己那个版本区间的字段，其它设置项原样保留；迁移完 version 会写成
+ * 当前 defaultSetting.version，下次启动不会再跑；用户之后手动改的值也不会被覆盖。
+ *
  * v2.2：
  *  - 底部胶囊的默认进度样式从「胶囊描边(border)」改成「封面圆环(ring)」；
  *  - 歌词翻译默认开启（外文歌词下方显示中文翻译，源/补翻译有 tlyric 时生效）。
  *
- * 老用户存储里已经有旧的默认值，而 mergeSetting 会优先保留用户已存的值 ——
- * 只改 defaultSetting 对老用户不生效，所以这里按设置版本号做一次迁移：
- *  - 只有 version < 2.2 的旧设置才迁移，之后 version 会写成 2.2，不会再跑；
- *  - 只改上面这两个字段，其它设置项原样保留；
- *  - 用户在新版里手动改回去之后，version 已是 2.2，不会被再次覆盖。
+ * v2.3：
+ *  - 「胶囊描边」功能整体下线（用户要求去掉），设置里只留「封面圆环 / 关闭」；
+ *    version < 2.3 的存量设置里如果是 'border'（包括 v2.2 时手动改回 border 的）
+ *    统一归到 'ring'；用户自己选的 'none' 保留，不动。
  */
 export const migrateSettingValues = <T extends Partial<LX.AppSetting> | null>(setting: T): T => {
   if (!setting) return setting
-  if (compareVer(setting.version ?? '0', '2.2') >= 0) return setting
-  if (setting['common.navProgressStyle'] === 'border') {
+  const version = setting.version ?? '0'
+
+  // v2.2：歌词翻译默认开启
+  // （v2.2 引入的 border→ring 迁移合并到下面的 2.3 段，覆盖所有 <2.3 的旧版本，避免重复判断）
+  if (compareVer(version, '2.2') < 0) {
+    setting['player.isShowLyricTranslation'] = true
+  }
+
+  // v2.2/v2.3：「胶囊描边」从默认值变成下线功能，存量 border 一律回封面圆环
+  // （version < 2.2 也小于 2.3，所以这里同时覆盖 v2.2 的 border→ring，不会漏）
+  // 类型里已收窄为 ring/none，但存量数据里可能是已下线的旧值 'border'，判等时放宽成 string
+  const storedProgressStyle: string | undefined = setting['common.navProgressStyle']
+  if (compareVer(version, '2.3') < 0 && storedProgressStyle === 'border') {
     setting['common.navProgressStyle'] = 'ring'
   }
-  // 歌词翻译是 v3.8.0 的新默认行为：老用户升级后一次开启，之后可自己关
-  setting['player.isShowLyricTranslation'] = true
+
   return setting
 }
 

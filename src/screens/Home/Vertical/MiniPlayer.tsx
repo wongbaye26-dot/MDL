@@ -1,12 +1,10 @@
-import { memo, useEffect, useRef, useState } from 'react'
-import { Animated, Easing, View, TouchableOpacity } from 'react-native'
+import { memo, useRef } from 'react'
+import { View, TouchableOpacity } from 'react-native'
 import LinearGradient from 'react-native-linear-gradient'
 import Text from '@/components/common/Text'
 import { Icon } from '@/components/common/Icon'
 import Glass from '@/components/common/Glass'
-import CapsuleProgress from '@/components/common/CapsuleProgress'
 import AlbumDiscSpin, { DISC_SIZE, DISC_RING_SIZE } from '@/components/common/AlbumDiscSpin'
-import CapsuleSheen from '@/components/player/CapsuleSheen'
 import { useTheme } from '@/store/theme/hook'
 import { usePlayerMusicInfo, useIsPlay, useProgress } from '@/store/player/hook'
 import { useSettingValue } from '@/store/setting/hook'
@@ -22,11 +20,11 @@ import { cleanSongName } from '@/utils/songName'
  * 横屏内容区底部的迷你播放器。
  *
  * 和竖屏胶囊 / 子页 PlayerBar 是同一套语言：
- *  - 磨砂玻璃 + 上半部反光 + 底部内阴影，没有一圈完整的描边线；
- *  - 边缘高光是「跑马灯呼吸」的局部光带（CapsuleSheen），和胶囊导航同款；
+ *  - 磨砂玻璃 + 上半部反光 + 底部内阴影，没有一圈完整的描边线、没有外圈动画光带；
  *  - 左侧圆盘直接复用 `AlbumDiscSpin`：48dp 盘面 + 54dp 进度环 + 描边/高光/阴影，
  *    和胶囊右侧的专辑圆盘**完全一致**，不再各写一个 38dp 圆角方块；
- *  - 播放进度可用边缘光（CapsuleProgress），和胶囊共用同一个进度样式设置。
+ *  - 播放进度只走封面圆环（`common.navProgressStyle` 的 ring / 关闭两档；
+ *    「胶囊描边」功能已在 v3.8.2 下线，这里不再有边缘进度光）。
  *
  * 点进播放器走和圆盘同一个共享元素 helper（utils/playerOpen）：
  * 起点就是左边这块小圆盘，量它的屏幕位置交给飞行封面。
@@ -40,20 +38,8 @@ export default memo(() => {
   const autoHidePlayBar = useSettingValue('common.autoHidePlayBar')
   const { keyboardShown } = useKeyboard()
   const isDark = theme.isDark
-  const [barSize, setBarSize] = useState({ w: 0, h: 0 })
   /** 圆盘节点：打开播放器时量它的屏幕位置作为共享元素动画起点 */
   const discRef = useRef<View>(null)
-
-  /** 呼吸灯：和胶囊 / PlayerBar 同一份节奏（native driver，不占 JS 线程） */
-  const breathe = useRef(new Animated.Value(0.62)).current
-  useEffect(() => {
-    const anim = Animated.loop(Animated.sequence([
-      Animated.timing(breathe, { toValue: 1, duration: 1900, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      Animated.timing(breathe, { toValue: 0.62, duration: 1900, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-    ]))
-    anim.start()
-    return () => { anim.stop() }
-  }, [breathe])
 
   if (autoHidePlayBar && keyboardShown) return null
   if (!musicInfo.name) return null
@@ -70,10 +56,6 @@ export default memo(() => {
   return (
     <View style={styles.wrap} pointerEvents='box-none'>
       <View
-        onLayout={e => {
-          const { width, height } = e.nativeEvent.layout
-          setBarSize(prev => (Math.abs(prev.w - width) < 0.5 && Math.abs(prev.h - height) < 0.5) ? prev : { w: width, h: height })
-        }}
         style={[
           styles.card,
           isDark ? null : styles.cardLight,
@@ -113,18 +95,6 @@ export default memo(() => {
               />
             </>
             )}
-
-        {/* 边缘高光：和胶囊同一套「跑马灯呼吸」，没有完整描边线 */}
-        <CapsuleSheen width={barSize.w} height={barSize.h} dark={isDark} />
-
-        {/* 播放进度：贴着胶囊边缘的一圈柔光（和胶囊 / PlayerBar 同一个组件、同一份设置） */}
-        <CapsuleProgress
-          width={barSize.w}
-          height={barSize.h}
-          progress={progressStyle === 'border' ? ratio : 0}
-          color={theme['c-primary']}
-          breathe={breathe}
-        />
 
         <TouchableOpacity
           style={styles.infoArea}

@@ -20,9 +20,10 @@ declare global {
       'common.navSwipeSwitch': boolean
 
       /**
-       * 底部胶囊的播放进度样式：绕胶囊描边 / 封面外圈圆环 / 关闭
+       * 底部胶囊的播放进度样式：封面外圈圆环 / 关闭
+       * （「胶囊描边」在 v3.8.2 已下线，存量 'border' 由 config/migrate.ts 迁成 'ring'）
        */
-      'common.navProgressStyle': 'border' | 'ring' | 'none'
+      'common.navProgressStyle': 'ring' | 'none'
     }
   }
 }
