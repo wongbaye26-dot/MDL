@@ -1,15 +1,13 @@
 import { View } from 'react-native'
-import Section from '../../components/Section'
+import { Group, ToggleRow } from '../../components/ui'
 import Source from '../Source'
-import IsShowHistorySearch from '../Search/IsShowHistorySearch'
-import IsShowHotSearch from '../Search/IsShowHotSearch'
 
 export default () => (
   <View>
     <Source />
-    <Section title='搜索' icon='magnify'>
-      <IsShowHistorySearch />
-      <IsShowHotSearch />
-    </Section>
+    <Group title='搜索' icon='magnify' color='#3B82F6'>
+      <ToggleRow settingKey='search.isShowHistorySearch' title='显示搜索历史' />
+      <ToggleRow settingKey='search.isShowHotSearch' title='显示热门搜索' />
+    </Group>
   </View>
 )

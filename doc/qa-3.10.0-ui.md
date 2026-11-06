@@ -448,3 +448,10 @@
 | 最近添加专辑 | 点封面直接打开本地专辑歌曲列表（initialAlbum） |
 | 设置重构 | 8 个一级分类：播放与音质/歌词与显示/界面与动效/本地曲库/音源与搜索/下载与存储/系统与权限/缓存日志与关于；旧 id 自动迁移 |
 | 真机 | 设置首页 8 分类、播放与音质子页、收藏 4 标签与歌单网格验证 |
+
+## 34. 3.9.11 新设置 UI（第一批，2026-11-07）
+
+- 新增 `Setting/components/ui`：Group / ToggleRow / ChoiceRow / ValueRow / ActionRow / StepperRow，全新卡片+行视觉，不复用旧 CheckBoxItem/SettingRow/Chip。
+- 已用新组件重写：播放与音质、歌词与显示、界面与动效、下载与存储。
+- 本地曲库/音源与搜索/系统与权限/缓存日志与关于仍保留功能块（Tools/Source/Permissions/About 等），外壳已切新 Group；逐项重写待第二批。
+- 设置首页 8 个入口改统一两列磁贴；子页头加分类说明。

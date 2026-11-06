@@ -1,35 +1,34 @@
 import { View } from 'react-native'
-import Section from '../../components/Section'
-import LyricSize from '../Player/LyricSize'
-import LyricAlign from '../Player/LyricAlign'
-import LyricOffset from '../Player/LyricOffset'
-import IsWordByWordLyric from '../Player/IsWordByWordLyric'
-import IsSingleLineLyric from '../Player/IsSingleLineLyric'
-import IsShowLyricTranslation from '../Player/IsShowLyricTranslation'
-import IsShowLyricRoma from '../Player/IsShowLyricRoma'
-import IsAutoJyutping from '../Player/IsAutoJyutping'
-import IsS2T from '../Player/IsS2T'
-import IsShowBluetoothLyric from '../Player/IsShowBluetoothLyric'
-import IsShowBluetoothFullLyric from '../Player/IsShowBluetoothFullLyric'
-import IsShowNotificationImage from '../Player/IsShowNotificationImage'
+import { Group, ToggleRow, ChoiceRow } from '../../components/ui'
+
+const SIZE_LABELS = ['小', '标准', '大', '超大']
 
 export default () => (
   <View>
-    <Section title='歌词' icon='lyric-on'>
-      <LyricSize />
-      <LyricAlign />
-      <LyricOffset />
-      <IsWordByWordLyric />
-      <IsSingleLineLyric />
-      <IsShowLyricTranslation />
-      <IsShowLyricRoma />
-      <IsAutoJyutping />
-      <IsS2T />
-      <IsShowBluetoothLyric />
-      <IsShowBluetoothFullLyric />
-    </Section>
-    <Section title='通知' icon='bell-outline'>
-      <IsShowNotificationImage />
-    </Section>
+    <Group title='歌词样式' icon='lyric-on' color='#8B5CF6'>
+      <ChoiceRow settingKey='player.lyricSizeIndex' title='歌词字号' desc='播放器歌词页立即生效' options={SIZE_LABELS.map((label, value) => ({ value, label }))} />
+      <ChoiceRow settingKey='player.lyricAlign' title='歌词对齐' desc='自动＝竖屏居中、横屏左对齐' options={[
+        { value: 'auto', label: '自动' },
+        { value: 'center', label: '居中' },
+        { value: 'left', label: '左对齐' },
+      ]} />
+      <ChoiceRow settingKey='player.lyricOffsetMs' title='歌词偏移' desc='歌词比声音快时选负值' options={[-500, -100, 0, 100, 500].map(value => ({
+        value,
+        label: value === 0 ? '无偏移' : `${value > 0 ? '+' : ''}${(value / 1000).toFixed(1)}s`,
+      }))} />
+    </Group>
+    <Group title='歌词内容' icon='text-box-outline' color='#3B82F6'>
+      <ToggleRow settingKey='player.isWordByWordLyric' title='逐字显示' desc='按时间逐字点亮歌词' />
+      <ToggleRow settingKey='player.isSingleLineLyric' title='一行显示' desc='只显示当前一行，减少干扰' />
+      <ToggleRow settingKey='player.isShowLyricTranslation' title='显示翻译' />
+      <ToggleRow settingKey='player.isShowLyricRoma' title='显示罗马音' />
+      <ToggleRow settingKey='player.isAutoJyutping' title='自动粤拼' />
+      <ToggleRow settingKey='player.isS2t' title='简体转繁体' desc='歌词按繁体显示' />
+    </Group>
+    <Group title='蓝牙与通知' icon='bluetooth' color='#10B981'>
+      <ToggleRow settingKey='player.isShowBluetoothLyric' title='蓝牙歌词' desc='向车载/耳机推送当前歌词' />
+      <ToggleRow settingKey='player.isShowBluetoothFullLyric' title='蓝牙全屏歌词' />
+      <ToggleRow settingKey='player.isShowNotificationImage' title='通知栏显示封面' />
+    </Group>
   </View>
 )

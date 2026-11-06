@@ -1,19 +1,15 @@
 import { View } from 'react-native'
-import Section from '../../components/Section'
-import IsClickPlayList from '../List/IsClickPlayList'
-import IsShowAlbumName from '../List/IsShowAlbumName'
-import IsShowInterval from '../List/IsShowInterval'
+import { Group, ToggleRow, UiSectionTitle } from '../../components/ui'
 import Tools from '../Tools'
 
 export default () => (
   <View>
-    <Section title='列表显示' icon='format-list-bulleted'>
-      <IsClickPlayList />
-      <IsShowAlbumName />
-      <IsShowInterval />
-    </Section>
-    <View style={{ marginTop: 10 }}>
-      <Tools />
-    </View>
+    <Group title='列表显示' icon='format-list-bulleted' color='#F97316'>
+      <ToggleRow settingKey='list.isClickPlayList' title='点击歌曲直接播放' />
+      <ToggleRow settingKey='list.isShowAlbumName' title='显示专辑名' />
+      <ToggleRow settingKey='list.isShowInterval' title='显示歌曲时长' />
+    </Group>
+    <UiSectionTitle title='曲库工具' desc='体检、补封面、刮削标签、去重与重命名' />
+    <Tools />
   </View>
 )
