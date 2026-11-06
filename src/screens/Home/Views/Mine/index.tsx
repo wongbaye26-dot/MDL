@@ -12,7 +12,7 @@ import { useSettingValue } from '@/store/setting/hook'
 import Setting from '../Setting'
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const emoLogo = require('@/resources/images/emo-logo.png')
+const emoLogo = require('@/resources/images/emo-logo-mono.png')
 
 /**
  * 「我的」页头：品牌 logo + 大标题 + 副标题。
@@ -59,7 +59,9 @@ export default () => {
               transform: [{ scale: glow.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1.06] }) }],
             },
           ]} />
-          <Image source={emoLogo} style={compact ? styles.logoCompact : styles.logo} />
+          <View style={[compact ? styles.logoCompact : styles.logo, { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.05)' }]}>
+            <Image source={emoLogo} style={styles.logoMark} tintColor={theme['c-font']} />
+          </View>
         </View>
         <View style={styles.titleArea}>
           <Text size={compact ? 21 : 27} numberOfLines={1} style={styles.title}>我的</Text>
@@ -105,6 +107,12 @@ const styles = createStyle({
     width: 52,
     height: 52,
     borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoMark: {
+    width: 40,
+    height: 40,
   },
   logoCompact: {
     width: 44,

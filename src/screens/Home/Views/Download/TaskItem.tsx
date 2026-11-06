@@ -117,7 +117,10 @@ export default memo(({
   const statusText = getStatusText(task)
 
   return (
-    <View style={styles.row}>
+    <View style={[styles.row, {
+      backgroundColor: theme.isDark ? 'rgba(255,255,255,0.055)' : 'rgba(255,255,255,0.72)',
+      borderColor: theme['c-primary-alpha-700'],
+    }]}>
       <TouchableOpacity
         style={styles.coverWrap}
         activeOpacity={0.8}
@@ -125,6 +128,11 @@ export default memo(({
         onLongPress={handleShowMenu}
       >
         <PicImage musicInfo={task} style={styles.cover} />
+        {isCompleted ? (
+          <View style={styles.doneBadge}>
+            <Icon name='check' size={10} color='#FFFFFF' />
+          </View>
+        ) : null}
         {
           !isCompleted
             ? (
@@ -200,31 +208,47 @@ export default memo(({
 })
 
 const styles = createStyle({
-  /** 非卡片列表行：透明底 + 行内边距，和本地音乐列表同一套排布 */
+  /** 卡片式下载行：和设置/本地列表同一套圆角卡片语言 */
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingLeft: 16,
+    marginLeft: 16,
+    marginRight: 16,
+    marginBottom: 8,
+    paddingLeft: 10,
     paddingRight: 4,
-    paddingTop: 8,
-    paddingBottom: 8,
+    paddingTop: 10,
+    paddingBottom: 10,
+    borderRadius: 20,
+    borderWidth: 0.5,
   },
   coverWrap: {
-    width: 46,
-    height: 46,
-    borderRadius: 9,
+    width: 52,
+    height: 52,
+    borderRadius: 14,
     overflow: 'hidden',
     marginRight: 12,
   },
   cover: {
-    width: 46,
-    height: 46,
-    borderRadius: 9,
+    width: 52,
+    height: 52,
+    borderRadius: 14,
   },
   coverMask: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  doneBadge: {
+    position: 'absolute',
+    right: 3,
+    bottom: 3,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: SUCCESS,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   info: {
     flexGrow: 1,
@@ -235,19 +259,10 @@ const styles = createStyle({
     alignItems: 'center',
   },
   name: {
-    // 歌名只占自己需要的宽度（长了才省略），badge 紧跟在后面；
-    // 两者都在同一行时，badge 的 flexShrink: 0 保证不被歌名挤压。
     flexGrow: 0,
     flexShrink: 1,
-    fontWeight: '500',
+    fontWeight: '600',
   },
-  /**
-   * 音质标签：回到歌名行，和歌名之间留 6dp。
-   *
-   * 宽度不靠 auto width：内部 Text 用 getQualityTextWidth(label) 显式给宽
-   * （Android 文本测量偏窄，只加外层宽度会被 TextView 裁字），外层只负责不参与压缩
-   * 和「选择下载音质」弹窗同款的细描边圆角胶囊。
-   */
   qualityTag: {
     flexShrink: 0,
     flexGrow: 0,
@@ -260,27 +275,26 @@ const styles = createStyle({
     alignItems: 'center',
     marginLeft: 6,
   },
-  /** 歌手单独一行（恢复 v3.7.0 的行距） */
   singer: {
     flexGrow: 1,
     flexShrink: 1,
     marginTop: 2,
-    marginBottom: 6,
+    marginBottom: 7,
   },
   progressTrack: {
-    height: 3,
+    height: 4,
     borderRadius: 2,
     overflow: 'hidden',
     marginRight: 10,
-    marginBottom: 5,
+    marginBottom: 6,
   },
   progressBar: {
-    height: 3,
+    height: 4,
     borderRadius: 2,
   },
   moreButton: {
-    width: 40,
-    height: 40,
+    width: 38,
+    height: 38,
     justifyContent: 'center',
     alignItems: 'center',
   },

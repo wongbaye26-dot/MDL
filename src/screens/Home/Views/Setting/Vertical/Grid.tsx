@@ -1,8 +1,7 @@
-import { View, TouchableOpacity } from 'react-native'
+import { View } from 'react-native'
 
-import Text from '@/components/common/Text'
-import { Icon } from '@/components/common/Icon'
 import Section from '../components/Section'
+import SettingRow from '../components/SettingRow'
 import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
 import { useSettingValue } from '@/store/setting/hook'
@@ -11,7 +10,6 @@ import { createStyle } from '@/utils/tools'
 import { QUALITY_LABEL } from '@/core/download/utils'
 import { type SettingScreenIds } from '../Main'
 import { SCREEN_META, SCREEN_GROUPS } from '../components/screenMeta'
-import { getCardBackground, getCardBorder, getCardShadow } from '../components/surfaces'
 
 // 存储里的语言值是 zh_cn 这种下划线写法，映射表用的是连字符，取之前统一一下
 const LANG_LABEL: Record<string, string> = {
@@ -65,33 +63,22 @@ export default ({ onPress }: { onPress: (id: SettingScreenIds) => void }) => {
     <View style={styles.container}>
       {
         SCREEN_GROUPS.map(group => (
-          <Section key={group.title} title={group.title} icon={group.icon} color={group.color} card={false}>
-            <View style={styles.tileGrid}>
-              {
-                group.ids.map(id => {
-                  const meta = SCREEN_META[id]
-                  return (
-                    <TouchableOpacity
-                      key={id}
-                      style={{
-                        ...styles.tile,
-                        backgroundColor: getCardBackground(theme),
-                        borderColor: getCardBorder(theme),
-                        ...getCardShadow(theme),
-                      }}
-                      activeOpacity={0.72}
-                      onPress={() => { onPress(id) }}
-                    >
-                      <View style={[styles.tileIcon, { backgroundColor: `${meta.color}22` }]}>
-                        <Icon name={meta.icon} size={20} color={meta.color} />
-                      </View>
-                      <Text size={14.5} numberOfLines={1} style={styles.tileTitle}>{t(`setting_${id}` as 'setting_basic')}</Text>
-                      <Text size={9.5} color={theme['c-450']} numberOfLines={2} style={styles.tilePreview}>{previews[id]}</Text>
-                    </TouchableOpacity>
-                  )
-                })
-              }
-            </View>
+          <Section key={group.title} title={group.title} icon={group.icon} color={group.color}>
+            {
+              group.ids.map(id => {
+                const meta = SCREEN_META[id]
+                return (
+                  <SettingRow
+                    key={id}
+                    icon={meta.icon}
+                    color={meta.color}
+                    title={t(`setting_${id}` as 'setting_basic')}
+                    desc={previews[id]}
+                    onPress={() => { onPress(id) }}
+                  />
+                )
+              })
+            }
           </Section>
         ))
       }
