@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { View } from 'react-native'
 
-import Section from '../../components/Section'
+import { Group } from '../../components/ui'
 import Button from '../../components/Button'
 import Text from '@/components/common/Text'
 import Tag from '@/components/common/Tag'
@@ -214,7 +214,7 @@ export default memo(() => {
     : ''
 
   return (
-    <Section title={t('setting_source_check')} icon='speedometer'>
+    <Group title={t('setting_source_check')} icon='speedometer' color='#10B981'>
       <View style={styles.content}>
         <Text size={10.5} color={theme['c-450']} style={styles.tip}>{t('setting_source_check_tip')}</Text>
         <Text size={11} color={theme['c-450']} style={styles.inputLabel}>{t('setting_source_check_probe_song')}</Text>
@@ -270,7 +270,7 @@ export default memo(() => {
             : (!running ? <Text size={10.5} color={theme['c-400']} style={styles.tip}>{t('setting_source_check_no_result')}</Text> : null)
         }
       </View>
-    </Section>
+    </Group>
   )
 })
 
@@ -311,8 +311,10 @@ const styles = createStyle({
   resultItem: {
     marginTop: 8,
     paddingTop: 8,
+    paddingLeft: 14,
+    paddingRight: 14,
     borderTopWidth: 0.5,
-    borderTopColor: 'rgba(128,128,128,0.25)',
+    borderTopColor: 'rgba(128,128,128,0.18)',
   },
   resultHead: {
     flexDirection: 'row',

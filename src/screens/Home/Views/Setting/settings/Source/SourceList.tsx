@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react'
 import { TouchableOpacity, View } from 'react-native'
 
-import Section from '../../components/Section'
+import { Group } from '../../components/ui'
 import Text from '@/components/common/Text'
 import Tag from '@/components/common/Tag'
 import { Icon } from '@/components/common/Icon'
@@ -246,11 +246,10 @@ export default () => {
   }, [])
 
   return (
-    <Section title={t('setting_source_user_list')} icon='playlist-music'>
+    <Group title={t('setting_source_user_list')} icon='playlist-music' color='#6366F1' desc={t('setting_source_import_tip')}>
       {/* Section 会在多个顶层子元素之间插分隔线，这里整体包一层、自己控制列表分隔 */}
       <View>
         <View style={{ ...styles.importRow, borderBottomColor: theme['c-primary-alpha-700'] }}>
-          <Text size={10.5} color={theme['c-450']} style={styles.importTip}>{t('setting_source_import_tip')}</Text>
           <ImportBtn
             btnStyle={{ ...styles.importBtn, backgroundColor: theme['c-primary-alpha-700'] }}
             color={theme['c-primary-light-200']}
@@ -281,7 +280,7 @@ export default () => {
         }
         <Text size={10} color={theme['c-400']} style={styles.note}>{t('user_api_note')}</Text>
       </View>
-    </Section>
+    </Group>
   )
 }
 
@@ -311,10 +310,10 @@ const styles = createStyle({
     paddingRight: 14,
   },
   item: {
-    paddingLeft: 14,
-    paddingRight: 14,
+    paddingLeft: 16,
+    paddingRight: 16,
     paddingTop: 12,
-    paddingBottom: 10,
+    paddingBottom: 12,
   },
   head: {
     flexDirection: 'row',
