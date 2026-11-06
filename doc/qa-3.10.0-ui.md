@@ -207,3 +207,9 @@
   - 首行 `#EXTM3U`，条目含 `#EXTINF:321,张韶涵 - 阿刁 (Live)` + 原文件路径。
 - 测试目录已删除；系统对 `emo_m3u` 的授权仍留在 DocumentsUI 授权列表（不影响使用）。
 - 结论：M3U 导入 + 导出真机均已验证。
+
+## 10. v3.9.2（M3U SAF 导出）复验
+
+- 版本 3.9.2 / versionCode 193 已安装真机；冷启动非播放态（CONNECTING，未自动出声）。
+- M3U SAF 导出代码与 3.9.1 开发版一致，已验证文件写出（见第 9 节）。
+- 产物 SHA256：arm64 `cac13e3344e006c19f189ffd4952e198b3a8f4f30ee7c412b9539b287cdadeaf`；universal `741618d379d6a13a32a933f4fac5d1a3948303ef2bb5fcc730b1d80be9ff928e`。

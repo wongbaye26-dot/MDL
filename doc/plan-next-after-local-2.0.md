@@ -40,7 +40,7 @@
 - 提交：`34545bab` docs / `85f235ba` build / `32918489` feat / `07ba2510` release；tag `v3.9.0`（annotated）。
 - 版本：`3.9.0` / `versionCode 191` 首发；发现 JS bundle 旧缓存导致 About 显示 3.8.8、且关闭自动播放后仍出声，已发 **3.9.1 / versionCode 192** 修复（tag `v3.9.1`）。
 - 门禁：typecheck 0 / lint 0 / assembleRelease 成功；真机冷启动恢复播放器、本地音乐页加载正常。
-- 产物：`dist/v3.9.0/`（首发，SHA256 `56a5d01a...8352`）；**3.9.1 修复版** `dist/v3.9.1/em-music-v3.9.1-arm64-v8a.apk`（SHA256 `af2c91ebd815bb8942c8aeb3e89ac2a8c2d6eee552ace57080f291364db787bd`）+ universal APK 与 `SHA256SUMS`，tag `v3.9.1`（dist 已加入 .gitignore，不随仓库提交）。
+- 产物：`dist/v3.9.0/`（首发，SHA256 `56a5d01a...8352`，**JS bundle 旧缓存，不建议分发**）；`dist/v3.9.1/`（SHA256 `af2c91eb...787bd`）；**3.9.2 修复版** `dist/v3.9.2/em-music-v3.9.2-arm64-v8a.apk`（SHA256 `cac13e3344e006c19f189ffd4952e198b3a8f4f30ee7c412b9539b287cdadeaf`）+ universal + `SHA256SUMS`，tag `v3.9.2`（dist 已加入 .gitignore，不随仓库提交）。
 - 说明：工作区原先混有 3.8.7/3.8.8 未提交改动，无法再单独还原 3.8.8 源码；本次一并纳入 v3.9.0，`v3.8.8` 仅保留 dist APK。
 
 ---
