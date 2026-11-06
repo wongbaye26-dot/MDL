@@ -344,3 +344,16 @@
   - 引用改写 收藏 5/5、导入歌单 3/3、冲突 0、18ms；
   - 影子同步/回滚/指纹回填自动序列无错误；
 - 结论：扫描保存 → 影子 upsert（保留指纹）→ 身份映射链路未被打断。
+
+## 24. 切读 R0：JSON/DB 双读对比（2026-11-07）
+
+| 指标 | 结果 |
+|---|---|
+| JSON 曲库 | 238 |
+| DB 映射曲库 | 238 |
+| 仅 JSON / 仅 DB | 0 / 0 |
+| 字段差异（歌名/歌手/路径/时长） | 0 |
+| 耗时 | 74 ms |
+
+- `readSource.ts`：读源开关 `local_library_read_source_v1`（默认 json）+ `readLibraryFromRepository` + `compareReadSources`；
+- 默认行为未改；切读 R0 适配层已验证与旧 JSON 一致。

@@ -12,7 +12,7 @@
 | A2-04 | 双写影子表：旧 JSON 写路径同步写 DB；差异对比日志 | 🟡 双写钩子已接（保存后 1s 防抖全量镜像）；真机影子同步 238/238/129ms；迁移预演通过；差异日志已落盘 `local_library_shadow_diff_v1` | 🟡 |
 | A2-05 | 迁移 + 回滚演练：备份、10k 扫描入库、checksum、断电恢复 | ✅ 备份 238 首/14 keys/286KB；回滚演练真机通过（238/0/0/75ms）；断电恢复未做（可下轮补） | 🟡 |
 | A2-06 | 身份模型：指纹（首尾采样+size+duration）、MediaStore id、legacy 映射、懒迁移 | ✅ 指纹回填 238/失败0/7529ms；legacy→fp 映射 238/238、碰撞0、id_map 238；主键切换/懒迁移未做 | 🟡 |
-| A2-07 | 三路扫描统一：MediaStore/SAF/直读目录 → repository；增量/失权/重复 | 🟡 扫描保存后影子 upsert（保留指纹+新曲增量补指纹）；身份映射/引用改写预演真机通过；真实扫描后影子/身份映射保持 238/238；三路扫描仍读旧 JSON 后再镜像，未改为直读 repository | 🟡 |
+| A2-07 | 三路扫描统一：MediaStore/SAF/直读目录 → repository；增量/失权/重复 | 🟡 扫描保存后影子 upsert（保留指纹+新曲增量补指纹）；身份映射/引用改写预演真机通过；真机双读对比 JSON 238/DB 238、仅JSON/仅DB 0、字段差异0/74ms；读源开关默认 json，尚未切默认 | 🟡 |
 | A2-08 | CUE 解析 + 样本 | ✅ `cue.ts` + 单测（FILE/TRACK/INDEX/时长） | 🟡 |
 | A2-09 | CUE 分段播放链路（虚拟 track、seek 偏移） | 🟡 虚拟 track 模型 + 单测完成（cueTracks）；播放器 seek/边界接入未做 | 🟡 |
 | A2-10 | 全量回归 + v3.10.0 发版（扫描/排序/播放/队列/M3U/歌词/回收） | release notes + tag | ⏳ |

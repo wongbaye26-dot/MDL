@@ -12,6 +12,7 @@ import { createLibraryBackup, getBackupInfo, runRollbackDrill, type BackupInfo, 
 import { backfillIdentities, type BackfillResult } from '@/core/localLibrary/backfill'
 import { buildIdMapPreview, type IdMapPreview } from '@/core/localLibrary/identitySwitch'
 import { previewReferenceRewrite, type ReferenceRewritePreview } from '@/core/localLibrary/referenceRewrite'
+import { compareReadSources, type ReadSourceCompare } from '@/core/localLibrary/readSource'
 import { ButtonRow, Card, InfoLine, SecondaryButton } from './parts'
 
 const WARN_COLOR = '#E8A33D'
@@ -34,6 +35,7 @@ export default memo(() => {
   const [backfill, setBackfill] = useState<BackfillResult | null>(null)
   const [idMap, setIdMap] = useState<IdMapPreview | null>(null)
   const [refPreview, setRefPreview] = useState<ReferenceRewritePreview | null>(null)
+  const [readCompare, setReadCompare] = useState<ReadSourceCompare | null>(null)
 
   const run = useCallback(() => {
     if (running) return
@@ -69,6 +71,7 @@ export default memo(() => {
         setBackfill(await backfillIdentities(list))
         setIdMap(await buildIdMapPreview())
         setRefPreview(await previewReferenceRewrite())
+        setReadCompare(await compareReadSources(list))
       })
       .catch((err: unknown) => { setError(err instanceof Error ? err.message : String(err)) })
       .finally(() => { setRunning(false) })
@@ -185,6 +188,15 @@ export default memo(() => {
             ? (
               <Text size={11} color={theme['c-450']} style={styles.lines}>
                 {`\n引用改写：会替换 ${refPreview.mappedTotal} 条 / 冲突 ${refPreview.conflictsTotal}\n${refPreview.lists.map(list => `${list.name}: ${list.mapped}/${list.local}`).join(' · ')}\n${refPreview.durationMs} ms`}
+              </Text>
+              )
+            : null
+        }
+        {
+          readCompare
+            ? (
+              <Text size={11} color={theme['c-450']} style={styles.lines}>
+                {`\n双读对比：JSON ${readCompare.jsonCount} / DB ${readCompare.dbCount}\n仅 JSON ${readCompare.onlyJson} / 仅 DB ${readCompare.onlyDb} / 字段差异 ${readCompare.fieldDiffs} / ${readCompare.durationMs} ms`}
               </Text>
               )
             : null
