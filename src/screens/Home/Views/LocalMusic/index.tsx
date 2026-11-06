@@ -36,7 +36,7 @@ import { normalizeGroupKey, useLocalLibraryIndex } from '@/core/localMusic/libra
 import { hideFolder, hideSong, isHiddenItem, useHidden } from '@/core/localMusic/hidden'
 import { isLikelyUnsupportedLocal } from '@/core/localMusic/formats'
 import { buildM3U8, matchM3UEntries, parseM3U } from '@/core/localMusic/m3u'
-import { readFile, writeFile } from '@/utils/fs'
+import { readFile, selectManagedFolder, writeFile } from '@/utils/fs'
 import {
   COVER_OPTIONS,
   FORMAT_OPTIONS,
@@ -184,7 +184,6 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
   const hidden = useHidden()
   /** M3U 导入/导出（D-17） */
   const choosePathRef = useRef<ChoosePathType>(null)
-  const m3uActionRef = useRef<'import' | 'export'>('import')
   /** 批量管理（D-19） */
   const [batchMode, setBatchMode] = useState(false)
   const [batchSelected, setBatchSelected] = useState<Set<string>>(() => new Set())
@@ -652,30 +651,36 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
   // 原生下拉手势：Android 的 ScrollView 会抢走 JS 侧的 responder，PanResponder 经常收不到，
   // 用 RefreshControl 兜住「列表顶部下拉 = 关闭」这条最常用的路径（指示器设成全透明）
   const openM3U = useCallback((action: 'import' | 'export') => {
-    m3uActionRef.current = action
     setDirModal(false)
-    choosePathRef.current?.show({
-      title: action === 'import' ? '选择 M3U / M3U8 文件' : '选择导出目录',
-      dirOnly: action === 'export',
-      filter: action === 'import' ? ['m3u', 'm3u8'] : undefined,
-    })
-  }, [])
-
-  const handleM3UPath = useCallback((path: string) => {
-    if (m3uActionRef.current === 'export') {
+    if (action === 'export') {
+      /*
+        导出走系统 SAF 目录授权：Android 10+ 的旧 WRITE_EXTERNAL_STORAGE 已被
+        系统忽略，内置目录选择器会拿到「拒绝」；SAF 授权目录后写 content uri
+        才在 Android 13+ 上稳定可用。
+      */
       void (async() => {
         try {
+          const dir = await selectManagedFolder(true)
+          if (!dir?.isDirectory) return
           const content = buildM3U8(filteredList)
           const stamp = new Date().toISOString().slice(0, 10)
-          const target = `${path.replace(/\/+$/, '')}/emo_local_${stamp}.m3u8`
+          const target = `${dir.path.replace(/\/+$/, '')}/emo_local_${stamp}.m3u8`
           await writeFile(target, content)
-          toast(`已导出 ${filteredList.length} 首到 ${target}`)
+          toast(`已导出 ${filteredList.length} 首到所选目录`)
         } catch {
           toast('导出失败，请换一个目录重试')
         }
       })()
       return
     }
+    choosePathRef.current?.show({
+      title: '选择 M3U / M3U8 文件',
+      dirOnly: false,
+      filter: ['m3u', 'm3u8'],
+    })
+  }, [filteredList])
+
+  const handleM3UPath = useCallback((path: string) => {
     void (async() => {
       try {
         const text = await readFile(path)
@@ -696,7 +701,7 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
         toast('导入失败，请检查文件是否可读')
       }
     })()
-  }, [filteredList, list])
+  }, [list])
 
   const batchItems = useMemo(
     () => filteredList.filter(item => batchSelected.has(item.id)),
