@@ -38,6 +38,14 @@ declare namespace LX {
       mtime?: number
       /** MediaStore 的 content:// 地址：公共目录的文件只能靠它播放（按路径打开会 EACCES） */
       contentUri?: string
+      /** CUE 分段：整轨文件路径 */
+      cuePath?: string
+      /** CUE 分段：段号 */
+      cueTrack?: number
+      /** CUE 分段：起播毫秒 */
+      cueStartMs?: number
+      /** CUE 分段：段末毫秒（到点切下一段） */
+      cueEndMs?: number
     }
 
 

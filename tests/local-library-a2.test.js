@@ -96,3 +96,17 @@ test('mapRowToLocalTrack: DB 行 → MusicInfoLocal 字段映射', () => {
   assert.equal(item.meta.albumName, '十一月的萧邦')
   assert.equal(item.meta.bitrate, '900000')
 })
+
+const { getCueStartSeconds, shouldAdvanceCue } = require('../src/core/localLibrary/cuePlayback')
+
+test('cuePlayback: 起播偏移与段末判定', () => {
+  const meta = { cueStartMs: 225160, cueEndMs: 500000 }
+  assert.equal(getCueStartSeconds(meta, 0), 225.16)
+  assert.equal(getCueStartSeconds(meta, 42), 42) // 恢复进度优先
+  assert.equal(getCueStartSeconds(undefined, 0), 0)
+  assert.equal(getCueStartSeconds({ cueStartMs: 0 }, 0), 0)
+  assert.equal(shouldAdvanceCue(meta, 499000), false)
+  assert.equal(shouldAdvanceCue(meta, 499900), true)
+  assert.equal(shouldAdvanceCue(meta, 1000000), true)
+  assert.equal(shouldAdvanceCue(undefined, 1000000), false)
+})

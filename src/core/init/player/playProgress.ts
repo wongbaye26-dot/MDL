@@ -2,6 +2,8 @@ import { updateListMusics } from '@/core/list'
 import { setMaxplayTime, setNowPlayTime } from '@/core/player/progress'
 import { setCurrentTime, getDuration, getPosition } from '@/plugins/player'
 import { recordPlaybackTick } from '@/core/player/listenStats'
+import { shouldAdvanceCue } from '@/core/localLibrary/cuePlayback'
+import { playNext } from '@/core/player/player'
 import { formatPlayTime2 } from '@/utils/common'
 import { savePlayInfo } from '@/utils/data'
 import { throttleBackgroundTimer } from '@/utils/tools'
@@ -26,6 +28,7 @@ export default () => {
   let updateTimeout: number | null = null
 
   let isScreenOn = true
+  let cueAdvancing = false
 
   const getCurrentTime = () => {
     let id = playerState.musicInfo.id
@@ -34,6 +37,12 @@ export default () => {
       setNowPlayTime(position)
       recordPlaybackTick(position)
       if (!playerState.isPlay) return
+      const current = playerState.playMusicInfo.musicInfo
+      if (!cueAdvancing && current && 'meta' in current && current.meta && 'filePath' in current.meta && shouldAdvanceCue(current.meta, position * 1000)) {
+        cueAdvancing = true
+        void playNext(true).finally(() => { cueAdvancing = false })
+        return
+      }
 
       if (settingState.setting['player.isSavePlayTime'] && !playerState.playMusicInfo.isTempPlay && isScreenOn) {
         delaySavePlayInfo()

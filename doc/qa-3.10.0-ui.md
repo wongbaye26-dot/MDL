@@ -357,3 +357,12 @@
 
 - `readSource.ts`：读源开关 `local_library_read_source_v1`（默认 json）+ `readLibraryFromRepository` + `compareReadSources`；
 - 默认行为未改；切读 R0 适配层已验证与旧 JSON 一致。
+
+## 25. CUE 分段播放接线（A2-09，代码完成，真机 NOT RUN）
+
+- `cuePlayback.ts`：`getCueStartSeconds`（恢复进度优先）、`shouldAdvanceCue`（段末提前 250ms）；
+- 播放器 `setMusicUrl`/错误重试：起播时间对 CUE 段使用 `cueStartMs`；
+- `playProgress`：播放中检测到段末自动 `playNext(true)`，加 `cueAdvancing` 防重入；
+- `MusicInfoMeta_local` 增加 `cuePath/cueTrack/cueStartMs/cueEndMs`；
+- 单测 19/19（起播偏移、段末判定）；
+- 真机：缺少 CUE 文件导入入口，端到端播放 **NOT RUN**。

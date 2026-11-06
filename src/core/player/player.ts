@@ -25,6 +25,7 @@ import { getPlayQuality, getSourceName } from '@/core/music/utils'
 import { requestMsg } from '@/utils/message'
 import { getRandom } from '@/utils/common'
 import { filterList } from './utils'
+import { getCueStartSeconds } from '@/core/localLibrary/cuePlayback'
 import BackgroundTimer from 'react-native-background-timer'
 import { checkIgnoringBatteryOptimization, checkNotificationPermission, debounceBackgroundTimer, toast } from '@/utils/tools'
 import { LIST_IDS } from '@/config/constant'
@@ -276,7 +277,7 @@ export const handlePlaybackErrorRetry = (): boolean => {
   log.info(`[player] playback error retry (refresh=${String(!forceToggle)}, toggleSource=${String(forceToggle)})`)
   void getMusicPlayUrl(musicInfo, true, true, 0, forceToggle).then((url) => {
     if (!url) return
-    setResource(musicInfo, url, playerState.progress.nowPlayTime)
+    setResource(musicInfo, url, getStartTime(musicInfo))
   }).catch((err: any) => {
     log.error(err)
     setStatusText(err.message as string)
@@ -289,6 +290,13 @@ export const handlePlaybackErrorRetry = (): boolean => {
   return true
 }
 
+const getStartTime = (musicInfo: LX.Music.MusicInfo | LX.Download.ListItem): number => {
+  if ('meta' in musicInfo && musicInfo.meta && 'filePath' in musicInfo.meta) {
+    return getCueStartSeconds(musicInfo.meta, playerState.progress.nowPlayTime)
+  }
+  return playerState.progress.nowPlayTime
+}
+
 export const setMusicUrl = (musicInfo: LX.Music.MusicInfo | LX.Download.ListItem, isRefresh?: boolean) => {
   // addLoadTimeout()
   if (!diffCurrentMusicInfo(musicInfo)) return
@@ -297,7 +305,7 @@ export const setMusicUrl = (musicInfo: LX.Music.MusicInfo | LX.Download.ListItem
   void getMusicPlayUrl(musicInfo, isRefresh).then((url) => {
     if (!url) return
     resetPlaybackErrorRetry()
-    setResource(musicInfo, url, playerState.progress.nowPlayTime)
+    setResource(musicInfo, url, getStartTime(musicInfo))
   }).catch((err: any) => {
     log.error(err)
     setStatusText(err.message as string)
