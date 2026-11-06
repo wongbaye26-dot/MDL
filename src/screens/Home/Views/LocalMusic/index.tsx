@@ -1,4 +1,4 @@
-import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, memo } from 'react'
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, startTransition, memo } from 'react'
 import {
   Animated,
   FlatList,
@@ -86,6 +86,36 @@ const TABS = [
 ] as const
 
 /** 胶囊内文字居中样式：和 components/common/Tag 同一套规则（render 时按当前字号算 lineHeight） */
+/**
+ * 页签栏独立组件：点击只重渲染这一排（立即高亮），把列表重建排到下一帧。
+ * 父组件切 tab 会重建几百行，如果和页签状态同一次 render，用户会看到「点了没反应」。
+ */
+const LocalTabs = memo(({ active, onChange }: {
+  active: LocalTab
+  onChange: (tab: LocalTab) => void
+}) => {
+  const [visual, setVisual] = useState<LocalTab>(active)
+  useEffect(() => { setVisual(active) }, [active])
+  return (
+    <View style={styles.tabRow}>
+      {
+        TABS.map(item => (
+          <TabButton
+            key={item.key}
+            label={item.label}
+            active={visual === item.key}
+            onPress={() => {
+              if (visual === item.key) return
+              setVisual(item.key)
+              requestAnimationFrame(() => { onChange(item.key) })
+            }}
+          />
+        ))
+      }
+    </View>
+  )
+})
+
 const chipText = (fontSize: number) => ({
   includeFontPadding: false,
   textAlignVertical: 'center' as const,
@@ -1523,23 +1553,16 @@ export default ({ onClose, initialTab, onOpenFavorites }: { onClose?: () => void
               )
             : (
               <View style={styles.tabBar}>
-                <View style={styles.tabRow}>
-                  {
-                    TABS.map(item => (
-                      <TabButton
-                        key={item.key}
-                        label={item.label}
-                        active={tab === item.key}
-                        onPress={() => {
-                          if (tab === item.key) return
-                          setTab(item.key)
-                          setFolderPath(null)
-                          setDetail(null)
-                        }}
-                      />
-                    ))
-                  }
-                </View>
+                <LocalTabs
+                  active={tab}
+                  onChange={key => {
+                    startTransition(() => {
+                      setTab(key)
+                      setFolderPath(null)
+                      setDetail(null)
+                    })
+                  }}
+                />
               </View>
               )
       }

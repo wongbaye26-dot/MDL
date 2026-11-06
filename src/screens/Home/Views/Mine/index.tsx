@@ -7,6 +7,8 @@ import { useStatusbarHeight } from '@/store/common/hook'
 import { useHorizontalMode, useReducedMotion } from '@/utils/hooks'
 import Text from '@/components/common/Text'
 import { SETTINGS_HEADER_COMPACT_H, SETTINGS_HEADER_H } from '../Setting/components/headerMetrics'
+import LiquidGlass from '@/components/common/LiquidGlass'
+import { useSettingValue } from '@/store/setting/hook'
 import Setting from '../Setting'
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -34,6 +36,7 @@ export default () => {
     return () => { loop.stop() }
   }, [glow, reduced])
   const statusBarHeight = useStatusbarHeight()
+  const glassStyle = useSettingValue('common.navGlassStyle') ?? 'liquid'
   const compact = useHorizontalMode()
   const headerH = compact ? SETTINGS_HEADER_COMPACT_H : SETTINGS_HEADER_H
   // 横屏下 statusbarHeight 报 0，但时钟浮在左上角，页头要自己让出一条
@@ -46,6 +49,7 @@ export default () => {
         height: topInset + headerH,
         paddingTop: topInset + (compact ? 7 : 12),
       }}>
+        <LiquidGlass mode={glassStyle} blurRadius={24} radius={0} tint={theme.isDark ? 'rgba(20,16,28,0.42)' : 'rgba(255,255,255,0.34)'} isDark={theme.isDark} seamless />
         <View style={styles.logoWrap}>
           <Animated.View style={[
             styles.logoGlow,

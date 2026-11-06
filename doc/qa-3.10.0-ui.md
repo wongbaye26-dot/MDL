@@ -428,3 +428,13 @@
 | 表头液态玻璃 | 本地/下载/收藏(PageModal)/排行榜/歌单广场/歌单详情/搜索 HeaderBar 均接入 LiquidGlass，底部圆角 24 |
 | 本地收藏键 | 图标色改 c-font，与文件夹/搜索同为 38dp tonal 圆钮 |
 | 真机 | 本地/歌单广场玻璃表头可见；收藏页新建列表此前已验证 |
+
+## 32. 3.9.8 无缝玻璃 / 页签跟手（2026-11-07）
+
+| 项 | 结果 |
+|---|---|
+| 表头玻璃圆角/底线 | PageHeader/Search HeaderBar 去掉 24 圆角与底部内阴影+描边（LiquidGlass seamless），与内容无缝 |
+| 设置页头 | 我的页头、设置子页头均接入无缝 LiquidGlass |
+| 页签跟手 | 页签栏拆为 LocalTabs 独立组件：点击只重渲染页签并立即高亮，列表更新 requestAnimationFrame + startTransition 下帧执行 |
+| 列表性能 | windowSize 4、initial 24/15、batch 8；快速滑到 180+ 行无空白 |
+| 设置清单 | `doc/settings-inventory-3.9.md`（8 个一级页、约 90 项、现状问题 + 新结构草案） |

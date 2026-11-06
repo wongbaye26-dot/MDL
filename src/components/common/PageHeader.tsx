@@ -61,7 +61,6 @@ export default memo(({
     <View
       style={{
         ...styles.container,
-        ...(glass ? styles.glassContainer : null),
         height: topInset + (compact ? PAGE_HEADER_COMPACT_H : PAGE_HEADER_H),
         paddingTop: topInset + (compact ? 8 : 12),
         paddingBottom: compact ? 10 : 14,
@@ -69,7 +68,7 @@ export default memo(({
     >
       {
         glass
-          ? <LiquidGlass mode={glassStyle} blurRadius={24} radius={0} tint={theme.isDark ? 'rgba(20,16,28,0.42)' : 'rgba(255,255,255,0.34)'} isDark={theme.isDark} />
+          ? <LiquidGlass mode={glassStyle} blurRadius={24} radius={0} tint={theme.isDark ? 'rgba(20,16,28,0.42)' : 'rgba(255,255,255,0.34)'} isDark={theme.isDark} seamless />
           : null
       }
       <View style={styles.row}>
@@ -156,11 +155,6 @@ export const HeaderButton = memo(({ icon, onPress, size = 20, color, iconSet = '
 })
 
 const styles = createStyle({
-  glassContainer: {
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    overflow: 'hidden',
-  },
   container: {
     paddingLeft: 16,
     paddingRight: 16,

@@ -27,12 +27,15 @@ export default memo(({
   blurRadius = 18,
   tint,
   isDark = true,
+  seamless = false,
 }: {
   mode?: LiquidGlassMode
   radius?: number
   blurRadius?: number
   tint?: string
   isDark?: boolean
+  /** 无缝表头：去掉底部内阴影和描边，只保留顶部高光，避免和页面之间出现一条线 */
+  seamless?: boolean
 }) => {
   if (mode === 'none') return null
 
@@ -57,14 +60,24 @@ export default memo(({
         style={styles.gloss}
         pointerEvents='none'
       />
-      <LinearGradient
-        colors={isDark
-          ? ['rgba(0,0,0,0)', 'rgba(0,0,0,0.18)']
-          : ['rgba(150,140,170,0)', 'rgba(150,140,170,0.16)']}
-        style={styles.innerShade}
-        pointerEvents='none'
-      />
-      <View
+      {
+        seamless
+          ? null
+          : (
+            <LinearGradient
+              colors={isDark
+                ? ['rgba(0,0,0,0)', 'rgba(0,0,0,0.18)']
+                : ['rgba(150,140,170,0)', 'rgba(150,140,170,0.16)']}
+              style={styles.innerShade}
+              pointerEvents='none'
+            />
+            )
+      }
+      {
+        seamless
+          ? null
+          : (
+            <View
         style={{
           position: 'absolute',
           left: 0,
@@ -75,7 +88,9 @@ export default memo(({
           borderWidth: 0.5,
           borderColor: isDark ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.5)',
         }}
-      />
+            />
+            )
+      }
     </View>
   )
 })

@@ -26,6 +26,8 @@ import settingState from '@/store/setting/state'
 import type { InitState as CommonState } from '@/store/common/state'
 import useSwipeBack from '../useSwipeBack'
 import { setNavActiveId } from '@/core/common'
+import LiquidGlass from '@/components/common/LiquidGlass'
+import { useSettingValue } from '@/store/setting/hook'
 
 /** 主题切换等导致组件重挂载时，用来恢复当前打开的子页，避免闪回设置主页 */
 let lastActiveId: SettingScreenIds | null = null
@@ -48,6 +50,7 @@ export default () => {
   const theme = useTheme()
   const t = useI18n()
   const statusBarHeight = useStatusbarHeight()
+  const glassStyle = useSettingValue('common.navGlassStyle') ?? 'liquid'
   const [activeId, setActiveIdState] = useState<SettingScreenIds | null>(lastActiveId)
   const activeIdRef = useRef<SettingScreenIds | null>(null)
   activeIdRef.current = activeId
@@ -136,6 +139,7 @@ export default () => {
               >
                 <SlideInView style={{ ...styles.modal, backgroundColor: getSolidBackground(theme) }}>
                   <View style={{ ...styles.modalHeader, height: 58 + statusBarHeight, paddingTop: statusBarHeight }}>
+                    <LiquidGlass mode={glassStyle} blurRadius={24} radius={0} tint={theme.isDark ? 'rgba(20,16,28,0.42)' : 'rgba(255,255,255,0.34)'} isDark={theme.isDark} seamless />
                     <TouchableOpacity
                       style={{ ...styles.modalBack, backgroundColor: theme['c-primary-alpha-900'], borderColor: theme['c-primary-alpha-700'] }}
                       onPress={handleClose}
