@@ -5,7 +5,8 @@ import { mapRowToLocalTrack } from './mapTrack'
 /**
  * 切读 R0（A2-07）：读源开关与 JSON/DB 双读对比。
  *
- * 默认仍读 JSON；开关只供内部验证。DB 行的 id 当前仍是 legacy id，
+ * R1 起默认读 SQLite（repository）；DB 为空时自动回退 JSON，
+ * 保留 `json` 开关用于回滚。DB 行的 id 当前仍是 legacy id，
  * 因此切换读源不会改变播放/收藏引用。
  */
 
@@ -15,7 +16,7 @@ export type ReadSource = 'json' | 'repository'
 
 export const getReadSource = async(): Promise<ReadSource> => {
   const value = await getData<ReadSource>(KEY).catch(() => null)
-  return value === 'repository' ? 'repository' : 'json'
+  return value === 'json' ? 'json' : 'repository'
 }
 
 export const setReadSource = async(source: ReadSource): Promise<void> => {

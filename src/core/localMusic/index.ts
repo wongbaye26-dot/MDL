@@ -1,6 +1,7 @@
 /* eslint-disable require-atomic-updates -- 扫描状态是模块级单例，只在扫描回调里整体更新 */
 import { canReuseScannedFile } from './scanDiff'
 import { scheduleShadowSync } from '@/core/localLibrary/shadow'
+import { getReadSource, readLibraryFromRepository } from '@/core/localLibrary/readSource'
 import { useEffect, useState } from 'react'
 import { getData, saveData } from '@/plugins/storage'
 import { existsFile, extname, readDir, unlink } from '@/utils/fs'
@@ -124,9 +125,16 @@ const emitLocalMusicUpdated = (list: LX.Music.MusicInfoLocal[]) => {
 /** 读取上次扫描结果（不触发扫描）。返回副本，调用方可以放心放进 state */
 export const getLocalMusicList = async(): Promise<LX.Music.MusicInfoLocal[]> => {
   if (!cachedList) {
-    const data = await getData<LX.Music.MusicInfoLocal[]>(STORAGE_KEY)
-    // eslint-disable-next-line require-atomic-updates
-    cachedList = data ?? []
+    const source = await getReadSource()
+    if (source === 'repository') {
+      const dbList = await readLibraryFromRepository().catch(() => [])
+      // DB 未初始化/迁移未完成时回退 JSON，避免升级后曲库突然变空
+      if (dbList.length) cachedList = dbList
+    }
+    if (!cachedList) {
+      const data = await getData<LX.Music.MusicInfoLocal[]>(STORAGE_KEY)
+      cachedList = data ?? []
+    }
   }
   return [...cachedList]
 }
