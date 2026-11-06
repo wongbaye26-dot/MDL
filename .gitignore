@@ -69,3 +69,5 @@ buck-out/
 
 # 本地真机验证截图
 .tmp-verify/
+# 本地发版归档（APK/SHA，不进仓库）
+dist/

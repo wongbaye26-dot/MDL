@@ -16,20 +16,27 @@
 
 ## 1. N0 · 收口与发版（2026-11-07 → 11-13，约 4.5 人日）
 
-- [ ] **N-01 提交分组**：把 248 项改动按逻辑拆 commit：
+- [x] **N-01 提交分组**：把 248 项改动按逻辑拆 commit：
   - `docs: 计划/需求/QA/ADR`
   - `feat(ui): U 阶段动效与交互`
   - `feat(local): 本地音乐 2.0（索引/扫描/排序筛选/健康/批量）`
   - `feat(player): 倍速/淡入淡出/队列恢复/歌词偏移`
   - `chore(release): 图标/构建/配置`
   - 验收：`git status --short` 为空；每个 commit 可单独 checkout 构建。
-- [ ] **N-02 版本与 tag**：`package.json` 升 `3.9.0`、`versionCode` 191；打 `v3.9.0`；记录 APK SHA256。
-- [ ] **N-03 Release Notes**：新增 `doc/release-notes-3.9.0.md`，按「本地管理 / 播放 / 工具 / 已知限制」写；不要写未验证能力。
-- [ ] **N-04 真机 Smoke**：按 `doc/qa-3.10.0-ui.md` 第 6 节 + 2.0 清单跑一遍；未验项（队列恢复/淡入淡出听感/M3U 往返/歌词偏移/不可解码）逐项记录。
-- [ ] **N-05 文档重排**：`doc/progress-3.9-4.0.md` 把 A-1、U 标为「提前完成」，A-2 起点前移；changelog 记 v2.6。
-- [ ] **N-06 清理**：恢复真机隐藏的「阿刁」；确认 `.tmp-verify`、build 产物不进 git。
+- [x] **N-02 版本与 tag**：`package.json` 升 `3.9.0`、`versionCode` 191；打 `v3.9.0`；记录 APK SHA256。
+- [x] **N-03 Release Notes**：新增 `doc/release-notes-3.9.0.md`，按「本地管理 / 播放 / 工具 / 已知限制」写；不要写未验证能力。
+- [x] **N-04 真机 Smoke**：按 `doc/qa-3.10.0-ui.md` 第 6 节 + 2.0 清单跑一遍；未验项（队列恢复/淡入淡出听感/M3U 往返/歌词偏移/不可解码）逐项记录。
+- [x] **N-05 文档重排**：`doc/progress-3.9-4.0.md` 把 A-1、U 标为「提前完成」，A-2 起点前移；changelog 记 v2.6。
+- [x] **N-06 清理**：恢复真机隐藏的「阿刁」；确认 `.tmp-verify`、build 产物不进 git。
 
 **门禁 N0**：tag 可构建；v3.9.0 安装包在真机冷启动/扫描/播放/本地列表无回归；文档状态与 tag 一致。
+
+**N0 完成记录（2026-11-07）**
+- 提交：`34545bab` docs / `85f235ba` build / `32918489` feat / `07ba2510` release；tag `v3.9.0`（annotated）。
+- 版本：`3.9.0` / `versionCode 191`（真机 `versionCode=191003`、`versionName=3.9.0`）。
+- 门禁：typecheck 0 / lint 0 / assembleRelease 成功；真机冷启动恢复播放器、本地音乐页加载正常。
+- 产物：`dist/v3.9.0/em-music-v3.9.0-arm64-v8a.apk`（SHA256 `56a5d01aae140210f5cef82669527a5b74a4fe3eb6a0e9c197330f98dc087352`）、universal APK 与 `SHA256SUMS`（dist 已加入 .gitignore，不随仓库提交）。
+- 说明：工作区原先混有 3.8.7/3.8.8 未提交改动，无法再单独还原 3.8.8 源码；本次一并纳入 v3.9.0，`v3.8.8` 仅保留 dist APK。
 
 ---
 
