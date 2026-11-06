@@ -8,7 +8,7 @@ import { localLibraryRepository, type BenchmarkResult } from '@/core/localLibrar
 import { runMigrationDryRun, type MigrationPreview } from '@/core/localLibrary/migrate'
 import { getShadowStatus, syncShadowNow, type ShadowStatus } from '@/core/localLibrary/shadow'
 import { getLocalMusicList } from '@/core/localMusic'
-import { createLibraryBackup, getBackupInfo, runRollbackDrill, type BackupInfo, type RollbackDrillResult } from '@/core/localLibrary/backup'
+import { createLibraryBackup, getBackupInfo, runRollbackDrill, runPowerLossDrill, type BackupInfo, type RollbackDrillResult, type PowerLossDrillResult } from '@/core/localLibrary/backup'
 import { backfillIdentities, type BackfillResult } from '@/core/localLibrary/backfill'
 import { buildIdMapPreview, type IdMapPreview } from '@/core/localLibrary/identitySwitch'
 import { previewReferenceRewrite, type ReferenceRewritePreview } from '@/core/localLibrary/referenceRewrite'
@@ -32,6 +32,7 @@ export default memo(() => {
   const [shadow, setShadow] = useState<ShadowStatus>(() => getShadowStatus())
   const [backup, setBackup] = useState<BackupInfo | null>(null)
   const [drill, setDrill] = useState<RollbackDrillResult | null>(null)
+  const [powerLoss, setPowerLoss] = useState<PowerLossDrillResult | null>(null)
   const [backfill, setBackfill] = useState<BackfillResult | null>(null)
   const [idMap, setIdMap] = useState<IdMapPreview | null>(null)
   const [refPreview, setRefPreview] = useState<ReferenceRewritePreview | null>(null)
@@ -68,6 +69,7 @@ export default memo(() => {
         setShadow(await syncShadowNow(list))
         // A-2 自检序列：影子 → 回滚演练 → 指纹回填（仅开发入口）
         setDrill(await runRollbackDrill())
+        setPowerLoss(await runPowerLossDrill())
         setBackfill(await backfillIdentities(list))
         setIdMap(await buildIdMapPreview())
         setRefPreview(await previewReferenceRewrite())
@@ -161,6 +163,15 @@ export default memo(() => {
             ? (
               <Text size={11} color={drill.ok ? theme['c-450'] : WARN_COLOR} style={styles.lines}>
                 {`\n回滚演练：DB ${drill.beforeDb} → 清空 → ${drill.afterDb}\n旧 JSON ${drill.listCount} 首 · 缺失 ${drill.missing} / 多余 ${drill.extra} · ${drill.durationMs} ms${drill.error ? `\n失败：${drill.error}` : ''}`}
+              </Text>
+              )
+            : null
+        }
+        {
+          powerLoss
+            ? (
+              <Text size={11} color={powerLoss.ok ? theme['c-450'] : WARN_COLOR} style={styles.lines}>
+                {`\n断电恢复：DB ${powerLoss.beforeDb} → 中断 ${powerLoss.interruptedDb} → 恢复 ${powerLoss.recoveredDb}\n旧 JSON ${powerLoss.listCount} 首 · 缺失 ${powerLoss.missing} / 多余 ${powerLoss.extra} · ${powerLoss.durationMs} ms${powerLoss.error ? `\n失败：${powerLoss.error}` : ''}`}
               </Text>
               )
             : null

@@ -120,3 +120,4 @@ test('cuePlayback: 起播偏移与段末判定', () => {
   assert.equal(shouldAdvanceCue(meta, 1000000), true)
   assert.equal(shouldAdvanceCue(undefined, 1000000), false)
 })
+

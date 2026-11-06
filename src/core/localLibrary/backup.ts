@@ -145,3 +145,57 @@ export const runRollbackDrill = async(): Promise<RollbackDrillResult> => {
     }
   }
 }
+
+export interface PowerLossDrillResult {
+  ok: boolean
+  beforeDb: number
+  interruptedDb: number
+  recoveredDb: number
+  listCount: number
+  missing: number
+  extra: number
+  durationMs: number
+  error?: string
+}
+
+/**
+ * 断电恢复演练（A2-05）：模拟「DB 只写了一半就断电」，重启后用旧 JSON 重建影子表。
+ *
+ * 步骤：全量同步 → 删掉 40% DB 行（模拟中断）→ 再次从 JSON 全量同步（模拟重启恢复）。
+ * 全程只动 SQLite 影子表，不改旧 JSON，也不碰任何列表引用。
+ */
+export const runPowerLossDrill = async(): Promise<PowerLossDrillResult> => {
+  const start = Date.now()
+  const beforeDb = await localLibraryRepository.getTrackCount()
+  try {
+    const list = await getLocalMusicList()
+    await syncShadowNow(list)
+    const ids = await localLibraryRepository.getTrackIds()
+    const keep = ids.slice(0, Math.max(1, Math.floor(ids.length * 0.6)))
+    await localLibraryRepository.deleteTracksNotIn(keep)
+    const interruptedDb = await localLibraryRepository.getTrackCount()
+    const status = await syncShadowNow(list)
+    return {
+      ok: status.dbCount === list.length && status.missing === 0 && status.extra === 0,
+      beforeDb,
+      interruptedDb,
+      recoveredDb: status.dbCount,
+      listCount: list.length,
+      missing: status.missing,
+      extra: status.extra,
+      durationMs: Date.now() - start,
+    }
+  } catch (error) {
+    return {
+      ok: false,
+      beforeDb,
+      interruptedDb: 0,
+      recoveredDb: await localLibraryRepository.getTrackCount().catch(() => 0),
+      listCount: 0,
+      missing: 0,
+      extra: 0,
+      durationMs: Date.now() - start,
+      error: error instanceof Error ? error.message : '断电恢复演练失败',
+    }
+  }
+}

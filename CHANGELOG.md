@@ -4,6 +4,9 @@ EmoMusic 是基于 lxmusic 开源项目二次开发的独立项目，直接使�
 
 ## v3.9.x（本地音乐管理与播放 2.0 + 阶段 U UI/动效）
 
+### v3.9.22
+- **断电恢复演练**：新增 `runPowerLossDrill`，模拟 DB 只写 60% 后断电，重启后从旧 JSON 全量重建影子表并校验缺失/多余；接入数据库自检自动序列。
+
 ### v3.9.21
 - **R1 切读**：`getReadSource` 默认改为 `repository`；`getLocalMusicList` 默认从 SQLite 读，DB 为空自动回退 JSON；真机 238 首/6.69GB 回归通过。
 - **去掉设置搜索**：按用户要求移除设置首页搜索框。
