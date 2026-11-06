@@ -92,6 +92,16 @@ export default memo(() => {
       .finally(() => { setRunning(false) })
   }, [running])
 
+  const autoDrillRef = useRef(false)
+  useEffect(() => {
+    // A-2 自检：影子同步完成后自动跑一次回滚演练（清 DB → 旧 JSON 重建）
+    if (autoDrillRef.current) return
+    if (drill != null) return
+    if (!shadow.lastAt) return
+    autoDrillRef.current = true
+    runDrill()
+  }, [shadow.lastAt, drill, runDrill])
+
   const clearDb = useCallback(() => {
     if (running) return
     setRunning(true)

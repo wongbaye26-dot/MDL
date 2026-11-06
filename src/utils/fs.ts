@@ -42,6 +42,12 @@ export const hash = async(path: string, algorithm: HashAlgorithm) => FileSystem.
 
 export const readFile = async(path: string, encoding?: Encoding) => FileSystem.readFile(path, encoding)
 
+/** 读取文件的一段（base64），指纹采样用；content:// 不支持 */
+export const readFileChunk = async(path: string, length: number, position: number, encoding: Encoding = 'base64') => {
+  if (path.startsWith('content://')) throw new Error('content uri not supported')
+  return RNFS.read(path, length, position, encoding)
+}
+
 
 // export const copyFile = async(fromPath: string, toPath: string) => FileSystem.cp(fromPath, toPath)
 
