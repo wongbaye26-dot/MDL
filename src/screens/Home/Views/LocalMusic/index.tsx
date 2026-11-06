@@ -37,7 +37,9 @@ import { hideFolder, hideSong, isHiddenItem, useHidden } from '@/core/localMusic
 import { isLikelyUnsupportedLocal } from '@/core/localMusic/formats'
 import { moveSongToRecycle } from '@/core/localMusic/recycle'
 import { buildM3U8, matchM3UEntries, parseM3U } from '@/core/localMusic/m3u'
-import { readFile, selectManagedFolder, writeFile } from '@/utils/fs'
+import { parseCue } from '@/core/localLibrary/cue'
+import { buildCueVirtualTracks } from '@/core/localLibrary/cueTracks'
+import { existsFile, readFile, selectManagedFolder, stat, writeFile } from '@/utils/fs'
 import {
   COVER_OPTIONS,
   FORMAT_OPTIONS,
@@ -185,6 +187,7 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
   const hidden = useHidden()
   /** M3U 导入/导出（D-17） */
   const choosePathRef = useRef<ChoosePathType>(null)
+  const cueImportRef = useRef(false)
   /** 批量管理（D-19） */
   const [batchMode, setBatchMode] = useState(false)
   const [batchSelected, setBatchSelected] = useState<Set<string>>(() => new Set())
@@ -681,7 +684,66 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
     })
   }, [filteredList])
 
+  const openCueImport = useCallback(() => {
+    cueImportRef.current = true
+    setDirModal(false)
+    choosePathRef.current?.show({
+      title: '选择 CUE 文件',
+      dirOnly: false,
+      filter: ['cue'],
+    })
+  }, [])
+
+  const importCueFile = useCallback((cuePath: string) => {
+    void (async() => {
+      try {
+        const text = await readFile(cuePath)
+        const sheet = parseCue(text)
+        if (!sheet.tracks.length) { toast('CUE 里没有解析到分段'); return }
+        const dir = cuePath.slice(0, cuePath.lastIndexOf('/'))
+        const audioPath = sheet.file.startsWith('/')
+          ? sheet.file
+          : `${dir}/${sheet.file}`
+        if (!await existsFile(audioPath).catch(() => false)) {
+          toast(`找不到整轨文件：${sheet.file || '(未声明 FILE)'}`)
+          return
+        }
+        const info = await stat(audioPath).catch(() => null)
+        const virtual = buildCueVirtualTracks(sheet, audioPath)
+        const list = virtual.map(track => ({
+          id: track.id,
+          name: track.title,
+          singer: track.performer,
+          source: 'local' as const,
+          interval: track.interval || null,
+          meta: {
+            filePath: audioPath,
+            ext: audioPath.split('.').pop() ?? '',
+            size: info?.size ?? 0,
+            mtime: info?.lastModified ?? 0,
+            albumName: sheet.album,
+            songId: audioPath,
+            cuePath: audioPath,
+            cueTrack: track.trackNumber,
+            cueStartMs: track.startMs,
+            cueEndMs: track.endMs,
+          },
+        })) as LX.Music.MusicInfoLocal[]
+        const name = cuePath.slice(cuePath.lastIndexOf('/') + 1).replace(/\.cue$/i, '')
+        await createList({ name: `CUE ${name}`, list })
+        toast(`已导入 ${list.length} 段到「CUE ${name}」`)
+      } catch {
+        toast('导入 CUE 失败，请检查文件是否可读')
+      }
+    })()
+  }, [])
+
   const handleM3UPath = useCallback((path: string) => {
+    if (cueImportRef.current) {
+      cueImportRef.current = false
+      importCueFile(path)
+      return
+    }
     void (async() => {
       try {
         const text = await readFile(path)
@@ -702,7 +764,7 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
         toast('导入失败，请检查文件是否可读')
       }
     })()
-  }, [list])
+  }, [list, importCueFile])
 
   const batchItems = useMemo(
     () => filteredList.filter(item => batchSelected.has(item.id)),
@@ -1740,6 +1802,21 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
                 <Text size={13}>导出当前列表</Text>
                 <Text size={10} color={theme['c-450']} numberOfLines={1} style={styles.dirPath}>
                   导出为 M3U8（含歌名/歌手/时长/路径）
+                </Text>
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.dirRow}
+              activeOpacity={0.7}
+              accessibilityRole='button'
+              accessibilityLabel='导入 CUE 分段'
+              onPress={openCueImport}
+            >
+              <Icon name='album' size={16} color={theme['c-primary']} />
+              <View style={styles.dirInfo}>
+                <Text size={13}>导入 CUE</Text>
+                <Text size={10} color={theme['c-450']} numberOfLines={1} style={styles.dirPath}>
+                  整轨 + .cue → 生成分段歌单（按段起止播放）
                 </Text>
               </View>
             </TouchableOpacity>

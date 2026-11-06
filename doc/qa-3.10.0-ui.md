@@ -366,3 +366,13 @@
 - `MusicInfoMeta_local` 增加 `cuePath/cueTrack/cueStartMs/cueEndMs`；
 - 单测 19/19（起播偏移、段末判定）；
 - 真机：缺少 CUE 文件导入入口，端到端播放 **NOT RUN**。
+
+## 26. CUE 导入真机（A2-09，2026-11-07）
+
+| 项 | 结果 |
+|---|---|
+| 本地音乐 → 扫描文件夹 → 导入 CUE | ✅ 系统文件选择器选中 `Download/n15.cue` |
+| CUE 解析 + 整轨定位 | ✅ 绝对 FILE 路径匹配到本地 flac |
+| 生成虚拟曲目歌单 | ✅ 「添加到歌单」弹窗出现 **「CUE n15」** |
+| 分段播放（起播 seek/段末切段） | NOT RUN：未从该歌单实际播放 |
+| 测试文件 | 已删除 `Download/n15.cue`；测试歌单「CUE n15」仍在，可在我的列表删除 |
