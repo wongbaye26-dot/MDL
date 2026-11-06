@@ -20,11 +20,11 @@ export default memo(() => {
 
   return (
     <>
-      <Section title={t('setting_search')}>
+      <Section title={t('setting_search')} icon='magnify'>
         <IsShowHotSearch />
         <IsShowHistorySearch />
       </Section>
-      <Section title={t('setting_list')}>
+      <Section title={t('setting_list')} icon='format-list-bulleted'>
         <IsClickPlayList />
         <IsShowAlbumName />
         <IsShowInterval />

@@ -49,8 +49,9 @@ export default ({ componentId }: Props) => {
           共享元素转场层必须放在 PagerView **外面**：
           竖屏各页是 PagerView 的子页，切到播放器时整个 Home 页会被平移出屏幕，
           转场层如果挂在里面会跟着一起飞走（实测飞行封面会跑到屏幕外）。
+          横屏也挂载：横屏播放器是左半屏满出血封面，几何见 playerOpen.getPlayerCoverGeometry。
         */}
-        {isHorizontalMode ? null : <PlayerTransition />}
+        <PlayerTransition />
         {/* 全局 Material You 弹窗宿主：Home 常驻，一个实例覆盖所有页面（RN Modal 是 Activity 级 Dialog） */}
         <AppDialogHost />
       </PageContent>

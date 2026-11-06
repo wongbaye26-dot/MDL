@@ -1,6 +1,7 @@
-import { Animated, Easing } from 'react-native'
+import { Animated } from 'react-native'
 
 import type commonState from '@/store/common/state'
+import { MotionDuration, MotionEasing, MotionSpring } from '@/theme/motion'
 
 /**
  * 播放器封面共享元素转场。
@@ -133,9 +134,9 @@ export const beginOpen = (
   emit()
   Animated.timing(progressAnim, {
     toValue: 1,
-    duration: 460,
+    duration: MotionDuration.page,
     // 起步快、收尾慢，接近 macOS Dock 的观感；不要用 spring，回弹会晃
-    easing: Easing.bezier(0.22, 0.9, 0.28, 1),
+    easing: MotionEasing.emphasized,
     // 位置和尺寸都要插值，没法走 native driver
     useNativeDriver: false,
   }).start(() => {
@@ -171,8 +172,7 @@ export const setCloseProgress = (p: number) => {
 export const cancelClose = () => {
   Animated.spring(progressAnim, {
     toValue: 1,
-    friction: 9,
-    tension: 80,
+    ...MotionSpring.soft,
     useNativeDriver: false,
   }).start(() => {
     state = { ...state, phase: 'idle', closingTo: null }
@@ -184,8 +184,8 @@ export const cancelClose = () => {
 export const finishClose = (onDone: () => void) => {
   Animated.timing(progressAnim, {
     toValue: 0,
-    duration: 300,
-    easing: Easing.bezier(0.4, 0, 0.55, 1),
+    duration: MotionDuration.pageClose,
+    easing: MotionEasing.pageExit,
     useNativeDriver: false,
   }).start(() => {
     /*

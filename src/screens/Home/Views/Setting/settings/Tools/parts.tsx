@@ -10,6 +10,7 @@ import { isCoverUsable, readEmbeddedCover } from '@/core/localMusic/cover'
 import { cleanSongName } from '@/utils/songName'
 import { useTheme } from '@/store/theme/hook'
 import { contrastOn } from '@/theme/solid'
+import { getCardBackground, getCardBorder, getCardShadow, getDividerColor, getIconColor, getTileBackground } from '../../components/surfaces'
 import { createStyle } from '@/utils/tools'
 import { setSpText } from '@/utils/pixelRatio'
 import { copyReport, exportReport } from './report'
@@ -26,26 +27,55 @@ import { copyReport, exportReport } from './report'
 const WARN_COLOR = '#E8A33D'
 
 // 和设置页其它卡片同一套 Material You 主色淡底，不再用中性灰白卡片
-const cardBackground = (theme: LX.ActiveTheme) => theme['c-primary-alpha-900']
-const cardBorder = (theme: LX.ActiveTheme) => theme['c-primary-alpha-700']
-const dividerColor = (theme: LX.ActiveTheme) => theme['c-primary-alpha-700']
-const tileBackground = (theme: LX.ActiveTheme) => theme['c-primary-alpha-800']
+const cardBackground = getCardBackground
+const cardBorder = getCardBorder
+const dividerColor = getDividerColor
+const tileBackground = (theme: LX.ActiveTheme) => getTileBackground(theme)
+
+/** 工具卡片标题 → 图标；标题没匹配到时退化为纯文字，不改变原有入口 */
+const CARD_ICONS: Record<string, string> = {
+  曲库体检: 'stethoscope',
+  一键修复: 'auto-fix',
+  封面修复: 'image-outline',
+  标签刮削: 'tag-outline',
+  歌词补全: 'lyric-on',
+  无效条目: 'alert-circle-outline',
+  重复歌曲: 'content-duplicate',
+  批量重命名: 'rename-box',
+  体检报告: 'file-document-outline',
+  说明: 'information-outline',
+}
 
 /** 分区卡片：标题 + 说明 + 内容 */
-export const Card = memo(({ title, desc, right, children }: {
+export const Card = memo(({ title, desc, right, icon, children }: {
   title: string
   desc?: string
   /** 标题右侧的自定义内容（例如数量 badge） */
   right?: React.ReactNode
+  /** 可选图标；不传时按标题自动匹配 */
+  icon?: string
   children: React.ReactNode
 }) => {
   const theme = useTheme()
+  const cardIcon = icon ?? CARD_ICONS[title]
   return (
-    <View style={{ ...styles.card, backgroundColor: cardBackground(theme), borderColor: cardBorder(theme) }}>
+    <View style={{
+      ...styles.card,
+      backgroundColor: cardBackground(theme),
+      borderColor: cardBorder(theme),
+      ...getCardShadow(theme),
+    }}>
       <View style={styles.cardHead}>
+        {cardIcon
+          ? (
+            <View style={{ ...styles.cardIcon, backgroundColor: getTileBackground(theme, '#8B5CF6') }}>
+              <Icon name={cardIcon} size={15} color={getIconColor(theme, '#8B5CF6')} />
+            </View>
+            )
+          : null}
         <View style={styles.cardTitleWrap}>
-          <Text size={14} style={styles.cardTitle}>{title}</Text>
-          {desc ? <Text size={10} color={theme['c-450']} style={styles.cardDesc}>{desc}</Text> : null}
+          <Text size={15.5} style={styles.cardTitle}>{title}</Text>
+          {desc ? <Text size={10.5} color={theme['c-450']} style={styles.cardDesc}>{desc}</Text> : null}
         </View>
         {right}
       </View>
@@ -82,8 +112,11 @@ export const HeroCard = memo(({
 }) => {
   const theme = useTheme()
   return (
-    <View style={{ ...styles.card, ...styles.heroCard, backgroundColor: cardBackground(theme), borderColor: cardBorder(theme) }}>
+    <View style={{ ...styles.card, ...styles.heroCard, backgroundColor: cardBackground(theme), borderColor: cardBorder(theme), ...getCardShadow(theme) }}>
       <View style={styles.heroHead}>
+        <View style={{ ...styles.cardIcon, width: 38, height: 38, borderRadius: 13, backgroundColor: getTileBackground(theme, '#8B5CF6') }}>
+          <Icon name='stethoscope' size={19} color={getIconColor(theme, '#8B5CF6')} />
+        </View>
         <View style={styles.heroTitleWrap}>
           <Text size={17} style={styles.cardTitle}>{title}</Text>
           <Text size={11} color={theme['c-450']} style={styles.heroSubtitle}>{subtitle}</Text>
@@ -401,11 +434,11 @@ export const ReportButtons = memo(({ getTitle, getLines, disabled }: {
 
 const styles = createStyle({
   card: {
-    borderRadius: 16,
-    borderWidth: 0.5,
-    marginBottom: 14,
-    paddingTop: 14,
-    paddingBottom: 12,
+    borderRadius: 22,
+    borderWidth: 0.8,
+    marginBottom: 16,
+    paddingTop: 16,
+    paddingBottom: 14,
     overflow: 'hidden',
   },
   heroCard: {
@@ -414,16 +447,25 @@ const styles = createStyle({
   cardHead: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    paddingLeft: 14,
-    paddingRight: 12,
-    paddingBottom: 10,
+    paddingLeft: 16,
+    paddingRight: 14,
+    paddingBottom: 12,
+  },
+  cardIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 9,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 9,
+    flexShrink: 0,
   },
   cardTitleWrap: {
     flexGrow: 1,
     flexShrink: 1,
   },
   cardTitle: {
-    fontWeight: '600',
+    fontWeight: '700',
     letterSpacing: 0.2,
   },
   cardDesc: {
@@ -436,6 +478,9 @@ const styles = createStyle({
     paddingLeft: 16,
     paddingRight: 12,
     paddingBottom: 12,
+  },
+  heroIcon: {
+    marginRight: 10,
   },
   heroTitleWrap: {
     flexGrow: 1,

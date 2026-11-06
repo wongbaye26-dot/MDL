@@ -1,4 +1,4 @@
-import { isInitialized, initial as playerInitial, isEmpty, setPause, setPlay, setResource, setStop, initTrackInfo } from '@/plugins/player'
+import { isInitialized, initial as playerInitial, isEmpty, setPause, setPlay, setResource, setStop, initTrackInfo, setVolume } from '@/plugins/player'
 import {
   setStatusText,
 } from '@/core/player/playStatus'
@@ -357,6 +357,47 @@ const handleRestorePlay = async(restorePlayInfo: LX.Player.SavedPlayInfo) => {
 }
 
 
+/*
+  切歌淡入淡出（W4 / D-14）。
+  - 播放换歌前把音量渐降到 0，再 setStop / 加载新歌；
+  - 新歌起播后约 300ms 渐升回用户设置音量；
+  - 暂停时强制取消渐隐并把音量恢复，避免“暂停后声音变小”。
+*/
+let fadeGeneration = 0
+let fadeTimer: ReturnType<typeof setTimeout> | null = null
+let currentFadeVolume = 1
+
+const sleep = async(ms: number) => { await new Promise<void>(resolve => { setTimeout(resolve, ms) }) }
+
+const cancelFade = () => {
+  fadeGeneration += 1
+  if (fadeTimer) {
+    clearTimeout(fadeTimer)
+    fadeTimer = null
+  }
+}
+
+const fadeVolumeTo = async(target: number, durationMs: number) => {
+  const generation = ++fadeGeneration
+  const from = currentFadeVolume
+  const steps = Math.max(2, Math.min(16, Math.round(durationMs / 80)))
+  for (let i = 1; i <= steps; i++) {
+    if (generation !== fadeGeneration) return
+    const next = from + (target - from) * (i / steps)
+    currentFadeVolume = next
+    await setVolume(next).catch(() => {})
+    if (i < steps) await sleep(durationMs / steps)
+  }
+  currentFadeVolume = target
+}
+
+const restoreVolume = () => {
+  cancelFade()
+  const volume = settingState.setting['player.volume']
+  currentFadeVolume = volume
+  void setVolume(volume).catch(() => {})
+}
+
 const debouncePlay = debounceBackgroundTimer((musicInfo: LX.Player.PlayMusic) => {
   setMusicUrl(musicInfo)
 
@@ -414,6 +455,14 @@ const handlePlay = async() => {
 
   if (!musicInfo) return
 
+  const fadeSeconds = settingState.setting['player.fadeSeconds'] ?? 0
+  const fadeMs = fadeSeconds > 0 ? Math.min(6000, fadeSeconds * 1000 / 2) : 0
+  if (fadeMs > 0 && isInitialized() && playerState.isPlay) {
+    await fadeVolumeTo(0, fadeMs)
+  } else {
+    currentFadeVolume = settingState.setting['player.volume']
+  }
+
   await setStop()
   global.app_event.pause()
 
@@ -426,6 +475,17 @@ const handlePlay = async() => {
   if (settingState.setting['player.togglePlayMethod'] == 'random' && !playMusicInfo.isTempPlay) addPlayedList(playMusicInfo as LX.Player.PlayMusicInfo)
 
   debouncePlay(musicInfo)
+  if (fadeMs > 0) {
+    // 新歌加载/起播有延迟，稍等再渐入；播放失败时由下面的 restoreVolume 兜底
+    currentFadeVolume = 0
+    void setVolume(0).catch(() => {})
+    fadeTimer = setTimeout(() => {
+      fadeTimer = null
+      void fadeVolumeTo(settingState.setting['player.volume'], fadeMs)
+    }, 350)
+  } else {
+    restoreVolume()
+  }
 }
 
 /**
@@ -789,8 +849,10 @@ export const stop = async() => {
 export const togglePlay = () => {
   global.lx.isPlayedStop &&= false
   if (playerState.isPlay) {
+    restoreVolume()
     void pause()
   } else {
+    restoreVolume()
     play()
   }
 }

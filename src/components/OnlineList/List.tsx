@@ -15,6 +15,7 @@ import Text from '@/components/common/Text'
 import { handlePlay } from './listAction'
 import { useSettingValue } from '@/store/setting/hook'
 import useAutoFetchPicUrls, { getCachedPicUrl } from './useAutoFetchPicUrls'
+import { setSelectionBar } from '@/utils/selectionBar'
 
 type FlatListType = FlatListProps<LX.Music.MusicInfoOnline>
 
@@ -24,6 +25,10 @@ export type {
 
 export interface ListProps {
   onShowMenu: (musicInfo: LX.Music.MusicInfoOnline, index: number, position: Position) => void
+  /** 长按：直接进入多选并选中当前曲（随后由宿主弹出统一操作菜单） */
+  onLongPressSelect: (musicInfo: LX.Music.MusicInfoOnline, index: number) => void
+  /** 没有标题栏插槽时（搜索页），多选栏会浮在列表上方，需要给列表顶部让出高度 */
+  listTopInset?: number
   onSelectAll: (isAll: boolean) => void
   onRefresh: () => void
   onLoadMore: () => void
@@ -56,6 +61,8 @@ export type Status = 'loading' | 'refreshing' | 'end' | 'error' | 'idle'
 
 const List = forwardRef<ListType, ListProps>(({
   onShowMenu,
+  onLongPressSelect,
+  listTopInset,
   onSelectAll,
   onRefresh,
   onLoadMore,
@@ -148,6 +155,8 @@ const List = forwardRef<ListType, ListProps>(({
     else if (selectedListRef.current.length == currentList.length) onSelectAll(false)
     selectedListRef.current = newList
     setSelectedList(newList)
+    // 同步给页头「播放/下载」按钮：有选中就只操作选中的，没选中才操作全部
+    setSelectionBar({ selectedList: newList })
   }
   const handleSelect = (item: LX.Music.MusicInfoOnline, pressIndex: number) => {
     let newList: LX.Music.MusicInfoOnline[]
@@ -198,12 +207,12 @@ const List = forwardRef<ListType, ListProps>(({
   }
 
   /**
-   * 长按：不再直接进多选，改成和行尾 ⋮ 一样打开悬浮菜单（带着按下的屏幕坐标），
-   * 多选统一从菜单里的「多选管理」进入，避免长按和更多操作两个手势互相抢。
+   * 长按：直接进入多选并选中当前曲，随后宿主弹出统一的操作菜单。
+   * 行尾 ⋮ 仍然打开单曲菜单（不需要先多选）。
    */
-  const handleLongPress = (item: LX.Music.MusicInfoOnline, index: number, position: Position) => {
+  const handleLongPress = (item: LX.Music.MusicInfoOnline) => {
     if (isMultiSelectModeRef.current) return
-    onShowMenu(item, index, position)
+    onLongPressSelect(item, currentList.findIndex(music => music.id === item.id))
   }
 
   const handleLoadMore = () => {
@@ -277,6 +286,7 @@ const List = forwardRef<ListType, ListProps>(({
       key={`online-list-${numColumns}`}
       numColumns={numColumns}
       horizontal={false}
+      contentContainerStyle={listTopInset ? { paddingTop: listTopInset } : undefined}
       maxToRenderPerBatch={renderAll}
       // updateCellsBatchingPeriod={80}
       windowSize={41}

@@ -2,6 +2,7 @@ import type { View } from 'react-native'
 
 import { setNavActiveId } from '@/core/common'
 import commonState from '@/store/common/state'
+import settingState from '@/store/setting/state'
 import { isHorizontalMode } from '@/utils/tools'
 import { windowSizeTools } from '@/utils/windowSizeTools'
 import { COVER_H_RATIO, COVER_TOP_RATIO } from '@/screens/Home/Views/Player/Stage'
@@ -36,7 +37,21 @@ import {
 export type StartRectGetter = (done: (rect: TransitionRect | null) => void) => void
 
 /** 播放器竖屏封面矩形 + 转场中间态的大圆 */
-export const getPlayerCoverGeometry = (winW: number, winH: number) => {
+export const getPlayerCoverGeometry = (winW: number, winH: number, horizontal = false) => {
+  if (horizontal) {
+    // 横屏播放器：封面是左半屏满出血（Player/index.tsx 里 coverW = min(height, width * 0.52)）
+    const coverW = Math.min(winH, winW * 0.52)
+    const circleD = coverW
+    return {
+      target: { x: 0, y: 0, width: coverW, height: winH },
+      circle: {
+        x: (coverW - circleD) / 2,
+        y: (winH - circleD) / 2,
+        width: circleD,
+        height: circleD,
+      },
+    }
+  }
   const coverW = winW
   const coverH = winH * COVER_H_RATIO
   const coverTop = winH * COVER_TOP_RATIO
@@ -111,10 +126,11 @@ export const measureDiscRect = (done: (rect: TransitionRect | null) => void) => 
   measureStartRect(discNode, done, discSize || undefined)
 }
 
-/** 播放器页在当前布局下能不能做共享元素（转场层只在竖屏布局挂载，见 Home/index.tsx） */
-const isTransitionLayerMounted = (winW: number, winH: number) => (
-  winW > 0 && winH > 0 && !isHorizontalMode(winW, winH)
-)
+/** 转场层现在竖屏/横屏都挂载（见 Home/index.tsx），只排除尺寸还没拿到的瞬间 */
+const isTransitionLayerMounted = (winW: number, winH: number) => winW > 0 && winH > 0
+
+/** 减少动态效果时不做共享元素，直接切页（飞行动画对眩晕用户不友好） */
+const shouldReduceMotion = () => !!settingState.setting['common.reduceMotion']
 
 /**
  * 打开播放器页：量起点 → 记录转场 → 切页。
@@ -125,13 +141,13 @@ const isTransitionLayerMounted = (winW: number, winH: number) => (
 export const openPlayerWithTransition = (measureStart?: StartRectGetter) => {
   const { width: winW, height: winH } = windowSizeTools.getSize()
   const originNavId = commonState.navActiveId
-  if (!measureStart || !isTransitionLayerMounted(winW, winH)) {
+  if (!measureStart || !isTransitionLayerMounted(winW, winH) || shouldReduceMotion()) {
     clearTransition()
     setNavActiveId('nav_player')
     return
   }
 
-  const { target, circle } = getPlayerCoverGeometry(winW, winH)
+  const { target, circle } = getPlayerCoverGeometry(winW, winH, isHorizontalMode(winW, winH))
   const finish = (from: TransitionRect | null) => {
     if (from) beginOpen(from, target, circle, { originNavId })
     else clearTransition()
@@ -171,12 +187,12 @@ export const openPlayerFromBar = (
     beforeSwitch?.()
     setNavActiveId('nav_player')
   }
-  if (!isTransitionLayerMounted(winW, winH)) {
+  if (!isTransitionLayerMounted(winW, winH) || shouldReduceMotion()) {
     switchNow()
     return
   }
 
-  const { target, circle } = getPlayerCoverGeometry(winW, winH)
+  const { target, circle } = getPlayerCoverGeometry(winW, winH, isHorizontalMode(winW, winH))
   const run = (from: TransitionRect | null, closeTo: TransitionRect | null) => {
     beforeSwitch?.()
     const fire = () => {
@@ -218,7 +234,7 @@ export const closePlayerWithTransition = (beforeSwitch?: () => void) => {
     beforeSwitch?.()
     setNavActiveId(getOriginNavId() ?? 'nav_home')
   }
-  if (!isTransitionLayerMounted(winW, winH) || !canTransition()) {
+  if (!isTransitionLayerMounted(winW, winH) || !canTransition() || shouldReduceMotion()) {
     clearTransition()
     finish()
     return false
@@ -239,6 +255,7 @@ export const closePlayerWithTransition = (beforeSwitch?: () => void) => {
 export const canPlayCloseTransition = () => {
   const { width, height } = windowSizeTools.getSize()
   return isTransitionLayerMounted(width, height) &&
+    !shouldReduceMotion() &&
     canTransition() &&
     // 打开动画还没跑完就别插关闭动画（会两段动画打架），退回整页下滑
     getTransitionState().phase === 'idle'

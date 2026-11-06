@@ -1,7 +1,7 @@
-import { ScrollView, View } from 'react-native'
+import { ScrollView } from 'react-native'
 
 import Chip from '@/components/common/Chip'
-import { useTheme } from '@/store/theme/hook'
+import { SkeletonBlock } from '@/components/common/Skeleton'
 import { createStyle } from '@/utils/tools'
 import { type BoardItem } from '@/store/leaderboard/state'
 
@@ -10,8 +10,6 @@ export const BoardChips = ({ boards, activeId, onChange }: {
   activeId: string
   onChange: (id: string) => void
 }) => {
-  const theme = useTheme()
-
   return (
     <ScrollView
       horizontal
@@ -29,7 +27,7 @@ export const BoardChips = ({ boards, activeId, onChange }: {
               onPress={() => { if (board.id !== activeId) onChange(board.id) }}
             />
           ))
-          : [0, 1, 2, 3].map(i => <View key={i} style={{ ...styles.skeleton, backgroundColor: theme['c-primary-alpha-900'] }} />)
+          : [0, 1, 2, 3].map(i => <SkeletonBlock key={i} width={62} height={30} radius={15} style={styles.skeleton} />)
       }
     </ScrollView>
   )
@@ -46,9 +44,6 @@ const styles = createStyle({
     paddingTop: 8,
   },
   skeleton: {
-    width: 62,
-    height: 30,
-    borderRadius: 15,
     marginRight: 8,
   },
 })

@@ -6,6 +6,7 @@ import LinearGradient from 'react-native-linear-gradient'
 import Image from '@/components/common/Image'
 import { Icon } from '@/components/common/Icon'
 import { usePlayerMusicInfo, useIsPlay } from '@/store/player/hook'
+import { useReducedMotion } from '@/utils/hooks'
 import { useTheme } from '@/store/theme/hook'
 
 /**
@@ -123,9 +124,10 @@ export default memo(({
   const theme = useTheme()
   const spin = useRef(new Animated.Value(0)).current
   const breathe = useRef(new Animated.Value(BREATHE_MIN)).current
+  const reduced = useReducedMotion()
 
   useEffect(() => {
-    if (!isPlay) return
+    if (!isPlay || reduced) return
     const anim = Animated.loop(Animated.timing(spin, {
       toValue: 1,
       duration: SPIN_DURATION,
@@ -134,18 +136,18 @@ export default memo(({
     }))
     anim.start()
     return () => { anim.stop() }
-  }, [isPlay, spin])
+  }, [isPlay, spin, reduced])
 
   useEffect(() => {
     // 进度样式设为「关闭」时不画圆环，这圈呼吸也没意义，别让动画空转
-    if (!showRing) return
+    if (!showRing || reduced) return
     const anim = Animated.loop(Animated.sequence([
       Animated.timing(breathe, { toValue: BREATHE_MAX, duration: BREATHE_DURATION, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
       Animated.timing(breathe, { toValue: BREATHE_MIN, duration: BREATHE_DURATION, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
     ]))
     anim.start()
     return () => { anim.stop() }
-  }, [breathe, showRing])
+  }, [breathe, showRing, reduced])
 
   const radius = discSize / 2
   const ratio = Math.max(0, Math.min(1, progress))

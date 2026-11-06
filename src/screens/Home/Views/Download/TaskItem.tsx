@@ -1,5 +1,5 @@
-import { memo, useRef } from 'react'
-import { View, TouchableOpacity, StyleSheet } from 'react-native'
+import { memo, useEffect, useRef } from 'react'
+import { Animated, Easing, View, TouchableOpacity, StyleSheet } from 'react-native'
 import Text from '@/components/common/Text'
 import PicImage from '@/components/common/PicImage'
 import { Icon } from '@/components/common/Icon'
@@ -8,6 +8,7 @@ import { createStyle } from '@/utils/tools'
 import { QUALITY_LABEL, formatSize } from '@/core/download/utils'
 import { SOURCE_LOGO_MAP, isKnownSource } from '@/components/common/SourceLogo'
 import { getSourceName } from '@/core/music/utils'
+import { useReducedMotion } from '@/utils/hooks'
 
 const SUCCESS = '#34D399'
 const DANGER = '#F87171'
@@ -90,6 +91,23 @@ export default memo(({
   const isCompleted = task.isComplate
   const isError = task.status === 'error'
   const progress = isCompleted ? 100 : Math.max(0, Math.min(100, task.progress || 0))
+  const reduced = useReducedMotion()
+  /** 进度补间：下载 store 每次 percent 变化都跳一格很生硬，这里 300ms 追上去 */
+  const progressAnim = useRef(new Animated.Value(progress)).current
+  useEffect(() => {
+    if (reduced) {
+      progressAnim.setValue(progress)
+      return
+    }
+    const animation = Animated.timing(progressAnim, {
+      toValue: progress,
+      duration: 300,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: false,
+    })
+    animation.start()
+    return () => { animation.stop() }
+  }, [progress, progressAnim, reduced])
   const statusColor = getStatusColor(task)
   const musicInfo = task.metadata.musicInfo
   /** 音质短标签：和「选择下载音质」弹窗同一套文案（320k / 128k 完整显示，不缩成一个字） */
@@ -129,6 +147,8 @@ export default memo(({
       <TouchableOpacity
         activeOpacity={0.7}
         style={styles.info}
+        accessibilityRole='button'
+        accessibilityLabel={`${musicInfo.name}${musicInfo.singer ? ` ${musicInfo.singer}` : ''}，${statusText}`}
         onPress={() => { onOpen(task) }}
         onLongPress={handleShowMenu}
         delayLongPress={320}
@@ -156,7 +176,7 @@ export default memo(({
         </View>
         <Text size={11} color={theme['c-450']} numberOfLines={1} style={styles.singer}>{musicInfo.singer || '未知歌手'}</Text>
         <View style={{ ...styles.progressTrack, backgroundColor: theme['c-primary-alpha-700'] }}>
-          <View style={{ ...styles.progressBar, width: `${progress}%`, backgroundColor: isCompleted ? SUCCESS : isError ? DANGER : theme['c-primary'] }} />
+          <Animated.View style={{ ...styles.progressBar, width: progressAnim.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] }), backgroundColor: isCompleted ? SUCCESS : isError ? DANGER : theme['c-primary'] }} />
         </View>
         <Text size={10} color={statusColor ?? theme['c-450']} numberOfLines={1}>
           {sourceLabel ? `${statusText} · ${sourceLabel}` : statusText}
@@ -168,6 +188,8 @@ export default memo(({
         ref={moreButtonRef}
         style={styles.moreButton}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        accessibilityRole='button'
+        accessibilityLabel='任务更多操作'
       >
         <Icon name='dots-vertical' size={15} color={theme['c-350']} />
       </TouchableOpacity>

@@ -5,7 +5,8 @@ import LinearGradient from 'react-native-linear-gradient'
 import Text from '@/components/common/Text'
 import { Icon } from '@/components/common/Icon'
 import { createStyle } from '@/utils/tools'
-import { useHorizontalMode } from '@/utils/hooks'
+import { useHorizontalMode, useReducedMotion } from '@/utils/hooks'
+import { useListeningStats } from '@/core/player/listenStats'
 import { scaleSizeH, scaleSizeW } from '@/utils/pixelRatio'
 
 /**
@@ -22,7 +23,7 @@ import { scaleSizeH, scaleSizeW } from '@/utils/pixelRatio'
  * 横向切换交给首页：scrollX 换算成 progress（0 = 正中焦点，±1 = 左右相邻），
  * 这里只负责把 progress 映射成 scale / translateY / rotate / 透明度。
  */
-export type BigCardVariant = 'bars' | 'vinyl' | 'hearts' | 'ripple'
+export type BigCardVariant = 'bars' | 'vinyl' | 'hearts' | 'ripple' | 'stats'
 
 export interface BigCardProps {
   title: string
@@ -57,14 +58,129 @@ const CARD_THEMES: Record<BigCardVariant, { colors: string[], label: string }> =
   vinyl: { colors: ['#0B3B38', '#0F766E', '#2DD4BF'], label: '#5EEAD4' },
   hearts: { colors: ['#831843', '#DB2777', '#FB7185'], label: '#FBCFE8' },
   ripple: { colors: ['#1E3A8A', '#2563EB', '#60A5FA'], label: '#93C5FD' },
+  stats: { colors: ['#0F172A', '#1D4ED8', '#38BDF8'], label: '#BAE6FD' },
+}
+
+
+/** 听歌统计：今日分钟数 + 最近 7 天的收听柱状 */
+const StatsArt = ({ compact }: { compact: boolean }) => {
+  const stats = useListeningStats()
+  const reduced = useReducedMotion()
+  const rise = useRef(new Animated.Value(reduced ? 1 : 0)).current
+  /** 常驻呼吸：柱状透明度轻微起伏 + 「今日」旁的圆点一闪一闪，避免统计卡像静态图 */
+  const breathe = useRef(new Animated.Value(0)).current
+  const max = Math.max(1, ...stats.days.map(day => day.seconds))
+
+  useEffect(() => {
+    if (reduced) {
+      rise.setValue(1)
+      return
+    }
+    rise.setValue(0)
+    Animated.timing(rise, {
+      toValue: 1,
+      duration: 520,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start()
+  }, [reduced, rise, stats.totalSeconds])
+
+  useEffect(() => {
+    if (reduced) {
+      breathe.setValue(0.5)
+      return
+    }
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(breathe, { toValue: 1, duration: 1600, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(breathe, { toValue: 0, duration: 1600, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+    ]))
+    loop.start()
+    return () => { loop.stop() }
+  }, [breathe, reduced])
+
+  const todayMinutes = Math.round(stats.todaySeconds / 60)
+  const minutesText = String(todayMinutes)
+  const weekMinutes = Math.round(stats.weekSeconds / 60)
+  // 本周超过 1 小时用「x.x 小时」，避免和「今日 xx 分钟」看起来是同一个数（用户误以为没切换）
+  const weekText = stats.weekSeconds >= 3600
+    ? `${(stats.weekSeconds / 3600).toFixed(1)} 小时`
+    : `${weekMinutes} 分钟`
+  // 三位数分钟会把「分钟」挤出卡片：按位数降一档字号，并限制最大宽度
+  const minuteSize = compact
+    ? (minutesText.length > 2 ? 18 : 22)
+    : (minutesText.length > 2 ? 22 : 28)
+  const barMax = compact ? 34 : 44
+  const barW = compact ? 4 : 5
+  const gap = compact ? 3 : 4
+
+  return (
+    <>
+      <View pointerEvents='none' style={{ position: 'absolute', left: compact ? 12 : 14, top: compact ? 14 : 18 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Text size={compact ? 8.5 : 9} color='rgba(255,255,255,0.68)'>今日</Text>
+          <Animated.View
+            style={{
+              width: compact ? 4 : 5,
+              height: compact ? 4 : 5,
+              borderRadius: 3,
+              marginLeft: 4,
+              backgroundColor: '#7DD3FC',
+              opacity: breathe.interpolate({ inputRange: [0, 1], outputRange: [0.45, 1] }),
+              transform: [{ scale: breathe.interpolate({ inputRange: [0, 1], outputRange: [0.85, 1.15] }) }],
+            }}
+          />
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-end', marginTop: 1, width: compact ? 120 : 152 }}>
+          <Text
+            size={minuteSize}
+            color='#FFFFFF'
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            style={{ fontWeight: '700', lineHeight: compact ? 30 : 36, flexShrink: 1, minWidth: 0 }}
+          >{minutesText}</Text>
+          <Text size={compact ? 8.5 : 9} color='rgba(255,255,255,0.7)' style={{ marginLeft: 3, marginBottom: 5 }}>分钟</Text>
+        </View>
+        <Text size={compact ? 8 : 8.5} color='rgba(255,255,255,0.55)' style={{ marginTop: 2 }}>{`本周 ${weekText}`}</Text>
+      </View>
+      <View pointerEvents='none' style={{ position: 'absolute', right: compact ? 10 : 14, top: compact ? 22 : 30, flexDirection: 'row', alignItems: 'flex-end' }}>
+        {
+          stats.days.map(day => {
+            const barHeight = Math.max(4, (day.seconds / max) * barMax)
+            return (
+              <Animated.View
+                key={day.key}
+                style={{
+                  width: barW,
+                  height: barHeight,
+                  marginLeft: gap,
+                  borderRadius: barW,
+                  backgroundColor: 'rgba(255,255,255,0.30)',
+                  opacity: breathe.interpolate({ inputRange: [0, 1], outputRange: [0.72, 1] }),
+                  transform: [
+                    { scaleY: rise },
+                    { translateY: rise.interpolate({ inputRange: [0, 1], outputRange: [barHeight * 0.5, 0] }) },
+                  ],
+                }}
+              />
+            )
+          })
+        }
+      </View>
+    </>
+  )
 }
 
 /** 排行榜：一排柱子上下跳，锚在底部所以 scaleY 之外还要补 translateY */
 const BarsArt = ({ compact, phase }: { compact: boolean, phase: number }) => {
   const heights = compact ? [20, 34, 26, 40] : [28, 46, 34, 52]
   const bars = useRef(heights.map(() => new Animated.Value(0.4))).current
+  const reduced = useReducedMotion()
 
   useEffect(() => {
+    if (reduced) {
+      bars.forEach(bar => { bar.setValue(0.4) })
+      return
+    }
     const loops = bars.map((bar, i) => Animated.loop(Animated.sequence([
       Animated.delay((i * 150 + phase * 120) % 760),
       Animated.timing(bar, {
@@ -82,7 +198,7 @@ const BarsArt = ({ compact, phase }: { compact: boolean, phase: number }) => {
     ])))
     loops.forEach(loop => { loop.start() })
     return () => { loops.forEach(loop => { loop.stop() }) }
-  }, [bars, phase])
+  }, [bars, phase, reduced])
 
   return (
     <View
@@ -133,8 +249,15 @@ const VinylArt = ({ compact, label }: { compact: boolean, label: string }) => {
   const spin = useRef(new Animated.Value(0)).current
   const orbit = useRef(new Animated.Value(0)).current
   const breathe = useRef(new Animated.Value(0)).current
+  const reduced = useReducedMotion()
 
   useEffect(() => {
+    if (reduced) {
+      spin.setValue(0)
+      orbit.setValue(0)
+      breathe.setValue(0)
+      return
+    }
     const loops = [
       // 唱片自转：15s 一圈，慢到不抢戏
       Animated.loop(Animated.timing(spin, {
@@ -158,7 +281,7 @@ const VinylArt = ({ compact, label }: { compact: boolean, label: string }) => {
     ]
     loops.forEach(loop => { loop.start() })
     return () => { loops.forEach(loop => { loop.stop() }) }
-  }, [spin, orbit, breathe])
+  }, [spin, orbit, breathe, reduced])
 
   const disc = compact ? 88 : 110
   const radius = disc / 2
@@ -261,8 +384,13 @@ const VinylArt = ({ compact, label }: { compact: boolean, label: string }) => {
 /** 收藏：几颗爱心错开时间往上飘，边飘边淡出 */
 const HeartsArt = ({ compact, phase }: { compact: boolean, phase: number }) => {
   const hearts = useRef([0, 1, 2, 3].map(() => new Animated.Value(0))).current
+  const reduced = useReducedMotion()
 
   useEffect(() => {
+    if (reduced) {
+      hearts.forEach(heart => { heart.setValue(0) })
+      return
+    }
     const loops = hearts.map((heart, i) => Animated.loop(Animated.sequence([
       Animated.delay(i * 620 + phase * 140),
       Animated.timing(heart, {
@@ -276,7 +404,7 @@ const HeartsArt = ({ compact, phase }: { compact: boolean, phase: number }) => {
     ])))
     loops.forEach(loop => { loop.start() })
     return () => { loops.forEach(loop => { loop.stop() }) }
-  }, [hearts, phase])
+  }, [hearts, phase, reduced])
 
   const config = compact
     ? [
@@ -320,8 +448,13 @@ const HeartsArt = ({ compact, phase }: { compact: boolean, phase: number }) => {
 /** 音源：一圈圈向外扩散的波纹，中心一个小亮点 */
 const RippleArt = ({ compact, phase }: { compact: boolean, phase: number }) => {
   const rings = useRef([0, 1, 2].map(() => new Animated.Value(0))).current
+  const reduced = useReducedMotion()
 
   useEffect(() => {
+    if (reduced) {
+      rings.forEach(ring => { ring.setValue(0) })
+      return
+    }
     const loops = rings.map((ring, i) => Animated.loop(Animated.sequence([
       Animated.delay(i * 780 + phase * 120),
       Animated.timing(ring, {
@@ -335,7 +468,7 @@ const RippleArt = ({ compact, phase }: { compact: boolean, phase: number }) => {
     ])))
     loops.forEach(loop => { loop.start() })
     return () => { loops.forEach(loop => { loop.stop() }) }
-  }, [rings, phase])
+  }, [rings, phase, reduced])
 
   const base = compact ? 42 : 52
   const dot = compact ? 8 : 10
@@ -462,6 +595,7 @@ export default ({ title, subtitle, icon, variant = 'bars', index = 0, progress, 
           {variant === 'vinyl' ? <VinylArt compact={compact} label={palette.label} /> : null}
           {variant === 'hearts' ? <HeartsArt compact={compact} phase={index} /> : null}
           {variant === 'ripple' ? <RippleArt compact={compact} phase={index} /> : null}
+          {variant === 'stats' ? <StatsArt compact={compact} /> : null}
 
           {/* 柔光斑点：两个大圆把渐变「打亮」，避免整块平涂 */}
           <View pointerEvents='none' style={styles.glowBig} />

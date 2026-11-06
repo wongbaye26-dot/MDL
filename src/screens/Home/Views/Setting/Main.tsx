@@ -1,4 +1,5 @@
-import { forwardRef, useImperativeHandle, useMemo, useState } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
+import { Animated, Easing } from 'react-native'
 
 import Player from './settings/Player'
 import Download from './settings/Download'
@@ -8,6 +9,7 @@ import Tools from './settings/Tools'
 import Basic from './settings/Basic'
 import Other from './settings/Other'
 import About from './settings/About'
+import { useReducedMotion } from '@/utils/hooks'
 
 /**
  * 设置分类顺序（按使用频率重排）：播放 → 下载 → 音源 → 搜索与列表 → 工具 → 基本 → 其他 → 关于。
@@ -49,6 +51,25 @@ export interface MainType {
 
 const Main = forwardRef<MainType, {}>((props, ref) => {
   const [id, setId] = useState(() => normalizeSettingScreenId(global.lx.settingActiveId))
+  const reduced = useReducedMotion()
+  /** 设置分类切换的轻量入场：200ms 淡入 + 6dp 上浮，避免整块内容硬切 */
+  const enter = useRef(new Animated.Value(1)).current
+
+  useEffect(() => {
+    if (reduced) {
+      enter.setValue(1)
+      return
+    }
+    enter.setValue(0)
+    const animation = Animated.timing(enter, {
+      toValue: 1,
+      duration: 200,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    })
+    animation.start()
+    return () => { animation.stop() }
+  }, [id, reduced, enter])
 
   useImperativeHandle(ref, () => ({
     setActiveId(id) {
@@ -74,7 +95,17 @@ const Main = forwardRef<MainType, {}>((props, ref) => {
     }
   }, [id])
 
-  return component
+  return (
+    <Animated.View
+      style={{
+        flex: 1,
+        opacity: enter,
+        transform: [{ translateY: enter.interpolate({ inputRange: [0, 1], outputRange: [6, 0] }) }],
+      }}
+    >
+      {component}
+    </Animated.View>
+  )
 })
 
 

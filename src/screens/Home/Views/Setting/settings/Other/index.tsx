@@ -11,14 +11,14 @@ import DeviceCompat from './DeviceCompat'
 export default memo(() => {
   return (
     <>
-      <Section title='缓存'>
+      <Section title='缓存' icon='database-outline'>
         <ResourceCache />
         <MetaCache />
       </Section>
-      <Section title='其他'>
+      <Section title='其他' icon='dots-horizontal-circle-outline'>
         <DislikeList />
       </Section>
-      <Section title='日志'>
+      <Section title='日志' icon='text-box-outline'>
         <Log />
       </Section>
       <Permissions />

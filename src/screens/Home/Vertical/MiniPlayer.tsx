@@ -1,9 +1,8 @@
 import { memo, useRef } from 'react'
 import { View, TouchableOpacity } from 'react-native'
-import LinearGradient from 'react-native-linear-gradient'
 import Text from '@/components/common/Text'
 import { Icon } from '@/components/common/Icon'
-import Glass from '@/components/common/Glass'
+import LiquidGlass from '@/components/common/LiquidGlass'
 import AlbumDiscSpin, { DISC_SIZE, DISC_RING_SIZE } from '@/components/common/AlbumDiscSpin'
 import { useTheme } from '@/store/theme/hook'
 import { usePlayerMusicInfo, useIsPlay, useProgress } from '@/store/player/hook'
@@ -35,6 +34,7 @@ export default memo(() => {
   const isPlay = useIsPlay()
   const { progress } = useProgress()
   const progressStyle = useSettingValue('common.navProgressStyle') ?? 'ring'
+  const glassStyle = useSettingValue('common.navGlassStyle') ?? 'liquid'
   const autoHidePlayBar = useSettingValue('common.autoHidePlayBar')
   const { keyboardShown } = useKeyboard()
   const isDark = theme.isDark
@@ -61,40 +61,23 @@ export default memo(() => {
           isDark ? null : styles.cardLight,
           isDark
             ? {
-                backgroundColor: 'rgba(24,18,34,0.20)',
+                backgroundColor: glassStyle === 'none' ? 'rgba(24,18,34,0.88)' : 'rgba(24,18,34,0.20)',
                 shadowColor: '#000000',
               }
             : {
                 // 亮色：只留很薄一层白，靠 BlurView 透出背后颜色，不做「整块白」
-                backgroundColor: 'rgba(255,255,255,0.10)',
+                backgroundColor: glassStyle === 'none' ? 'rgba(255,255,255,0.88)' : 'rgba(255,255,255,0.10)',
                 shadowColor: '#6E6285',
               },
         ]}
       >
-        <Glass
+        <LiquidGlass
+          mode={glassStyle}
           blurRadius={24}
           tint={isDark ? 'rgba(22,17,30,0.42)' : 'rgba(255,255,255,0.14)'}
           radius={BAR_RADIUS}
+          isDark={isDark}
         />
-
-        {/* 亮色：薄玻璃靠这层顶部高光 + 底部内阴影撑厚度（深色分支保持原样） */}
-        {isDark
-          ? null
-          : (
-            <>
-              <LinearGradient
-                colors={['rgba(255,255,255,0.30)', 'rgba(255,255,255,0.07)', 'rgba(255,255,255,0)']}
-                locations={[0, 0.5, 1]}
-                style={styles.gloss}
-                pointerEvents='none'
-              />
-              <LinearGradient
-                colors={['rgba(150,140,170,0)', 'rgba(150,140,170,0.22)']}
-                style={styles.innerShade}
-                pointerEvents='none'
-              />
-            </>
-            )}
 
         <TouchableOpacity
           style={styles.infoArea}
@@ -167,20 +150,6 @@ const styles = createStyle({
     shadowOpacity: 0.42,
     shadowRadius: 30,
     shadowOffset: { width: 0, height: 12 },
-  },
-  gloss: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    height: '70%',
-  },
-  innerShade: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: '55%',
   },
   lightTextShadow: {
     // 亮色玻璃是深色文字：给一层白色微阴影，透出深色背景时也能读

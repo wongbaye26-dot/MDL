@@ -20,12 +20,15 @@ interface SelectionBarState {
   onSelectAll?: () => void
   onExit?: () => void
   onSwitchMode?: (mode: SelectMode) => void
+  /** 当前选中的歌曲（排行榜/歌单详情页头的「播放/下载」按它走） */
+  selectedList: LX.Music.MusicInfoOnline[]
 }
 
 let state: SelectionBarState = {
   visible: false,
   isSelectAll: false,
   selectMode: 'single',
+  selectedList: [],
 }
 
 const listeners = new Set<() => void>()
@@ -48,8 +51,8 @@ export const setSelectionBar = (next: Partial<SelectionBarState>) => {
 }
 
 export const resetSelectionBar = () => {
-  if (!state.visible) return
-  state = { ...state, visible: false }
+  if (!state.visible && !state.selectedList.length) return
+  state = { ...state, visible: false, selectedList: [] }
   emit()
 }
 
@@ -60,6 +63,13 @@ export const resetSelectionBar = () => {
 export const SelectionBarSlotContext = createContext(false)
 
 export const useHasSelectionSlot = () => useContext(SelectionBarSlotContext)
+
+/** 组件里读「当前选中了几首」 */
+export const useSelectionBarCount = () => {
+  const [count, setCount] = useState(state.selectedList.length)
+  useEffect(() => subscribeSelectionBar(() => { setCount(state.selectedList.length) }), [])
+  return count
+}
 
 /** 组件里读「当前是否处于多选」 */
 export const useSelectionBarVisible = () => {

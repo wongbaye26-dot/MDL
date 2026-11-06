@@ -41,7 +41,7 @@ export default memo(() => {
   }, [refresh])
 
   return (
-    <Section title='权限管理' desc='缺失权限会导致扫描不到音乐 / 没有播放通知'>
+    <Section title='权限管理' icon='shield-check-outline' desc='缺失权限会导致扫描不到音乐 / 没有播放通知'>
       {
         APP_PERMISSIONS.map(item => {
           const granted = status[item.key]

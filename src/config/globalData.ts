@@ -61,8 +61,6 @@ global.lx = {
 
   homePagerIdle: true,
 
-  // syncKeyInfo: initValue as LX.Sync.KeyInfo,
-
   // windowInfo: {
   //   screenW,
   //   screenH,

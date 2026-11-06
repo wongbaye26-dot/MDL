@@ -5,10 +5,10 @@ import List, { type ListProps, type ListType, type Status, type RowInfoType } fr
 import ListMenu, { type ListMenuType, type Position, type SelectInfo } from './ListMenu'
 import ListMusicMultiAdd, { type MusicMultiAddModalType as ListAddMultiType } from '@/components/MusicMultiAddModal'
 import ListMusicAdd, { type MusicAddModalType as ListMusicAddType } from '@/components/MusicAddModal'
-import MultipleModeBar, { type MultipleModeBarType, type SelectMode } from './MultipleModeBar'
+import MultipleModeBar, { MULTI_SELECT_BAR_HEIGHT, type MultipleModeBarType, type SelectMode } from './MultipleModeBar'
 import DownloadQualityModal, { type DownloadQualityModalType } from '@/components/DownloadQualityModal'
 import { clearMusicUrl, handleDislikeMusic, handlePlay, handlePlayLater, handleShare, handleShowMusicSourceDetail } from './listAction'
-import { createStyle } from '@/utils/tools'
+import { createStyle, toast } from '@/utils/tools'
 import Text from '@/components/common/Text'
 import { Icon } from '@/components/common/Icon'
 import { contrastOn } from '@/theme/solid'
@@ -71,6 +71,8 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
   const downloadModalRef = useRef<DownloadQualityModalType>(null)
   // viewMode 默认跟父级传入的初始模式走；没有切换栏时它就固定是这个值
   const [viewMode, setViewMode] = useState<'list' | 'card'>(initialViewMode)
+  /** 搜索页没有标题栏插槽，多选栏浮在列表上：给列表让出顶部高度，避免盖住第一行 */
+  const [listTopInset, setListTopInset] = useState(0)
   const theme = useTheme()
   // 主色实心段上的字：按主色亮度自动取黑/白
   const onPrimary = contrastOn(theme['c-primary'])
@@ -95,6 +97,35 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
     hancelMultiSelect()
     listRef.current?.selectItem(info.index)
   }
+  /** 批量操作菜单：从多选栏「更多」进入，作用于当前已选列表 */
+  const openBulkMenu = () => {
+    const selectedList = listRef.current?.getSelectedList() ?? []
+    if (!selectedList.length) {
+      toast('先选择歌曲再批量操作')
+      return
+    }
+    listMenuRef.current?.show({
+      musicInfo: selectedList[0],
+      index: -1,
+      single: false,
+      bulk: true,
+      selectedList,
+    })
+  }
+  /** 长按：进入多选 + 选中当前曲 + 弹统一操作菜单 */
+  const handleLongPressSelect = (musicInfo: LX.Music.MusicInfoOnline, index: number) => {
+    hancelMultiSelect()
+    listRef.current?.selectItem(index)
+    requestAnimationFrame(() => {
+      listMenuRef.current?.show({
+        musicInfo,
+        index,
+        single: false,
+        bulk: true,
+        selectedList: listRef.current?.getSelectedList() ?? [musicInfo],
+      })
+    })
+  }
   const hancelSwitchSelectMode = (mode: SelectMode) => {
     multipleModeBarRef.current?.setSwitchMode(mode)
     listRef.current?.setSelectMode(mode)
@@ -109,6 +140,7 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
       musicInfo,
       index,
       single: false,
+      bulk: (listRef.current?.getSelectedList().length ?? 0) > 0,
       selectedList: listRef.current!.getSelectedList(),
     }, position)
   }
@@ -178,6 +210,8 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
         <List
           ref={listRef}
           onShowMenu={showMenu}
+          onLongPressSelect={handleLongPressSelect}
+          listTopInset={listTopInset}
           onSelectAll={isAll => multipleModeBarRef.current?.setIsSelectAll(isAll)}
           onRefresh={onRefresh}
           onLoadMore={onLoadMore}
@@ -197,6 +231,8 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
           onSwitchMode={hancelSwitchSelectMode}
           onSelectAll={isAll => listRef.current?.selectAll(isAll)}
           onExitSelectMode={hancelExitSelect}
+          onMore={openBulkMenu}
+          onVisibleChange={visible => { setListTopInset(visible ? MULTI_SELECT_BAR_HEIGHT : 0) }}
         />
       </View>
       <ListMusicAdd ref={listMusicAddRef} onAdded={() => { hancelExitSelect() }} />
@@ -212,6 +248,7 @@ export default forwardRef<OnlineListType, OnlineListProps>(({
         onRemoveCache={info => { void clearMusicUrl(info.musicInfo) }}
         onDislikeMusic={info => { void handleDislikeMusic(info.musicInfo) }}
         onMultiSelect={handleMenuMultiSelect}
+        onExitSelect={hancelExitSelect}
       />
       <DownloadQualityModal ref={downloadModalRef} />
       {/* <LoadingMask ref={loadingMaskRef} /> */}

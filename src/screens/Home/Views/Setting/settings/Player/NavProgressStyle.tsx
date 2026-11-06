@@ -1,7 +1,7 @@
 import { memo } from 'react'
 import { View } from 'react-native'
 
-import SubTitle from '../../components/SubTitle'
+import Section from '../../components/Section'
 import ChoiceItem from '../../components/ChoiceItem'
 import { useSettingValue } from '@/store/setting/hook'
 import { updateSetting } from '@/core/common'
@@ -25,7 +25,7 @@ export default memo(() => {
   const current = useSettingValue('common.navProgressStyle') ?? 'ring'
 
   return (
-    <SubTitle title='底部胶囊进度条'>
+    <Section title='底部胶囊进度条' icon='progress-clock'>
       <View style={styles.list}>
         {
           STYLES.map(item => (
@@ -39,13 +39,13 @@ export default memo(() => {
           ))
         }
       </View>
-    </SubTitle>
+    </Section>
   )
 })
 
 const styles = createStyle({
   list: {
-    marginLeft: -14,
-    marginRight: -14,
+    paddingTop: 2,
+    paddingBottom: 2,
   },
 })

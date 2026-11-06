@@ -34,6 +34,7 @@ import { useBackHandler } from '@/utils/hooks/useBackHandler'
 import { useHorizontalMode } from '@/utils/hooks'
 import UserApiEditModal, { type UserApiEditModalType } from '../Setting/settings/Basic/UserApiEditModal'
 import BigCard, { getBigCardMetrics } from './BigCard'
+import ListeningStatsModal from './ListeningStatsModal'
 import SongRail, { RAIL_ROWS } from './SongRail'
 
 type ModalType = 'songlist' | 'leaderboard' | 'mylist' | null
@@ -45,13 +46,15 @@ const RECENT_LIST_ID = 'home_recent'
 const LOCAL_RECENT_LIST_ID = 'home_local_recent'
 
 /**
- * 首页四张大卡：每张卡自带一套渐变配色和持续动效（见 BigCard）
+ * 首页大卡（5 张）：每张卡自带一套渐变配色和持续动效（见 BigCard）
  * variant 决定卡上的装饰动效，顺序就是横向轮播的顺序
  */
 const CARDS = [
   { key: 'leaderboard', title: '排行榜', icon: 'leaderboard', variant: 'bars' },
   { key: 'songlist', title: '歌单广场', icon: 'album', variant: 'vinyl' },
   { key: 'mylist', title: '收藏', icon: 'love', variant: 'hearts' },
+  // 越靠前越常看：统计卡放在「音源管理」前面，但排在三个高频入口之后
+  { key: 'stats', title: '听歌统计', icon: 'chart-donut', variant: 'stats' },
   { key: 'source', title: '音源管理', icon: 'share', variant: 'ripple' },
 ] as const
 
@@ -87,6 +90,7 @@ export default () => {
   /** 收藏页当前页签：提升到首页，PageHeader 标题行里的页签和列表共用同一份状态 */
   const [favoriteTab, setFavoriteTab] = useState<FavoriteTab>('love')
   const [localVisible, setLocalVisible] = useState(false)
+  const [statsVisible, setStatsVisible] = useState(false)
   const [localTab, setLocalTab] = useState<LocalTab>('song')
   const [recommend, setRecommend] = useState<ListInfoItem[]>([])
   /** 最近播放（已去重、最新的在前） */
@@ -223,6 +227,9 @@ export default () => {
         break
       case 'songlist':
         navigations.pushSongListScreen(commonState.componentIds.home!)
+        break
+      case 'stats':
+        setStatsVisible(true)
         break
       default:
         setModal(key)
@@ -465,6 +472,7 @@ export default () => {
           : null
       }
       <UserApiEditModal ref={userApiModalRef} />
+      <ListeningStatsModal visible={statsVisible} onClose={() => { setStatsVisible(false) }} />
     </View>
   )
 }

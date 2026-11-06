@@ -18,6 +18,8 @@ export const SCREEN_META: Record<SettingScreenIds, { icon: string, color: string
 export interface ScreenGroup {
   title: string
   ids: SettingScreenIds[]
+  icon: string
+  color: string
 }
 
 /**
@@ -25,7 +27,7 @@ export interface ScreenGroup {
  * 顺序即设置首页展示顺序（不能改动）：播放 → 下载 → 音源 → 搜索与列表 → 工具 → 基本 → 其他 → 关于。
  */
 export const SCREEN_GROUPS: ScreenGroup[] = [
-  { title: '播放与下载', ids: ['player', 'download'] },
-  { title: '内容与工具', ids: ['source', 'searchlist', 'tools'] },
-  { title: '系统与关于', ids: ['basic', 'other', 'about'] },
+  { title: '播放与下载', ids: ['player', 'download'], icon: 'leaderboard', color: '#8B5CF6' },
+  { title: '内容与工具', ids: ['source', 'searchlist', 'tools'], icon: 'view-grid-outline', color: '#6366F1' },
+  { title: '系统与关于', ids: ['basic', 'other', 'about'], icon: 'cog', color: '#A855F7' },
 ]

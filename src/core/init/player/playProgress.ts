@@ -1,6 +1,7 @@
 import { updateListMusics } from '@/core/list'
 import { setMaxplayTime, setNowPlayTime } from '@/core/player/progress'
 import { setCurrentTime, getDuration, getPosition } from '@/plugins/player'
+import { recordPlaybackTick } from '@/core/player/listenStats'
 import { formatPlayTime2 } from '@/utils/common'
 import { savePlayInfo } from '@/utils/data'
 import { throttleBackgroundTimer } from '@/utils/tools'
@@ -31,6 +32,7 @@ export default () => {
     void getPosition().then(position => {
       if (!position || id != playerState.musicInfo.id) return
       setNowPlayTime(position)
+      recordPlaybackTick(position)
       if (!playerState.isPlay) return
 
       if (settingState.setting['player.isSavePlayTime'] && !playerState.playMusicInfo.isTempPlay && isScreenOn) {
@@ -88,11 +90,25 @@ export default () => {
     // handleSetTaskBarState(playProgress.progress, prevProgressStatus)
     startUpdateTimeout()
   }
+  const saveNow = () => {
+    if (!settingState.setting['player.isSavePlayTime']) return
+    if (!playerState.playMusicInfo.listId || playerState.playMusicInfo.isTempPlay) return
+    if (!playerState.playMusicInfo.musicInfo) return
+    void savePlayInfo({
+      time: playerState.progress.nowPlayTime,
+      maxTime: playerState.progress.maxPlayTime,
+      listId: playerState.playMusicInfo.listId,
+      index: playerState.playInfo.playIndex,
+    })
+  }
+
   const handlePause = () => {
     // prevProgressStatus = 'paused'
     // handleSetTaskBarState(playProgress.progress, prevProgressStatus)
     // clearBufferTimeout()
     clearUpdateTimeout()
+    // 暂停/退后台时立刻落一次队列位置，冷启动能恢复到暂停点
+    saveNow()
   }
 
   const handleStop = () => {
@@ -162,6 +178,8 @@ export default () => {
   // 修复在某些设备上屏幕状态改变事件未触发导致的进度条未更新的问题
   AppState.addEventListener('change', (state) => {
     if (state == 'active' && !isScreenOn) handleScreenStateChanged('ON')
+    // 退到后台可能被杀进程：先落一次队列/进度
+    if (state !== 'active') saveNow()
   })
 
   global.app_event.on('play', handlePlay)

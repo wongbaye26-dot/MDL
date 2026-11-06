@@ -186,6 +186,7 @@ export default forwardRef<MusicListType, {}>((props, ref) => {
     onLoadMore={handleLoadMore}
     checkHomePagerIdle
     hideModeBar
+    autoFetchPic
     ListEmptyComponent={EmptyView}
   />
 })

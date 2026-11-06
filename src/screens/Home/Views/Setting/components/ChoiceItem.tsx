@@ -21,7 +21,7 @@ export default memo(({ label, desc, active, onPress, children }: ChoiceItemProps
   return (
     <TouchableOpacity style={styles.row} activeOpacity={0.7} onPress={onPress}>
       <View style={styles.info}>
-        <Text size={14} color={active ? theme['c-primary-light-200'] : theme['c-font']}>{label}</Text>
+        <Text size={14.5} color={active ? theme['c-primary-light-200'] : theme['c-font']}>{label}</Text>
         {desc ? <Text size={11} color={theme['c-450']} style={styles.desc}>{desc}</Text> : null}
         {children}
       </View>
@@ -38,8 +38,8 @@ const styles = createStyle({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingLeft: 14,
-    paddingRight: 14,
+    paddingLeft: 16,
+    paddingRight: 16,
     paddingTop: 12,
     paddingBottom: 12,
   },

@@ -1,4 +1,4 @@
-import { memo } from 'react'
+import { memo, useCallback, useState } from 'react'
 import { View, Image } from 'react-native'
 
 import Section from '../components/Section'
@@ -7,6 +7,10 @@ import { Icon } from '@/components/common/Icon'
 import MiniTag from '@/components/common/MiniTag'
 import { useTheme } from '@/store/theme/hook'
 import { createStyle } from '@/utils/tools'
+import SettingRow from '../components/SettingRow'
+import { getCardBackground, getCardBorder, getCardShadow, getTileBackground } from '../components/surfaces'
+import { checkUpdate } from '@/core/version'
+import { useI18n } from '@/lang'
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const emoLogo = require('@/resources/images/emo-logo.png')
@@ -24,8 +28,8 @@ const TechCell = ({ icon, label, value }: {
   const theme = useTheme()
   return (
     <View style={styles.techCell}>
-      <View style={{ ...styles.techIcon, backgroundColor: theme['c-primary-alpha-800'] }}>
-        <Icon name={icon} size={14} color={theme['c-primary-light-200']} />
+      <View style={{ ...styles.techIcon, backgroundColor: getTileBackground(theme, '#8B5CF6') }}>
+        <Icon name={icon} size={14} color='#8B5CF6' />
       </View>
       <View style={styles.techInfo}>
         <Text size={10} color={theme['c-450']} numberOfLines={1}>{label}</Text>
@@ -37,14 +41,27 @@ const TechCell = ({ icon, label, value }: {
 
 export default memo(() => {
   const theme = useTheme()
+  const t = useI18n()
+  const [checking, setChecking] = useState(false)
+
+  const handleCheckUpdate = useCallback(async() => {
+    if (checking) return
+    setChecking(true)
+    try {
+      await checkUpdate(true)
+    } finally {
+      setChecking(false)
+    }
+  }, [checking])
 
   return (
     <>
       {/* ── 品牌 hero 卡 ── */}
       <View style={{
         ...styles.hero,
-        backgroundColor: theme['c-primary-alpha-900'],
-        borderColor: theme['c-primary-alpha-700'],
+        backgroundColor: getCardBackground(theme),
+        borderColor: getCardBorder(theme),
+        ...getCardShadow(theme),
       }}>
         <View style={styles.heroTop}>
           <Image source={emoLogo} style={styles.logo} />
@@ -74,7 +91,7 @@ export default memo(() => {
       </View>
 
       {/* ── 技术信息 ── */}
-      <Section title='技术信息'>
+      <Section title='技术信息' icon='information-outline'>
         <View style={styles.techGrid}>
           <TechCell icon='information-outline' label='版本' value={`v${currentVer}`} />
           <TechCell icon='react' label='框架' value='React Native' />
@@ -83,8 +100,19 @@ export default memo(() => {
         </View>
       </Section>
 
+      {/* ── 更新 ── */}
+      <Section title={t('setting_about_update')} icon='update'>
+        <SettingRow
+          icon='available_updates'
+          title={t('setting_about_check_update')}
+          desc={checking ? t('setting_about_checking') : t('setting_about_check_desc')}
+          right={<Icon name='chevron-right' size={16} color={theme['c-350']} />}
+          onPress={() => { void handleCheckUpdate() }}
+        />
+      </Section>
+
       {/* ── 致谢 ── */}
-      <Section title='致谢'>
+      <Section title='致谢' icon='heart-outline'>
         <View style={styles.textBlock}>
           <Text size={12} color={theme['c-450']} style={styles.paragraph}>
             感谢 lxmusic 开源项目。EmoMusic 基于 lxmusic 开源项目二次开发：音源解析、播放内核接入与数据层沿用/改造自上游 lx-music-mobile；品牌、界面、交互、播放器、本地音乐、下载中心与通知/锁屏媒体能力由 EmoMusic 开发或重做。
@@ -93,7 +121,7 @@ export default memo(() => {
       </Section>
 
       {/* ── 声明 ── */}
-      <Section title='声明'>
+      <Section title='声明' icon='shield-check-outline'>
         <View style={styles.textBlock}>
           <Text size={12} color={theme['c-450']} style={styles.paragraph}>
             Emo音乐 是一个本地音乐下载与试听工具，所有内容均来自用户自行配置的第三方音源，软件本身不提供、不存储任何音频内容。
@@ -118,13 +146,13 @@ export default memo(() => {
 
 const styles = createStyle({
   hero: {
-    borderRadius: 20,
-    borderWidth: 0.5,
-    paddingLeft: 16,
-    paddingRight: 16,
-    paddingTop: 16,
-    paddingBottom: 14,
-    marginTop: 6,
+    borderRadius: 24,
+    borderWidth: 0.8,
+    paddingLeft: 18,
+    paddingRight: 18,
+    paddingTop: 18,
+    paddingBottom: 16,
+    marginTop: 4,
     marginBottom: 20,
   },
   heroTop: {
@@ -132,9 +160,9 @@ const styles = createStyle({
     alignItems: 'center',
   },
   logo: {
-    width: 62,
-    height: 62,
-    borderRadius: 19,
+    width: 64,
+    height: 64,
+    borderRadius: 20,
     marginRight: 14,
   },
   brandInfo: {
@@ -153,7 +181,7 @@ const styles = createStyle({
   },
   brandName: {
     fontWeight: '800',
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
   },
   brandDesc: {
     marginTop: 6,

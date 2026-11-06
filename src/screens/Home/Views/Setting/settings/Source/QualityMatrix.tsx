@@ -22,7 +22,7 @@ export default memo(() => {
     .sort((a, b) => a[0].localeCompare(b[0]))
 
   return (
-    <Section title={t('setting_source_quality')}>
+    <Section title={t('setting_source_quality')} icon='chart-bar'>
       <View style={styles.content}>
         {
           entries.length

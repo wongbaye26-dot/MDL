@@ -14,7 +14,7 @@ import {
 } from './utils'
 import { getLocalFilePath } from '@/utils/music'
 import { readLyric } from '@/utils/localMediaMetadata'
-import { stat } from '@/utils/fs'
+import { existsFile, readFile, stat } from '@/utils/fs'
 import { findAudioByPath } from '@/utils/directoryPicker'
 
 const getOtherSourceByLocal = async<T>(musicInfo: LX.Music.MusicInfoLocal, handler: (infos: LX.Music.MusicInfoOnline[]) => Promise<T>) => {
@@ -220,8 +220,13 @@ export const parseLyric = (lrc: string): LX.Music.LyricInfo => {
 
 const getMusicFileLyric = async(filePath: string) => {
   const lyric = await readLyric(filePath).catch(() => null)
-  if (!lyric) return null
-  return parseLyric(lyric)
+  if (lyric) return parseLyric(lyric)
+  // 内嵌歌词没有时，尝试同目录同名 .lrc（content:// 文档 uri 无法直接拼路径，暂时跳过）
+  if (filePath.startsWith('content://')) return null
+  const sidecarPath = filePath.replace(/\.[^./\\]+$/, '.lrc')
+  if (!await existsFile(sidecarPath).catch(() => false)) return null
+  const sidecar = await readFile(sidecarPath, 'utf8').catch(() => null)
+  return sidecar ? parseLyric(sidecar) : null
 }
 export const getLyricInfo = async({ musicInfo, isRefresh, skipFileLyric, onToggleSource = () => {} }: {
   musicInfo: LX.Music.MusicInfoLocal

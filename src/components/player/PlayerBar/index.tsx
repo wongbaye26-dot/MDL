@@ -1,12 +1,11 @@
 import { memo, useRef } from 'react'
 import { TouchableOpacity, View } from 'react-native'
 import { Navigation } from 'react-native-navigation'
-import LinearGradient from 'react-native-linear-gradient'
 
 import Text from '@/components/common/Text'
 import MarqueeText from '@/components/common/MarqueeText'
 import { Icon } from '@/components/common/Icon'
-import Glass from '@/components/common/Glass'
+import LiquidGlass from '@/components/common/LiquidGlass'
 import AlbumDiscSpin, { DISC_SIZE } from '@/components/common/AlbumDiscSpin'
 import { useTheme } from '@/store/theme/hook'
 import { usePlayerMusicInfo, useIsPlay, useProgress } from '@/store/player/hook'
@@ -64,6 +63,7 @@ export default memo(({ isHome = false }: { isHome?: boolean }) => {
   const { progress } = useProgress()
   const autoHidePlayBar = useSettingValue('common.autoHidePlayBar')
   const progressStyle = useSettingValue('common.navProgressStyle') ?? 'ring'
+  const glassStyle = useSettingValue('common.navGlassStyle') ?? 'liquid'
   const { keyboardShown } = useKeyboard()
   const isDark = theme.isDark
   /** 左侧圆盘节点：打开播放器时量它的屏幕位置作为共享元素动画起点 */
@@ -83,43 +83,24 @@ export default memo(({ isHome = false }: { isHome?: boolean }) => {
           isDark ? null : styles.cardLight,
           isDark
             ? {
-                backgroundColor: 'rgba(22,17,30,0.34)',
+                backgroundColor: glassStyle === 'none' ? 'rgba(22,17,30,0.9)' : 'rgba(22,17,30,0.34)',
                 shadowColor: '#000000',
               }
             : {
                 // 亮色：白色叠层降到最薄，靠 BlurView 透出页面颜色，不做「整块白」
-                backgroundColor: 'rgba(255,255,255,0.16)',
+                backgroundColor: glassStyle === 'none' ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.16)',
                 shadowColor: '#6E6285',
               },
         ]}
       >
         {/* 磨砂玻璃：抓背后的页面内容做一次真高斯模糊 */}
-        <Glass
+        <LiquidGlass
+          mode={glassStyle}
           blurRadius={24}
           tint={isDark ? 'rgba(22,17,30,0.42)' : 'rgba(255,255,255,0.14)'}
           radius={BAR_RADIUS}
+          isDark={isDark}
         />
-
-        {/* 玻璃反光：上半部一层自上而下的白色渐变（胶囊同款） */}
-        <LinearGradient
-          colors={isDark
-            ? ['rgba(255,255,255,0.09)', 'rgba(255,255,255,0.02)', 'rgba(255,255,255,0)']
-            : ['rgba(255,255,255,0.30)', 'rgba(255,255,255,0.07)', 'rgba(255,255,255,0)']}
-          locations={[0, 0.5, 1]}
-          style={styles.gloss}
-          pointerEvents='none'
-        />
-
-        {/* 亮色：底部内阴影撑出玻璃厚度（原来那条 0.5dp 实线描边已去掉） */}
-        {isDark
-          ? null
-          : (
-            <LinearGradient
-              colors={['rgba(150,140,170,0)', 'rgba(150,140,170,0.22)']}
-              style={styles.innerShade}
-              pointerEvents='none'
-            />
-            )}
 
         <TouchableOpacity style={styles.infoArea} activeOpacity={0.75} onPress={() => { openPlayerTab(discRef, isHome) }}>
           {/* 会转的圆盘 + 外圈进度环；包一层原生 View 才能量共享元素起点 */}
@@ -187,20 +168,6 @@ const styles = createStyle({
     shadowOpacity: 0.42,
     shadowRadius: 30,
     shadowOffset: { width: 0, height: 12 },
-  },
-  gloss: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    height: BAR_HEIGHT * 0.66,
-  },
-  innerShade: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: BAR_HEIGHT * 0.55,
   },
   lightTextShadow: {
     // 亮色玻璃上是深色文字：给白色微阴影，透到深色背景上也能读

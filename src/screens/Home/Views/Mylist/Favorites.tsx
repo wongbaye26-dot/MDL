@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Modal, ScrollView, TouchableOpacity, View } from 'react-native'
+import { InteractionManager, Modal, ScrollView, TouchableOpacity, View } from 'react-native'
 import LinearGradient from 'react-native-linear-gradient'
 
 import Text from '@/components/common/Text'
@@ -267,9 +267,9 @@ export const FavoriteTabs = ({ tab, onChange }: {
   onChange: (tab: FavoriteTab) => void
 }) => {
   const theme = useTheme()
-  const items: Array<{ key: FavoriteTab, label: string }> = [
-    { key: 'love', label: '我的收藏' },
-    { key: 'temp', label: '试听列表' },
+  const items: Array<{ key: FavoriteTab, label: string, icon: string }> = [
+    { key: 'love', label: '我的收藏', icon: 'heart' },
+    { key: 'temp', label: '试听列表', icon: 'clock-outline' },
   ]
 
   return (
@@ -288,6 +288,12 @@ export const FavoriteTabs = ({ tab, onChange }: {
               activeOpacity={0.85}
               onPress={() => { if (!active) onChange(item.key) }}
             >
+              <Icon
+                name={item.icon}
+                size={12}
+                color={active ? contrastOn(theme['c-primary']) : theme['c-450']}
+                style={styles.headerTabIcon}
+              />
               <Text
                 size={11.5}
                 // 主色实心的胶囊上按主色亮度取黑/白，浅色主题下也读得清
@@ -339,8 +345,22 @@ export default ({ tab }: {
     /*
       只 setActiveList 不会让 MusicList 重新加载（它的挂载 effect 只看 mylistToggled 等事件），
       切页签时主动通知一次，保证列表跟着页签走。
+
+      这里要等页签切换动画/触摸交互结束再通知列表重建：
+      收藏/试听列表可能是几百上千首，立刻重建 + 渲染会和动画挤在同一帧，
+      真机上表现为切页签直接卡死（ANR 10s）。InteractionManager 会把重建排到交互结束之后。
     */
-    global.state_event.mylistToggled(id)
+    let cancelled = false
+    const task = InteractionManager.runAfterInteractions(() => {
+      if (cancelled) return
+      requestAnimationFrame(() => {
+        if (!cancelled) global.state_event.mylistToggled(id)
+      })
+    })
+    return () => {
+      cancelled = true
+      task.cancel()
+    }
   }, [tab])
 
   const handlePlayAll = useCallback(() => {
@@ -462,13 +482,17 @@ const styles = createStyle({
   },
   headerTab: {
     height: 28,
-    paddingLeft: 12,
+    flexDirection: 'row',
+    paddingLeft: 10,
     paddingRight: 12,
     borderRadius: 14,
     borderWidth: 0.5,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 6,
+  },
+  headerTabIcon: {
+    marginRight: 4,
   },
   list: {
     flex: 1,

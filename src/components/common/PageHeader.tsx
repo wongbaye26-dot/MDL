@@ -183,12 +183,13 @@ const styles = createStyle({
     letterSpacing: 0.5,
   },
   titleRight: {
-    // 占满标题之后的剩余横向空间；里面的胶囊可以从左往右排
+    // 占满标题之后的剩余横向空间，并靠右对齐（收藏页的「我的收藏 / 试听列表」胶囊）
     flexGrow: 1,
     flexShrink: 1,
     marginLeft: 12,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'flex-end',
   },
   subtitle: {
     marginTop: 3,

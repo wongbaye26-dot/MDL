@@ -30,9 +30,12 @@ export default memo(({ check, label, children, onChange, helpTitle, helpDesc, di
       activeOpacity={0.7}
       disabled={disabled}
       onPress={handlePress}
+      accessibilityRole='switch'
+      accessibilityLabel={label}
+      accessibilityState={{ checked: !!check, disabled }}
     >
       <View style={styles.info}>
-        <Text size={14} color={disabled ? theme['c-450'] : theme['c-font']}>{label}</Text>
+        <Text size={15} color={disabled ? theme['c-450'] : theme['c-font']}>{label}</Text>
         {children ? <View style={styles.child}>{children}</View> : null}
       </View>
       {
@@ -57,10 +60,10 @@ const styles = createStyle({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingLeft: 14,
-    paddingRight: 14,
-    paddingTop: 11,
-    paddingBottom: 11,
+    paddingLeft: 18,
+    paddingRight: 16,
+    paddingTop: 14,
+    paddingBottom: 14,
   },
   info: {
     flexGrow: 1,

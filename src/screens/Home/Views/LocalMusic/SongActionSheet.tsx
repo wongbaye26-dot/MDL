@@ -11,7 +11,8 @@ import { CoverImage } from './cover'
  *   header  → 封面 + 歌名/歌手
  *   actions → 播放 / 下一首播放 / 加入播放列表
  *   items   → 专辑 / 歌手 / 收藏 / 添加到歌单 / 歌曲信息 / 从列表移除 / 删除文件
- * 本轮按需求去掉了「查看所在目录」行（路径复制入口移除）。
+ * 本轮按需求去掉了「查看所在目录」行（路径复制入口移除）；
+ * 「隐藏这首歌」只从本地音乐列表隐藏，可在音乐工具里恢复。
  */
 export type SongAction =
   | 'play'
@@ -22,6 +23,7 @@ export type SongAction =
   | 'toggleLove'
   | 'addToSonglist'
   | 'songInfo'
+  | 'hide'
   /** 保留在类型里：LocalMusic/index.tsx 的 handleSheetAction 仍有该分支，本轮不再渲染这一行 */
   | 'showPath'
   | 'removeFromList'
@@ -71,6 +73,7 @@ export default ({ visible, item, loved, onClose, onAction }: Props) => {
     },
     { key: 'addToSonglist', label: '添加到歌单', icon: 'playlist-music', onPress: () => { onAction('addToSonglist') } },
     { key: 'songInfo', label: '歌曲信息', icon: 'information-outline', onPress: () => { onAction('songInfo') } },
+    { key: 'hide', label: '隐藏这首歌', icon: 'eye-off-outline', onPress: () => { onAction('hide') } },
     { key: 'removeFromList', label: '从列表移除', icon: 'delete-outline', onPress: () => { onAction('removeFromList') } },
     { key: 'deleteFile', label: '删除文件', icon: 'trash-can-outline', danger: true, onPress: () => { onAction('deleteFile') } },
   ]

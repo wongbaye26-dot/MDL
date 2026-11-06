@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Animated, Easing, View, type StyleProp, type TextStyle } from 'react-native'
 
 import Text from './Text'
+import { useReducedMotion } from '@/utils/hooks'
 
 /**
  * 单行超长文本自动横向滚动。
@@ -30,8 +31,9 @@ export default ({
   const [boxWidth, setBoxWidth] = useState(0)
   const [textWidth, setTextWidth] = useState(0)
   const translateX = useRef(new Animated.Value(0)).current
+  const reduced = useReducedMotion()
 
-  const shouldScroll = active && boxWidth > 0 && textWidth > boxWidth + 4
+  const shouldScroll = active && !reduced && boxWidth > 0 && textWidth > boxWidth + 4
 
   useEffect(() => {
     if (!shouldScroll) {

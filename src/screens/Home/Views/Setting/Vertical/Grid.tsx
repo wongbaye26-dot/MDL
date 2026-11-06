@@ -4,6 +4,7 @@ import { View, TouchableOpacity } from 'react-native'
 import Text from '@/components/common/Text'
 import { Icon } from '@/components/common/Icon'
 import Section from '../components/Section'
+import SettingRow from '../components/SettingRow'
 import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
 import { useSettingValue } from '@/store/setting/hook'
@@ -12,6 +13,7 @@ import { createStyle } from '@/utils/tools'
 import { QUALITY_LABEL } from '@/core/download/utils'
 import { type SettingScreenIds } from '../Main'
 import { SCREEN_META, SCREEN_GROUPS } from '../components/screenMeta'
+import { getCardBackground, getCardBorder, getCardShadow } from '../components/surfaces'
 
 // 存储里的语言值是 zh_cn 这种下划线写法，映射表用的是连字符，取之前统一一下
 const LANG_LABEL: Record<string, string> = {
@@ -23,11 +25,10 @@ const LANG_LABEL: Record<string, string> = {
 const onOff = (value: boolean | undefined) => value ? '开' : '关'
 
 /**
- * 设置首页列表行：40dp 彩色圆角图标 + 标题 + 一行实时摘要 + 右侧 chevron。
- * 行高/左右内边距比 v3.8.2 放宽，整页按分组拆成 3 张 Section 卡，
- * 卡片圆角/描边/底色/组标题/分隔线全部复用子设置页的 Section 组件，视觉语言完全一致。
+ * 设置首页「播放与下载」的入口卡：图标 + 标题 + 实时摘要 + 右箭头。
+ * 和下面列表行的区别只是并排展示，点击后的跳转/入口完全不变。
  */
-const Row = memo(({ id, title, preview, onPress }: {
+const NavCard = memo(({ id, title, preview, onPress }: {
   id: SettingScreenIds
   title: string
   preview: string
@@ -38,18 +39,23 @@ const Row = memo(({ id, title, preview, onPress }: {
 
   return (
     <TouchableOpacity
-      style={styles.row}
-      activeOpacity={0.7}
+      style={{
+        ...styles.navCard,
+        backgroundColor: getCardBackground(theme),
+        borderColor: getCardBorder(theme),
+        ...getCardShadow(theme),
+      }}
+      activeOpacity={0.72}
       onPress={() => { onPress(id) }}
     >
-      <View style={{ ...styles.iconWrap, backgroundColor: `${meta.color}2E` }}>
-        <Icon name={meta.icon} size={20} color={meta.color} />
+      <View style={[styles.navIcon, { backgroundColor: `${meta.color}24` }]}>
+        <Icon name={meta.icon} size={21} color={meta.color} />
       </View>
-      <View style={styles.info}>
-        <Text size={15} numberOfLines={1} style={styles.title}>{title}</Text>
-        <Text size={11} color={theme['c-450']} numberOfLines={1} style={styles.preview}>{preview}</Text>
+      <View style={styles.navText}>
+        <Text size={15.5} numberOfLines={1} style={styles.navTitle}>{title}</Text>
+        <Text size={9.5} color={theme['c-450']} numberOfLines={1} style={styles.navPreview}>{preview}</Text>
       </View>
-      <Icon name='chevron-right' size={18} color={theme['c-350']} />
+      <Icon name='chevron-right' size={15} color={theme['c-350']} />
     </TouchableOpacity>
   )
 })
@@ -63,7 +69,6 @@ export default ({ onPress }: { onPress: (id: SettingScreenIds) => void }) => {
   const userApiList = useUserApiList()
   const apiStatus = useStatus()
   const playQuality = useSettingValue('player.playQuality')
-  const wordByWord = useSettingValue('player.isWordByWordLyric')
   const showHistory = useSettingValue('search.isShowHistorySearch')
   const showHot = useSettingValue('search.isShowHotSearch')
   const showAlbumName = useSettingValue('list.isShowAlbumName')
@@ -85,8 +90,8 @@ export default ({ onPress }: { onPress: (id: SettingScreenIds) => void }) => {
 
   // 列表只给一行摘要，摘要保持实时、尽量精简
   const previews: Record<SettingScreenIds, string> = {
-    player: `${QUALITY_LABEL[playQuality] ?? playQuality} · 逐字歌词${onOff(wordByWord)}`,
-    download: `${QUALITY_LABEL[downloadQuality] ?? downloadQuality} · 并发 ${maxDownloadNum ?? 3}${autoSave ? ' · 边听边存' : ''}`,
+    player: `${QUALITY_LABEL[playQuality] ?? playQuality} · 逐字`,
+    download: `${QUALITY_LABEL[downloadQuality] ?? downloadQuality} · ${maxDownloadNum ?? 3}并发${autoSave ? ' · 边听边存' : ''}`,
     source: sourcePreview,
     searchlist: `历史${onOff(showHistory)} · 热搜${onOff(showHot)} · 专辑名${onOff(showAlbumName)}`,
     tools: '批量补封面 · 写标签 · 重命名',
@@ -98,18 +103,42 @@ export default ({ onPress }: { onPress: (id: SettingScreenIds) => void }) => {
   return (
     <View style={styles.container}>
       {
-        SCREEN_GROUPS.map(group => (
-          <Section key={group.title} title={group.title}>
+        SCREEN_GROUPS.map((group, groupIndex) => (
+          <Section
+            key={group.title}
+            title={group.title}
+            icon={group.icon}
+            color={group.color}
+            card={groupIndex !== 0}
+          >
             {
-              group.ids.map(id => (
-                <Row
-                  key={id}
-                  id={id}
-                  title={t(`setting_${id}` as 'setting_basic')}
-                  preview={previews[id]}
-                  onPress={onPress}
-                />
-              ))
+              groupIndex === 0
+                ? (
+                  <View style={styles.dualRow}>
+                    {group.ids.map(id => (
+                      <NavCard
+                        key={id}
+                        id={id}
+                        title={t(`setting_${id}` as 'setting_basic')}
+                        preview={previews[id]}
+                        onPress={onPress}
+                      />
+                    ))}
+                  </View>
+                  )
+                : group.ids.map(id => {
+                  const meta = SCREEN_META[id]
+                  return (
+                    <SettingRow
+                      key={id}
+                      icon={meta.icon}
+                      color={meta.color}
+                      title={t(`setting_${id}` as 'setting_basic')}
+                      desc={previews[id]}
+                      onPress={() => { onPress(id) }}
+                    />
+                  )
+                })
             }
           </Section>
         ))
@@ -120,38 +149,44 @@ export default ({ onPress }: { onPress: (id: SettingScreenIds) => void }) => {
 
 const styles = createStyle({
   container: {
-    paddingLeft: 16,
-    paddingRight: 16,
-    paddingTop: 2,
+    paddingLeft: 18,
+    paddingRight: 18,
+    paddingTop: 0,
   },
-  row: {
+  dualRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  navCard: {
+    width: '48.4%',
+    minHeight: 78,
     flexDirection: 'row',
     alignItems: 'center',
-    minHeight: 72,
-    paddingLeft: 16,
-    paddingRight: 16,
-    paddingTop: 14,
-    paddingBottom: 14,
+    borderRadius: 20,
+    borderWidth: 0.5,
+    paddingLeft: 12,
+    paddingRight: 8,
+    paddingTop: 8,
+    paddingBottom: 8,
   },
-  iconWrap: {
-    width: 40,
-    height: 40,
+  navIcon: {
+    width: 42,
+    height: 42,
     borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 15,
-    flexShrink: 0,
+    marginRight: 10,
   },
-  info: {
+  navText: {
     flexGrow: 1,
     flexShrink: 1,
     minWidth: 0,
-    marginRight: 8,
   },
-  title: {
-    fontWeight: '600',
+  navTitle: {
+    fontWeight: '700',
+    letterSpacing: 0.1,
   },
-  preview: {
+  navPreview: {
     marginTop: 4,
     lineHeight: 15,
   },

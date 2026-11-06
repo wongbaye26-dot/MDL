@@ -11,7 +11,7 @@ import { handleCollect, handlePlay } from './listAction'
 import songlistState from '@/store/songlist/state'
 import { useI18n } from '@/lang'
 import { useListInfo } from './state'
-import { useSelectionBarVisible } from '@/utils/selectionBar'
+import { getSelectionBar, useSelectionBarVisible } from '@/utils/selectionBar'
 import DownloadQualityModal, { type DownloadQualityModalType } from '@/components/DownloadQualityModal'
 
 /**
@@ -30,14 +30,21 @@ export default memo(() => {
 
   const handlePlayAll = () => {
     if (!songlistState.listDetailInfo.info.name) return
-    void handlePlay(info.id, info.source, songlistState.listDetailInfo.list)
+    // 多选时只播放选中的；没选中才播放整个歌单
+    const selected = getSelectionBar().selectedList
+    void handlePlay(info.id, info.source, selected.length ? selected : songlistState.listDetailInfo.list)
   }
 
   const handleDownloadAll = () => {
-    const musicInfos = songlistState.listDetailInfo.list
+    const selected = getSelectionBar().selectedList
+    const source = selected.length ? selected : songlistState.listDetailInfo.list
+    const musicInfos = source
       .filter((musicInfo): musicInfo is LX.Music.MusicInfoOnline => (musicInfo.source as string) !== 'local')
     if (!musicInfos.length) return
-    downloadModalRef.current?.show({ musicInfos, title: '下载歌单全部歌曲' })
+    downloadModalRef.current?.show({
+      musicInfos,
+      title: selected.length ? '下载选中的歌曲' : '下载歌单全部歌曲',
+    })
   }
 
   const handleCollection = () => {

@@ -214,7 +214,7 @@ export default memo(() => {
     : ''
 
   return (
-    <Section title={t('setting_source_check')}>
+    <Section title={t('setting_source_check')} icon='speedometer'>
       <View style={styles.content}>
         <Text size={10.5} color={theme['c-450']} style={styles.tip}>{t('setting_source_check_tip')}</Text>
         <Text size={11} color={theme['c-450']} style={styles.inputLabel}>{t('setting_source_check_probe_song')}</Text>
@@ -226,8 +226,8 @@ export default memo(() => {
           size={12.5}
           style={{
             ...styles.input,
-            backgroundColor: theme['c-primary-alpha-900'],
-            borderColor: theme['c-primary-alpha-700'],
+            backgroundColor: theme['c-primary-alpha-800'],
+            borderColor: theme['c-primary-alpha-600'],
             color: theme['c-font'],
           }}
         />

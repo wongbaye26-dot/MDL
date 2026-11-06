@@ -9,6 +9,7 @@ import boardState from '@/store/leaderboard/state'
 import MusicList, { type MusicListType } from '../MusicList'
 import { handlePlay } from '../listAction'
 import { addTasks } from '@/core/download'
+import { getSelectionBar } from '@/utils/selectionBar'
 import { BoardChips } from './Chips'
 import { resetHeaderSources, setHeaderSources } from './headerSources'
 import { resetLeaderboardHero, setLeaderboardHero } from '@/utils/leaderboardHero'
@@ -82,19 +83,26 @@ export default () => {
   const handlePlayAll = useCallback(() => {
     const id = activeIdRef.current
     if (!id) return
-    const list = boardState.listDetailInfo.id === id ? boardState.listDetailInfo.list : undefined
+    // 多选时只播放选中的；没选中才播放当前榜单全部
+    const selected = getSelectionBar().selectedList
+    const all = boardState.listDetailInfo.id === id ? boardState.listDetailInfo.list : undefined
+    const list = selected.length ? selected : all
     void handlePlay(id, list)
   }, [])
 
   const handleDownloadAll = useCallback(async() => {
     const id = activeIdRef.current
-    const list = boardState.listDetailInfo.id === id ? boardState.listDetailInfo.list : []
+    const selected = getSelectionBar().selectedList
+    const all = boardState.listDetailInfo.id === id ? boardState.listDetailInfo.list : []
+    const list = selected.length ? selected : all
     if (!list.length) {
       toast('列表还没加载完，稍后再试')
       return
     }
     const confirm = await confirmDialog({
-      message: `将当前榜单的 ${list.length} 首歌加入下载队列？`,
+      message: selected.length
+        ? `将选中的 ${list.length} 首歌加入下载队列？`
+        : `将当前榜单的 ${list.length} 首歌加入下载队列？`,
       confirmButtonText: '开始下载',
       cancelButtonText: '取消',
     })

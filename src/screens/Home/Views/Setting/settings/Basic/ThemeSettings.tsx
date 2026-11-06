@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useState } from 'react'
-import { View, TouchableOpacity, ScrollView } from 'react-native'
+import { Appearance, View, TouchableOpacity, ScrollView } from 'react-native'
 
 import Text from '@/components/common/Text'
 import { Icon } from '@/components/common/Icon'
@@ -29,14 +29,21 @@ const ThemeModeSelector = memo(() => {
   const lightId = useSettingValue('theme.lightId')
   const mode: ThemeMode = isAutoTheme ? 'auto' : (themeState.theme.isDark ? 'dark' : 'light')
 
-  const handleSelect = useCallback((newMode: ThemeMode) => {
-    const isDark = newMode === 'auto' ? themeState.shouldUseDarkColors : newMode === 'dark'
+  const handleSelect = useCallback(async(newMode: ThemeMode) => {
+    // 跟随系统时直接读系统当前明暗：themeState.shouldUseDarkColors 可能是上一次缓存值，
+    // 表现就是「切到跟随系统后还是原来的明亮/暗黑」。
+    const isDark = newMode === 'auto' ? Appearance.getColorScheme() === 'dark' : newMode === 'dark'
     const auto = newMode === 'auto'
     updateSetting({ 'common.isAutoTheme': auto, 'theme.seedDark': isDark })
     setShouldUseDarkColors(isDark)
     if (useSeed) {
-      // 种子模式：按新的明暗直接重建配色
-      applyTheme(generateThemeFromSeed(seedColor, isDark))
+      // 种子模式：按新的明暗重建配色。
+      // seedColor 可能是 'system'，直接传给 generateThemeFromSeed 会解析出 NaN，
+      // 进而在切换主题时生成 `rgb(NaN,NaN,NaN)` 色值，最终让 LinearGradient 崩溃。
+      const resolved = seedColor === 'system'
+        ? ((await getSystemAccentColor()) ?? '#6C5CE7')
+        : seedColor
+      applyTheme(generateThemeFromSeed(resolved, isDark))
     } else {
       // 内置主题：切到对应明暗的主题 id
       updateSetting({ 'theme.id': isDark ? (darkId || 'emo') : (lightId || 'emo_light') })
@@ -57,7 +64,7 @@ const ThemeModeSelector = memo(() => {
               borderColor: active ? theme['c-primary'] : theme['c-primary-alpha-700'],
             }}
             activeOpacity={0.7}
-            onPress={() => { handleSelect(m.mode) }}
+            onPress={() => { void handleSelect(m.mode) }}
           >
             <Icon name={m.icon} size={15} color={active ? '#FFFFFF' : theme['c-450']} />
             <Text
@@ -209,12 +216,12 @@ const styles = createStyle({
   },
   swatchWrap: {
     alignItems: 'center',
-    marginRight: 14,
+    marginRight: 10,
   },
   swatch: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 3,

@@ -246,7 +246,7 @@ export default () => {
   }, [])
 
   return (
-    <Section title={t('setting_source_user_list')}>
+    <Section title={t('setting_source_user_list')} icon='playlist-music'>
       {/* Section 会在多个顶层子元素之间插分隔线，这里整体包一层、自己控制列表分隔 */}
       <View>
         <View style={{ ...styles.importRow, borderBottomColor: theme['c-primary-alpha-700'] }}>

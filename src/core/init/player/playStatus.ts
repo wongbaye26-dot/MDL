@@ -4,9 +4,6 @@ import { updateMetaData } from '@/plugins/player'
 import playerState from '@/store/player/state'
 
 export default () => {
-  // const setVisibleDesktopLyric = useCommit('setVisibleDesktopLyric')
-  // const setLockDesktopLyric = useCommit('setLockDesktopLyric')
-
   const buttons = {
     empty: true,
     collect: false,
@@ -60,8 +57,6 @@ export default () => {
   // })
   // const updateSetting = () => {
   //   const setting = store.getters.setting
-  //   buttons.lrc = setting.desktopLyric.enable
-  //   buttons.lockLrc = setting.desktopLyric.isLock
   //   setButtons()
   // }
   global.app_event.on('play', handlePlay)
@@ -73,9 +68,6 @@ export default () => {
 
   return async() => {
     // const setting = store.getters.setting
-    // buttons.lrc = setting.desktopLyric.enable
-    // buttons.lockLrc = setting.desktopLyric.isLock
-    // await updateCollectStatus()
     // if (playMusicInfo.musicInfo != null) buttons.empty = false
     setButtons()
   }

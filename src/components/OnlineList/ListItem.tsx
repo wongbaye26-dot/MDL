@@ -114,7 +114,15 @@ export default memo(({ item, index, showSource, picUrl, onPress, onLongPress, on
           borderColor: theme['c-primary-alpha-700'],
         },
       ]}>
-        <TouchableOpacity style={styles.cardLeft} activeOpacity={0.75} onPress={() => { onPress(item, index) }} onLongPress={handleLongPress}>
+        <TouchableOpacity
+          style={styles.cardLeft}
+          activeOpacity={0.75}
+          accessibilityRole='button'
+          accessibilityLabel={`${item.name}${item.singer ? ` ${item.singer}` : ''}`}
+          accessibilityState={{ selected: isSelected }}
+          onPress={() => { onPress(item, index) }}
+          onLongPress={handleLongPress}
+        >
           {/* 卡片行也要保留名次（排行榜已改用 list 行，card 模式留给搜索等调用方） */}
           { showRank ? <View style={styles.cardRank}><RankBadge index={index} /></View> : null }
           <Image url={picUrl} style={styles.cardCover} />
@@ -130,7 +138,14 @@ export default memo(({ item, index, showSource, picUrl, onPress, onLongPress, on
           </View>
           {isShowInterval ? <Text size={11} color={theme['c-400']} style={styles.interval}>{item.interval ?? ''}</Text> : null}
         </TouchableOpacity>
-        <TouchableOpacity onPress={handleShowMenu} ref={moreButtonRef} style={styles.moreButton} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <TouchableOpacity
+          onPress={handleShowMenu}
+          ref={moreButtonRef}
+          style={styles.moreButton}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityRole='button'
+          accessibilityLabel='更多操作'
+        >
           <Icon name="dots-vertical" style={{ color: theme['c-350'] }} size={13} />
         </TouchableOpacity>
       </View>
@@ -141,7 +156,14 @@ export default memo(({ item, index, showSource, picUrl, onPress, onLongPress, on
   const showAlbum = isShowAlbumName && !!item.meta.albumName
   return (
     <View style={{ ...styles.listItem, width: rowInfo.rowWidth, height: showAlbum ? ITEM_HEIGHT + 16 : ITEM_HEIGHT, backgroundColor: isSelected ? theme['c-primary-background-hover'] : 'rgba(0,0,0,0)' }}>
-      <TouchableOpacity style={styles.listItemLeft} onPress={() => { onPress(item, index) }} onLongPress={handleLongPress}>
+      <TouchableOpacity
+        style={styles.listItemLeft}
+        accessibilityRole='button'
+        accessibilityLabel={`${item.name}${item.singer ? ` ${item.singer}` : ''}`}
+        accessibilityState={{ selected: isSelected }}
+        onPress={() => { onPress(item, index) }}
+        onLongPress={handleLongPress}
+      >
         { showRank ? <RankBadge index={index} /> : null }
         <Image url={picUrl} style={showRank ? styles.coverWithRank : styles.cover} />
         <View style={styles.itemInfo}>
@@ -158,7 +180,13 @@ export default memo(({ item, index, showSource, picUrl, onPress, onLongPress, on
           ) : null
         }
       </TouchableOpacity>
-     <TouchableOpacity onPress={handleShowMenu} ref={moreButtonRef} style={styles.moreButton}>
+     <TouchableOpacity
+        onPress={handleShowMenu}
+        ref={moreButtonRef}
+        style={styles.moreButton}
+        accessibilityRole='button'
+        accessibilityLabel='更多操作'
+      >
         <Icon name="dots-vertical" style={{ color: theme['c-350'] }} size={12} />
       </TouchableOpacity>
     </View>

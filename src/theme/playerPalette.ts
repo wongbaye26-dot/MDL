@@ -120,6 +120,8 @@ export interface PlayerPalette {
   scrimAt: (alpha: number) => string
   /** 整页的底色压暗（叠在封面糊底上，压彩度用） */
   dim: string
+  /** 歌词页压暗层：比 dim 更透，让封面糊底半透明地透出来 */
+  dimLyric: string
   /** 次要文字（暖白，比纯白更贴主题） */
   textSecondary: string
   /** 更弱的说明文字 */
@@ -133,18 +135,25 @@ const cache = new Map<string, PlayerPalette>()
  * 只取它的色相/饱和度，亮度全部重新定，所以亮/暗主题下播放器看起来是一致的。
  */
 export const getPlayerPalette = (theme: LX.ActiveTheme): PlayerPalette => {
-  const key = theme['c-primary'] ?? ''
+  const key = `${theme['c-primary'] ?? ''}|${theme.isDark ? 'dark' : 'light'}`
   const cached = cache.get(key)
   if (cached) return cached
 
-  const seed = parseRgb(key) ?? [255, 255, 255]
+  const seed = parseRgb(theme['c-primary']) ?? [255, 255, 255]
   const { h, s } = rgbToHsl(seed)
   // 灰色种子（极简灰）保持中性，不要硬加彩度
   const chroma = s < 0.12 ? s : clamp(s, 0.55, 0.92)
+  const isDark = theme.isDark
 
-  const accentHsl: HSL = { h, s: chroma, l: 0.79 }
-  // 表面色：种子色相 + 很低的彩度（0.30 倍）+ 很低亮度
-  const surfaceHsl: HSL = { h, s: chroma * 0.30, l: 0.10 }
+  /*
+    黑白主题要有明显区分：
+    - 深色主题：surface l=0.10（近黑），dim 0.26，压成深色播放器；
+    - 浅色主题：surface l=0.30（亮度抬一档的「浅炭灰」），dim 0.16，
+      封面透出更多、整页明显更亮，但文字仍保持浅色可读。
+    accent 同步降一点亮度，避免浅底上发飘。
+  */
+  const accentHsl: HSL = { h, s: chroma, l: isDark ? 0.79 : 0.70 }
+  const surfaceHsl: HSL = { h, s: chroma * 0.30, l: isDark ? 0.10 : 0.30 }
 
   const palette: PlayerPalette = {
     accent: rgbCss(accentHsl),
@@ -154,12 +163,13 @@ export const getPlayerPalette = (theme: LX.ActiveTheme): PlayerPalette => {
     track: rgbaCss(accentHsl, 0.38),
     scrim: rgbCss(surfaceHsl),
     scrimAt: (alpha: number) => rgbaCss(surfaceHsl, alpha),
-    dim: rgbaCss(surfaceHsl, 0.26),
+    dim: rgbaCss(surfaceHsl, isDark ? 0.26 : 0.16),
+    dimLyric: rgbaCss(surfaceHsl, isDark ? 0.12 : 0.07),
     textSecondary: rgbaCss({ h, s: 0.22, l: 0.94 }, 0.74),
     textTertiary: rgbaCss({ h, s: 0.18, l: 0.92 }, 0.54),
   }
 
-  if (cache.size > 24) cache.clear()
+  if (cache.size > 48) cache.clear()
   cache.set(key, palette)
   return palette
 }

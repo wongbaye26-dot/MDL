@@ -1,41 +1,76 @@
 import { Children } from 'react'
 import { View } from 'react-native'
 
-import { createStyle } from '@/utils/tools'
-import { useTheme } from '@/store/theme/hook'
 import Text from '@/components/common/Text'
+import { Icon } from '@/components/common/Icon'
+import { useTheme } from '@/store/theme/hook'
+import { createStyle } from '@/utils/tools'
+import {
+  getCardBackground,
+  getCardBorder,
+  getCardShadow,
+  getDividerColor,
+  getIconColor,
+  getTileBackground,
+} from './surfaces'
 
 
 interface Props {
   title: string
   desc?: string
+  icon?: string
+  color?: string
+  /** false = 只渲染分组头，子内容自己排（设置首页的「播放与下载」双卡片） */
+  card?: boolean
   children: React.ReactNode | React.ReactNode[]
 }
 
-export default ({ title, desc, children }: Props) => {
+/**
+ * 设置页分组：图标 + 标题 + 说明 + 玻璃卡片。
+ *
+ * 卡片统一走 surfaces 里的半透明白/深色卡，和设置页渐变背景配合；
+ * 子项之间的分隔线由这里统一插，子页面不需要各自处理。
+ */
+export default ({ title, desc, icon, color, card = true, children }: Props) => {
   const theme = useTheme()
   const items = Children.toArray(children).filter(item => item != null)
 
   return (
     <View style={styles.container}>
       <View style={styles.head}>
-        <Text size={12} color={theme['c-450']} style={styles.title}>{title}</Text>
-        {desc ? <Text size={10} color={theme['c-400']} style={styles.desc}>{desc}</Text> : null}
-      </View>
-      <View style={{
-        ...styles.card,
-        backgroundColor: theme['c-primary-alpha-900'],
-        borderColor: theme['c-primary-alpha-700'],
-      }}>
-        {
-          items.map((item, index) => (
-            <View key={index}>
-              {index > 0 ? <View style={{ ...styles.divider, backgroundColor: theme['c-primary-alpha-700'] }} /> : null}
-              {item}
+        {icon
+          ? (
+            <View style={{ ...styles.iconWrap, backgroundColor: getTileBackground(theme, color) }}>
+              <Icon name={icon} size={16} color={getIconColor(theme, color)} />
             </View>
-          ))
-        }
+            )
+          : null}
+        <View style={styles.headText}>
+          <Text size={16} style={styles.title}>{title}</Text>
+          {desc ? <Text size={10.5} color={theme['c-450']} style={styles.desc}>{desc}</Text> : null}
+        </View>
       </View>
+      {
+        card
+          ? (
+            <View style={{
+              ...styles.card,
+              backgroundColor: getCardBackground(theme),
+              borderColor: getCardBorder(theme),
+              ...getCardShadow(theme),
+            }}>
+              {
+                items.map((item, index) => (
+                  <View key={index}>
+                    {index > 0 ? <View style={{ ...styles.divider, backgroundColor: getDividerColor(theme) }} /> : null}
+                    {item}
+                  </View>
+                ))
+              }
+            </View>
+            )
+          : items
+      }
     </View>
   )
 }
@@ -43,33 +78,46 @@ export default ({ title, desc, children }: Props) => {
 
 const styles = createStyle({
   container: {
-    marginBottom: 20,
+    marginBottom: 16,
   },
   head: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingLeft: 4,
-    paddingRight: 4,
-    marginBottom: 8,
+    paddingLeft: 2,
+    paddingRight: 2,
+    marginBottom: 9,
+  },
+  iconWrap: {
+    width: 30,
+    height: 30,
+    borderRadius: 9,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+    flexShrink: 0,
+  },
+  headText: {
+    flexGrow: 1,
+    flexShrink: 1,
+    minWidth: 0,
   },
   title: {
-    fontWeight: '600',
-    letterSpacing: 0.3,
+    fontWeight: '700',
+    letterSpacing: 0.2,
   },
   desc: {
-    flexShrink: 1,
-    marginLeft: 10,
+    marginTop: 2,
+    lineHeight: 14,
   },
   card: {
-    borderRadius: 18,
+    borderRadius: 20,
     borderWidth: 0.5,
-    paddingTop: 2,
-    paddingBottom: 2,
+    paddingTop: 4,
+    paddingBottom: 4,
     overflow: 'hidden',
   },
   divider: {
     height: 0.5,
-    marginLeft: 14,
+    marginLeft: 20,
   },
 })

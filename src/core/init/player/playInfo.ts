@@ -1,4 +1,5 @@
 import { getPlayInfo } from '@/utils/data'
+import { existsFile } from '@/utils/fs'
 import { getListMusics } from '@/core/list'
 import { playList, play } from '@/core/player/player'
 
@@ -10,9 +11,28 @@ export default async(setting: LX.AppSetting) => {
 
   const list = await getListMusics(info.listId)
   if (!list[info.index]) return
+
+  /*
+    队列恢复（D-15）：本地文件可能在退出期间被删除/移走，直接播会报错。
+    从保存位置往后找第一首「本地文件还在」的歌；全部失效就放弃恢复，
+    避免启动时弹一个播放失败。
+  */
+  let index = info.index
+  const isLocalFileMissing = async(item: typeof list[number]) => {
+    if (!item || !('source' in item) || item.source !== 'local') return false
+    const filePath = item.meta.filePath
+    if (!filePath || filePath.startsWith('content://')) return false
+    return !(await existsFile(filePath).catch(() => false))
+  }
+  while (index < list.length && await isLocalFileMissing(list[index])) index += 1
+  if (index >= list.length) {
+    global.lx.restorePlayInfo = null
+    return
+  }
+  info.index = index
   global.lx.restorePlayInfo = info
 
-  await playList(info.listId, info.index)
+  await playList(info.listId, index)
 
   if (setting['player.startupAutoPlay']) setTimeout(play)
 

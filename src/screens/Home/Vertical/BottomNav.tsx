@@ -1,9 +1,8 @@
 import { memo, useCallback, useEffect, useMemo, useRef } from 'react'
 import { Animated, Easing, PanResponder, StyleSheet, View, TouchableOpacity } from 'react-native'
-import LinearGradient from 'react-native-linear-gradient'
 
 import TabIcon, { type TabIconName } from '@/components/common/TabIcon'
-import Glass from '@/components/common/Glass'
+import LiquidGlass from '@/components/common/LiquidGlass'
 import AlbumDiscSpin, { DISC_SIZE, DISC_RING_SIZE } from '@/components/common/AlbumDiscSpin'
 import { useTheme } from '@/store/theme/hook'
 import { useNavActiveId } from '@/store/common/hook'
@@ -127,6 +126,7 @@ export default memo(() => {
   const { progress } = useProgress()
   const isDark = theme.isDark
   const progressStyle = useSettingValue('common.navProgressStyle') ?? 'ring'
+  const glassStyle = useSettingValue('common.navGlassStyle') ?? 'liquid'
   /** 圆盘节点：打开播放器时量它的屏幕位置作为共享元素动画起点 */
   const discRef = useRef<View>(null)
 
@@ -198,7 +198,9 @@ export default memo(() => {
         style={{
           ...styles.bar,
           // 模糊不可用时的兜底色：亮色下只留很薄一层白，让背景颜色透上来（不然成一块白）
-          backgroundColor: isDark ? 'rgba(22,17,30,0.52)' : 'rgba(255,255,255,0.15)',
+          backgroundColor: glassStyle === 'none'
+            ? (isDark ? 'rgba(22,17,30,0.88)' : 'rgba(255,255,255,0.88)')
+            : (isDark ? 'rgba(22,17,30,0.52)' : 'rgba(255,255,255,0.15)'),
           shadowColor: isDark ? '#000000' : '#6E6285',
         }}
       >
@@ -208,32 +210,12 @@ export default memo(() => {
           Glass 内部已夹紧到 25），所以这里传 38 只是表达「要更厚的磨砂」的设计意图；
           实际的厚度感靠下面更实的 tint + 更亮的顶部高光 + 更深的内阴影叠出来。
         */}
-        <Glass
+        <LiquidGlass
+          mode={glassStyle}
           blurRadius={38}
           tint={isDark ? 'rgba(22,17,30,0.52)' : 'rgba(255,255,255,0.12)'}
           radius={BAR_RADIUS}
-        />
-
-        {/* 玻璃反光：上半部一层自上而下的白色渐变，顶部更亮（玻璃的厚度感全靠这层） */}
-        <LinearGradient
-          colors={isDark
-            ? ['rgba(255,255,255,0.16)', 'rgba(255,255,255,0.05)', 'rgba(255,255,255,0)']
-            : ['rgba(255,255,255,0.30)', 'rgba(255,255,255,0.07)', 'rgba(255,255,255,0)']}
-          locations={[0, 0.5, 1]}
-          style={styles.gloss}
-          pointerEvents='none'
-        />
-
-        {/*
-          底部内阴影：背景是纯白时，白色胶囊和白底几乎分不出边界。
-          靠「上亮下暗」的玻璃厚度把轮廓做出来，而不是加一条边框线。
-        */}
-        <LinearGradient
-          colors={isDark
-            ? ['rgba(0,0,0,0)', 'rgba(0,0,0,0.30)']
-            : ['rgba(150,140,170,0)', 'rgba(150,140,170,0.22)']}
-          style={styles.innerShade}
-          pointerEvents='none'
+          isDark={isDark}
         />
 
         {/*
@@ -356,20 +338,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     borderRadius: BAR_RADIUS,
     borderWidth: 0.5,
-  },
-  gloss: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    height: BAR_HEIGHT * 0.7,
-  },
-  innerShade: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: BAR_HEIGHT * 0.55,
   },
   item: {
     width: SLOT_WIDTH,

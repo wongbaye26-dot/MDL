@@ -222,7 +222,17 @@ const ActionCard = ({ action }: { action: ActionSheetAction }) => {
       onPress={action.onPress}
     >
       <Icon name={action.icon} size={20} color={palette.primary} />
-      <Text size={12.5} color={palette.text} numberOfLines={1} style={{ marginTop: 8 }}>{action.label}</Text>
+      {/*
+        必须给 Text 显式宽度：卡片是 flex:1 的列容器，Android 上 Text 的
+        内在宽度在「3 个以上快捷卡」时会被压到只剩 1 个字符（「15分」→「1…」）。
+        width:'100%' + 居中后，三个字的标签也能完整显示。
+      */}
+      <Text
+        size={12.5}
+        color={palette.text}
+        numberOfLines={1}
+        style={{ marginTop: 8, width: '100%', textAlign: 'center', paddingHorizontal: 4 }}
+      >{action.label}</Text>
     </TouchableOpacity>
   )
 }

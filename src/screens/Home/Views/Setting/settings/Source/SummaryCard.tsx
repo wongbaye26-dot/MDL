@@ -6,6 +6,7 @@ import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
 import { useStatus } from '@/store/userApi'
 import { createStyle } from '@/utils/tools'
+import { getCardBackground, getCardBorder, getCardShadow } from '../../components/surfaces'
 import { useQualityList, useSourcePageState } from './state'
 import { getTopQuality, formatTime, qualityLabel } from './helpers'
 
@@ -44,8 +45,9 @@ export default memo(() => {
   return (
     <View style={{
       ...styles.card,
-      backgroundColor: theme['c-primary-alpha-900'],
-      borderColor: theme['c-primary-alpha-700'],
+      backgroundColor: getCardBackground(theme),
+      borderColor: getCardBorder(theme),
+      ...getCardShadow(theme),
     }}>
       <View style={styles.grid}>
         {
@@ -66,14 +68,14 @@ export default memo(() => {
 
 const styles = createStyle({
   card: {
-    borderRadius: 20,
-    borderWidth: 0.5,
-    paddingLeft: 14,
-    paddingRight: 14,
-    paddingTop: 14,
-    paddingBottom: 10,
-    marginTop: 6,
-    marginBottom: 18,
+    borderRadius: 22,
+    borderWidth: 0.8,
+    paddingLeft: 16,
+    paddingRight: 16,
+    paddingTop: 16,
+    paddingBottom: 12,
+    marginTop: 4,
+    marginBottom: 20,
   },
   grid: {
     flexDirection: 'row',

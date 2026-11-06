@@ -23,7 +23,6 @@ export const LIST_IDS = {
 export enum COMPONENT_IDS {
   home = 'home',
   songlistDetail = 'songlistDetail',
-  comment = 'comment',
 }
 
 export enum NAV_SHEAR_NATIVE_IDS {
@@ -46,9 +45,6 @@ export const storageDataPrefix = {
   musicOtherSource: '@music_other_source__',
   playInfo: '@play_info',
 
-  syncAuthKey: '@sync_auth_key',
-  syncHost: '@sync_host',
-  syncHostHistory: '@sync_host_history',
 
   openStoragePath: '@open_storage_path',
   selectedManagedFolder: '@selected_managed_folder',
@@ -86,9 +82,6 @@ export const storageDataPrefixOld = {
   // lyric: '@lyric__',
   // musicUrl: '@music_url__',
   playInfo: '@play_info',
-  syncAuthKey: '@sync_auth_key',
-  syncHost: '@sync_host',
-  syncHostHistory: '@sync_host_history',
   notificationTipEnable: '@notification_tip_enable',
 } as const
 

@@ -57,16 +57,6 @@ declare global {
       'common.allowProgressBarSeek': boolean
 
       /**
-       * 是否显示返回按钮
-       */
-      'common.showBackBtn': boolean
-
-      /**
-       * 是否显示退出按钮
-       */
-      'common.showExitBtn': boolean
-
-      /**
        * 使用系统文件选择器
        */
       'common.useSystemFileSelector': boolean
@@ -75,6 +65,11 @@ declare global {
        * 总是保留状态栏高度
        */
       'common.alwaysKeepStatusbarHeight': boolean
+
+      /**
+       * 减少动态效果：开启后关闭大部分非必要动画（系统无障碍开关也会生效）
+       */
+      'common.reduceMotion': boolean
 
       /**
        * 主题id
@@ -137,19 +132,19 @@ declare global {
       'player.playbackRate': number
 
       /**
+       * 切歌淡入淡出（秒，0 = 关闭；每侧时长 = 值 / 2）
+       */
+      'player.fadeSeconds': number
+
+      /**
+       * 歌词时间轴偏移（毫秒；正数=歌词提前显示）
+       */
+      'player.lyricOffsetMs': number
+
+      /**
        * 缓存大小设置 unit MiB
        */
       'player.cacheSize': string
-
-      /**
-       * 定时暂停播放-倒计时时间
-       */
-      'player.timeoutExit': string
-
-      /**
-       * 定时暂停播放-是否等待歌曲播放完毕再暂停
-       */
-      'player.timeoutExitPlayed': boolean
 
       /**
        * 点击相同列表内的歌曲切歌时是否清空已播放列表（随机模式下列表内所有歌曲会重新参与随机）
@@ -202,81 +197,6 @@ declare global {
       'player.isShowBluetoothFullLyric': boolean
 
       /**
-       * 是否启用桌面歌词
-       */
-      'desktopLyric.enable': boolean
-
-      /**
-       * 是否锁定桌面歌词
-       */
-      'desktopLyric.isLock': boolean
-
-      /**
-       * 桌面歌词窗口宽度
-       */
-      'desktopLyric.width': number
-
-      /**
-       * 桌面歌词最大行数
-       */
-      'desktopLyric.maxLineNum': number
-
-      /**
-       * 桌面歌词是否使用单行显示
-       */
-      'desktopLyric.isSingleLine': boolean
-
-      /**
-       * 桌面歌词是否启用歌词切换动画
-       */
-      'desktopLyric.showToggleAnima': boolean
-
-      /**
-       * 桌面歌词窗口x坐标
-       */
-      'desktopLyric.position.x': number
-
-      /**
-       * 桌面歌词窗口y坐标
-       */
-      'desktopLyric.position.y': number
-
-      /**
-       * 歌词水平对齐方式
-       */
-      'desktopLyric.textPosition.x': 'left' | 'center' | 'right'
-
-      /**
-       * 歌词垂直对齐方式
-       */
-      'desktopLyric.textPosition.y': 'top' | 'center' | 'bottom'
-
-      /**
-       * 桌面歌词字体大小
-       */
-      'desktopLyric.style.fontSize': number
-
-      /**
-       * 桌面歌词字体透明度
-       */
-      'desktopLyric.style.opacity': number
-
-      /**
-       * 桌面歌词未播放字体颜色
-       */
-      'desktopLyric.style.lyricUnplayColor': string
-
-      /**
-        * 桌面歌词已播放字体颜色
-        */
-      'desktopLyric.style.lyricPlayedColor': string
-
-      /**
-        * 桌面歌词字体阴影颜色
-        */
-      'desktopLyric.style.lyricShadowColor': string
-
-      /**
        * 是否显示热门搜索
        */
       'search.isShowHotSearch': boolean
@@ -292,11 +212,6 @@ declare global {
       'list.isClickPlayList': boolean
 
       /**
-       * 是否显示歌曲来源（仅对我的列表有效）
-       */
-      'list.isShowSource': boolean
-
-      /**
        * 是否显示歌曲专辑名
        */
       'list.isShowAlbumName': boolean
@@ -307,11 +222,6 @@ declare global {
       'list.isShowInterval': boolean
 
       /**
-       * 是否自动恢复列表滚动位置（仅对我的列表有效）
-       */
-      'list.isSaveScrollLocation': boolean
-
-      /**
        * 添加歌曲到我的列表时的方式
        */
       'list.addMusicLocationType': AddMusicLocationType
@@ -320,11 +230,6 @@ declare global {
        * 文件命名方式
        */
       'download.fileName': '歌名 - 歌手' | '歌手 - 歌名' | '歌名'
-
-      /**
-       * 是否启用同步
-       */
-      'sync.enable': boolean
     }
   }
 }

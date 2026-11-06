@@ -5,7 +5,6 @@ import initI18n from './i18n'
 import initUserApi from './userApi'
 import initPlayer from './player'
 import dataInit from './dataInit'
-import initSync from './sync'
 import initCommonState from './common'
 import { initDeeplink } from './deeplink'
 import { setApiSource } from '@/core/apiSource'
@@ -54,8 +53,6 @@ export default async() => {
   await initCommonState(setting)
   bootLog('Common State inited.')
 
-  void initSync(setting)
-  bootLog('Sync inited.')
 
   // syncSetting()
 

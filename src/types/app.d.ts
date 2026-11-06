@@ -56,7 +56,6 @@ interface GlobalData {
   //   screenPxH: number
   // }
 
-  // syncKeyInfo: LX.Sync.KeyInfo
 }
 
 

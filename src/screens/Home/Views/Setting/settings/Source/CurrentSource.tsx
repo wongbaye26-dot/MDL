@@ -50,7 +50,7 @@ export default memo(() => {
   }
 
   return (
-    <Section title={t('setting_source_current')}>
+    <Section title={t('setting_source_current')} icon='script-text-outline'>
       <View style={styles.content}>
         <View style={styles.head}>
           <View style={{ ...styles.iconWrap, backgroundColor: theme['c-primary-alpha-800'], borderColor: theme['c-primary-alpha-600'] }}>

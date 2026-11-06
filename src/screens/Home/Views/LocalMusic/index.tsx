@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   View,
   Modal,
+  Pressable,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native'
@@ -17,16 +18,37 @@ import { Icon } from '@/components/common/Icon'
 import Input from '@/components/common/Input'
 import Clipboard from '@react-native-clipboard/clipboard'
 import PageHeader from '@/components/common/PageHeader'
+import ActionSheet from '@/components/common/ActionSheet'
+import { useStatusbarHeight } from '@/store/common/hook'
 import Tag from '@/components/common/Tag'
 import ListMusicAdd, { type MusicAddModalType } from '@/components/MusicAddModal'
+import ChoosePath, { type ChoosePathType } from '@/components/common/ChoosePath'
+import MusicMultiAddModal, { type MusicMultiAddModalType } from '@/components/MusicMultiAddModal'
 import { useTheme } from '@/store/theme/hook'
 import { contrastOn } from '@/theme/solid'
-import { confirmDialog, createStyle, toast } from '@/utils/tools'
+import { confirmDialog, createStyle, tipDialog, toast } from '@/utils/tools'
 import { formatSize, formatSampleRate } from '@/core/download/utils'
-import { getLocalMusicList, getScanPartialList, subscribeScanPartialList, scanLocalMusicInBackground, isScanning, useScanState, getTotalSize, deleteLocalMusic, getScanDirs, getExtraDirs, setExtraDirs, type ScanDir } from '@/core/localMusic'
+import { getLocalMusicList, getScanPartialList, subscribeScanPartialList, scanLocalMusicInBackground, isScanning, useScanState, getTotalSize, deleteLocalMusic, getScanDirs, getExtraDirs, setExtraDirs, getLastScanReport, type ScanDir, type ScanReport } from '@/core/localMusic'
 import { pickDirectory, isDirectoryPickerSupported } from '@/utils/directoryPicker'
 import { cleanSongName } from '@/utils/songName'
-import { addListMusics, getListMusics, overwriteListMusics, removeListMusics } from '@/core/list'
+import { initialOfText } from '@/utils/pinyinInitial'
+import { normalizeGroupKey, useLocalLibraryIndex } from '@/core/localMusic/libraryIndex'
+import { hideFolder, hideSong, isHiddenItem, useHidden } from '@/core/localMusic/hidden'
+import { isLikelyUnsupportedLocal } from '@/core/localMusic/formats'
+import { buildM3U8, matchM3UEntries, parseM3U } from '@/core/localMusic/m3u'
+import { readFile, writeFile } from '@/utils/fs'
+import {
+  COVER_OPTIONS,
+  FORMAT_OPTIONS,
+  SORT_OPTIONS,
+  defaultViewPrefs,
+  loadViewPrefs,
+  saveViewPrefs,
+  type LocalSortKey,
+  type LocalViewPrefs,
+} from '@/core/localMusic/viewPrefs'
+import LetterIndexBar from './LetterIndexBar'
+import { addListMusics, createList, getListMusics, overwriteListMusics, removeListMusics } from '@/core/list'
 import listAction from '@/store/list/action'
 import settingState from '@/store/setting/state'
 import { playList } from '@/core/player/player'
@@ -108,11 +130,21 @@ const Cover = ({ item, size = 56, round = false }: {
   round?: boolean
 }) => <CoverImage item={item} size={size} round={round} style={{ marginRight: 12 }} />
 
+/** '03:55' → 秒；用于时长排序 */
+const secondsOfInterval = (interval?: string | null) => {
+  if (!interval) return 0
+  const parts = interval.split(':').map(part => Number.parseInt(part, 10))
+  if (!parts.length || parts.some(Number.isNaN)) return 0
+  let seconds = 0
+  for (const part of parts) seconds = seconds * 60 + part
+  return seconds
+}
+
 export type LocalTab = 'recent' | 'album' | 'artist' | 'folder' | 'song'
 
 export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时直接落到哪个页签（首页「最近添加歌曲」进来用） */ initialTab?: LocalTab }) => {
   const theme = useTheme()
-  const { height: windowHeight } = useWindowSize()
+  const { width: windowWidth, height: windowHeight } = useWindowSize()
   const [list, setList] = useState<LX.Music.MusicInfoLocal[]>([])
   const [dir, setDir] = useState('')
   // 扫描状态来自 core（后台扫描，组件卸载也不中断）
@@ -124,6 +156,11 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
   const dirsRef = useRef<ScanDir[]>([])
   /** 浏览层级：最近添加 / 专辑 / 艺人 / 文件夹树 / 全部歌曲 */
   const [tab, setTab] = useState<LocalTab>(initialTab ?? 'song')
+  /** 歌名首字母筛选：null = 全部；'#' = 数字/符号/无法识别 */
+  const [letterFilter, setLetterFilter] = useState<string | null>(null)
+  /** 搜索改为页头按钮触发：不打开时列表保持满宽（不再常驻搜索条） */
+  const [searchOpen, setSearchOpen] = useState(false)
+  const statusBarHeight = useStatusbarHeight()
   /**
    * 列表用「延迟版」的页签：
    * 切页签要重建几百行 + 拉几十张封面，同步做会把主线程占满（点了像卡住）。
@@ -136,6 +173,22 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
   const [folderPath, setFolderPath] = useState<string | null>(null)
   /** 授权失效、需要用户重新选一次的目录 */
   const [needAuth, setNeedAuth] = useState<ScanDir[]>([])
+  /** 上次扫描报告（新增/更新/移除/失败/失权），用于 banner 与扫描面板 */
+  const [lastReport, setLastReport] = useState<ScanReport | null>(null)
+  const [reportDismissed, setReportDismissed] = useState(false)
+  /** 浏览偏好：排序 / 筛选（D-05 / D-06，按 tab 记忆） */
+  const [viewPrefs, setViewPrefs] = useState<LocalViewPrefs>(() => defaultViewPrefs())
+  const [sortSheet, setSortSheet] = useState(false)
+  const [filterSheet, setFilterSheet] = useState(false)
+  /** 隐藏歌曲/文件夹（D-11） */
+  const hidden = useHidden()
+  /** M3U 导入/导出（D-17） */
+  const choosePathRef = useRef<ChoosePathType>(null)
+  const m3uActionRef = useRef<'import' | 'export'>('import')
+  /** 批量管理（D-19） */
+  const [batchMode, setBatchMode] = useState(false)
+  const [batchSelected, setBatchSelected] = useState<Set<string>>(() => new Set())
+  const multiAddRef = useRef<MusicMultiAddModalType>(null)
   /**
    * 页内搜索关键词。
    *
@@ -163,6 +216,11 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
     }
   }, [])
 
+  useEffect(() => {
+    if (scanning) return
+    void getLastScanReport().then(report => { if (report) setLastReport(report) })
+  }, [scanning])
+
   const handleScan = useCallback(async() => {
     if (isScanning()) return
     try {
@@ -189,6 +247,10 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
       setDir(result.dir)
       setDirs(result.dirs)
       setNeedAuth(result.needAuth)
+      if (result.report) {
+        setLastReport(result.report)
+        setReportDismissed(false)
+      }
       setInited(true)
       if (result.needAuth.length) {
         // 授权失效 / 从没授权过，扫出来永远是 0 首，只能让用户重选一次
@@ -288,7 +350,66 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
     return subscribeScanPartialList(applyPartial)
   }, [])
 
+  useEffect(() => {
+    void loadViewPrefs().then(setViewPrefs)
+  }, [])
+  useEffect(() => {
+    const timer = setTimeout(() => { void saveViewPrefs(viewPrefs) }, 400)
+    return () => { clearTimeout(timer) }
+  }, [viewPrefs])
+
+  /** 当前页签的排序状态 */
+  const tabSort = useMemo(
+    () => viewPrefs.sort[tab] ?? defaultViewPrefs().sort[tab] ?? { key: 'name', dir: 'asc' },
+    [viewPrefs.sort, tab],
+  )
+  const tabSortLabel = SORT_OPTIONS.find(option => option.key === tabSort.key)?.label ?? '歌名'
+  const tabFilterFormat = viewPrefs.filter.format
+  const tabFilterCover = viewPrefs.filter.cover
+  const hasActiveFilter = tabFilterFormat !== 'all' || tabFilterCover !== 'all'
+  const filterLabel = hasActiveFilter
+    ? [tabFilterFormat !== 'all' ? tabFilterFormat.toUpperCase() : null, tabFilterCover === 'has' ? '有封面' : tabFilterCover === 'none' ? '无封面' : null].filter(Boolean).join(' · ')
+    : '筛选'
+
+  /** 筛选只作用于浏览列表；页头统计/扫描统计仍用完整 list */
+  const filteredList = useMemo(() => {
+    const visible = list.filter(item => !isHiddenItem(item, hidden))
+    if (!hasActiveFilter) return visible
+    return visible.filter(item => {
+      if (tabFilterFormat !== 'all') {
+        const ext = item.meta.ext?.toLowerCase() ?? ''
+        const matched = tabFilterFormat === 'ogg'
+          ? (ext === 'ogg' || ext === 'opus')
+          : tabFilterFormat === 'm4a'
+            ? (ext === 'm4a' || ext === 'aac')
+            : ext === tabFilterFormat
+        if (!matched) return false
+      }
+      if (tabFilterCover === 'has' && !item.meta.picUrl) return false
+      if (tabFilterCover === 'none' && item.meta.picUrl) return false
+      return true
+    })
+  }, [list, hidden, hasActiveFilter, tabFilterFormat, tabFilterCover])
+
+  const compareSongs = useCallback((a: LX.Music.MusicInfoLocal, b: LX.Music.MusicInfoLocal) => {
+    let result = 0
+    switch (tabSort.key) {
+      case 'singer': result = (a.singer ?? '').localeCompare(b.singer ?? '', 'zh-Hans-CN'); break
+      case 'album': result = (a.meta.albumName ?? '').localeCompare(b.meta.albumName ?? '', 'zh-Hans-CN'); break
+      case 'duration': result = secondsOfInterval(a.interval) - secondsOfInterval(b.interval); break
+      case 'added': result = (a.meta.mtime ?? 0) - (b.meta.mtime ?? 0); break
+      case 'path': result = a.meta.filePath.localeCompare(b.meta.filePath, 'zh-Hans-CN'); break
+      case 'name':
+      default: result = cleanSongName(a.name, a.singer).localeCompare(cleanSongName(b.name, b.singer), 'zh-Hans-CN')
+    }
+    return tabSort.dir === 'asc' ? result : -result
+  }, [tabSort])
+  const sortSongs = useCallback((songs: LX.Music.MusicInfoLocal[]) => [...songs].sort(compareSongs), [compareSongs])
+
   const totalSize = useMemo(() => formatSize(getTotalSize(list)), [list])
+  const visibleCount = useMemo(() => list.filter(item => !isHiddenItem(item, hidden)).length, [list, hidden])
+  /** 派生索引：专辑/艺人聚合封面、数量、文件夹统计与最近添加（D-01/D-02） */
+  const libraryIndex = useLocalLibraryIndex(filteredList)
 
   /** 输入框里的即时关键词（控制「搜索模式」UI，立即回显） */
   const searchKeyword = searchText.trim()
@@ -301,19 +422,24 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
    */
   const searchResults = useMemo(() => {
     if (!filterKeyword) return null
-    return list.filter(item => (
-      cleanSongName(item.name, item.singer).toLowerCase().includes(filterKeyword) ||
-      (item.singer ?? '').toLowerCase().includes(filterKeyword) ||
-      (item.meta.albumName ?? '').toLowerCase().includes(filterKeyword)
-    ))
-  }, [list, filterKeyword])
+    return filteredList.filter(item => {
+      const fileName = item.meta.filePath.slice(item.meta.filePath.lastIndexOf('/') + 1).toLowerCase()
+      const initial = initialOfText(cleanSongName(item.name, item.singer)).toLowerCase()
+      return cleanSongName(item.name, item.singer).toLowerCase().includes(filterKeyword) ||
+        (item.singer ?? '').toLowerCase().includes(filterKeyword) ||
+        (item.meta.albumName ?? '').toLowerCase().includes(filterKeyword) ||
+        fileName.includes(filterKeyword) ||
+        item.meta.filePath.toLowerCase().includes(filterKeyword) ||
+        initial === filterKeyword
+    })
+  }, [filteredList, filterKeyword])
 
   /** id → 在原列表里的下标（分组后仍然按原列表播放） */
   const indexOfId = useMemo(() => {
     const map = new Map<string, number>()
-    list.forEach((item, i) => { map.set(item.id, i) })
+    filteredList.forEach((item, i) => { map.set(item.id, i) })
     return map
-  }, [list])
+  }, [filteredList])
 
   const parentOf = (p: string) => {
     const i = p.lastIndexOf('/')
@@ -332,7 +458,7 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
       }
       return node
     }
-    for (const item of list) {
+    for (const item of filteredList) {
       const dir = parentOf(item.meta.filePath)
       ensure(dir).songs.push(item)
       let p = dir
@@ -344,9 +470,14 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
       }
     }
     return map
-  }, [list])
+  }, [filteredList])
 
   const rows = useMemo(() => {
+    // 首字母筛选只作用于「全部歌曲 / 最近添加」的平铺列表；专辑/艺人/文件夹分组不受影响
+    const songSource = sortSongs(letterFilter
+      ? filteredList.filter(item => initialOfText(cleanSongName(item.name, item.singer)) === letterFilter)
+      : filteredList)
+
     type Row =
       | { type: 'song', key: string, item: LX.Music.MusicInfoLocal, index: number }
       | { type: 'album', key: string, title: string, count: number, cover?: LX.Music.MusicInfoLocal }
@@ -364,9 +495,19 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
     // 搜索：直接平铺命中结果，不受当前页签 / 二级页限制
     if (searchResults) return searchResults.map((item, i) => toSongRow(item, i))
 
-    // 二级页：某张专辑 / 某个艺人的歌
+    // 二级页：某张专辑 / 某个艺人的歌（用索引的 songIds，兼容大小写/空格差异与多歌手拆分）
     if (detail) {
-      return list
+      const group = detail.type === 'album'
+        ? libraryIndex.albums[normalizeGroupKey(detail.title)]
+        : libraryIndex.artists[normalizeGroupKey(detail.title)]
+      if (group) {
+        const byId = new Map(filteredList.map(item => [item.id, item]))
+        return group.songIds
+          .map(id => byId.get(id))
+          .filter((item): item is LX.Music.MusicInfoLocal => !!item)
+          .map(item => toSongRow(item))
+      }
+      return filteredList
         .filter(it => (detail.type === 'album'
           ? (it.meta.albumName || '未知专辑')
           : (it.singer || '未知歌手')) === detail.title)
@@ -375,43 +516,93 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
 
     // 最近添加：按文件修改时间倒序
     if (deferredTab === 'recent') {
-      return [...list].sort((a, b) => (b.meta.mtime ?? 0) - (a.meta.mtime ?? 0)).map(item => toSongRow(item))
+      return [...songSource].sort(compareSongs).map(item => toSongRow(item))
     }
 
-    if (deferredTab === 'song') return list.map((item, i) => toSongRow(item, i))
+    if (deferredTab === 'song') return songSource.map((item, i) => toSongRow(item, i))
 
     // 文件夹：只列「直接装了歌」的目录（不再逐层钻），点进去就是这一层的歌
     if (deferredTab === 'folder') {
       if (folderPath && folderTree.has(folderPath)) {
-        return (folderTree.get(folderPath)?.songs ?? []).map(item => toSongRow(item))
+        return sortSongs(folderTree.get(folderPath)?.songs ?? []).map(item => toSongRow(item))
       }
-      return [...folderTree.entries()]
-        .filter(([, node]) => node.songs.length > 0)
-        .sort((a, b) => a[0].localeCompare(b[0], 'zh-Hans-CN'))
-        .map(([path, node]): Row => ({
+      return Object.values(libraryIndex.folders)
+        .sort((a, b) => {
+          const result = tabSort.key === 'duration'
+            ? a.count - b.count
+            : a.path.localeCompare(b.path, 'zh-Hans-CN')
+          return tabSort.dir === 'asc' ? result : -result
+        })
+        .map((folder): Row => ({
           type: 'folder',
-          key: path,
-          title: baseNameOf(path),
-          count: node.songs.length,
-          path,
+          key: folder.path,
+          title: folder.name,
+          count: folder.count,
+          path: folder.path,
         }))
     }
 
-    // 专辑 / 艺人：先列分组，点进去看二级页
-    const map = new Map<string, LX.Music.MusicInfoLocal[]>()
-    for (const item of list) {
-      const key = deferredTab === 'album' ? (item.meta.albumName || '未知专辑') : (item.singer || '未知歌手')
-      const arr = map.get(key)
-      if (arr) arr.push(item)
-      else map.set(key, [item])
+    // 专辑 / 艺人：用派生索引聚合（封面取该组内第一张有效封面，数量为真实曲目数）
+    const coverOf = (coverId?: string): LX.Music.MusicInfoLocal | undefined => {
+      if (!coverId) return undefined
+      const position = indexOfId.get(coverId)
+      return position == null ? undefined : list[position]
     }
-    return [...map.entries()]
-      .sort((a, b) => a[0].localeCompare(b[0], 'zh-Hans-CN'))
-      .map(([key, items]): Row => deferredTab === 'album'
-        ? { type: 'album', key, title: key, count: items.length, cover: items[0] }
-        // 艺人头像直接借这个艺人第一首有封面的歌，没有封面就用首字圆形占位
-        : { type: 'artist', key, title: key, count: items.length, cover: items.find(it => it.meta.picUrl) ?? items[0] })
-  }, [detail, deferredTab, list, indexOfId, folderTree, folderPath, searchResults])
+    if (deferredTab === 'album') {
+      return Object.values(libraryIndex.albums)
+        .sort((a, b) => {
+          let result = 0
+          switch (tabSort.key) {
+            case 'singer': result = a.singer.localeCompare(b.singer, 'zh-Hans-CN'); break
+            case 'duration': result = a.totalSeconds - b.totalSeconds; break
+            case 'album':
+            case 'name':
+            case 'added':
+            case 'path':
+            default: result = a.name.localeCompare(b.name, 'zh-Hans-CN')
+          }
+          return tabSort.dir === 'asc' ? result : -result
+        })
+        .map((album): Row => ({
+          type: 'album',
+          key: album.key,
+          title: album.name,
+          count: album.count,
+          cover: coverOf(album.coverId),
+        }))
+    }
+    return Object.values(libraryIndex.artists)
+      .sort((a, b) => {
+        let result = 0
+        switch (tabSort.key) {
+          case 'duration': result = a.totalSeconds - b.totalSeconds; break
+          case 'name':
+          case 'singer':
+          case 'album':
+          case 'added':
+          case 'path':
+          default: result = a.name.localeCompare(b.name, 'zh-Hans-CN')
+        }
+        return tabSort.dir === 'asc' ? result : -result
+      })
+      .map((artist): Row => ({
+        type: 'artist',
+        key: artist.key,
+        title: artist.name,
+        count: artist.count,
+        cover: coverOf(artist.coverId),
+      }))
+  }, [detail, deferredTab, filteredList, list, indexOfId, folderTree, folderPath, searchResults, letterFilter, libraryIndex, tabSort, compareSongs, sortSongs])
+
+  /** 当前曲库里出现过的首字母（没有歌的字母在索引栏里置灰） */
+  const availableInitials = useMemo(() => {
+    if (tab !== 'song' || detail !== null || searchKeyword !== '' || searchOpen) return undefined
+    const set = new Set<string>()
+    for (const item of filteredList) set.add(initialOfText(cleanSongName(item.name, item.singer)))
+    return set
+  }, [filteredList, tab, detail, searchKeyword, searchOpen])
+
+  const letterBarVisible = tab === 'song' && !detail && !searchKeyword && !searchOpen
 
   // 下滑关闭：回到下载中心。
   // onClose 放进 ref：外层每次重渲染都会传新闭包，如果进 useMemo 依赖，
@@ -460,6 +651,129 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
 
   // 原生下拉手势：Android 的 ScrollView 会抢走 JS 侧的 responder，PanResponder 经常收不到，
   // 用 RefreshControl 兜住「列表顶部下拉 = 关闭」这条最常用的路径（指示器设成全透明）
+  const openM3U = useCallback((action: 'import' | 'export') => {
+    m3uActionRef.current = action
+    setDirModal(false)
+    choosePathRef.current?.show({
+      title: action === 'import' ? '选择 M3U / M3U8 文件' : '选择导出目录',
+      dirOnly: action === 'export',
+      filter: action === 'import' ? ['m3u', 'm3u8'] : undefined,
+    })
+  }, [])
+
+  const handleM3UPath = useCallback((path: string) => {
+    if (m3uActionRef.current === 'export') {
+      void (async() => {
+        try {
+          const content = buildM3U8(filteredList)
+          const stamp = new Date().toISOString().slice(0, 10)
+          const target = `${path.replace(/\/+$/, '')}/emo_local_${stamp}.m3u8`
+          await writeFile(target, content)
+          toast(`已导出 ${filteredList.length} 首到 ${target}`)
+        } catch {
+          toast('导出失败，请换一个目录重试')
+        }
+      })()
+      return
+    }
+    void (async() => {
+      try {
+        const text = await readFile(path)
+        const entries = parseM3U(text)
+        if (!entries.length) {
+          toast('没有解析到歌曲，请确认是 M3U/M3U8 文件')
+          return
+        }
+        const result = matchM3UEntries(entries, list)
+        if (!result.matched.length) {
+          toast(`解析到 ${entries.length} 行，但没有匹配到本地曲库`)
+          return
+        }
+        const stamp = new Date().toLocaleString('zh-CN')
+        await createList({ name: `导入歌单 ${stamp}`, list: result.matched })
+        toast(`已导入 ${result.matched.length} 首${result.unmatched ? `，${result.unmatched} 首未匹配` : ''}`)
+      } catch {
+        toast('导入失败，请检查文件是否可读')
+      }
+    })()
+  }, [filteredList, list])
+
+  const batchItems = useMemo(
+    () => filteredList.filter(item => batchSelected.has(item.id)),
+    [filteredList, batchSelected],
+  )
+
+  const toggleBatchMode = useCallback(() => {
+    setBatchMode(prev => {
+      if (prev) setBatchSelected(new Set())
+      return !prev
+    })
+  }, [])
+
+  const toggleBatchItem = useCallback((item: LX.Music.MusicInfoLocal) => {
+    setBatchSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(item.id)) next.delete(item.id)
+      else next.add(item.id)
+      return next
+    })
+  }, [])
+
+  const runBatch = useCallback((action: 'queue' | 'playlist' | 'hide' | 'remove') => {
+    const items = batchItems
+    if (!items.length) return
+    if (action === 'queue') {
+      addTempPlayList(items.map(item => ({ listId: '', musicInfo: item })))
+      toast(`已把 ${items.length} 首加入播放队列`)
+    } else if (action === 'playlist') {
+      multiAddRef.current?.show({ selectedList: items, listId: '', isMove: false })
+      return
+    } else if (action === 'hide') {
+      void Promise.all(items.map(async item => hideSong(item.id))).then(() => {
+        toast(`已隐藏 ${items.length} 首`)
+        setBatchSelected(new Set())
+        setBatchMode(false)
+      })
+      return
+    } else {
+      void confirmDialog({
+        title: '从曲库移除',
+        message: `从曲库移除 ${items.length} 首歌？只删除曲库记录，不会删除磁盘文件。`,
+        confirmButtonText: '移除',
+        danger: true,
+      }).then(confirmed => {
+        if (!confirmed) return
+        void Promise.all(items.map(async item => deleteLocalMusic(item, false))).then(() => {
+          toast(`已从曲库移除 ${items.length} 首`)
+          setBatchSelected(new Set())
+          setBatchMode(false)
+        })
+      })
+      return
+    }
+    setBatchSelected(new Set())
+  }, [batchItems])
+
+  // 切页签/进二级页/进搜索时退出批量，避免选择集和列表对不上
+  useEffect(() => {
+    setBatchMode(false)
+    setBatchSelected(new Set())
+  }, [tab, detail, searching])
+
+  const showScanReport = useCallback(() => {
+    const report = lastReport
+    if (!report) return
+    const lines = [
+      `时间：${new Date(report.finishedAt).toLocaleString()}`,
+      `耗时：${(report.durationMs / 1000).toFixed(1)} 秒`,
+      `曲库：${report.total} 首`,
+      `新增 ${report.added} · 更新 ${report.updated} · 未变化 ${report.unchanged} · 移除 ${report.removed}`,
+      report.failed ? `读取失败：${report.failed} 首` : '读取失败：0 首',
+    ]
+    if (report.needAuth.length) lines.push(`需重新授权：\n${report.needAuth.join('\n')}`)
+    void tipDialog({ title: '扫描报告', message: lines.join('\n'), btnText: '知道了' })
+  }, [lastReport])
+
   const refreshControl = useMemo(() => (
     hasClose
       ? (
@@ -471,8 +785,16 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
           tintColor='transparent'
         />
         )
-      : undefined
-  ), [closeWithSlide, hasClose])
+      : (
+        <RefreshControl
+          refreshing={scanning}
+          onRefresh={() => { void handleScan() }}
+          colors={[theme['c-primary']]}
+          progressBackgroundColor={theme['c-content-background']}
+          tintColor={theme['c-primary']}
+        />
+        )
+  ), [closeWithSlide, hasClose, scanning, handleScan, theme])
 
   // 兜底：列表顶部的快速下滑由原生滚动事件判定（PanResponder 在部分机型上抢不到手势）
   const handleScrollEndDrag = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -641,6 +963,9 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
         toast(`路径已复制：${path}`)
         break
       }
+      case 'hide':
+        void hideSong(item.id).then(() => { toast('已隐藏，可在 设置 → 音乐工具 → 隐藏内容 恢复') })
+        break
       case 'removeFromList':
         void handleDelete(item, false)
         break
@@ -660,28 +985,60 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
     }
   }, [sheetItem, sheetLoved, handlePlay, handleDelete])
 
+  /** 网格视图：专辑/艺人在无二级页、无搜索时用 3 列卡片（D-08） */
+  const isGrid = (tab === 'album' || tab === 'artist') && detail === null && !searching
+  const gridSize = Math.max(88, Math.floor((windowWidth - 24 - 20) / 3))
+
   const renderItem = useCallback(({ item: row }: { item:
   | { type: 'song', key: string, item: LX.Music.MusicInfoLocal, index: number }
   | { type: 'album', key: string, title: string, count: number, cover?: LX.Music.MusicInfoLocal }
   | { type: 'artist', key: string, title: string, count: number, cover?: LX.Music.MusicInfoLocal }
   | { type: 'folder', key: string, title: string, count: number, path: string } }) => {
-    if (row.type === 'album') {
-      return (
-        <TouchableOpacity
-          style={styles.groupRowItem}
-          activeOpacity={0.7}
-          onPress={() => { setDetail({ type: 'album', title: row.title }) }}
-        >
-          {row.cover ? <Cover item={row.cover} /> : <View style={styles.groupIcon}><Icon name='album' size={20} color={theme['c-primary']} /></View>}
-          <View style={styles.groupInfo}>
-            <Text size={14} numberOfLines={1}>{row.title}</Text>
-            <Text size={10} color={theme['c-450']} numberOfLines={1} style={styles.groupMeta}>{row.count} 首</Text>
-          </View>
-          <Icon name='chevron-right' size={18} color={theme['c-350']} />
-        </TouchableOpacity>
-      )
+    if (row.type === 'album' || row.type === 'artist') {
+      const openGroup = () => { setDetail({ type: row.type, title: row.title }) }
+      if (isGrid) {
+        return (
+          <TouchableOpacity style={{ width: gridSize, marginBottom: 16 }} activeOpacity={0.75} onPress={openGroup}>
+            {
+              row.cover
+                ? <CoverImage item={row.cover} size={gridSize} radius={14} inset={0} />
+                : (
+                  <View style={{
+                    width: gridSize,
+                    height: gridSize,
+                    borderRadius: 14,
+                    backgroundColor: theme['c-primary-alpha-900'],
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                    <Icon name={row.type === 'album' ? 'album' : 'account'} size={28} color={theme['c-primary']} />
+                  </View>
+                  )
+            }
+            <Text size={12.5} numberOfLines={1} style={{ marginTop: 6 }}>{row.title}</Text>
+            <Text size={10} color={theme['c-450']} numberOfLines={1} style={{ marginTop: 1 }}>{`${row.count} 首`}</Text>
+          </TouchableOpacity>
+        )
+      }
+      if (row.type === 'album') {
+        return (
+          <TouchableOpacity
+            style={styles.groupRowItem}
+            activeOpacity={0.7}
+            onPress={openGroup}
+          >
+            {row.cover ? <Cover item={row.cover} /> : <View style={styles.groupIcon}><Icon name='album' size={20} color={theme['c-primary']} /></View>}
+            <View style={styles.groupInfo}>
+              <Text size={14} numberOfLines={1}>{row.title}</Text>
+              <Text size={10} color={theme['c-450']} numberOfLines={1} style={styles.groupMeta}>{row.count} 首</Text>
+            </View>
+            <Icon name='chevron-right' size={18} color={theme['c-350']} />
+          </TouchableOpacity>
+        )
+      }
     }
     if (row.type === 'artist') {
+      // 列表模式下艺人用圆形头像（网格模式已在上面的统一分支处理）
       return (
         <TouchableOpacity
           style={styles.groupRowItem}
@@ -711,6 +1068,16 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
           style={styles.groupRowItem}
           activeOpacity={0.7}
           onPress={() => { setFolderPath(row.path) }}
+          onLongPress={() => {
+            void confirmDialog({
+              title: '隐藏文件夹',
+              message: `隐藏「${row.title}」及其子目录里的歌？\n只影响本地音乐列表显示，不删除文件，可在 设置 → 音乐工具 → 隐藏内容 恢复。`,
+              confirmButtonText: '隐藏',
+            }).then(confirmed => {
+              if (!confirmed) return
+              void hideFolder(row.path).then(() => { toast('已隐藏文件夹，可在音乐工具里恢复') })
+            })
+          }}
         >
           <View style={{ ...styles.folderIcon, backgroundColor: theme['c-primary-alpha-900'] }}>
             <Icon name='folder' size={22} color={theme['c-primary']} />
@@ -734,15 +1101,71 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
         index={index}
         onPress={handleRowPress}
         onMore={handleOpenSheet}
+        batchMode={batchMode}
+        selected={batchSelected.has(item.id)}
+        onToggle={toggleBatchItem}
       />
     )
-  }, [theme, handleRowPress, handleOpenSheet])
+  }, [theme, handleRowPress, handleOpenSheet, isGrid, gridSize, batchMode, batchSelected, toggleBatchItem])
 
   /** 二级页「播放全部」：从这一组的第一首开始播 */
   const handlePlayGroup = useCallback(() => {
     const first = rows.find(r => r.type === 'song')
     if (first && first.type === 'song') void handlePlay(first.item)
   }, [rows, handlePlay])
+
+
+  const applySort = useCallback((key: LocalSortKey) => {
+    setViewPrefs(prev => {
+      const current = prev.sort[tab] ?? defaultViewPrefs().sort[tab] ?? { key: 'name', dir: 'asc' }
+      const dir = current.key === key ? (current.dir === 'asc' ? 'desc' : 'asc') : 'asc'
+      return { ...prev, sort: { ...prev.sort, [tab]: { key, dir } } }
+    })
+  }, [tab])
+  const applyFilter = useCallback((patch: Partial<LocalViewPrefs['filter']>) => {
+    setViewPrefs(prev => ({ ...prev, filter: { ...prev.filter, ...patch } }))
+  }, [])
+
+  const sortSheetItems = [
+    ...SORT_OPTIONS.map(option => ({
+      key: option.key,
+      label: option.label,
+      icon: 'sort',
+      active: tabSort.key === option.key,
+      value: tabSort.key === option.key ? (tabSort.dir === 'asc' ? '升序 ↑' : '降序 ↓') : undefined,
+      onPress: () => { applySort(option.key) },
+    })),
+    {
+      key: 'reset',
+      label: '恢复默认排序',
+      icon: 'restore',
+      onPress: () => { applySort(defaultViewPrefs().sort[tab]?.key ?? 'name') },
+    },
+  ]
+  const filterSheetItems = [
+    ...FORMAT_OPTIONS.map(option => ({
+      key: `format_${option.value}`,
+      label: option.label,
+      icon: 'music-note',
+      active: tabFilterFormat === option.value,
+      onPress: () => { applyFilter({ format: option.value }) },
+    })),
+    ...COVER_OPTIONS.map(option => ({
+      key: `cover_${option.value}`,
+      label: option.label,
+      icon: 'image-outline',
+      active: tabFilterCover === option.value,
+      onPress: () => { applyFilter({ cover: option.value }) },
+    })),
+    ...(hasActiveFilter
+      ? [{
+          key: 'clear',
+          label: '清除全部筛选',
+          icon: 'filter-off-outline',
+          onPress: () => { applyFilter({ format: 'all', cover: 'all' }) },
+        }]
+      : []),
+  ]
 
   return (
     <Animated.View
@@ -761,48 +1184,82 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
             </View>
           )}
           right={(
-            /* 只保留「扫描文件夹」「重新扫描」两个圆按钮，尺寸/底色/图标大小和下载中心页头完全一致 */
             <View style={styles.headerActions}>
+              {/* 文件夹图标回归：直接进「扫描文件夹」面板，不用先展开搜索 */}
               <TouchableOpacity
                 style={{ ...styles.headerBtn, backgroundColor: theme['c-primary-alpha-900'] }}
                 activeOpacity={0.8}
+                accessibilityRole='button'
                 accessibilityLabel='扫描文件夹'
                 onPress={() => { setDirModal(true) }}
               >
-                <Icon name='folder-cog' size={20} color={theme['c-font']} />
+                <Icon name='folder-cog' size={19} color={theme['c-font']} />
               </TouchableOpacity>
               <TouchableOpacity
                 style={{ ...styles.headerBtn, backgroundColor: theme['c-primary-alpha-900'] }}
                 activeOpacity={0.8}
-                accessibilityLabel='扫描'
-                onPress={() => { void handleScan() }}
+                accessibilityRole='button'
+                accessibilityLabel='搜索本地音乐'
+                onPress={() => { setSearchOpen(true) }}
               >
-                <Icon name='refresh' size={20} color={theme['c-font']} />
+                <Icon name='search-2' size={20} color={theme['c-font']} />
               </TouchableOpacity>
             </View>
           )}
         />
       )}
 
-      {/* 页内搜索：按歌名 / 歌手 / 专辑实时过滤（搜索态下结果跨页签平铺） */}
-      <View style={styles.searchWrap}>
-        <View style={{
-          ...styles.searchBox,
-          backgroundColor: theme['c-primary-alpha-900'],
-          borderColor: theme['c-primary-alpha-700'],
-        }}>
-          <Icon name='search-2' size={15} color={theme['c-450']} style={styles.searchIcon} />
-          <Input
-            value={searchText}
-            onChangeText={setSearchText}
-            placeholder='搜索本地歌曲、歌手或专辑'
-            style={styles.searchInput}
-            clearBtn={searchText.length > 0}
-            returnKeyType='search'
-            accessibilityLabel='搜索本地音乐'
-          />
-        </View>
-      </View>
+      {/*
+        搜索框改成「点搜索键后顶部弹出的悬浮框」：
+        独立 Modal 覆盖在当前页上，列表不位移；点空白/返回/关闭按钮都收起，
+        收起后搜索框不占布局（旧版会在页头下面留一条输入框）。
+      */}
+      <Modal
+        visible={searchOpen}
+        transparent
+        animationType='fade'
+        statusBarTranslucent
+        onRequestClose={() => { setSearchOpen(false); setSearchText('') }}
+      >
+        <Pressable
+          style={styles.searchBackdrop}
+          onPress={() => { setSearchOpen(false); setSearchText('') }}
+          accessibilityRole='button'
+          accessibilityLabel='关闭搜索'
+        >
+          <Pressable
+            style={{
+              ...styles.searchFloat,
+              // 必须用不透明底：半透明会和页头「本地音乐」文字叠在一起
+              backgroundColor: theme['c-content-background'],
+              borderColor: theme['c-primary-alpha-700'],
+              top: statusBarHeight + 10,
+            }}
+            onPress={() => {}}
+          >
+            <Icon name='search-2' size={16} color={theme['c-450']} style={styles.searchIcon} />
+            <Input
+              value={searchText}
+              autoFocus
+              onChangeText={text => { setSearchText(text); if (text) setLetterFilter(null) }}
+              placeholder='搜索本地歌曲、歌手或专辑'
+              style={styles.searchInput}
+              clearBtn={searchText.length > 0}
+              returnKeyType='search'
+              accessibilityLabel='搜索本地音乐'
+            />
+            <TouchableOpacity
+              style={styles.searchClose}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole='button'
+              accessibilityLabel='关闭搜索'
+              onPress={() => { setSearchOpen(false); setSearchText('') }}
+            >
+              <Icon name='close' size={16} color={theme['c-450']} />
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {
         (scanning || needAuth.length > 0)
@@ -853,6 +1310,52 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
           <Text size={11} color={contrastOn(theme['c-primary'])} style={[styles.scanBtnText, chipText(11)]}>{scanning ? '扫描中' : '扫描'}</Text>
         </TouchableOpacity>
       </View>
+          : null
+      }
+
+      {
+        // 扫描报告 banner：有新增/移除/失败/失权时提示，可查看详情或关闭
+        !scanning && lastReport && !reportDismissed && (
+          lastReport.failed > 0 || lastReport.needAuth.length > 0 || lastReport.removed > 0 || lastReport.added > 0
+        )
+          ? (
+            <View style={{
+              ...styles.scanCard,
+              marginTop: 6,
+              backgroundColor: theme['c-primary-alpha-900'],
+              borderColor: theme['c-primary-alpha-700'],
+            }}>
+              <Icon name='clipboard-text-outline' size={16} color={theme['c-primary']} />
+              <View style={[styles.scanInfo, { marginLeft: 8 }]}>
+                <Text size={12} numberOfLines={1}>{`上次扫描：新增 ${lastReport.added} · 更新 ${lastReport.updated} · 移除 ${lastReport.removed}`}</Text>
+                <Text
+                  size={11}
+                  color={lastReport.failed || lastReport.needAuth.length ? WARN_COLOR : theme['c-450']}
+                  numberOfLines={1}
+                  style={styles.scanMeta}
+                >
+                  {lastReport.failed
+                    ? `${lastReport.failed} 首读取失败`
+                    : lastReport.needAuth.length
+                      ? `${lastReport.needAuth.length} 个目录需重新授权`
+                      : `用时 ${(lastReport.durationMs / 1000).toFixed(1)} 秒`}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={showScanReport}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                style={{ paddingHorizontal: 8 }}
+              >
+                <Text size={11} color={theme['c-primary']}>详情</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => { setReportDismissed(true) }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Icon name='close' size={14} color={theme['c-450']} />
+              </TouchableOpacity>
+            </View>
+            )
           : null
       }
 
@@ -915,6 +1418,7 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
                           setTab(item.key)
                           setFolderPath(null)
                           setDetail(null)
+                          setLetterFilter(null)
                         }}
                       />
                     ))
@@ -941,11 +1445,60 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
           : null
       }
 
+      {
+        // 排序 / 筛选工具行（D-05 / D-06）；搜索和二级页不显示，避免抢层级
+        !searching && !detail
+          ? (
+            <View style={styles.viewTools}>
+              <TouchableOpacity
+                style={styles.viewToolBtn}
+                activeOpacity={0.75}
+                onPress={() => { setSortSheet(true) }}
+                accessibilityRole='button'
+                accessibilityLabel={`排序方式：${tabSortLabel}`}
+              >
+                <Icon name='sort' size={14} color={theme['c-primary']} />
+                <Text size={11} color={theme['c-font']} style={styles.viewToolText}>{`${tabSortLabel} ${tabSort.dir === 'asc' ? '↑' : '↓'}`}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.viewToolBtn}
+                activeOpacity={0.75}
+                onPress={() => { setFilterSheet(true) }}
+                accessibilityRole='button'
+                accessibilityLabel={`筛选：${filterLabel}`}
+              >
+                <Icon name={hasActiveFilter ? 'filter-variant' : 'filter-variant'} size={14} color={hasActiveFilter ? theme['c-primary'] : theme['c-font']} />
+                <Text size={11} color={hasActiveFilter ? theme['c-primary'] : theme['c-font']} style={styles.viewToolText}>{filterLabel}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.viewToolBtn, batchMode ? { backgroundColor: theme['c-primary-alpha-800'] } : null]}
+                activeOpacity={0.75}
+                onPress={toggleBatchMode}
+                accessibilityRole='button'
+                accessibilityLabel={batchMode ? '退出批量选择' : '批量选择'}
+              >
+                <Icon name={batchMode ? 'close' : 'checkbox-multiple-marked-outline'} size={14} color={batchMode ? theme['c-primary'] : theme['c-font']} />
+                <Text size={11} color={batchMode ? theme['c-primary'] : theme['c-font']} style={styles.viewToolText}>{batchMode ? '取消' : '选择'}</Text>
+              </TouchableOpacity>
+              {hidden.ids.length || hidden.folders.length
+                ? <Text size={10} color={theme['c-450']} style={styles.viewToolCount}>{`已隐藏 ${hidden.ids.length + hidden.folders.length}`}</Text>
+                : null}
+              {hasActiveFilter
+                ? <Text size={10} color={theme['c-450']} style={styles.viewToolCount}>{`${filteredList.length}/${visibleCount} 首`}</Text>
+                : null}
+            </View>
+            )
+          : null
+      }
+
       <FlatList
+        key={isGrid ? 'grid' : 'list'}
         data={rows}
         renderItem={renderItem}
         keyExtractor={row => row.key}
-        contentContainerStyle={styles.listContent}
+        numColumns={isGrid ? 3 : 1}
+        columnWrapperStyle={isGrid ? styles.gridRow : undefined}
+        contentContainerStyle={[styles.listContent, letterBarVisible ? styles.listContentWithIndex : null]}
         /*
           本工程 VirtualizedList 有「只渲染初始批次、滚动不补」的坑
           （见 components/OnlineList/List.tsx 的注释，线上已经踩过一次），
@@ -993,7 +1546,25 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
                 </TouchableOpacity>
               </View>
               )
-            : (
+            : letterFilter
+              ? (
+                <View style={styles.empty}>
+                  <View style={{ ...styles.emptyIcon, backgroundColor: theme['c-primary-alpha-900'] }}>
+                    <Icon name='alphabetical-variant' size={26} color={theme['c-400']} />
+                  </View>
+                  <Text size={13} style={styles.emptyTitle} numberOfLines={2}>
+                    {`没有「${letterFilter}」开头的歌曲`}
+                  </Text>
+                  <TouchableOpacity
+                    style={{ ...styles.emptyBtn, backgroundColor: theme['c-primary'] }}
+                    activeOpacity={0.85}
+                    onPress={() => { setLetterFilter(null) }}
+                  >
+                    <Text size={12} color={contrastOn(theme['c-primary'])} style={[styles.emptyBtnText, chipText(12)]}>清除筛选</Text>
+                  </TouchableOpacity>
+                </View>
+                )
+              : (
               <View style={styles.empty}>
                 <View style={{ ...styles.emptyIcon, backgroundColor: theme['c-primary-alpha-900'] }}>
                   <Icon name='music_time' size={26} color={theme['c-400']} />
@@ -1005,9 +1576,15 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
                   下载完成的歌曲会自动保存在这里，扫描后即可离线播放
                 </Text>
               </View>
-              )
+                )
         )}
       />
+
+      {
+        letterBarVisible
+          ? <LetterIndexBar active={letterFilter} available={availableInitials} onSelect={setLetterFilter} />
+          : null
+      }
 
       {/* 单曲「更多」：飞牛音乐风格底部 Sheet */}
       <SongActionSheet
@@ -1029,6 +1606,52 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
       />
 
       {/* 添加到歌单 */}
+      <ActionSheet
+        visible={sortSheet}
+        onClose={() => { setSortSheet(false) }}
+        header={{ title: '排序', subtitle: '再次点击当前项切换升序/降序' }}
+        items={sortSheetItems}
+      />
+      <ActionSheet
+        visible={filterSheet}
+        onClose={() => { setFilterSheet(false) }}
+        header={{ title: '筛选', subtitle: '只影响本地音乐浏览列表' }}
+        items={filterSheetItems}
+      />
+
+      {
+        batchMode
+          ? (
+            <View style={[styles.batchBar, { backgroundColor: theme['c-content-background'], borderColor: theme['c-primary-alpha-700'] }]}>
+              <Text size={12} style={styles.batchCount}>{`已选 ${batchSelected.size}`}</Text>
+              <TouchableOpacity style={styles.batchBtn} onPress={() => { runBatch('queue') }} accessibilityLabel='加入播放队列'>
+                <Icon name='playlist-plus' size={19} color={theme['c-font']} />
+                <Text size={9.5} color={theme['c-450']} style={styles.batchLabel}>队列</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.batchBtn} onPress={() => { runBatch('playlist') }} accessibilityLabel='添加到歌单'>
+                <Icon name='playlist-music' size={19} color={theme['c-font']} />
+                <Text size={9.5} color={theme['c-450']} style={styles.batchLabel}>歌单</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.batchBtn} onPress={() => { runBatch('hide') }} accessibilityLabel='隐藏所选'>
+                <Icon name='eye-off-outline' size={19} color={theme['c-font']} />
+                <Text size={9.5} color={theme['c-450']} style={styles.batchLabel}>隐藏</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.batchBtn} onPress={() => { runBatch('remove') }} accessibilityLabel='从曲库移除'>
+                <Icon name='delete-outline' size={19} color={WARN_COLOR} />
+                <Text size={9.5} color={WARN_COLOR} style={styles.batchLabel}>移除</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.batchBtn} onPress={toggleBatchMode} accessibilityLabel='退出批量选择'>
+                <Icon name='close' size={19} color={theme['c-font']} />
+                <Text size={9.5} color={theme['c-450']} style={styles.batchLabel}>退出</Text>
+              </TouchableOpacity>
+            </View>
+            )
+          : null
+      }
+      <MusicMultiAddModal ref={multiAddRef} onAdded={() => { setBatchSelected(new Set()); setBatchMode(false) }} />
+
+      <ChoosePath ref={choosePathRef} onConfirm={handleM3UPath} />
+
       <ListMusicAdd ref={musicAddRef} />
 
       {/* 扫描文件夹管理 */}
@@ -1043,6 +1666,58 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
             onStartShouldSetResponder={() => true}
           >
             <Text size={15} style={editStyles.title}>扫描文件夹</Text>
+            {lastReport
+              ? (
+                <Text size={10} color={theme['c-450']} style={{ marginTop: 2, marginBottom: 6 }}>
+                  {`上次扫描：新增 ${lastReport.added} · 更新 ${lastReport.updated} · 未变化 ${lastReport.unchanged} · 移除 ${lastReport.removed} · 失败 ${lastReport.failed}（${(lastReport.durationMs / 1000).toFixed(1)}s）`}
+                </Text>
+                )
+              : null}
+            <TouchableOpacity
+              style={styles.dirRow}
+              activeOpacity={0.7}
+              accessibilityRole='button'
+              accessibilityLabel='导入 M3U 歌单'
+              onPress={() => { openM3U('import') }}
+            >
+              <Icon name='file-import-outline' size={16} color={theme['c-primary']} />
+              <View style={styles.dirInfo}>
+                <Text size={13}>导入歌单</Text>
+                <Text size={10} color={theme['c-450']} numberOfLines={1} style={styles.dirPath}>
+                  从 M3U / M3U8 匹配本地曲库，导入为新歌单
+                </Text>
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.dirRow}
+              activeOpacity={0.7}
+              accessibilityRole='button'
+              accessibilityLabel='导出当前列表为 M3U8'
+              onPress={() => { openM3U('export') }}
+            >
+              <Icon name='file-export-outline' size={16} color={theme['c-primary']} />
+              <View style={styles.dirInfo}>
+                <Text size={13}>导出当前列表</Text>
+                <Text size={10} color={theme['c-450']} numberOfLines={1} style={styles.dirPath}>
+                  导出为 M3U8（含歌名/歌手/时长/路径）
+                </Text>
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.dirRow}
+              activeOpacity={0.7}
+              accessibilityRole='button'
+              accessibilityLabel='重新扫描全部目录'
+              onPress={() => { setDirModal(false); void handleScan() }}
+            >
+              <Icon name='refresh' size={16} color={theme['c-primary']} />
+              <View style={styles.dirInfo}>
+                <Text size={13}>重新扫描</Text>
+                <Text size={10} color={theme['c-450']} numberOfLines={1} style={styles.dirPath}>
+                  重新读取所有已授权目录；也可以直接在列表顶部下拉扫描
+                </Text>
+              </View>
+            </TouchableOpacity>
             {
               dirs.map(d => {
                 const invalid = needAuth.some(n => n.path === d.path)
@@ -1104,12 +1779,15 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
   )
 }
 
-const LocalRow = memo(({ item, index, onPress, onMore }: {
+const LocalRow = memo(({ item, index, onPress, onMore, batchMode = false, selected = false, onToggle }: {
   item: LX.Music.MusicInfoLocal
   index: number
   onPress: (item: LX.Music.MusicInfoLocal) => void
   /** 打开「更多」底部 Sheet（点行尾 ⋮ 或长按整行） */
   onMore: (item: LX.Music.MusicInfoLocal) => void
+  batchMode?: boolean
+  selected?: boolean
+  onToggle?: (item: LX.Music.MusicInfoLocal) => void
 }) => {
   const theme = useTheme()
 
@@ -1128,15 +1806,27 @@ const LocalRow = memo(({ item, index, onPress, onMore }: {
   }, [item.meta.sampleRate])
 
   return (
-    <View style={styles.row}>
+    <View style={[styles.row, selected ? { backgroundColor: theme['c-primary-alpha-900'] } : null]}>
       <TouchableOpacity
         style={styles.rowMain}
         activeOpacity={0.7}
-        onPress={() => { onPress(item) }}
-        onLongPress={() => { onMore(item) }}
+        onPress={() => { batchMode ? onToggle?.(item) : onPress(item) }}
+        onLongPress={() => { batchMode ? onToggle?.(item) : onMore(item) }}
         delayLongPress={320}
       >
-        <Text size={11} color={theme['c-350']} style={styles.index}>{index + 1}</Text>
+        {
+          batchMode
+            ? (
+              <View style={styles.batchCheck}>
+                <Icon
+                  name={selected ? 'check-circle' : 'circle-outline'}
+                  size={19}
+                  color={selected ? theme['c-primary'] : theme['c-350']}
+                />
+              </View>
+              )
+            : <Text size={11} color={theme['c-350']} style={styles.index}>{index + 1}</Text>
+        }
         <Cover item={item} />
         <View style={styles.info}>
           <Text size={15} numberOfLines={1} style={styles.name}>{songName}</Text>
@@ -1146,17 +1836,31 @@ const LocalRow = memo(({ item, index, onPress, onMore }: {
             <Tag label={item.meta.ext.toUpperCase()} style={styles.thirdTag} />
             {rate ? <Tag label={rate} style={styles.thirdTag} /> : null}
             {item.meta.bitrate ? <Tag label={`${item.meta.bitrate}kbps`} style={styles.thirdTag} /> : null}
+            {isLikelyUnsupportedLocal(item)
+              ? (
+                <View style={styles.unsupportedTag}>
+                  <Icon name='alert-circle-outline' size={11} color={WARN_COLOR} />
+                  <Text size={9.5} color={WARN_COLOR} style={styles.unsupportedText}>可能不支持</Text>
+                </View>
+                )
+              : null}
           </View>
         </View>
       </TouchableOpacity>
-      <TouchableOpacity
-        style={styles.moreBtn}
-        activeOpacity={0.6}
-        hitSlop={{ top: 10, bottom: 10, left: 6, right: 10 }}
-        onPress={() => { onMore(item) }}
-      >
-        <Icon name='dots-vertical' size={16} color={theme['c-350']} />
-      </TouchableOpacity>
+      {
+        batchMode
+          ? null
+          : (
+            <TouchableOpacity
+              style={styles.moreBtn}
+              activeOpacity={0.6}
+              hitSlop={{ top: 10, bottom: 10, left: 6, right: 10 }}
+              onPress={() => { onMore(item) }}
+            >
+              <Icon name='dots-vertical' size={16} color={theme['c-350']} />
+            </TouchableOpacity>
+            )
+      }
     </View>
   )
 })
@@ -1180,6 +1884,7 @@ const styles = createStyle({
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
   },
   headerTags: {
     flexDirection: 'row',
@@ -1211,20 +1916,27 @@ const styles = createStyle({
     flex: 1,
   },
   /** 页内搜索：和搜索页/歌单页的搜索框同一套圆角语言 */
-  searchWrap: {
-    paddingLeft: 16,
-    paddingRight: 16,
-    paddingTop: 6,
-    paddingBottom: 2,
+  searchBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.32)',
   },
-  searchBox: {
+  // 顶部悬浮搜索框：圆角 + 投影，独立于列表布局
+  searchFloat: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    height: 46,
+    borderRadius: 23,
+    borderWidth: 0.5,
+    paddingLeft: 16,
+    paddingRight: 4,
     flexDirection: 'row',
     alignItems: 'center',
-    height: 38,
-    borderRadius: 19,
-    borderWidth: 0.5,
-    paddingLeft: 12,
-    paddingRight: 4,
+    elevation: 12,
+    shadowColor: '#000000',
+    shadowOpacity: 0.24,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
   },
   searchIcon: {
     marginRight: 6,
@@ -1457,6 +2169,87 @@ const styles = createStyle({
     paddingTop: 10,
     // 悬浮导航会盖在列表上，内容滚动到底时要能露出最后一项
     paddingBottom: NAV_BAR_SPACE,
+  },
+  searchClose: {
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  listContentWithIndex: {
+    // 右侧 A-Z 索引栏占位，避免行尾 ⋮ 被压住
+    paddingRight: 24,
+  },
+  viewTools: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingLeft: 16,
+    paddingRight: 12,
+    paddingTop: 4,
+    paddingBottom: 2,
+  },
+  viewToolBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 28,
+    paddingLeft: 10,
+    paddingRight: 10,
+    borderRadius: 14,
+    marginRight: 8,
+    backgroundColor: 'rgba(127,127,127,0.10)',
+  },
+  viewToolText: {
+    marginLeft: 4,
+  },
+  viewToolCount: {
+    marginLeft: 2,
+  },
+  unsupportedTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 2,
+  },
+  unsupportedText: {
+    marginLeft: 2,
+  },
+  gridRow: {
+    gap: 10,
+    paddingHorizontal: 12,
+  },
+  batchCheck: {
+    width: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  batchBar: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    bottom: 96,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 20,
+    borderWidth: 0.5,
+    paddingLeft: 14,
+    paddingRight: 8,
+    height: 56,
+    elevation: 18,
+    shadowColor: '#000000',
+    shadowOpacity: 0.24,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
+    zIndex: 20,
+  },
+  batchCount: {
+    flex: 1,
+  },
+  batchBtn: {
+    width: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  batchLabel: {
+    marginTop: 2,
   },
   row: {
     flexDirection: 'row',

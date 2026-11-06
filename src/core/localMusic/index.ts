@@ -35,6 +35,8 @@ const DIRS_KEY = 'local_music_dirs'
  * 一旦扫描自己能发现它，就从暂存里删掉，不会无限堆积。
  */
 const PENDING_KEY = 'local_music_pending_added'
+/** 最近一次扫描报告（增量统计/失败/失权） */
+const SCAN_REPORT_KEY = 'local_music_scan_report_v1'
 /** 暂存条目最长保留时间：超过还没被任何一次扫描确认就丢弃（防止僵尸条目） */
 const PENDING_TTL = 7 * 24 * 60 * 60 * 1000
 /** 应用自己的目录可以直接读；公共目录要走 MediaStore / SAF */
@@ -217,6 +219,24 @@ const buildMusicInfo = async(file: DirEntry): Promise<LX.Music.MusicInfoLocal> =
   }
 }
 
+export interface ScanReport {
+  finishedAt: number
+  durationMs: number
+  /** 扫描后曲库总数 */
+  total: number
+  /** 新增文件数（曲库里原来没有的路径） */
+  added: number
+  /** 文件变了、重新读了标签的数量 */
+  updated: number
+  /** 路径和 mtime/size 都没变、直接复用缓存条目的数量 */
+  unchanged: number
+  /** 上次有、这次扫描后不在曲库里的数量（删除/失权） */
+  removed: number
+  /** 读标签/构建条目失败的数量 */
+  failed: number
+  needAuth: string[]
+}
+
 export interface ScanResult {
   list: LX.Music.MusicInfoLocal[]
   dir: string
@@ -228,6 +248,8 @@ export interface ScanResult {
    * 必须让用户重新选一次目录才能拿到授权。
    */
   needAuth: ScanDir[]
+  /** 增量统计报告 */
+  report?: ScanReport
 }
 
 /** 老版本存的是纯字符串数组，这里做一次归一化 */
@@ -516,10 +538,39 @@ export const scanLocalMusic = async(
 
   const list: LX.Music.MusicInfoLocal[] = []
   const seen = new Set<string>()
+  /*
+    增量扫描（D-03）：上一次的曲库本身就是「路径 + mtime + size」快照，
+    路径、大小、修改时间都没变的文件直接复用旧条目，不再读标签/抽封面。
+    删除的文件通过差集得到；新增/变更才走 buildMusicInfo。
+  */
+  const scanStartedAt = Date.now()
+  const previous = await getLocalMusicList().catch(() => [])
+  const previousByPath = new Map(previous.map(item => [item.meta.filePath, item]))
+  let added = 0
+  let updated = 0
+  let unchanged = 0
+  let failed = 0
   for (const file of files) {
     if (seen.has(file.path)) continue
     seen.add(file.path)
-    list.push(await buildMusicInfo(file))
+    const prev = previousByPath.get(file.path)
+    const fileMtime = typeof file.mtime === 'number' ? file.mtime : (file.mtime instanceof Date ? file.mtime.getTime() : 0)
+    const prevMtime = prev?.meta.mtime ?? 0
+    const sameSize = (file.size ?? 0) === ((prev?.meta as { size?: number } | undefined)?.size ?? 0)
+    const canReuse = !!prev && fileMtime > 0 && prevMtime > 0 && fileMtime === prevMtime && sameSize
+    if (canReuse && prev) {
+      list.push(prev)
+      unchanged += 1
+    } else {
+      try {
+        list.push(await buildMusicInfo(file))
+        if (prev) updated += 1
+        else added += 1
+      } catch (err) {
+        failed += 1
+        log.error(err)
+      }
+    }
     onProgress?.(list.length)
   }
 
@@ -575,6 +626,24 @@ export const scanLocalMusic = async(
     log.error(err)
   }
 
+  // 差集得到被删除/失权的文件；pending 里保留下来的条目也算进最终列表，不能误报删除
+  const finalPaths = new Set(list.map(item => item.meta.filePath))
+  const removed = previous.reduce((count, item) => finalPaths.has(item.meta.filePath) ? count : count + 1, 0)
+  const report: ScanReport = {
+    finishedAt: Date.now(),
+    durationMs: Date.now() - scanStartedAt,
+    total: list.length,
+    added,
+    updated,
+    unchanged,
+    removed,
+    failed,
+    needAuth: needAuth.map(dir => dir.path),
+  }
+  try {
+    await saveData(SCAN_REPORT_KEY, report)
+  } catch {}
+
   // 只有完整扫完才替换内存缓存并持久化：
   // 中途失败 / 被中断时 cachedList 和磁盘上都还是上一次的完整列表，
   // 不会被半截数据覆盖（用户不会「扫一半发现歌少了一半」）
@@ -586,7 +655,7 @@ export const scanLocalMusic = async(
     // 否则界面会一直停在扫描中的半成品上
     emitLocalMusicUpdated(list)
   }
-  return { list, dir: dirs[0]?.path ?? '', dirs, needAuth }
+  return { list, dir: dirs[0]?.path ?? '', dirs, needAuth, report }
 }
 
 /** 扫描结果的总大小（字节） */
@@ -815,6 +884,15 @@ const emitScanThrottled = () => {
     scanEmitTimer = null
     emitScan()
   }, 250)
+}
+
+/** 读取最近一次扫描报告（没有扫过返回 null） */
+export const getLastScanReport = async(): Promise<ScanReport | null> => {
+  try {
+    return await getData<ScanReport>(SCAN_REPORT_KEY) ?? null
+  } catch {
+    return null
+  }
 }
 
 export const getScanState = () => scanState

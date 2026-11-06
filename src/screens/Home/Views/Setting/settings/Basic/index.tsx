@@ -6,6 +6,7 @@ import Language from './Language'
 import FontSize from './FontSize'
 import ShareType from './ShareType'
 import IsHomePageScroll from './IsHomePageScroll'
+import IsReduceMotion from './IsReduceMotion'
 import { ThemeModeSelector, MaterialYouColors } from './ThemeSettings'
 import { useI18n } from '@/lang/i18n'
 
@@ -21,19 +22,20 @@ export default memo(() => {
 
   return (
     <>
-      <Section title='外观'>
+      <Section title='外观' icon='palette-outline'>
         <ThemeModeSelector />
       </Section>
-      <Section title='主题色'>
+      <Section title='主题色' icon='palette-swatch-outline'>
         <MaterialYouColors />
       </Section>
-      <Section title='界面'>
+      <Section title='界面' icon='cellphone'>
         <IsHomePageScroll />
+        <IsReduceMotion />
         <FontSize />
         <Language />
         <SourceName />
       </Section>
-      <Section title={t('setting_basic_share_type')}>
+      <Section title={t('setting_basic_share_type')} icon='share-variant-outline'>
         <ShareType />
       </Section>
     </>

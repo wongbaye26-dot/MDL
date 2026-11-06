@@ -1,8 +1,9 @@
-import { memo } from 'react'
-import { View, Image as RNImage, StyleSheet } from 'react-native'
+import { memo, useEffect, useRef } from 'react'
+import { Animated, Easing, View, Image as RNImage, StyleSheet } from 'react-native'
 
 import FadeMask from './FadeMask'
 import CoverPlaceholder from '@/components/common/CoverPlaceholder'
+import { useReducedMotion } from '@/utils/hooks'
 
 /**
  * 飞牛实测（1080x2340 @420dpi → dp）：
@@ -27,6 +28,18 @@ export default memo(({ pic, name, width, height, hidden }: {
   height: number
   hidden?: boolean
 }) => {
+  const reduced = useReducedMotion()
+  // 切歌时封面淡入，避免封面硬切；减少动态效果时直接显示
+  const fade = useRef(new Animated.Value(1)).current
+  useEffect(() => {
+    if (reduced) {
+      fade.setValue(1)
+      return
+    }
+    fade.setValue(0)
+    Animated.timing(fade, { toValue: 1, duration: 260, easing: Easing.out(Easing.quad), useNativeDriver: true }).start()
+  }, [pic, fade, reduced])
+
   const coverW = width
   const coverH = height * COVER_H_RATIO
   const coverTop = height * COVER_TOP_RATIO
@@ -38,11 +51,11 @@ export default memo(({ pic, name, width, height, hidden }: {
 
   if (!pic) {
     return (
-      <View pointerEvents='none' style={[StyleSheet.absoluteFill, { opacity: hidden ? 0 : 1 }]}>
+      <Animated.View pointerEvents='none' style={[StyleSheet.absoluteFill, { opacity: hidden ? 0 : fade }]}>
         <View style={{ marginTop: coverTop, height: coverH }}>
           <CoverPlaceholder name={name} width={coverW} height={coverH} radius={0} />
         </View>
-      </View>
+      </Animated.View>
     )
   }
 
@@ -51,7 +64,7 @@ export default memo(({ pic, name, width, height, hidden }: {
   )
 
   return (
-    <View pointerEvents='none' style={[StyleSheet.absoluteFill, { opacity: hidden ? 0 : 1 }]}>
+    <Animated.View pointerEvents='none' style={[StyleSheet.absoluteFill, { opacity: hidden ? 0 : fade }]}>
       {/* ── 上倒影：封面镜像，屏幕顶 34% → 接缝 100% ── */}
       <FadeMask width={coverW} height={coverTop} from={0.34} to={1} style={{ left: 0, top: 0 }}>
         <View style={{ position: 'absolute', left: 0, bottom: 0, width: coverW, height: coverH, transform: [{ scaleY: -1 }] }}>
@@ -88,6 +101,6 @@ export default memo(({ pic, name, width, height, hidden }: {
           {blurred()}
         </View>
       </FadeMask>
-    </View>
+    </Animated.View>
   )
 })

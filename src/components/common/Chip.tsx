@@ -74,7 +74,9 @@ export default ({ label, children, accessibilityLabel, active = false, soft = fa
         activeOpacity={0.85}
         onPress={onPress}
         onLongPress={onLongPress}
+        accessibilityRole='button'
         accessibilityLabel={accessibilityLabel ?? label}
+        accessibilityState={{ selected: active }}
         onPressIn={() => { animate(0.93) }}
         onPressOut={() => { animate(1) }}
         style={{ ...(isSm ? styles.chipSm : styles.chipMd), backgroundColor, borderColor }}

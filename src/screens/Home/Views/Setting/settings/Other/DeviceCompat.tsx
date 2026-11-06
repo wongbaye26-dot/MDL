@@ -122,7 +122,7 @@ export default memo(() => {
 
   return (
     <>
-      <Section title='设备与权限' desc='品牌机型后台保活与系统入口'>
+      <Section title='设备与权限' icon='cellphone-cog' desc='品牌机型后台保活与系统入口'>
         <Row
           icon='cellphone'
           title={brandInfo?.model ?? '读取设备信息'}
@@ -168,7 +168,7 @@ export default memo(() => {
           onPress={() => { void handleAppDetails() }}
         />
       </Section>
-      <Section title='品牌保活提示' desc={brandInfo ? `当前识别：${brandInfo.brandName}` : undefined}>
+      <Section title='品牌保活提示' icon='shield-account-outline' desc={brandInfo ? `当前识别：${brandInfo.brandName}` : undefined}>
         <View style={styles.tips}>
           {
             brandTips.map((tip, index) => (

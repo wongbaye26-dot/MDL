@@ -6,10 +6,12 @@ import {
   PanResponder,
   ScrollView,
   StatusBar as RNStatusBar,
+  StyleSheet,
   Text as RNText,
   TouchableOpacity,
   View,
   Image as RNImage,
+  Image,
   type LayoutChangeEvent,
 } from 'react-native'
 
@@ -17,6 +19,7 @@ import LinearGradient from 'react-native-linear-gradient'
 
 import Text from '@/components/common/Text'
 import PicImage from '@/components/common/PicImage'
+import Glass from '@/components/common/Glass'
 import MarqueeText from '@/components/common/MarqueeText'
 import { Icon } from '@/components/common/Icon'
 import { useTheme } from '@/store/theme/hook'
@@ -30,7 +33,6 @@ import { useLrcSet, useLrcPlay, type Line } from '@/plugins/lyric'
 import * as Jyutping from '@/utils/jyutping/index.js'
 import playerState from '@/store/player/state'
 import { collectMusic, playList, playNext, playPrev, togglePlay, uncollectMusic } from '@/core/player/player'
-import { toggleTranslation } from '@/core/lyric'
 import { setCurrentTime, getDuration } from '@/plugins/player'
 import { removeListMusics } from '@/core/list'
 import { setNowPlayTime, setMaxplayTime } from '@/core/player/progress'
@@ -43,6 +45,9 @@ import PlayerDetailSheet from '@/components/player/PlayerDetailSheet'
 import { canPlayCloseTransition, closePlayerWithTransition } from '@/utils/playerOpen'
 import Stage, { COVER_TOP_RATIO, COVER_H_RATIO } from './Stage'
 import SeekBar from './SeekBar'
+import SleepTimerButton from './SleepTimerButton'
+import SleepTimerSheet from './SleepTimerSheet'
+import LyricQuickMenu from './LyricQuickMenu'
 import PlayGlyph from './PlayGlyph'
 import QueueCoverFlow from './QueueCoverFlow'
 import FadeMask from './FadeMask'
@@ -447,28 +452,25 @@ export default () => {
   const lrcPlay = useLrcPlay()
   const { height, width } = useWindowSize()
   const playMode = (useSettingValue('player.togglePlayMethod') ?? 'listLoop') as PlayMode
+  const lyricOffsetMs = useSettingValue('player.lyricOffsetMs') ?? 0
 
   const [mode, setMode] = useState<'cover' | 'lyric'>('cover')
-  const [sizeIndex, setSizeIndex] = useState(1)
   const [currentLine, setCurrentLine] = useState(-1)
   const [seekPreview, setSeekPreview] = useState<number | null>(null)
   const [collected, setCollected] = useState(false)
   const [queueVisible, setQueueVisible] = useState(false)
   const [detailVisible, setDetailVisible] = useState(false)
+  const [sleepTimerVisible, setSleepTimerVisible] = useState(false)
+  const [lyricSettingsVisible, setLyricSettingsVisible] = useState(false)
+  /** 冷启动的短时兜底：模糊图首帧出来前，先用清晰封面垫底，避免透明 */
+  const [bgFallback, setBgFallback] = useState(true)
   const downloadModalRef = useRef<DownloadQualityModalType>(null)
   const autoSaveEnabled = useSettingValue('download.autoSaveWhilePlaying')
   const isWordByWord = useSettingValue('player.isWordByWordLyric')
   const isAutoJyutping = useSettingValue('player.isAutoJyutping')
   const isSingleLine = useSettingValue('player.isSingleLineLyric')
-  const isShowLyricTranslation = useSettingValue('player.isShowLyricTranslation')
-
-  /** 歌词工具行的「翻译」开关：和设置页的「显示翻译歌词」是同一个设置 */
-  const handleToggleTranslation = useCallback(() => {
-    const next = !isShowLyricTranslation
-    updateSetting({ 'player.isShowLyricTranslation': next })
-    void toggleTranslation(next)
-    if (next) toast('歌词翻译已开启')
-  }, [isShowLyricTranslation])
+  const lyricSizeIndex = useSettingValue('player.lyricSizeIndex')
+  const lyricAlignSetting = useSettingValue('player.lyricAlign')
 
 
   const handleDownload = useCallback(() => {
@@ -485,7 +487,7 @@ export default () => {
     downloadModalRef.current?.show({ musicInfos: [raw] })
   }, [])
 
-  const lyricSize = LYRIC_SIZES[sizeIndex]
+  const lyricSize = LYRIC_SIZES[Math.max(0, Math.min(LYRIC_SIZES.length - 1, lyricSizeIndex ?? 1))]
   /**
    * 音源自带注音/翻译优先；没有时按设置用本地粤拼词典自动生成。
    * 行高不再写死：开翻译/注音后每行高度由「主歌词折行数 + 扩展行实际行数」撑开，
@@ -559,7 +561,9 @@ export default () => {
       行距统一由上下 padding 控制（去掉最小行高），1 行/2 行的行与行之间间距一致。
   */
   const isForeignLyricPage = useMemo(() => isForeignLyricLines(lines), [lines])
-  const lyricTextAlign = isLandscape || isForeignLyricPage ? 'left' : 'center'
+  const lyricTextAlign = lyricAlignSetting === 'auto'
+    ? (isLandscape || isForeignLyricPage ? 'left' : 'center')
+    : lyricAlignSetting
   const lyricRowStyle = isForeignLyricPage ? styles.lyricRowForeign : styles.lyricRow
 
   /*
@@ -786,7 +790,7 @@ export default () => {
       const elapsed = Math.min(1200, Math.max(0, Date.now() - base.at)) / 1000
       // 暂停时不推进插值，避免歌词自己往前跑
       const est = playerState.isPlay ? base.pos + elapsed : base.pos
-      let line = findLine(lines, est * 1000)
+      let line = findLine(lines, est * 1000 + lyricOffsetMs)
       const prevLine = currentLineRef.current
       /*
         播放中进度基准每秒会回拨一次（rAF 估算比真实位置略早），
@@ -809,7 +813,7 @@ export default () => {
       stopped = true
       if (rafId) cancelAnimationFrame(rafId)
     }
-  }, [mode, isLandscape, lines])
+  }, [mode, isLandscape, lines, lyricOffsetMs])
 
   useEffect(() => {
     setCollected(getListMusicSync(LIST_IDS.LOVE).some(m => m.id === musicInfo.id))
@@ -866,10 +870,6 @@ export default () => {
 
   const handleToggleMode = useCallback(() => {
     setMode(mode => mode === 'cover' ? 'lyric' : 'cover')
-  }, [])
-
-  const handleSizeChange = useCallback(() => {
-    setSizeIndex(index => (index + 1) % LYRIC_SIZES.length)
   }, [])
 
   const handleSeek = useCallback((time: number) => {
@@ -1062,7 +1062,15 @@ export default () => {
     prevLineRef.current = currentLine
   }, [currentLine, mode, isLandscape, scrollToLine, lines])
 
+
   const pic = musicInfo.pic
+  useEffect(() => {
+    // 冷启动时先把封面读进原生图片缓存，减少第一次进歌词页的空窗
+    if (pic) Image.prefetch(pic).catch(() => {})
+    setBgFallback(true)
+    const timer = setTimeout(() => { setBgFallback(false) }, 700)
+    return () => { clearTimeout(timer) }
+  }, [pic])
   /*
     当前播放的是本地音乐（文件已经在手机上）。这种情况不显示下载按钮：
     本地文件没有「下载」这回事，留一个点了只弹 toast 的图标是噪音。
@@ -1112,7 +1120,7 @@ export default () => {
         startMs={line.time}
         endMs={lines[index + 1]?.time ?? (maxTime * 1000 || line.time + 4000)}
         playing={isPlay}
-        syncMs={progress.nowPlayTime * 1000}
+        syncMs={progress.nowPlayTime * 1000 + lyricOffsetMs}
         wordByWord={isWordByWord && !LYRIC_META_RXP.test(line.text.trim())}
         activeColor={accent}
         align={lyricTextAlign}
@@ -1227,6 +1235,14 @@ export default () => {
 
   <DownloadQualityModal ref={downloadModalRef} />
 
+  <SleepTimerSheet visible={sleepTimerVisible} onClose={() => { setSleepTimerVisible(false) }} />
+
+  <LyricQuickMenu
+    visible={lyricSettingsVisible}
+    hasTranslation={lyricExtras.some(extras => extras.length > 0)}
+    onClose={() => { setLyricSettingsVisible(false) }}
+  />
+
     </>
   )
 
@@ -1248,7 +1264,7 @@ export default () => {
     const coverW = Math.min(height, width * 0.52)
     return (
       <Animated.View
-        style={{ ...styles.container, transform: [{ translateY: panY }] }}
+        style={{ ...styles.container, backgroundColor: palette.scrim, transform: [{ translateY: panY }] }}
         {...panResponder.panHandlers}
         onLayout={handleLayout}
       >
@@ -1337,6 +1353,12 @@ export default () => {
                     </TouchableOpacity>
                     )
               }
+              <SleepTimerButton
+                onPress={() => { setSleepTimerVisible(true) }}
+                size={u(20)}
+                activeColor={accent}
+                style={styles.iconBtnLand}
+              />
               <TouchableOpacity style={styles.iconBtnLand} onPress={handleToggleCollect} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
                 <Icon name={collected ? 'love' : 'heart-outline'} size={u(22)} color={collected ? accent : 'rgba(255,255,255,0.92)'} />
               </TouchableOpacity>
@@ -1389,14 +1411,16 @@ export default () => {
             </View>
 
             <View style={styles.landControls}>
-              <TouchableOpacity style={styles.ctrlBtn} onPress={handleCycleMode} activeOpacity={0.6}>
+              <TouchableOpacity style={styles.ctrlBtn} onPress={handleCycleMode} activeOpacity={0.6} accessibilityRole='button' accessibilityLabel='切换播放模式'>
                 <Icon name={MODE_ICON[playMode]} size={u(19)} color='rgba(255,255,255,0.9)' />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.ctrlBtn} onPress={() => { void playPrev() }} activeOpacity={0.6}>
+              <TouchableOpacity style={styles.ctrlBtn} onPress={() => { void playPrev() }} activeOpacity={0.6} accessibilityRole='button' accessibilityLabel='上一首'>
                 <Icon name='prevMusic' size={u(30)} color={accent} />
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.ctrlBtn}
+                accessibilityRole='button'
+                accessibilityLabel={isPlay ? '暂停' : '播放'}
                 onPress={togglePlay}
                 activeOpacity={0.75}
                 onPressIn={() => { pressPlay(0.9) }}
@@ -1406,10 +1430,10 @@ export default () => {
                   <PlayGlyph playing={isPlay} box={18} color={palette.onAccent} />
                 </Animated.View>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.ctrlBtn} onPress={() => { void playNext() }} activeOpacity={0.6}>
+              <TouchableOpacity style={styles.ctrlBtn} onPress={() => { void playNext() }} activeOpacity={0.6} accessibilityRole='button' accessibilityLabel='下一首'>
                 <Icon name='nextMusic' size={u(30)} color={accent} />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.ctrlBtn} onPress={() => { setQueueVisible(true) }} activeOpacity={0.6}>
+              <TouchableOpacity style={styles.ctrlBtn} onPress={() => { setQueueVisible(true) }} activeOpacity={0.6} accessibilityRole='button' accessibilityLabel='播放队列'>
                 <Icon name='playlist-music' size={u(20)} color='rgba(255,255,255,0.9)' />
               </TouchableOpacity>
             </View>
@@ -1420,6 +1444,8 @@ export default () => {
         <TouchableOpacity
           style={[styles.landBack, { top: topInset + 6 }]}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          accessibilityRole='button'
+          accessibilityLabel='收起播放器'
           onPress={handleClosePlayer}
         >
           <Icon name='chevron-down' size={u(22)} color='rgba(255,255,255,0.94)' />
@@ -1432,7 +1458,7 @@ export default () => {
 
   return (
     <Animated.View
-      style={{ ...styles.container, transform: [{ translateY: panY }] }}
+      style={{ ...styles.container, backgroundColor: palette.scrim, transform: [{ translateY: panY }] }}
       {...panResponder.panHandlers}
       onLayout={handleLayout}
     >
@@ -1449,14 +1475,42 @@ export default () => {
 
       {/* 背景：整屏模糊封面（歌词页更糊，飞牛是整片柔光） */}
       <View pointerEvents='none' style={styles.bgBlur}>
+        {/*
+          只挂一张模糊底图（blurRadius 固定 40），切歌词页不再换图/换模糊半径：
+          之前 34↔55 两套图会让 Android 在第一次切歌词页时重新解码，
+          出现一帧「背景透明」；现在歌词页只通过叠加层加深，底图始终已就绪。
+        */}
+        {/*
+          双层背景，保证任何一帧都不会「透明」：
+          1) 底层常驻一张低透明度清晰封面：模糊图还没解码/绘制出来时，它先兜底；
+          2) 上层模糊封面：加载完成后负责磨砂质感。
+          歌词页固定隐藏 Stage（清晰大封面），不会再出现「第一次透明、第二次正常」。
+        */}
         {
           pic
-            ? <RNImage source={{ uri: pic }} blurRadius={mode === 'lyric' ? 55 : 34} style={styles.bgImg} resizeMode='cover' />
-            : <View style={[styles.bgImg, { backgroundColor: '#17141C' }]} />
+            ? (
+              <>
+                <RNImage
+                  source={{ uri: pic }}
+                  style={[styles.bgImg, { opacity: bgFallback ? 0.35 : 0 }]}
+                  resizeMode='cover'
+                  fadeDuration={0}
+                />
+                <RNImage
+                  key={pic}
+                  source={{ uri: pic }}
+                  blurRadius={40}
+                  style={styles.bgImg}
+                  resizeMode='cover'
+                  fadeDuration={0}
+                />
+              </>
+              )
+            : <View style={[styles.bgImg, { backgroundColor: palette.scrim }]} />
         }
       </View>
-      {/* 压暗：把封面色相压向主题的表面色（低彩度 + 一点种子色相） */}
-      <View pointerEvents='none' style={[styles.bgDim, { backgroundColor: palette.dim }]} />
+      {/* 压暗：歌词页用更透的遮罩，让封面半透明地透出来（黑主题也能看到底图） */}
+      <View pointerEvents='none' style={[styles.bgDim, { backgroundColor: mode === 'lyric' ? palette.dimLyric : palette.dim }]} />
 
       {/* 舞台：上倒影 + 封面（四边柔化）+ 下倒影，全部铺到屏幕边缘 */}
       <Animated.View pointerEvents='none' style={[styles.stage, { opacity: coverAnim }]}>
@@ -1465,9 +1519,24 @@ export default () => {
           name={songName}
           width={layoutW}
           height={layoutH}
-          hidden={mode === 'lyric' || transitionPhase !== 'idle'}
+          hidden={transitionPhase !== 'idle'}
         />
       </Animated.View>
+
+      {/*
+        歌词页磨砂：直接对「已经显示出来的封面 Stage」做全屏原生模糊（BlurView），
+        不依赖另一张模糊图是否解码完成 —— 冷启动首帧也一定有一层磨砂封面，
+        不会出现透明/纯黑背景。歌词文字在该层之上，保持清晰。
+      */}
+      {
+        mode === 'lyric'
+          ? (
+            <View pointerEvents='none' style={StyleSheet.absoluteFill}>
+              <Glass blurRadius={25} tint='rgba(8,6,12,0.30)' />
+            </View>
+            )
+          : null
+      }
 
       {/*
         倒影是叠在糊底上的，只压糊底染不到它 —— 所以染色层必须放在 Stage 之上。
@@ -1492,7 +1561,7 @@ export default () => {
           : (
             <LinearGradient
               pointerEvents='none'
-              colors={[palette.scrimAt(0.54), palette.scrimAt(0.34), palette.scrimAt(0.78)]}
+              colors={[palette.scrimAt(0.30), palette.scrimAt(0.16), palette.scrimAt(0.55)]}
               locations={[0, 0.45, 1]}
               style={styles.tintFull}
             />
@@ -1504,6 +1573,8 @@ export default () => {
         <TouchableOpacity
           style={styles.backBtn}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          accessibilityRole='button'
+          accessibilityLabel='收起播放器'
           onPress={handleClosePlayer}
         >
           <Icon name='chevron-down' size={u(26)} color='rgba(255,255,255,0.94)' />
@@ -1556,7 +1627,7 @@ export default () => {
                             startMs={currentLine >= 0 ? lines[currentLine].time : 0}
                             endMs={currentLine >= 0 ? (lines[currentLine + 1]?.time ?? (maxTime * 1000 || lines[currentLine].time + 4000)) : 4000}
                             playing={isPlay}
-                            syncMs={progress.nowPlayTime * 1000}
+                            syncMs={progress.nowPlayTime * 1000 + lyricOffsetMs}
                             wordByWord={isWordByWord && !(currentLine >= 0 && LYRIC_META_RXP.test(lines[currentLine].text.trim()))}
                             activeColor={accent}
                             align={lyricTextAlign}
@@ -1611,6 +1682,12 @@ export default () => {
                         </TouchableOpacity>
                         )
                   }
+                  <SleepTimerButton
+                    onPress={() => { setSleepTimerVisible(true) }}
+                    size={u(22)}
+                    activeColor={accent}
+                    style={styles.iconBtn}
+                  />
                   <TouchableOpacity style={styles.iconBtn} onPress={handleToggleCollect} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
                     <Icon
                       name={collected ? 'love' : 'heart-outline'}
@@ -1627,35 +1704,24 @@ export default () => {
             : (
               <View style={styles.toolRow}>
                 <View style={styles.toolLeft}>
-                  <TouchableOpacity style={styles.toolBtn} onPress={handleSizeChange} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-                    <Icon name='format-size' size={u(21)} color='rgba(255,255,255,0.88)' />
-                  </TouchableOpacity>
-                  {/* 歌词翻译（显示中文翻译）：和设置页「显示翻译歌词」同一开关 */}
+                  {/* 所有歌词开关收敛到一个入口（字号/对齐/逐字/单行/翻译/音译/粤拼/简繁） */}
                   <TouchableOpacity
                     style={styles.toolBtn}
                     hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                    onPress={handleToggleTranslation}
+                    accessibilityRole='button'
+                    accessibilityLabel='歌词设置'
+                    onPress={() => { setLyricSettingsVisible(true) }}
                   >
-                    <Icon
-                      name='translate'
-                      size={u(21)}
-                      color={isShowLyricTranslation ? accent : 'rgba(255,255,255,0.42)'}
-                    />
-                  </TouchableOpacity>
-                  {/* 本地自动粤拼（原来的 translate 图标位置换成了真正的翻译开关） */}
-                  <TouchableOpacity
-                    style={styles.toolBtn}
-                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                    onPress={() => { updateSetting({ 'player.isAutoJyutping': !isAutoJyutping }) }}
-                  >
-                    <Icon
-                      name='ideogram-cjk'
-                      size={u(21)}
-                      color={isAutoJyutping ? accent : 'rgba(255,255,255,0.42)'}
-                    />
+                    <Icon name='tune' size={u(21)} color='rgba(255,255,255,0.88)' />
                   </TouchableOpacity>
                 </View>
                 <View style={styles.infoActions}>
+                  <SleepTimerButton
+                    onPress={() => { setSleepTimerVisible(true) }}
+                    size={u(22)}
+                    activeColor={accent}
+                    style={styles.iconBtn}
+                  />
                   <TouchableOpacity style={styles.iconBtn} onPress={handleToggleCollect} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
                     <Icon name={collected ? 'love' : 'heart-outline'} size={u(26)} color={collected ? accent : 'rgba(255,255,255,0.9)'} />
                   </TouchableOpacity>
@@ -1692,14 +1758,16 @@ export default () => {
         </View>
 
         <View style={styles.controls}>
-          <TouchableOpacity style={styles.ctrlBtn} onPress={handleCycleMode} activeOpacity={0.6}>
+          <TouchableOpacity style={styles.ctrlBtn} onPress={handleCycleMode} activeOpacity={0.6} accessibilityRole='button' accessibilityLabel='切换播放模式'>
             <Icon name={MODE_ICON[playMode]} size={u(21)} color='rgba(255,255,255,0.9)' />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.ctrlBtnBig} onPress={() => { void playPrev() }} activeOpacity={0.6}>
+          <TouchableOpacity style={styles.ctrlBtnBig} onPress={() => { void playPrev() }} activeOpacity={0.6} accessibilityRole='button' accessibilityLabel='上一首'>
             <Icon name='prevMusic' size={u(39)} color={accent} />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.ctrlBtnBig}
+            accessibilityRole='button'
+            accessibilityLabel={isPlay ? '暂停' : '播放'}
             onPress={togglePlay}
             activeOpacity={0.75}
             onPressIn={() => { pressPlay(0.9) }}
@@ -1709,10 +1777,10 @@ export default () => {
               <PlayGlyph playing={isPlay} box={21} color={palette.onAccent} />
             </Animated.View>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.ctrlBtnBig} onPress={() => { void playNext() }} activeOpacity={0.6}>
+          <TouchableOpacity style={styles.ctrlBtnBig} onPress={() => { void playNext() }} activeOpacity={0.6} accessibilityRole='button' accessibilityLabel='下一首'>
             <Icon name='nextMusic' size={u(39)} color={accent} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.ctrlBtn} onPress={() => { setQueueVisible(true) }} activeOpacity={0.6}>
+          <TouchableOpacity style={styles.ctrlBtn} onPress={() => { setQueueVisible(true) }} activeOpacity={0.6} accessibilityRole='button' accessibilityLabel='播放队列'>
             <Icon name='playlist-music' size={u(23)} color='rgba(255,255,255,0.9)' />
           </TouchableOpacity>
         </View>

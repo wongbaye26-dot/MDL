@@ -12,6 +12,8 @@ import { createStyle } from '@/utils/tools'
 import Text from '@/components/common/Text'
 import { NAV_BAR_SPACE } from '@/config/constant'
 import EmptyState from '../EmptyState'
+import { SkeletonGrid } from '@/components/common/Skeleton'
+import StateContainer from '@/components/common/StateContainer'
 
 type FlatListType = FlatListProps<ListInfoItem>
 
@@ -145,7 +147,7 @@ export default forwardRef<ListType, ListProps>(({ onRefresh, onLoadMore, onOpenD
   const renderAll = Math.max(6, list.length)
   // 只有「加载完且真的没有数据」才展示空态；加载失败交给 footer 的「点击重试」
   const emptyComponent = useMemo(() => {
-    if (status !== 'end') return null
+    if (status !== 'end' || currentList.length) return null
     return (
       <EmptyState
         icon='album'
@@ -153,7 +155,7 @@ export default forwardRef<ListType, ListProps>(({ onRefresh, onLoadMore, onOpenD
         tip='换一个音源、排序或分类试试'
       />
     )
-  }, [status])
+  }, [status, currentList.length])
 
   return (
     <View style={styles.container} onLayout={onLayout}>
@@ -161,6 +163,13 @@ export default forwardRef<ListType, ListProps>(({ onRefresh, onLoadMore, onOpenD
         width == 0
           ? null
           : (
+            <StateContainer
+              loading={status === 'loading' && currentList.length === 0}
+              error={status === 'error' && currentList.length === 0}
+              onRetry={onRefresh}
+              skeleton={<View style={styles.skeletonWrap}><SkeletonGrid columns={rowInfo.num} rows={3} /></View>}
+              empty={emptyComponent}
+            >
               <FlatList
                 key={String(rowInfo.num)}
                 ref={flatListRef}
@@ -179,8 +188,8 @@ export default forwardRef<ListType, ListProps>(({ onRefresh, onLoadMore, onOpenD
                 onEndReached={handleLoadMore}
                 refreshControl={refreshControl}
                 ListFooterComponent={footerComponent}
-                ListEmptyComponent={emptyComponent}
               />
+            </StateContainer>
             )
       }
     </View>
@@ -217,6 +226,11 @@ const styles = createStyle({
   },
   list: {
     flex: 1,
+  },
+  skeletonWrap: {
+    paddingLeft: 16,
+    paddingRight: 16,
+    paddingTop: 4,
   },
   listContent: {
     paddingLeft: 16,

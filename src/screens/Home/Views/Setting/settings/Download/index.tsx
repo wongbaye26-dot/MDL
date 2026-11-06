@@ -146,7 +146,7 @@ export default memo(() => {
 
   return (
     <>
-      <Section title='保存位置'>
+      <Section title='保存位置' icon='folder-outline'>
         <View style={styles.pathRow}>
           <Text size={14}>{t('setting_download_save_path')}</Text>
           <Text size={11} color={theme['c-450']} numberOfLines={2} style={styles.pathText}>
@@ -179,7 +179,7 @@ export default memo(() => {
         />
       </Section>
 
-      <Section title='下载'>
+      <Section title='下载' icon='download'>
         <OptionRow
           label={t('setting_download_quality')}
           options={qualityOptions}
@@ -199,7 +199,7 @@ export default memo(() => {
         />
       </Section>
 
-      <Section title='存储权限'>
+      <Section title='存储权限' icon='shield-key-outline'>
         <TouchableOpacity style={styles.permRow} activeOpacity={0.7} onPress={openAllFilesAccess}>
           <View style={styles.permInfo}>
             <Text size={14}>所有文件访问权限</Text>
@@ -213,7 +213,7 @@ export default memo(() => {
         </TouchableOpacity>
       </Section>
 
-      <Section title='附加文件'>
+      <Section title='附加文件' icon='file-music-outline'>
         <CheckBoxItem
           check={isDownloadLyric}
           label={t('setting_download_lyric')}
@@ -231,7 +231,7 @@ export default memo(() => {
         />
       </Section>
 
-      <Section title='边听边存'>
+      <Section title='边听边存' icon='playlist-plus'>
         <CheckBoxItem
           check={autoSaveWhilePlaying}
           label='播放时自动保存'

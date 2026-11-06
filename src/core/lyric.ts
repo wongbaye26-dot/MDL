@@ -8,13 +8,13 @@ import {
   init as lrcInit,
 } from '@/plugins/lyric'
 import {
-  playDesktopLyric,
-  setDesktopLyric,
-  pauseDesktopLyric,
-  setDesktopLyricPlaybackRate,
-  toggleDesktopLyricTranslation,
-  toggleDesktopLyricRoma,
-} from '@/core/desktopLyric'
+  playRemoteLyric,
+  setRemoteLyric,
+  pauseRemoteLyric,
+  setRemoteLyricPlaybackRate,
+  toggleRemoteLyricTranslation,
+  toggleRemoteLyricRoma,
+} from '@/core/remoteLyric'
 import { getOtherSource, handleGetOnlineLyricInfo } from '@/core/music/utils'
 import { getPosition } from '@/plugins/player'
 import playerState from '@/store/player/state'
@@ -36,7 +36,7 @@ export const init = async() => {
  */
 const handleSetLyric = async(lyric: string, translation = '', romalrc = '') => {
   lrcSetLyric(lyric, translation, romalrc)
-  await setDesktopLyric(lyric, translation, romalrc)
+  await setRemoteLyric(lyric, translation, romalrc)
   if (settingState.setting['player.isShowBluetoothFullLyric']) {
     void updateNowPlayingTitles({
       lyric,
@@ -141,7 +141,7 @@ export const trySupplementTranslation = async() => {
  */
 export const handlePlay = (time: number) => {
   lrcPlay(time)
-  void playDesktopLyric(time)
+  void playRemoteLyric(time)
 }
 
 /**
@@ -149,7 +149,7 @@ export const handlePlay = (time: number) => {
  */
 export const pause = () => {
   lrcPause()
-  void pauseDesktopLyric()
+  void pauseRemoteLyric()
 }
 
 /**
@@ -165,7 +165,7 @@ export const stop = () => {
  */
 export const setPlaybackRate = async(playbackRate: number) => {
   lrcSetPlaybackRate(playbackRate)
-  await setDesktopLyricPlaybackRate(playbackRate)
+  await setRemoteLyricPlaybackRate(playbackRate)
   if (playerState.isPlay) {
     setTimeout(() => {
       void getPosition().then((position) => {
@@ -181,7 +181,7 @@ export const setPlaybackRate = async(playbackRate: number) => {
  */
 export const toggleTranslation = async(isShowTranslation: boolean) => {
   lrcToggleTranslation(isShowTranslation)
-  await toggleDesktopLyricTranslation(isShowTranslation)
+  await toggleRemoteLyricTranslation(isShowTranslation)
   // 打开翻译时当前音源没有中文翻译 → 后台补一次（失败静默，不阻塞）
   if (isShowTranslation) void trySupplementTranslation()
   if (playerState.isPlay) play()
@@ -193,7 +193,7 @@ export const toggleTranslation = async(isShowTranslation: boolean) => {
  */
 export const toggleRoma = async(isShowLyricRoma: boolean) => {
   lrcToggleRoma(isShowLyricRoma)
-  await toggleDesktopLyricRoma(isShowLyricRoma)
+  await toggleRemoteLyricRoma(isShowLyricRoma)
   if (playerState.isPlay) play()
 }
 

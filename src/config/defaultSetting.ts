@@ -11,10 +11,9 @@ const defaultSetting: LX.AppSetting = {
   'common.drawerLayoutPosition': 'left',
   'common.homePageScroll': true,
   'common.allowProgressBarSeek': true,
-  'common.showBackBtn': false,
-  'common.showExitBtn': true,
   'common.useSystemFileSelector': true,
   'common.alwaysKeepStatusbarHeight': false,
+  'common.reduceMotion': false,
 
   'player.startupAutoPlay': false,
   'player.togglePlayMethod': 'listLoop',
@@ -22,9 +21,9 @@ const defaultSetting: LX.AppSetting = {
   'player.isSavePlayTime': false,
   'player.volume': 1,
   'player.playbackRate': 1,
+  'player.fadeSeconds': 0,
+  'player.lyricOffsetMs': 0,
   'player.cacheSize': '1024',
-  'player.timeoutExit': '',
-  'player.timeoutExitPlayed': true,
   'player.isAutoCleanPlayedList': false,
   'player.isHandleAudioFocus': true,
   'player.isEnableAudioOffload': false,
@@ -36,30 +35,12 @@ const defaultSetting: LX.AppSetting = {
   'player.isShowBluetoothLyric': false,
   'player.isShowBluetoothFullLyric': false,
 
-  'desktopLyric.enable': false,
-  'desktopLyric.isLock': false,
-  'desktopLyric.width': 100,
-  'desktopLyric.maxLineNum': 5,
-  'desktopLyric.isSingleLine': false,
-  'desktopLyric.showToggleAnima': true,
-  'desktopLyric.position.x': 0,
-  'desktopLyric.position.y': 0,
-  'desktopLyric.textPosition.x': 'left',
-  'desktopLyric.textPosition.y': 'top',
-  'desktopLyric.style.fontSize': 180,
-  'desktopLyric.style.opacity': 100,
-  'desktopLyric.style.lyricUnplayColor': 'rgba(255, 255, 255, 1)',
-  'desktopLyric.style.lyricPlayedColor': 'rgba(7, 197, 86, 1)',
-  'desktopLyric.style.lyricShadowColor': 'rgba(0, 0, 0, 0.6)',
-
   'search.isShowHotSearch': false,
   'search.isShowHistorySearch': false,
 
   'list.isClickPlayList': false,
-  'list.isShowSource': true,
   'list.isShowAlbumName': false,
   'list.isShowInterval': true,
-  'list.isSaveScrollLocation': true,
   'list.addMusicLocationType': 'top',
 
   'download.fileName': '歌名 - 歌手',
@@ -72,7 +53,6 @@ const defaultSetting: LX.AppSetting = {
   'download.isWriteMetadata': true,
   'download.autoSaveWhilePlaying': false,
 
-  'sync.enable': false,
 
   // EMO 品牌默认主题
   'theme.id': 'emo',
@@ -88,10 +68,13 @@ const defaultSetting: LX.AppSetting = {
   // 歌词显示
   'player.isWordByWordLyric': true,
   'player.isSingleLineLyric': false,
+  'player.lyricSizeIndex': 1,
+  'player.lyricAlign': 'auto',
   // 底部导航胶囊左右滑动切歌
   'common.navSwipeSwitch': true,
   // 底部胶囊进度样式：默认显示封面外圈圆环（progress=0 也保留一圈淡色轨道）
   'common.navProgressStyle': 'ring',
+  'common.navGlassStyle': 'liquid',
 }
 
 export default defaultSetting

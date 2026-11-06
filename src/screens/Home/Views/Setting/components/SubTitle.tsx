@@ -22,13 +22,14 @@ export default memo(({ title, children }: {
 
 const styles = createStyle({
   container: {
-    paddingLeft: 14,
-    paddingRight: 14,
-    paddingTop: 12,
+    paddingLeft: 16,
+    paddingRight: 16,
+    paddingTop: 13,
     paddingBottom: 14,
   },
   title: {
-    marginBottom: 8,
-    fontWeight: '500',
+    marginBottom: 9,
+    fontWeight: '600',
+    letterSpacing: 0.1,
   },
 })
