@@ -90,6 +90,29 @@ export const ToggleRow = ({ settingKey, title, desc }: {
   )
 }
 
+export const CustomToggleRow = ({ title, desc, value, onChange }: {
+  title: string
+  desc?: string
+  value: boolean
+  onChange: (value: boolean) => void
+}) => {
+  const theme = useTheme()
+  return (
+    <TouchableOpacity style={styles.row} activeOpacity={0.72} accessibilityRole='switch' accessibilityState={{ checked: value }} onPress={() => { onChange(!value) }}>
+      <View style={styles.rowInfo}>
+        <Text size={13.5}>{title}</Text>
+        {desc ? <Text size={10.5} color={theme['c-450']} style={styles.desc}>{desc}</Text> : null}
+      </View>
+      <Switch
+        value={value}
+        trackColor={{ false: theme['c-primary-alpha-800'], true: theme['c-primary'] }}
+        thumbColor={value ? '#FFFFFF' : theme['c-450']}
+        onValueChange={onChange}
+      />
+    </TouchableOpacity>
+  )
+}
+
 export interface ChoiceOption<T = string | number> {
   value: T
   label: string
