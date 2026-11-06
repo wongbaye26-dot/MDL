@@ -14,7 +14,7 @@
 | A2-06 | 身份模型：指纹（首尾采样+size+duration）、MediaStore id、legacy 映射、懒迁移 | ✅ 指纹回填 238/失败0/7529ms；legacy→fp 映射 238/238、碰撞0、id_map 238；主键切换/懒迁移未做 | 🟡 |
 | A2-07 | 三路扫描统一：MediaStore/SAF/直读目录 → repository；增量/失权/重复 | 🟡 扫描保存后影子 upsert（保留指纹+新曲增量补指纹）；身份映射/引用改写预演真机通过；真实扫描后影子/身份映射保持 238/238；三路扫描仍读旧 JSON 后再镜像，未改为直读 repository | 🟡 |
 | A2-08 | CUE 解析 + 样本 | ✅ `cue.ts` + 单测（FILE/TRACK/INDEX/时长） | 🟡 |
-| A2-09 | CUE 分段播放链路（虚拟 track、seek 偏移） | player 接入 + 真机 | ⏳ |
+| A2-09 | CUE 分段播放链路（虚拟 track、seek 偏移） | 🟡 虚拟 track 模型 + 单测完成（cueTracks）；播放器 seek/边界接入未做 | 🟡 |
 | A2-10 | 全量回归 + v3.10.0 发版（扫描/排序/播放/队列/M3U/歌词/回收） | release notes + tag | ⏳ |
 
 ## A2-02 开工前置（硬条件）

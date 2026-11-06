@@ -61,3 +61,38 @@ TRACK 02 AUDIO
   assert.equal(sheet.tracks.length, 1)
   assert.equal(sheet.tracks[0].title, 'A')
 })
+
+const { buildCueVirtualTracks, parseCueTrackId } = require('../src/core/localLibrary/cueTracks')
+
+test('cueTracks: 段 → 虚拟曲目，含偏移与时长', () => {
+  const sheet = parseCue(CUE)
+  const tracks = buildCueVirtualTracks(sheet, 'local_a.flac', 9 * 60 * 1000)
+  assert.equal(tracks.length, 3)
+  assert.equal(tracks[0].id, 'cue:local_a.flac:1')
+  assert.equal(tracks[0].title, '夜曲')
+  assert.equal(tracks[0].startMs, 0)
+  assert.equal(tracks[0].endMs, 225160)
+  assert.equal(tracks[0].interval, '03:45')
+  assert.equal(tracks[1].startMs, 225160)
+  assert.equal(tracks[1].performer, '周杰伦') // 段未写 performer 回退专辑艺人
+  assert.equal(tracks[2].endMs, 9 * 60 * 1000) // 最后一段由整轨时长兜底
+  assert.deepEqual(parseCueTrackId('cue:local_a.flac:2'), { audioId: 'local_a.flac', trackNumber: 2 })
+  assert.equal(parseCueTrackId('local_a.flac'), null)
+})
+
+const { mapRowToLocalTrack } = require('../src/core/localLibrary/mapTrack')
+
+test('mapRowToLocalTrack: DB 行 → MusicInfoLocal 字段映射', () => {
+  const item = mapRowToLocalTrack({
+    id: 'fp:abc', path: '/Music/a.flac', title: '夜曲', albumArtist: '周杰伦',
+    albumName: '十一月的萧邦', durationMs: 225160, format: 'flac', bitrate: 900000,
+    sampleRate: 44100, size: 1234, mtime: 5678, coverKey: 'cover_a', source: 'local',
+  })
+  assert.equal(item.id, 'fp:abc')
+  assert.equal(item.name, '夜曲')
+  assert.equal(item.singer, '周杰伦')
+  assert.equal(item.interval, '03:45')
+  assert.equal(item.meta.filePath, '/Music/a.flac')
+  assert.equal(item.meta.albumName, '十一月的萧邦')
+  assert.equal(item.meta.bitrate, '900000')
+})

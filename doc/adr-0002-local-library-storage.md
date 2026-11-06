@@ -269,3 +269,12 @@ CREATE TABLE recycle (
 | 合计 | **1,193 ms** |
 
 结论：满足「单条 <10ms、10k <30s」门禁，**A2-02 通过**。基准入口：设置 → 音乐工具 → 数据库自检（A-2 期间保留，切读前移除/隐藏）。
+
+## 9. 切读 feature flag 设计（A2-07 收尾）
+
+- 开关：`local_library_read_source_v1`，值 `json`（默认）| `repository`；
+- 读适配：`mapRowToLocalTrack` 把 DB 行恢复成 `MusicInfoLocal`，UI/播放/列表不改字段；
+- 写路径：新旧双写已具备（JSON + 影子表），切读前后都不变；
+- 回滚：把 flag 改回 `json` 并重启即可，旧 JSON 全程未删；
+- 切读门禁：迁移预演 counts/checksum 一致、引用改写冲突 0、真机回归扫描/排序/播放/收藏/歌单/回收通过；
+- 阶段：R0 适配层 + flag（默认 json）→ R1 真机内部验证 → R2 灰度 → R3 默认 repository → R4 删除旧 JSON（保留备份 N 版本）。
