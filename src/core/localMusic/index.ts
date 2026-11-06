@@ -1,5 +1,6 @@
 /* eslint-disable require-atomic-updates -- 扫描状态是模块级单例，只在扫描回调里整体更新 */
 import { canReuseScannedFile } from './scanDiff'
+import { scheduleShadowSync } from '@/core/localLibrary/shadow'
 import { useEffect, useState } from 'react'
 import { getData, saveData } from '@/plugins/storage'
 import { existsFile, extname, readDir, unlink } from '@/utils/fs'
@@ -24,6 +25,12 @@ import { resolveDownloadedCover } from './cover'
 
 /** 持久化存储键 */
 const STORAGE_KEY = 'local_music_list'
+
+/** 曲库写盘统一入口：旧 JSON 保存后异步写 SQLite 影子表（失败不影响主流程） */
+const saveLocalMusicList = async(list: LX.Music.MusicInfoLocal[]) => {
+  await saveLocalMusicList(list)
+  scheduleShadowSync(list)
+}
 /** 用户额外添加的扫描目录 */
 const DIRS_KEY = 'local_music_dirs'
 /**
@@ -647,7 +654,7 @@ export const scanLocalMusic = async(
   // 不会被半截数据覆盖（用户不会「扫一半发现歌少了一半」）
   cachedList = [...list]
   try {
-    await saveData(STORAGE_KEY, list)
+    await saveLocalMusicList(list)
   } finally {
     // 即使持久化失败（磁盘满等），也要把内存里的完整结果通知出去，
     // 否则界面会一直停在扫描中的半成品上
@@ -706,7 +713,7 @@ export const deleteLocalMusic = async(item: LX.Music.MusicInfoLocal, deleteFile:
   const newList = list.filter(m => m.id !== item.id)
   // getLocalMusicList 给的是副本，这里赋值不会动到别的页面已经拿走的数组
   cachedList = newList
-  await saveData(STORAGE_KEY, newList)
+  await saveLocalMusicList(newList)
   emitLocalMusicUpdated(newList)
 }
 
@@ -729,7 +736,7 @@ export const updateLocalMusicMeta = async(item: LX.Music.MusicInfoLocal, updates
   // 整条替换成新对象：页面里行的 memo 靠引用变化决定要不要重渲染
   list[index] = updated
   cachedList = list
-  await saveData(STORAGE_KEY, list)
+  await saveLocalMusicList(list)
   emitLocalMusicUpdated(list)
 }
 
@@ -776,7 +783,7 @@ export const addLocalMusicFile = async(item: {
   const info = await buildMusicInfo(entry)
   const next = [...list, info]
   cachedList = next
-  await saveData(STORAGE_KEY, next)
+  await saveLocalMusicList(next)
   emitLocalMusicUpdated(next)
 
   // 记进「待扫描确认」列表：系统索引有延迟时，下一次整库扫描不会把这条覆盖掉
@@ -826,7 +833,7 @@ export const updateLocalMusicFilePath = async(oldPath: string, newPath: string):
   // 整条替换成新对象：页面里行的 memo 靠引用变化决定要不要重渲染
   list[index] = updated
   cachedList = list
-  await saveData(STORAGE_KEY, list)
+  await saveLocalMusicList(list)
   emitLocalMusicUpdated(list)
 }
 
@@ -844,7 +851,7 @@ export const updateLocalMusicPic = async(filePath: string, picUrl: string): Prom
   // 整条替换成新对象：页面里行的 memo 靠引用变化决定要不要重渲染
   list[index] = updated
   cachedList = list
-  await saveData(STORAGE_KEY, list)
+  await saveLocalMusicList(list)
   emitLocalMusicUpdated(list)
 }
 

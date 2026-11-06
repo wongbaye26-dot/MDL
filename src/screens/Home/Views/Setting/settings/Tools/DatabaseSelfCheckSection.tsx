@@ -1,4 +1,4 @@
-import { memo, useCallback, useState } from 'react'
+import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { View } from 'react-native'
 
 import Text from '@/components/common/Text'
@@ -6,6 +6,8 @@ import { useTheme } from '@/store/theme/hook'
 import { createStyle } from '@/utils/tools'
 import { localLibraryRepository, type BenchmarkResult } from '@/core/localLibrary/repository'
 import { runMigrationDryRun, type MigrationPreview } from '@/core/localLibrary/migrate'
+import { getShadowStatus, syncShadowNow, type ShadowStatus } from '@/core/localLibrary/shadow'
+import { getLocalMusicList } from '@/core/localMusic'
 import { ButtonRow, Card, InfoLine, SecondaryButton } from './parts'
 
 /**
@@ -20,6 +22,7 @@ export default memo(() => {
   const [result, setResult] = useState<BenchmarkResult | null>(null)
   const [error, setError] = useState('')
   const [preview, setPreview] = useState<MigrationPreview | null>(null)
+  const [shadow, setShadow] = useState<ShadowStatus>(() => getShadowStatus())
 
   const run = useCallback(() => {
     if (running) return
@@ -42,6 +45,24 @@ export default memo(() => {
       .catch((err: unknown) => { setError(err instanceof Error ? err.message : String(err)) })
       .finally(() => { setRunning(false) })
   }, [running])
+
+  const runShadow = useCallback(() => {
+    if (running) return
+    setRunning(true)
+    setError('')
+    void getLocalMusicList()
+      .then(async list => { setShadow(await syncShadowNow(list)) })
+      .catch((err: unknown) => { setError(err instanceof Error ? err.message : String(err)) })
+      .finally(() => { setRunning(false) })
+  }, [running])
+
+  const autoRanRef = useRef(false)
+  useEffect(() => {
+    // A-2 自检：进入音乐工具时自动跑一次影子同步（仅开发入口，切读前移除）
+    if (autoRanRef.current) return
+    autoRanRef.current = true
+    runShadow()
+  }, [runShadow])
 
   const clearDb = useCallback(() => {
     if (running) return
@@ -74,6 +95,15 @@ export default memo(() => {
               : <Text size={11} color={theme['c-450']}>点下方按钮运行；不会写入真实曲库（固定 bench_ 前缀）。</Text>
         }
         {
+          shadow.lastAt
+            ? (
+              <Text size={11} color={theme['c-450']} style={styles.lines}>
+                {`\n影子表：写入 ${shadow.written} 首 / DB ${shadow.dbCount} 首 / ${shadow.durationMs} ms${shadow.error ? ` / 失败：${shadow.error}` : ''}`}
+              </Text>
+              )
+            : null
+        }
+        {
           preview
             ? (
               <Text size={11} color={theme['c-450']} style={styles.lines}>
@@ -88,6 +118,7 @@ export default memo(() => {
       </ButtonRow>
       <ButtonRow>
         <SecondaryButton label='迁移预演' icon='database-import-outline' disabled={running} onPress={runPreview} />
+        <SecondaryButton label='影子同步' icon='database-sync-outline' disabled={running} onPress={runShadow} />
         <SecondaryButton label='清空测试库' icon='database-remove-outline' danger disabled={running} onPress={clearDb} />
       </ButtonRow>
     </Card>
