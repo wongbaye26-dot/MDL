@@ -1,10 +1,8 @@
-import { memo } from 'react'
 import { View, TouchableOpacity } from 'react-native'
 
 import Text from '@/components/common/Text'
 import { Icon } from '@/components/common/Icon'
 import Section from '../components/Section'
-import SettingRow from '../components/SettingRow'
 import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
 import { useSettingValue } from '@/store/setting/hook'
@@ -24,42 +22,6 @@ const LANG_LABEL: Record<string, string> = {
 
 const onOff = (value: boolean | undefined) => value ? '开' : '关'
 
-/**
- * 设置首页「播放与下载」的入口卡：图标 + 标题 + 实时摘要 + 右箭头。
- * 和下面列表行的区别只是并排展示，点击后的跳转/入口完全不变。
- */
-const NavCard = memo(({ id, title, preview, onPress }: {
-  id: SettingScreenIds
-  title: string
-  preview: string
-  onPress: (id: SettingScreenIds) => void
-}) => {
-  const theme = useTheme()
-  const meta = SCREEN_META[id]
-
-  return (
-    <TouchableOpacity
-      style={{
-        ...styles.navCard,
-        backgroundColor: getCardBackground(theme),
-        borderColor: getCardBorder(theme),
-        ...getCardShadow(theme),
-      }}
-      activeOpacity={0.72}
-      onPress={() => { onPress(id) }}
-    >
-      <View style={[styles.navIcon, { backgroundColor: `${meta.color}24` }]}>
-        <Icon name={meta.icon} size={21} color={meta.color} />
-      </View>
-      <View style={styles.navText}>
-        <Text size={15.5} numberOfLines={1} style={styles.navTitle}>{title}</Text>
-        <Text size={9.5} color={theme['c-450']} numberOfLines={1} style={styles.navPreview}>{preview}</Text>
-      </View>
-      <Icon name='chevron-right' size={15} color={theme['c-350']} />
-    </TouchableOpacity>
-  )
-})
-
 export default ({ onPress }: { onPress: (id: SettingScreenIds) => void }) => {
   const theme = useTheme()
   const t = useI18n()
@@ -71,7 +33,6 @@ export default ({ onPress }: { onPress: (id: SettingScreenIds) => void }) => {
   const playQuality = useSettingValue('player.playQuality')
   const showHistory = useSettingValue('search.isShowHistorySearch')
   const showHot = useSettingValue('search.isShowHotSearch')
-  const showAlbumName = useSettingValue('list.isShowAlbumName')
   const downloadQuality = useSettingValue('download.quality')
   const maxDownloadNum = useSettingValue('download.maxDownloadNum')
   const autoSave = useSettingValue('download.autoSaveWhilePlaying')
@@ -103,43 +64,34 @@ export default ({ onPress }: { onPress: (id: SettingScreenIds) => void }) => {
   return (
     <View style={styles.container}>
       {
-        SCREEN_GROUPS.map((group, groupIndex) => (
-          <Section
-            key={group.title}
-            title={group.title}
-            icon={group.icon}
-            color={group.color}
-            card={groupIndex !== 0}
-          >
-            {
-              groupIndex === 0
-                ? (
-                  <View style={styles.dualRow}>
-                    {group.ids.map(id => (
-                      <NavCard
-                        key={id}
-                        id={id}
-                        title={t(`setting_${id}` as 'setting_basic')}
-                        preview={previews[id]}
-                        onPress={onPress}
-                      />
-                    ))}
-                  </View>
-                  )
-                : group.ids.map(id => {
+        SCREEN_GROUPS.map(group => (
+          <Section key={group.title} title={group.title} icon={group.icon} color={group.color} card={false}>
+            <View style={styles.tileGrid}>
+              {
+                group.ids.map(id => {
                   const meta = SCREEN_META[id]
                   return (
-                    <SettingRow
+                    <TouchableOpacity
                       key={id}
-                      icon={meta.icon}
-                      color={meta.color}
-                      title={t(`setting_${id}` as 'setting_basic')}
-                      desc={previews[id]}
+                      style={{
+                        ...styles.tile,
+                        backgroundColor: getCardBackground(theme),
+                        borderColor: getCardBorder(theme),
+                        ...getCardShadow(theme),
+                      }}
+                      activeOpacity={0.72}
                       onPress={() => { onPress(id) }}
-                    />
+                    >
+                      <View style={[styles.tileIcon, { backgroundColor: `${meta.color}22` }]}>
+                        <Icon name={meta.icon} size={20} color={meta.color} />
+                      </View>
+                      <Text size={14.5} numberOfLines={1} style={styles.tileTitle}>{t(`setting_${id}` as 'setting_basic')}</Text>
+                      <Text size={9.5} color={theme['c-450']} numberOfLines={2} style={styles.tilePreview}>{previews[id]}</Text>
+                    </TouchableOpacity>
                   )
                 })
-            }
+              }
+            </View>
           </Section>
         ))
       }
@@ -152,6 +104,33 @@ const styles = createStyle({
     paddingLeft: 18,
     paddingRight: 18,
     paddingTop: 0,
+  },
+  tileGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  tile: {
+    width: '48.6%',
+    minHeight: 96,
+    borderRadius: 20,
+    borderWidth: 0.5,
+    padding: 12,
+  },
+  tileIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  tileTitle: {
+    fontWeight: '600',
+  },
+  tilePreview: {
+    marginTop: 3,
+    lineHeight: 13,
   },
   dualRow: {
     flexDirection: 'row',

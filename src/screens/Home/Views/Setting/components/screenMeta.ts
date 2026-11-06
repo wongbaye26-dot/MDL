@@ -15,6 +15,17 @@ export const SCREEN_META: Record<SettingScreenIds, { icon: string, color: string
   misc: { icon: 'dots-horizontal-circle-outline', color: '#10B981' },
 }
 
+export const SCREEN_DESC: Record<SettingScreenIds, string> = {
+  playback: '播放行为、音质、倍速与缓存',
+  lyric: '歌词样式、翻译与蓝牙显示',
+  appearance: '主题、字体、动效与导航样式',
+  library: '列表显示与本地曲库工具',
+  sourcesearch: '音源、音质与搜索策略',
+  download: '下载目录、音质与附加文件',
+  system: '权限、电池优化与后台保活',
+  misc: '缓存、日志、更新与关于',
+}
+
 export interface ScreenGroup {
   title: string
   ids: SettingScreenIds[]

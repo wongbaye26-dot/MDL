@@ -278,7 +278,7 @@ export const FavoriteTabs = ({ tab, onChange, onCreate }: {
   ]
 
   return (
-    <View style={styles.headerTabs}>
+    <View style={[styles.headerTabs, { backgroundColor: theme['c-primary-alpha-900'] }]}>
       {
         items.map(item => {
           const active = tab === item.key
@@ -287,8 +287,7 @@ export const FavoriteTabs = ({ tab, onChange, onCreate }: {
               key={item.key}
               style={{
                 ...styles.headerTab,
-                backgroundColor: active ? theme['c-primary'] : theme['c-primary-alpha-900'],
-                borderColor: active ? theme['c-primary'] : theme['c-primary-alpha-700'],
+                backgroundColor: active ? theme['c-primary'] : 'transparent',
               }}
               activeOpacity={0.85}
               onPress={() => { if (!active) onChange(item.key) }}
@@ -311,14 +310,13 @@ export const FavoriteTabs = ({ tab, onChange, onCreate }: {
       <TouchableOpacity
         style={{
           ...styles.headerTab,
-          backgroundColor: theme['c-primary'],
-          borderColor: theme['c-primary'],
+          backgroundColor: theme['c-primary-alpha-800'],
         }}
         activeOpacity={0.85}
         onPress={onCreate}
       >
-        <Icon name='plus' size={12} color={contrastOn(theme['c-primary'])} style={styles.headerTabIcon} />
-        <Text size={11.5} color={contrastOn(theme['c-primary'])} numberOfLines={1}>新建歌单</Text>
+        <Icon name='plus' size={12} color={theme['c-primary']} style={styles.headerTabIcon} />
+        <Text size={11.5} color={theme['c-primary']} numberOfLines={1}>新建歌单</Text>
       </TouchableOpacity>
     </View>
   )
@@ -597,17 +595,19 @@ const styles = createStyle({
   headerTabs: {
     flexDirection: 'row',
     alignItems: 'center',
+    height: 34,
+    padding: 3,
+    borderRadius: 17,
+    gap: 2,
   },
   headerTab: {
     height: 28,
     flexDirection: 'row',
-    paddingLeft: 10,
-    paddingRight: 12,
+    paddingLeft: 8,
+    paddingRight: 9,
     borderRadius: 14,
-    borderWidth: 0.5,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 6,
   },
   headerTabIcon: {
     marginRight: 4,

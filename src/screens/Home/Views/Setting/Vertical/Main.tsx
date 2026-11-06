@@ -22,6 +22,7 @@ import Grid from './Grid'
 import { NAV_BAR_SPACE, HORIZONTAL_NAV_SPACE } from '@/config/constant'
 import { getSolidBackground } from '@/theme/solid'
 import { SETTINGS_HEADER_H } from '../components/headerMetrics'
+import { SCREEN_DESC } from '../components/screenMeta'
 import settingState from '@/store/setting/state'
 import type { InitState as CommonState } from '@/store/common/state'
 import useSwipeBack from '../useSwipeBack'
@@ -146,7 +147,10 @@ export default () => {
                     >
                       <Icon name='chevron-left-2' size={20} color={theme['c-font']} />
                     </TouchableOpacity>
-                    <Text size={20} style={styles.modalTitle}>{t(`setting_${activeId}` as 'setting_basic')}</Text>
+                    <View style={styles.modalTitleWrap}>
+                      <Text size={19} style={styles.modalTitle}>{t(`setting_${activeId}` as 'setting_basic')}</Text>
+                      <Text size={10} color={theme['c-450']} numberOfLines={1} style={styles.modalDesc}>{SCREEN_DESC[activeId]}</Text>
+                    </View>
                   </View>
                   <ScrollView
                     contentContainerStyle={styles.modalContent}
@@ -189,10 +193,16 @@ const styles = createStyle({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  modalTitleWrap: {
+    flex: 1,
+    marginLeft: 12,
+  },
   modalTitle: {
     fontWeight: '700',
     letterSpacing: 0.2,
-    marginLeft: 12,
+  },
+  modalDesc: {
+    marginTop: 2,
   },
   modalContent: {
     paddingLeft: 20,

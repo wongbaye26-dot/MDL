@@ -28,6 +28,7 @@ export default memo(({
   tint,
   isDark = true,
   seamless = false,
+  flat = false,
 }: {
   mode?: LiquidGlassMode
   radius?: number
@@ -36,6 +37,8 @@ export default memo(({
   isDark?: boolean
   /** 无缝表头：去掉底部内阴影和描边，只保留顶部高光，避免和页面之间出现一条线 */
   seamless?: boolean
+  /** 仅模糊+色调（无顶部高光/内阴影/描边），用于表头下方的延伸区 */
+  flat?: boolean
 }) => {
   if (mode === 'none') return null
 
@@ -52,14 +55,20 @@ export default memo(({
         深色下还会露出一条硬边光线（顶部 1.2dp / 底部 1dp 的实线）。
         现在把这些软渐变收进 LiquidGlass，并删掉两条实线，只留 0.5dp 极淡描边。
       */}
-      <LinearGradient
+      {
+        flat
+          ? null
+          : (
+            <LinearGradient
         colors={isDark
           ? ['rgba(255,255,255,0.13)', 'rgba(255,255,255,0.04)', 'rgba(255,255,255,0)']
           : ['rgba(255,255,255,0.28)', 'rgba(255,255,255,0.07)', 'rgba(255,255,255,0)']}
         locations={[0, 0.5, 1]}
         style={styles.gloss}
         pointerEvents='none'
-      />
+            />)
+      }
+
       {
         seamless
           ? null

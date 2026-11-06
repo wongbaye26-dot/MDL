@@ -1299,10 +1299,11 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
       {...(hasClose ? panResponder.panHandlers : null)}
     >
       <View style={styles.container}>
+      <View style={styles.glassTop}>
+        <LiquidGlass mode={glassStyle} blurRadius={24} radius={0} tint={theme.isDark ? 'rgba(20,16,28,0.42)' : 'rgba(255,255,255,0.34)'} isDark={theme.isDark} seamless />
       {/* 作为主 Tab 用时补一个统一页头；从下载中心弹出来时不需要（那个是整屏子页） */}
       {hasClose ? null : (
         <PageHeader
-          glass
           title='本地音乐'
           subtitle={(
             <View style={styles.headerTags}>
@@ -1561,7 +1562,6 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
               )
             : (
               <View style={styles.tabBar}>
-                <LiquidGlass mode={glassStyle} blurRadius={24} radius={0} tint={theme.isDark ? 'rgba(20,16,28,0.42)' : 'rgba(255,255,255,0.34)'} isDark={theme.isDark} seamless />
                 <LocalTabs
                   active={tab}
                   onChange={key => {
@@ -1598,7 +1598,6 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
         !searching && !detail
           ? (
             <View style={styles.viewTools}>
-              <LiquidGlass mode={glassStyle} blurRadius={24} radius={0} tint={theme.isDark ? 'rgba(20,16,28,0.42)' : 'rgba(255,255,255,0.34)'} isDark={theme.isDark} seamless />
               <TouchableOpacity
                 style={styles.viewToolBtn}
                 activeOpacity={0.75}
@@ -1639,6 +1638,8 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
             )
           : null
       }
+
+      </View>
 
       <FlatList
         ref={flatListRef}
@@ -2184,6 +2185,9 @@ const styles = createStyle({
     borderRadius: 3,
   },
   /** 页签行（列表/卡片切换已移除，只剩页签） */
+  glassTop: {
+    zIndex: 20,
+  },
   tabBar: {
     flexDirection: 'row',
     alignItems: 'center',

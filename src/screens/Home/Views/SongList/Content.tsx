@@ -156,7 +156,7 @@ export default () => {
   return (
     <View style={styles.container}>
       <View style={styles.filters}>
-        <LiquidGlass mode={glassStyle} blurRadius={24} radius={0} tint={theme.isDark ? 'rgba(20,16,28,0.42)' : 'rgba(255,255,255,0.34)'} isDark={theme.isDark} seamless />
+        <LiquidGlass mode={glassStyle} blurRadius={24} radius={0} tint={theme.isDark ? 'rgba(20,16,28,0.42)' : 'rgba(255,255,255,0.34)'} isDark={theme.isDark} seamless flat />
         {/* 排序 + 分类（同一排横向滚动，细竖线分隔两组；来源图标已移到页头标题右侧） */}
         <ScrollView
           horizontal
