@@ -9,6 +9,7 @@ import { runMigrationDryRun, type MigrationPreview } from '@/core/localLibrary/m
 import { getShadowStatus, syncShadowNow, type ShadowStatus } from '@/core/localLibrary/shadow'
 import { getLocalMusicList } from '@/core/localMusic'
 import { createLibraryBackup, getBackupInfo, runRollbackDrill, type BackupInfo, type RollbackDrillResult } from '@/core/localLibrary/backup'
+import { backfillIdentities, type BackfillResult } from '@/core/localLibrary/backfill'
 import { ButtonRow, Card, InfoLine, SecondaryButton } from './parts'
 
 const WARN_COLOR = '#E8A33D'
@@ -28,6 +29,7 @@ export default memo(() => {
   const [shadow, setShadow] = useState<ShadowStatus>(() => getShadowStatus())
   const [backup, setBackup] = useState<BackupInfo | null>(null)
   const [drill, setDrill] = useState<RollbackDrillResult | null>(null)
+  const [backfill, setBackfill] = useState<BackfillResult | null>(null)
 
   const run = useCallback(() => {
     if (running) return
@@ -56,7 +58,12 @@ export default memo(() => {
     setRunning(true)
     setError('')
     void getLocalMusicList()
-      .then(async list => { setShadow(await syncShadowNow(list)) })
+      .then(async list => {
+        setShadow(await syncShadowNow(list))
+        // A-2 自检序列：影子 → 回滚演练 → 指纹回填（仅开发入口）
+        setDrill(await runRollbackDrill())
+        setBackfill(await backfillIdentities(list))
+      })
       .catch((err: unknown) => { setError(err instanceof Error ? err.message : String(err)) })
       .finally(() => { setRunning(false) })
   }, [running])
@@ -91,16 +98,6 @@ export default memo(() => {
       .catch((err: unknown) => { setError(err instanceof Error ? err.message : String(err)) })
       .finally(() => { setRunning(false) })
   }, [running])
-
-  const autoDrillRef = useRef(false)
-  useEffect(() => {
-    // A-2 自检：影子同步完成后自动跑一次回滚演练（清 DB → 旧 JSON 重建）
-    if (autoDrillRef.current) return
-    if (drill != null) return
-    if (!shadow.lastAt) return
-    autoDrillRef.current = true
-    runDrill()
-  }, [shadow.lastAt, drill, runDrill])
 
   const clearDb = useCallback(() => {
     if (running) return
@@ -155,6 +152,15 @@ export default memo(() => {
             ? (
               <Text size={11} color={drill.ok ? theme['c-450'] : WARN_COLOR} style={styles.lines}>
                 {`\n回滚演练：DB ${drill.beforeDb} → 清空 → ${drill.afterDb}\n旧 JSON ${drill.listCount} 首 · 缺失 ${drill.missing} / 多余 ${drill.extra} · ${drill.durationMs} ms${drill.error ? `\n失败：${drill.error}` : ''}`}
+              </Text>
+              )
+            : null
+        }
+        {
+          backfill
+            ? (
+              <Text size={11} color={theme['c-450']} style={styles.lines}>
+                {`\n指纹回填：${backfill.fingerprint} 首 / 媒体回退 ${backfill.media} / 旧 id ${backfill.legacy} / 失败 ${backfill.failed} / ${backfill.durationMs} ms`}
               </Text>
               )
             : null

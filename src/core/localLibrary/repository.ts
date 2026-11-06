@@ -346,6 +346,20 @@ class LocalLibraryRepository {
     })
   }
 
+  /** 回填指纹（id 暂不切换，A2-07 切读时再改主键） */
+  async updateTrackFingerprint(legacyId: string, fingerprint: string): Promise<number> {
+    const db = await this.open()
+    let affected = 0
+    await this.transaction(db, tx => {
+      exec(tx,
+        'UPDATE tracks SET fingerprint = ?, updated_at = ? WHERE legacy_id = ? OR id = ?',
+        [fingerprint, Date.now(), legacyId, legacyId],
+        (_, result) => { affected = result.rowsAffected },
+      )
+    })
+    return affected
+  }
+
   /** 仅用于 A-2 迁移预演/自检，清空曲库与列表表（不动回收站文件） */
   async clearAll(): Promise<void> {
     const db = await this.open()

@@ -45,15 +45,15 @@ export const computeFileFingerprint = async(
 export const resolveTrackIdentity = async(item: {
   id: string
   interval?: string | null
-  meta: { filePath: string, size?: number, contentUri?: string | null, songId?: string | null }
+  meta: { filePath: string, size?: number, contentUri?: string | null, songId?: string | number | null }
 }): Promise<TrackIdentity> => {
   const durationMs = parseInterval(item.interval)
   const fingerprint = await computeFileFingerprint(item.meta.filePath, durationMs, item.meta.size)
   if (fingerprint) return { id: fingerprint, kind: 'fingerprint', fingerprint, legacyId: item.id }
   const mediaId = item.meta.contentUri ?? item.meta.songId
-  if (mediaId) {
-    const id = `media:${mediaId}`
-    return { id, kind: 'media', mediaId, legacyId: item.id }
+  if (mediaId != null) {
+    const id = `media:${String(mediaId)}`
+    return { id, kind: 'media', mediaId: String(mediaId), legacyId: item.id }
   }
   return { id: item.id, kind: 'legacy', legacyId: item.id }
 }
