@@ -4,6 +4,10 @@ EmoMusic 是基于 lxmusic 开源项目二次开发的独立项目，直接使�
 
 ## v3.9.x（本地音乐管理与播放 2.0 + 阶段 U UI/动效）
 
+### v3.10.0
+- **A-2 存储/迁移里程碑**：R1 默认读 SQLite、断电恢复演练、CUE 起播/段末切段、回收站清空、设置 8 分类与下载中心 UI 全部真机回归通过。
+- tracks.id 主键切换 + 引用迁移、歌词偏移听感列入 A-3 遗留项。
+
 ### v3.9.27
 - **严重修复**：`saveLocalMusicList` 误调用自身导致任何曲库写盘（增/删/扫描/回收站移入）都 `Maximum call stack size exceeded`；改为写 `saveData(STORAGE_KEY, list)` 后再影子同步。
 
