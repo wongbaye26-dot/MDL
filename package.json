@@ -78,7 +78,10 @@
     "react-native-svg": "^14.1.0",
     "react-native-track-player": "file:../vendor/react-native-track-player",
     "react-native-vector-icons": "10.2.0",
-    "react-native-sqlite-2": "3.6.3"
+    "react-native-sqlite-2": "3.6.3",
+    "websql": "^2.0.3",
+    "lodash.map": "^4.6.0",
+    "lodash.zipobject": "^4.1.3"
   },
   "devDependencies": {
     "@babel/core": "^7.29.0",

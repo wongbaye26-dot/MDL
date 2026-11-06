@@ -15,6 +15,7 @@ import LyricFixSection from './LyricFixSection'
 import InvalidEntriesSection from './InvalidEntriesSection'
 import HiddenSection from './HiddenSection'
 import RecycleSection from './RecycleSection'
+import DatabaseSelfCheckSection from './DatabaseSelfCheckSection'
 import DuplicateSection from './DuplicateSection'
 import RenameSection from './RenameSection'
 
@@ -142,6 +143,7 @@ export default memo(() => {
       <InvalidEntriesSection health={health} scanning={scanning} onChanged={handleChanged} />
       <HiddenSection />
       <RecycleSection />
+      <DatabaseSelfCheckSection />
       <DuplicateSection health={health} scanning={scanning} onChanged={handleChanged} />
       <RenameSection health={health} scanning={scanning} onChanged={handleChanged} />
 

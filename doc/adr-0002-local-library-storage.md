@@ -254,3 +254,18 @@ CREATE TABLE recycle (
 
 - 若运行期基准不达标（单条 >10ms、10k >30s），退回「JSON + 派生索引」或重新评估新架构；
 - 在 repository 层封装 Promise API，禁止业务代码直接用 WebSQL 回调。
+
+### A2-02 运行期基准（2026-11-07，v3.9.2 开发包）
+
+真机：Samsung SM-S938B / Android 17 / arm64-v8a；`react-native-sqlite-2` 3.6.3；10,000 首插入：
+
+| 指标 | 实测 |
+|---|---|
+| 插入 10k（单事务） | **1,141 ms** |
+| COUNT | 2 ms |
+| 专辑 GROUP BY | 9 ms |
+| 批量 UPDATE 10k | 13 ms |
+| DELETE 10k | 28 ms |
+| 合计 | **1,193 ms** |
+
+结论：满足「单条 <10ms、10k <30s」门禁，**A2-02 通过**。基准入口：设置 → 音乐工具 → 数据库自检（A-2 期间保留，切读前移除/隐藏）。
