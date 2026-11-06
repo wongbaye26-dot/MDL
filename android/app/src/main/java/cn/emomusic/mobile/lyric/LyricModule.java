@@ -1,22 +1,21 @@
 package cn.emomusic.mobile.lyric;
 
-import android.content.Intent;
-import android.net.Uri;
-import android.os.Build;
-import android.provider.Settings;
 import android.util.Log;
 
-import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
-import com.facebook.react.bridge.ReadableMap;
 
+/**
+ * 蓝牙 / 锁屏歌词（媒体会话歌词）桥接。
+ *
+ * 桌面悬浮歌词窗口（LyricView + SYSTEM_ALERT_WINDOW）已下架，
+ * 这里只保留「把当前行歌词通过媒体会话发出去」所需的最小能力。
+ */
 public class LyricModule extends ReactContextBaseJavaModule {
   private final ReactApplicationContext reactContext;
   Lyric lyric;
-  // final Map<String, Object> constants = new HashMap<>();
 
   boolean isShowTranslation = false;
   boolean isShowRoma = false;
@@ -27,15 +26,6 @@ public class LyricModule extends ReactContextBaseJavaModule {
   LyricModule(ReactApplicationContext reactContext) {
     super(reactContext);
     this.reactContext = reactContext;
-
-    // constants.put("THEME_GREEN", "#07c556");
-    // constants.put("THEME_YELLOW", "#fffa12");
-    // constants.put("THEME_BLUE", "#19b5fe");
-    // constants.put("THEME_RED", "#ff1222");
-    // constants.put("THEME_PINK", "#f1828d");
-    // constants.put("THEME_PURPLE", "#c851d4");
-    // constants.put("THEME_ORANGE", "#fffa12");
-    // constants.put("THEME_GREY", "#bdc3c7");
   }
 
   @Override
@@ -43,38 +33,14 @@ public class LyricModule extends ReactContextBaseJavaModule {
     return "LyricModule";
   }
 
-//  @Override
-//  public Map<String, Object> getConstants() {
-//    return constants;
-//  }
-
   @ReactMethod
   public void addListener(String eventName) {
-    if (listenerCount == 0) {
-      // Set up any upstream listeners or background tasks as necessary
-    }
-
     listenerCount += 1;
   }
 
   @ReactMethod
   public void removeListeners(Integer count) {
     listenerCount -= count;
-    if (listenerCount == 0) {
-      // Remove upstream listeners, stop unnecessary background tasks
-    }
-  }
-
-  @ReactMethod
-  public void showDesktopLyric(ReadableMap data, Promise promise) {
-    if (lyric == null) lyric = new Lyric(reactContext, isShowTranslation, isShowRoma, playbackRate);
-    lyric.showDesktopLyric(Arguments.toBundle(data), promise);
-  }
-
-  @ReactMethod
-  public void hideDesktopLyric(Promise promise) {
-    if (lyric != null) lyric.hideDesktopLyric();
-    promise.resolve(null);
   }
 
   @ReactMethod
@@ -84,11 +50,8 @@ public class LyricModule extends ReactContextBaseJavaModule {
     promise.resolve(null);
   }
 
-
   @ReactMethod
   public void setLyric(String lyric, String translation, String romaLyric, Promise promise) {
-    // Log.d("Lyric", "set lyric: " + lyric);
-    // Log.d("Lyric", "set lyric translation: " + translation);
     if (this.lyric != null) this.lyric.setLyric(lyric, translation, romaLyric);
     promise.resolve(null);
   }
@@ -123,86 +86,7 @@ public class LyricModule extends ReactContextBaseJavaModule {
 
   @ReactMethod
   public void pause(Promise promise) {
-    Log.d("Lyric", "play pause");
     if (lyric != null) lyric.pauseLyric();
     promise.resolve(null);
   }
-
-  @ReactMethod
-  public void toggleLock(boolean isLock, Promise promise) {
-    if (lyric != null) {
-      if (isLock) {
-        lyric.lockLyric();
-      } else {
-        lyric.unlockLyric();
-      }
-    }
-    promise.resolve(null);
-  }
-
-  @ReactMethod
-  public void setColor(String unplayColor, String playedColor, String shadowColor, Promise promise) {
-    if (lyric != null) lyric.setPlayedColor(unplayColor, playedColor, shadowColor);
-    promise.resolve(null);
-  }
-
-  @ReactMethod
-  public void setAlpha(float alpha, Promise promise) {
-    if (lyric != null) lyric.setAlpha(alpha);
-    promise.resolve(null);
-  }
-
-  @ReactMethod
-  public void setTextSize(float size, Promise promise) {
-    if (lyric != null) lyric.setTextSize(size);
-    promise.resolve(null);
-  }
-
-  @ReactMethod
-  public void setMaxLineNum(int maxLineNum, Promise promise) {
-    if (lyric != null) lyric.setMaxLineNum(maxLineNum);
-    promise.resolve(null);
-  }
-
-  @ReactMethod
-  public void setSingleLine(boolean singleLine, Promise promise) {
-    if (lyric != null) lyric.setSingleLine(singleLine);
-    promise.resolve(null);
-  }
-
-  @ReactMethod
-  public void setShowToggleAnima(boolean showToggleAnima, Promise promise) {
-    if (lyric != null) lyric.setShowToggleAnima(showToggleAnima);
-    promise.resolve(null);
-  }
-
-  @ReactMethod
-  public void setWidth(int width, Promise promise) {
-    if (lyric != null) lyric.setWidth(width);
-    promise.resolve(null);
-  }
-
-  @ReactMethod
-  public void setLyricTextPosition(String positionX, String positionY, Promise promise) {
-    if (lyric != null) lyric.setLyricTextPosition(positionX, positionY);
-    promise.resolve(null);
-  }
-
-  @ReactMethod
-  public void checkOverlayPermission(Promise promise) {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(reactContext)) {
-      promise.reject(new Exception("Permission denied"));
-    }
-    promise.resolve(null);
-  }
-
-  @ReactMethod
-  public void openOverlayPermissionActivity(Promise promise) {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(reactContext)) {
-      Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + reactContext.getApplicationContext().getPackageName()));
-      reactContext.startActivityForResult(intent, 1, null);
-    }
-    promise.resolve(null);
-  }
-
 }

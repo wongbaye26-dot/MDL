@@ -34,6 +34,74 @@ const sh = (cmd, cwd = ROOT) => execSync(cmd, { cwd, stdio: 'inherit' })
 const readPkg = () => JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'))
 const writePkg = (pkg) => fs.writeFileSync(path.join(ROOT, 'package.json'), JSON.stringify(pkg, null, 2) + '\n')
 
+const CHANGELOG_PATH = path.join(ROOT, 'CHANGELOG.md')
+/** 去掉 Markdown 强调/链接，只留可读文本 */
+const stripMd = (text) => text
+  .replace(/\*\*/g, '')
+  .replace(/`/g, '')
+  .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+  .trim()
+
+/**
+ * 从 CHANGELOG.md 里解析「### vX.Y.Z + 下面几条 - 」，
+ * 用于自动生成 publish/version.json（App 内更新弹窗读它）。
+ */
+const parseChangelog = () => {
+  if (!fs.existsSync(CHANGELOG_PATH)) return []
+  const text = fs.readFileSync(CHANGELOG_PATH, 'utf8')
+  const headings = [...text.matchAll(/^### v?([\d.]+)\s*$/gm)]
+  const sections = []
+  for (let i = 0; i < headings.length; i++) {
+    const start = headings[i].index + headings[i][0].length
+    const end = i + 1 < headings.length ? headings[i + 1].index : text.length
+    const lines = text.slice(start, end)
+      .split(/\r?\n/)
+      .map(line => line.trim())
+      .filter(line => line.startsWith('- '))
+      .map(line => stripMd(line.replace(/^-\s*/, '')))
+      .filter(Boolean)
+    if (!lines.length) continue
+    // 更新弹窗里显示 4 条足够，太长会把弹窗撑满
+    sections.push({ version: headings[i][1], desc: lines.slice(0, 4).join('\n') })
+  }
+  return sections
+}
+
+/** CHANGELOG 还没补当前版本时，退回读 doc/release-notes-X.md */
+const readReleaseNotesDesc = (version) => {
+  const file = path.join(ROOT, 'doc', `release-notes-${version}.md`)
+  if (!fs.existsSync(file)) return ''
+  const lines = fs.readFileSync(file, 'utf8').split(/\r?\n/).map(line => line.trim())
+  const bullets = lines
+    .filter(line => line.startsWith('- '))
+    .map(line => stripMd(line.replace(/^-\s*/, '')))
+    .filter(Boolean)
+    .slice(0, 4)
+  if (bullets.length) return bullets.join('\n')
+  const first = lines.find(line => line && !line.startsWith('#') && !line.startsWith('>') && !line.startsWith('---'))
+  return first ? stripMd(first) : ''
+}
+
+/**
+ * 把当前版本写进 publish/version.json。
+ *
+ * 这是 App 内「检查更新」的数据源（src/utils/version.js 直接读它）。
+ * 以前靠手改，v3.6.4 之后就一直没更新，导致 3.8.x 的包永远检测不到新版本。
+ */
+const writePublishVersion = (version) => {
+  const sections = parseChangelog()
+  const current = sections.find(item => item.version === version)
+  const desc = current?.desc || readReleaseNotesDesc(version) || `EmoMusic v${version}`
+  const history = sections
+    .filter(item => item.version !== version && item.desc)
+    .slice(0, 5)
+    .map(item => ({ version: item.version, desc: item.desc }))
+  const payload = { version, desc, history }
+  const file = path.join(ROOT, 'publish/version.json')
+  fs.writeFileSync(file, JSON.stringify(payload, null, 2) + '\n')
+  console.log(`  → publish/version.json 已更新到 v${version}（history ${history.length} 条）`)
+}
+
 /** 升版本号：patch / minor / major */
 const bump = (type) => {
   const pkg = readPkg()
@@ -58,6 +126,8 @@ const main = () => {
     console.log('\n▶ 前置检查 …')
     sh('npx tsc --noEmit -p tsconfig.json')
     console.log('  ✓ 类型检查通过')
+    sh('npm run lint')
+    console.log('  ✓ ESLint 通过')
     sh('node dependencies-patch.js --strict')
     console.log('  ✓ 依赖补丁全部生效')
 
@@ -98,6 +168,11 @@ const main = () => {
     copied += 1
   }
   if (!copied) throw new Error('一个包都没归档，检查构建是否成功')
+
+  // 更新 App 内检查更新的数据源；放在归档成功之后，避免构建/归档失败时
+  // 把 version.json 提前推到下一个版本，导致老包检测到「不存在的更新」。
+  console.log('\n▶ 更新 publish/version.json …')
+  writePublishVersion(version)
 
   // 瘦身：只保留最近 N 个版本
   const versions = [...new Set(

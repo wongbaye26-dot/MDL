@@ -80,5 +80,8 @@ module.exports = {
     '*.min.js',
     'test.js',
     '*Test.ts',
+    // 第三方压缩词典（388KB，单行），不是手写源码，不参与 lint；
+    // 否则 `npm run lint` 会在这个文件上直接报 1000+ 格式错误。
+    'src/utils/jyutping/index.js',
   ],
 }
