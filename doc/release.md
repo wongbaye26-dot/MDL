@@ -11,8 +11,14 @@ node scripts/release.js --keep 3            # 只保留最近 3 个版本
 node scripts/release.js --prune-delete      # 旧版本直接删（默认移到 dist-archive）
 ```
 
-脚本做的事：改版本号 → 强制重打 JS bundle → `assembleRelease` → 把 `arm64-v8a` 和 `universal`
-拷成 `dist/EmoMusic-v<版本>-<abi>.apk` → 把超出保留数的旧版本移到 `dist-archive/`。
+脚本做的事：改版本号 → 前置检查（`tsc` / `npm run lint` / 依赖补丁）→ 强制重打 JS bundle →
+`assembleRelease` → 把 `arm64-v8a` / `armeabi-v7a` / `universal` 拷成 `dist/EmoMusic-v<版本>-<abi>.apk` →
+从 `CHANGELOG.md` 生成 `publish/version.json`（App 内「检查更新」的数据源）→ 把超出保留数的旧版本移到 `dist-archive/`。
+
+> **更新链路**：关于页的「检查更新」读 `publish/version.json`，下载地址指向 GitHub Release 的
+> `em-music-v<版本>-<abi>.apk`。所以发版时要**先跑 `node scripts/release.js --bump patch`，把
+> `package.json` + `publish/version.json` 一起提交**，再推 `master`；CI 会建 tag、GitHub Release 并上传三个 APK。
+> 只推代码不跑 release.js，线上 App 检测不到新版本。
 
 > **装包时注意**：`arm64-v8a` 的 versionCode 带 ABI 后缀（如 `146003`），能覆盖升级；
 > `universal` 的 versionCode 是裸的 `146`，**低于**已装版本会报「降级」，
