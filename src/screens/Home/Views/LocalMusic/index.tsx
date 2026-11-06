@@ -76,10 +76,6 @@ const WARN_COLOR = '#E8A33D'
  * 曲库可能上千首，一帧挂几千行会把主线程堵死，所以封顶 600 行，
  * 超出的部分交给虚拟化按批补（正常滚动时会补，只是不能指望它兜底）。
  */
-const MAX_INITIAL_ROWS = 600
-/** 滚动时每批补多少行（比 RN 默认的 10 大，快滑时不容易出现空白） */
-const MAX_RENDER_BATCH = 40
-
 /** 浏览层级（Poweramp 那种：最近添加 / 专辑 / 艺人 / 文件夹树 / 全部） */
 const TABS = [
   { key: 'song', label: '全部歌曲', icon: 'music-note' },
@@ -167,12 +163,6 @@ export default ({ onClose, initialTab, onOpenFavorites }: { onClose?: () => void
   /** 搜索改为页头按钮触发：不打开时列表保持满宽（不再常驻搜索条） */
   const [searchOpen, setSearchOpen] = useState(false)
   const statusBarHeight = useStatusbarHeight()
-  /**
-   * 列表用「延迟版」的页签：
-   * 切页签要重建几百行 + 拉几十张封面，同步做会把主线程占满（点了像卡住）。
-   * 页签高亮走即时状态，列表重建走低优先级渲染，点下去先看到按钮变化。
-   */
-  const deferredTab = useDeferredValue(tab)
   /** 专辑 / 艺人的二级页 */
   const [detail, setDetail] = useState<{ type: 'album' | 'artist', title: string } | null>(null)
   /** 文件夹树当前目录（null = 根） */
@@ -519,14 +509,14 @@ export default ({ onClose, initialTab, onOpenFavorites }: { onClose?: () => void
     }
 
     // 最近添加：按文件修改时间倒序
-    if (deferredTab === 'recent') {
+    if (tab === 'recent') {
       return [...songSource].sort(compareSongs).map(item => toSongRow(item))
     }
 
-    if (deferredTab === 'song') return songSource.map((item, i) => toSongRow(item, i))
+    if (tab === 'song') return songSource.map((item, i) => toSongRow(item, i))
 
     // 文件夹：只列「直接装了歌」的目录（不再逐层钻），点进去就是这一层的歌
-    if (deferredTab === 'folder') {
+    if (tab === 'folder') {
       if (folderPath && folderTree.has(folderPath)) {
         return sortSongs(folderTree.get(folderPath)?.songs ?? []).map(item => toSongRow(item))
       }
@@ -552,7 +542,7 @@ export default ({ onClose, initialTab, onOpenFavorites }: { onClose?: () => void
       const position = indexOfId.get(coverId)
       return position == null ? undefined : list[position]
     }
-    if (deferredTab === 'album') {
+    if (tab === 'album') {
       return Object.values(libraryIndex.albums)
         .sort((a, b) => {
           let result = 0
@@ -596,7 +586,7 @@ export default ({ onClose, initialTab, onOpenFavorites }: { onClose?: () => void
         count: artist.count,
         cover: coverOf(artist.coverId),
       }))
-  }, [detail, deferredTab, filteredList, list, indexOfId, folderTree, folderPath, searchResults, libraryIndex, tabSort, compareSongs, sortSongs])
+  }, [detail, tab, filteredList, list, indexOfId, folderTree, folderPath, searchResults, libraryIndex, tabSort, compareSongs, sortSongs])
 
   const letterBarVisible = tab === 'song' && !detail && !searchKeyword && !searchOpen
 
@@ -1274,6 +1264,7 @@ export default ({ onClose, initialTab, onOpenFavorites }: { onClose?: () => void
       {/* 作为主 Tab 用时补一个统一页头；从下载中心弹出来时不需要（那个是整屏子页） */}
       {hasClose ? null : (
         <PageHeader
+          glass
           title='本地音乐'
           subtitle={(
             <View style={styles.headerTags}>
@@ -1296,7 +1287,7 @@ export default ({ onClose, initialTab, onOpenFavorites }: { onClose?: () => void
                   }
                 }}
               >
-                <Icon name='heart-outline' size={19} color={theme['c-border-background']} />
+                <Icon name='heart-outline' size={19} color={theme['c-font']} />
               </TouchableOpacity>
               {/* 文件夹图标回归：直接进「扫描文件夹」面板，不用先展开搜索 */}
               <TouchableOpacity
@@ -1645,10 +1636,10 @@ export default ({ onClose, initialTab, onOpenFavorites }: { onClose?: () => void
           曲库上千首时封顶 600 行，剩下的交给虚拟化按批补，
           避免一帧挂几千行把主线程堵死。
         */
-        initialNumToRender={tab === 'song' ? Math.min(rows.length, MAX_INITIAL_ROWS) : 18}
-        maxToRenderPerBatch={tab === 'song' ? MAX_RENDER_BATCH : 8}
+        initialNumToRender={tab === 'song' ? Math.min(rows.length, 24) : 15}
+        maxToRenderPerBatch={8}
         updateCellsBatchingPeriod={40}
-        windowSize={tab === 'song' ? 21 : 9}
+        windowSize={4}
         removeClippedSubviews={false}
         scrollEventThrottle={32}
         onScroll={e => { scrollY.current = e.nativeEvent.contentOffset.y }}

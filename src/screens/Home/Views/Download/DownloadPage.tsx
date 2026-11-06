@@ -124,6 +124,7 @@ export default () => {
   return (
     <View style={styles.container}>
       <PageHeader
+        glass
         title='下载中心'
         subtitle={(
           <View style={styles.headerTags}>

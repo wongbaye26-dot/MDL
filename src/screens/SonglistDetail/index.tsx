@@ -50,6 +50,7 @@ export default ({ componentId, info }: { componentId: string, info: ListInfoItem
       {/* 多选插槽要包住整个页面：MultipleModeBar 在列表里，只包 Header 它读不到 */}
       <SelectionBarSlotContext.Provider value>
         <PageHeader
+          glass
           title={info.name || '歌单'}
           right={<SelectionBarSlot />}
         />

@@ -51,6 +51,7 @@ export default ({ title, titleRight, onClose: _onClose, right, children }: {
         */}
         <SelectionBarSlotContext.Provider value>
           <PageHeader
+            glass
             title={title}
             titleRight={titleRight}
             right={(

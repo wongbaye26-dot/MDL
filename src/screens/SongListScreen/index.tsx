@@ -25,6 +25,7 @@ export default ({ componentId: _componentId }: { componentId: string }) => {
     <PageContent>
       <StatusBar />
       <PageHeader
+        glass
         title='歌单广场'
         right={(
           <View style={styles.headerRight}>

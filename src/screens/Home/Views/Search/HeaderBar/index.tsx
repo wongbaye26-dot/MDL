@@ -6,6 +6,8 @@ import { SourceChip } from '@/components/common/SourceLogo'
 import { Icon } from '@/components/common/Icon'
 import { useTheme } from '@/store/theme/hook'
 import { useStatusbarHeight } from '@/store/common/hook'
+import { useSettingValue } from '@/store/setting/hook'
+import LiquidGlass from '@/components/common/LiquidGlass'
 import { useSourceListI18n } from '@/components/SourceSelector'
 import { useKeyboard } from '@/utils/hooks'
 import SearchInput, { type SearchInputType, type SearchInputProps } from './SearchInput'
@@ -39,6 +41,7 @@ export default forwardRef<HeaderBarType, HeaderBarProps>(({
   onShowTipList,
 }, ref) => {
   const theme = useTheme()
+  const glassStyle = useSettingValue('common.navGlassStyle') ?? 'liquid'
   const statusBarHeight = useStatusbarHeight()
   const searchInputRef = useRef<SearchInputType>(null)
   const [sources, setSources] = useState<Readonly<Source[]>>([])
@@ -77,6 +80,7 @@ export default forwardRef<HeaderBarType, HeaderBarProps>(({
 
   return (
     <View style={{ ...styles.header, paddingTop: statusBarHeight }}>
+      <LiquidGlass mode={glassStyle} blurRadius={24} radius={0} tint={theme.isDark ? 'rgba(20,16,28,0.42)' : 'rgba(255,255,255,0.34)'} isDark={theme.isDark} />
       <View style={styles.searchRow}>
         <TouchableOpacity
           style={styles.backBtn}
@@ -180,6 +184,9 @@ export default forwardRef<HeaderBarType, HeaderBarProps>(({
 const styles = createStyle({
   header: {
     paddingBottom: 2,
+    overflow: 'hidden',
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
   },
   searchRow: {
     flexDirection: 'row',

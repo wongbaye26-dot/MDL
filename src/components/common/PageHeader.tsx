@@ -6,6 +6,8 @@ import Text from './Text'
 import { Icon } from './Icon'
 import { useTheme } from '@/store/theme/hook'
 import { useStatusbarHeight } from '@/store/common/hook'
+import { useSettingValue } from '@/store/setting/hook'
+import LiquidGlass from './LiquidGlass'
 import { useHorizontalMode } from '@/utils/hooks'
 import { createStyle } from '@/utils/tools'
 
@@ -30,6 +32,7 @@ export default memo(({
   logo,
   left,
   right,
+  glass,
 }: {
   title: string
   /**
@@ -43,8 +46,12 @@ export default memo(({
   /** 左侧按钮（子页面的返回键） */
   left?: ReactNode
   right?: ReactNode
+  /** 表头液态玻璃（对齐胶囊任务栏/迷你播放器） */
+  glass?: boolean
 }) => {
+  const theme = useTheme()
   const statusBarHeight = useStatusbarHeight()
+  const glassStyle = useSettingValue('common.navGlassStyle') ?? 'liquid'
   // 横屏高度只有 400 出头，页头占 72dp 太奢侈，整体收紧一档
   const compact = useHorizontalMode()
   // 横屏下 statusbarHeight 报 0，但时钟浮在左上角，页头要自己让出一条
@@ -54,11 +61,17 @@ export default memo(({
     <View
       style={{
         ...styles.container,
+        ...(glass ? styles.glassContainer : null),
         height: topInset + (compact ? PAGE_HEADER_COMPACT_H : PAGE_HEADER_H),
         paddingTop: topInset + (compact ? 8 : 12),
         paddingBottom: compact ? 10 : 14,
       }}
     >
+      {
+        glass
+          ? <LiquidGlass mode={glassStyle} blurRadius={24} radius={0} tint={theme.isDark ? 'rgba(20,16,28,0.42)' : 'rgba(255,255,255,0.34)'} isDark={theme.isDark} />
+          : null
+      }
       <View style={styles.row}>
         {left ? <View style={styles.left}>{left}</View> : null}
         {logo ? <Image source={logo} style={compact ? styles.logoCompact : styles.logo} /> : null}
@@ -143,6 +156,11 @@ export const HeaderButton = memo(({ icon, onPress, size = 20, color, iconSet = '
 })
 
 const styles = createStyle({
+  glassContainer: {
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    overflow: 'hidden',
+  },
   container: {
     paddingLeft: 16,
     paddingRight: 16,
