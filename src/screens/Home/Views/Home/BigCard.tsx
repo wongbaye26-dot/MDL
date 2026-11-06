@@ -580,7 +580,7 @@ export default ({ title, subtitle, icon, variant = 'bars', index = 0, progress, 
       <Animated.View style={{ transform: [{ scale: pressScale }] }}>
         <TouchableOpacity
           activeOpacity={0.9}
-          style={[styles.card, compact ? styles.cardCompact : null, { backgroundColor: palette.colors[1] }, width != null && height != null ? { width, height, borderRadius: Math.round(width * 0.12), paddingLeft: 10, paddingRight: 10, paddingBottom: 10 } : null]}
+          style={[styles.card, compact ? styles.cardCompact : null, { backgroundColor: palette.colors[1] }, width != null && height != null ? { width, height, borderRadius: Math.round(width * 0.14), paddingLeft: 14, paddingRight: 14, paddingBottom: 14 } : null]}
           onPress={onPress}
           onPressIn={() => { animatePress(0.955) }}
           onPressOut={() => { animatePress(1) }}
@@ -620,8 +620,8 @@ export default ({ title, subtitle, icon, variant = 'bars', index = 0, progress, 
           />
 
           <View style={styles.labelRow}>
-            <Icon name={icon} size={compact ? 13 : 15} color='#FFFFFF' />
-            <Text size={compact ? 12.5 : 15} color='#FFFFFF' style={styles.label}>{title}</Text>
+            <Icon name={icon} size={compact ? 13 : 16} color='#FFFFFF' />
+            <Text size={compact ? 12.5 : (width != null ? 16.5 : 15)} color='#FFFFFF' style={styles.label}>{title}</Text>
           </View>
           {
             subtitle

@@ -35,6 +35,7 @@ import UserApiEditModal, { type UserApiEditModalType } from '../Setting/settings
 import BigCard from './BigCard'
 import ListeningStatsModal from './ListeningStatsModal'
 import SongRail, { RAIL_ROWS } from './SongRail'
+import { CoverImage } from '../LocalMusic/cover'
 
 type ModalType = 'songlist' | 'leaderboard' | 'mylist' | null
 
@@ -99,18 +100,14 @@ export default () => {
   const userApiModalRef = useRef<UserApiEditModalType>(null)
 
   /**
-   * 首页 5 张卡改为「铺排」网格：3 列 + 2 列居中，
-   * 左右统一 16dp 内边距、列间距 10dp；卡片宽高按视口动态算，避免横向滑动。
+   * 首页 5 张大卡：对齐飞牛音乐的大卡横向轮播。
+   * 卡片宽约 42% 视口、高约 0.87 宽、圆角 24；左起 16dp，右侧留 16dp。
    */
   const GRID_PADDING = scaleSizeW(16)
-  const GRID_GAP = scaleSizeW(10)
-  const GRID_COLUMNS = 3
+  const GRID_GAP = scaleSizeW(12)
   const [cardsViewport, setCardsViewport] = useState(0)
-  const cardWidth = cardsViewport > 0
-    ? Math.floor((cardsViewport - GRID_PADDING * 2 - GRID_GAP * (GRID_COLUMNS - 1)) / GRID_COLUMNS)
-    : 0
-  const cardHeight = Math.round(cardWidth * 196 / 152)
-  const cardRows = useMemo(() => [CARDS.slice(0, 3), CARDS.slice(3)], [])
+  const cardWidth = cardsViewport > 0 ? Math.round(cardsViewport * 0.42) : 0
+  const cardHeight = Math.round(cardWidth * 0.87)
 
   const recentDownload = useMemo(() => [...downloadList]
     .sort((a, b) => {
@@ -123,6 +120,28 @@ export default () => {
   const recentAdded = useMemo(() => [...localList]
     .sort((a, b) => (b.meta.mtime ?? 0) - (a.meta.mtime ?? 0))
     .slice(0, RAIL_LIMIT), [localList])
+
+  /** 最近添加专辑：按专辑名聚合，取每组最新文件时间 */
+  const recentAlbums = useMemo(() => {
+    const map = new Map<string, { key: string, name: string, singer: string, coverItem: LX.Music.MusicInfoLocal, latest: number, count: number }>()
+    for (const item of localList) {
+      const name = (item.meta.albumName ?? '').trim() || '未知专辑'
+      const key = name.toLowerCase()
+      const mtime = item.meta.mtime ?? 0
+      const prev = map.get(key)
+      if (!prev) {
+        map.set(key, { key, name, singer: item.singer ?? '', coverItem: item, latest: mtime, count: 1 })
+      } else {
+        prev.count += 1
+        if (mtime > prev.latest) {
+          prev.latest = mtime
+          prev.coverItem = item
+          prev.singer = item.singer ?? ''
+        }
+      }
+    }
+    return [...map.values()].sort((a, b) => b.latest - a.latest).slice(0, 10)
+  }, [localList])
 
   /** 最近播放里本地 / 在线的构成，放在标题右侧一眼看清 */
   const recentHint = useMemo(() => {
@@ -229,39 +248,37 @@ export default () => {
         />
 
         {/*
-          5 张卡平铺：3 列 + 2 列居中。左右 16dp、列间距 10dp；
-          每张卡保留自己的循环装饰动效（可在 设置 → 基本设置 → 界面 关闭）。
+          5 张大卡：对齐飞牛音乐的横向吸附轮播；卡片视觉由 BigCard 负责。
         */}
-        <View
-          style={[styles.cardGrid, { paddingLeft: GRID_PADDING, paddingRight: GRID_PADDING, gap: GRID_GAP }]}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.hScroll}
+          decelerationRate='fast'
+          snapToInterval={cardWidth + GRID_GAP}
+          contentContainerStyle={[styles.cardsRow, { paddingLeft: GRID_PADDING, paddingRight: GRID_PADDING, gap: GRID_GAP }]}
           onLayout={e => {
             const { width } = e.nativeEvent.layout
             setCardsViewport(prev => (Math.abs(prev - width) > 0.5 ? width : prev))
           }}
         >
           {
-            cardRows.map((row, rowIndex) => (
-              <View key={rowIndex} style={[styles.cardRow, { gap: GRID_GAP }, rowIndex === 1 ? styles.cardRowCentered : null]}>
-                {
-                  cardWidth > 0
-                    ? row.map(card => (
-                      <BigCard
-                        key={card.key}
-                        index={CARDS.findIndex(item => item.key === card.key)}
-                        title={card.title}
-                        icon={card.icon}
-                        variant={card.variant}
-                        width={cardWidth}
-                        height={cardHeight}
-                        onPress={() => { handleCard(card.key) }}
-                      />
-                    ))
-                    : null
-                }
-              </View>
-            ))
+            cardWidth > 0
+              ? CARDS.map((card, i) => (
+                <BigCard
+                  key={card.key}
+                  index={i}
+                  title={card.title}
+                  icon={card.icon}
+                  variant={card.variant}
+                  width={cardWidth}
+                  height={cardHeight}
+                  onPress={() => { handleCard(card.key) }}
+                />
+              ))
+              : null
           }
-        </View>
+        </ScrollView>
 
         {
           // 常显：没有历史时给一个空态，而不是整块消失（位置会跳来跳去）
@@ -287,6 +304,37 @@ export default () => {
                   </View>
                 </>
               )
+        }
+
+        {
+          recentAlbums.length
+            ? (
+                <>
+                  <SectionHead title='最近添加专辑' onPress={() => { openLocal('album') }} />
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.hScroll}
+                    contentContainerStyle={styles.albumRow}
+                  >
+                    {
+                      recentAlbums.map(album => (
+                        <TouchableOpacity
+                          key={album.key}
+                          style={styles.albumCard}
+                          activeOpacity={0.8}
+                          onPress={() => { openLocal('album') }}
+                        >
+                          <CoverImage item={album.coverItem} size={scaleSizeW(118)} radius={16} inset={0} />
+                          <Text size={12.5} numberOfLines={1} style={styles.albumName}>{album.name}</Text>
+                          <Text size={9.5} color={theme['c-450']} numberOfLines={1}>{`${album.singer || '未知歌手'} · ${album.count} 首`}</Text>
+                        </TouchableOpacity>
+                      ))
+                    }
+                  </ScrollView>
+                </>
+              )
+            : null
         }
 
         {
@@ -451,20 +499,25 @@ const styles = createStyle({
     alignItems: 'center',
     flexShrink: 0,
   },
-  cardGrid: {
+  cardsRow: {
     paddingTop: 2,
     paddingBottom: 12,
-  },
-  cardRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
   },
   hScroll: {
     flexGrow: 0,
     flexShrink: 0,
   },
-  cardRowCentered: {
-    justifyContent: 'center',
+  albumRow: {
+    paddingLeft: 16,
+    paddingRight: 16,
+    paddingBottom: 4,
+  },
+  albumCard: {
+    width: scaleSizeW(118),
+    marginRight: 12,
+  },
+  albumName: {
+    marginTop: 6,
   },
   sectionHead: {
     flexDirection: 'row',
