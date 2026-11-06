@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Animated, ScrollView, TouchableOpacity, View } from 'react-native'
+import { ScrollView, TouchableOpacity, View } from 'react-native'
 
 import Text from '@/components/common/Text'
 import { Icon } from '@/components/common/Icon'
@@ -31,9 +31,8 @@ import SongListHeaderSourceBar from '../SongList/HeaderSourceBar'
 import Favorites, { FavoriteTabs, type FavoriteTab } from '../Mylist/Favorites'
 import LocalMusic, { type LocalTab } from '../LocalMusic'
 import { useBackHandler } from '@/utils/hooks/useBackHandler'
-import { useHorizontalMode } from '@/utils/hooks'
 import UserApiEditModal, { type UserApiEditModalType } from '../Setting/settings/Basic/UserApiEditModal'
-import BigCard, { getBigCardMetrics } from './BigCard'
+import BigCard from './BigCard'
 import ListeningStatsModal from './ListeningStatsModal'
 import SongRail, { RAIL_ROWS } from './SongRail'
 
@@ -100,53 +99,18 @@ export default () => {
   const userApiModalRef = useRef<UserApiEditModalType>(null)
 
   /**
-   * 首页四张大卡：左对齐吸附轮播。
-   *  - 卡片尺寸/间距从 BigCard 的同一套缩放函数拿，snapToInterval 才能严丝合缝；
-   *  - 左起 16dp 排第一张；右边距留够，让最后一张也能吸附到左侧（不再首卡居中、左边一片空）；
-   *  - scrollX 走 native driver，每张卡的 scale/倾斜/透明度都由它插值出来。
+   * 首页 5 张卡改为「铺排」网格：3 列 + 2 列居中，
+   * 左右统一 16dp 内边距、列间距 10dp；卡片宽高按视口动态算，避免横向滑动。
    */
-  const compact = useHorizontalMode()
-  const cardMetrics = getBigCardMetrics(compact)
-  const cardInterval = cardMetrics.width + cardMetrics.gap
-  const cardsScrollX = useRef(new Animated.Value(0)).current
-  /** 左起 16dp：和页面其它内边距用同一套缩放 */
-  const cardsPaddingLeft = scaleSizeW(16)
+  const GRID_PADDING = scaleSizeW(16)
+  const GRID_GAP = scaleSizeW(10)
+  const GRID_COLUMNS = 3
   const [cardsViewport, setCardsViewport] = useState(0)
-  /**
-   * 右侧只留 16dp：之前为了让最后一张卡也能左对齐而留了一整屏空白，
-   * 滑到最右边会出现一块像「多余卡片位」的黑洞。改成滑到最后一屏时
-   * 最后一张卡贴右边距（16dp）停住，不再允许继续滑出空白。
-   */
-  const cardsPaddingRight = scaleSizeW(16)
-  /** 内容可滚动的最大距离（最后一张卡右缘贴 16dp 右边距时停住） */
-  const cardsMaxScroll = Math.max(0, cardsPaddingLeft + CARDS.length * cardInterval + cardsPaddingRight - cardsViewport)
-  /** 吸附点：前几张卡左对齐，最后一个吸附点是内容末端（无空白） */
-  const cardsSnapOffsets = useMemo(() => {
-    const offsets: number[] = [0]
-    for (let i = 1; i < CARDS.length; i++) {
-      const target = Math.min(i * cardInterval, cardsMaxScroll)
-      if (target > offsets[offsets.length - 1] + 1) offsets.push(target)
-    }
-    if (cardsMaxScroll > offsets[offsets.length - 1] + 1) offsets.push(cardsMaxScroll)
-    return offsets
-  }, [cardInterval, cardsMaxScroll])
-  const handleCardsScroll = useMemo(() => Animated.event(
-    [{ nativeEvent: { contentOffset: { x: cardsScrollX } } }],
-    { useNativeDriver: true },
-  ), [cardsScrollX])
-  /**
-   * 每张卡的滚动进度：0 = 这张卡是焦点。
-   * 焦点位置按「这张卡左对齐」算，但最后几张会被内容末端夹住（不能越过 maxScroll），
-   * 否则最后一屏没有空白，最后一张卡永远到不了 scale 1。
-   */
-  const cardProgress = useMemo(() => CARDS.map((_, i) => {
-    const target = Math.min(i * cardInterval, cardsMaxScroll)
-    return cardsScrollX.interpolate({
-      inputRange: [target - cardInterval, target, target + cardInterval],
-      outputRange: [-1, 0, 1],
-      extrapolate: 'clamp',
-    })
-  }), [cardsScrollX, cardInterval, cardsMaxScroll])
+  const cardWidth = cardsViewport > 0
+    ? Math.floor((cardsViewport - GRID_PADDING * 2 - GRID_GAP * (GRID_COLUMNS - 1)) / GRID_COLUMNS)
+    : 0
+  const cardHeight = Math.round(cardWidth * 196 / 152)
+  const cardRows = useMemo(() => [CARDS.slice(0, 3), CARDS.slice(3)], [])
 
   const recentDownload = useMemo(() => [...downloadList]
     .sort((a, b) => {
@@ -265,38 +229,39 @@ export default () => {
         />
 
         {/*
-          四张大卡：左对齐吸附轮播。
-          第一张左起 16dp；滚动时按 progress（0 = 这张卡左对齐，±1 = 左右相邻卡）做
-          scale 0.9→1、translateY、轻微 rotate/rotateY、相邻透明度变化，松手吸附回弹。
+          5 张卡平铺：3 列 + 2 列居中。左右 16dp、列间距 10dp；
+          每张卡保留自己的循环装饰动效（可在 设置 → 基本设置 → 界面 关闭）。
         */}
-        <Animated.ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.hScroll}
-          contentContainerStyle={[styles.cards, { paddingLeft: cardsPaddingLeft, paddingRight: cardsPaddingRight }]}
-          snapToOffsets={cardsSnapOffsets}
-          decelerationRate='fast'
-          scrollEventThrottle={16}
-          onScroll={handleCardsScroll}
+        <View
+          style={[styles.cardGrid, { paddingLeft: GRID_PADDING, paddingRight: GRID_PADDING, gap: GRID_GAP }]}
           onLayout={e => {
             const { width } = e.nativeEvent.layout
             setCardsViewport(prev => (Math.abs(prev - width) > 0.5 ? width : prev))
           }}
         >
           {
-            CARDS.map((card, i) => (
-              <BigCard
-                key={card.key}
-                index={i}
-                title={card.title}
-                icon={card.icon}
-                variant={card.variant}
-                progress={cardProgress[i]}
-                onPress={() => { handleCard(card.key) }}
-              />
+            cardRows.map((row, rowIndex) => (
+              <View key={rowIndex} style={[styles.cardRow, { gap: GRID_GAP }, rowIndex === 1 ? styles.cardRowCentered : null]}>
+                {
+                  cardWidth > 0
+                    ? row.map(card => (
+                      <BigCard
+                        key={card.key}
+                        index={CARDS.findIndex(item => item.key === card.key)}
+                        title={card.title}
+                        icon={card.icon}
+                        variant={card.variant}
+                        width={cardWidth}
+                        height={cardHeight}
+                        onPress={() => { handleCard(card.key) }}
+                      />
+                    ))
+                    : null
+                }
+              </View>
             ))
           }
-        </Animated.ScrollView>
+        </View>
 
         {
           // 常显：没有历史时给一个空态，而不是整块消失（位置会跳来跳去）
@@ -486,14 +451,20 @@ const styles = createStyle({
     alignItems: 'center',
     flexShrink: 0,
   },
-  cards: {
-    // 左右留白在渲染时按视口宽度算（让卡片能停在正中），这里只留出上下缩放/倾斜的余量
+  cardGrid: {
     paddingTop: 2,
     paddingBottom: 12,
+  },
+  cardRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
   },
   hScroll: {
     flexGrow: 0,
     flexShrink: 0,
+  },
+  cardRowCentered: {
+    justifyContent: 'center',
   },
   sectionHead: {
     flexDirection: 'row',

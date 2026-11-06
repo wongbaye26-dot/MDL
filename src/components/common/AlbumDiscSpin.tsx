@@ -8,6 +8,7 @@ import { Icon } from '@/components/common/Icon'
 import { usePlayerMusicInfo, useIsPlay } from '@/store/player/hook'
 import { useReducedMotion } from '@/utils/hooks'
 import { useTheme } from '@/store/theme/hook'
+import { useSettingValue } from '@/store/setting/hook'
 
 /**
  * 专辑圆盘：底部胶囊 / 横竖屏迷你播放器 / 子页迷你播放条**唯一**的封面实现。
@@ -125,9 +126,13 @@ export default memo(({
   const spin = useRef(new Animated.Value(0)).current
   const breathe = useRef(new Animated.Value(BREATHE_MIN)).current
   const reduced = useReducedMotion()
+  const coverRotation = useSettingValue('common.coverRotation')
 
   useEffect(() => {
-    if (!isPlay || reduced) return
+    if (!isPlay || reduced || !coverRotation) {
+      spin.setValue(0)
+      return
+    }
     const anim = Animated.loop(Animated.timing(spin, {
       toValue: 1,
       duration: SPIN_DURATION,
@@ -136,7 +141,7 @@ export default memo(({
     }))
     anim.start()
     return () => { anim.stop() }
-  }, [isPlay, spin, reduced])
+  }, [isPlay, spin, reduced, coverRotation])
 
   useEffect(() => {
     // 进度样式设为「关闭」时不画圆环，这圈呼吸也没意义，别让动画空转

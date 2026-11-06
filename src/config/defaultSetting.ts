@@ -14,6 +14,8 @@ const defaultSetting: LX.AppSetting = {
   'common.useSystemFileSelector': true,
   'common.alwaysKeepStatusbarHeight': false,
   'common.reduceMotion': false,
+  'common.homeCardMotion': true,
+  'common.coverRotation': true,
 
   'player.startupAutoPlay': false,
   'player.togglePlayMethod': 'listLoop',

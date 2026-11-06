@@ -437,7 +437,7 @@ const debouncePlay = debounceBackgroundTimer((musicInfo: LX.Player.PlayMusic) =>
 }, 200)
 
 // 处理音乐播放
-const handlePlay = async() => {
+const handlePlay = async(isRestore = false) => {
   if (!isInitialized()) {
     await checkNotificationPermission()
     void checkIgnoringBatteryOptimization()
@@ -453,16 +453,17 @@ const handlePlay = async() => {
   global.lx.isPlayedStop &&= false
   resetRandomNextMusicInfo()
 
-  if (global.lx.restorePlayInfo) {
+  if (isRestore && global.lx.restorePlayInfo) {
     /*
-      不要在这里清 restorePlayInfo：handleRestorePlay 是异步的，插件
-      handlePlayMusic 之后才真正拿到它来决定「恢复后是否 play」。
-      清早了会让插件以为这是一次普通播放，从而在关闭 startupAutoPlay 时也出声。
-      插件在 restore 分支处理完会自己置 null。
+      只有启动恢复（init/player/playInfo 传入 isRestore=true）才走恢复分支。
+      手动点歌时即使 restorePlayInfo 还有残留，也必须清掉并继续正常播放，
+      否则首次播放会被劫持回上次进度、甚至触发自动切歌。
     */
     void handleRestorePlay(global.lx.restorePlayInfo)
     return
   }
+  // 手动播放：任何残留的恢复标记都作废，避免插件把这次播放当恢复而 pause
+  if (!isRestore) global.lx.restorePlayInfo = null
 
   const playMusicInfo = playerState.playMusicInfo
   const musicInfo = playMusicInfo.musicInfo
@@ -523,13 +524,13 @@ export const playListById = async(listId: string, id: string) => {
  * @param listId 列表id
  * @param index 播放的歌曲位置
  */
-export const playList = async(listId: string, index: number) => {
+export const playList = async(listId: string, index: number, isRestore = false) => {
   const prevListId = playerState.playInfo.playerListId
   setPlayListId(listId)
   setPlayMusicInfo(listId, getList(listId)[index])
   if (settingState.setting['player.isAutoCleanPlayedList'] || prevListId != listId) clearPlayedList()
   clearTempPlayeList()
-  await handlePlay()
+  await handlePlay(isRestore)
 }
 
 const handleToggleStop = async() => {

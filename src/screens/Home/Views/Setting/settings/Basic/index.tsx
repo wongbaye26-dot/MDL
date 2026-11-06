@@ -7,6 +7,8 @@ import FontSize from './FontSize'
 import ShareType from './ShareType'
 import IsHomePageScroll from './IsHomePageScroll'
 import IsReduceMotion from './IsReduceMotion'
+import IsHomeCardMotion from './IsHomeCardMotion'
+import IsCoverRotation from './IsCoverRotation'
 import { ThemeModeSelector, MaterialYouColors } from './ThemeSettings'
 import { useI18n } from '@/lang/i18n'
 
@@ -31,6 +33,8 @@ export default memo(() => {
       <Section title='界面' icon='cellphone'>
         <IsHomePageScroll />
         <IsReduceMotion />
+        <IsHomeCardMotion />
+        <IsCoverRotation />
         <FontSize />
         <Language />
         <SourceName />

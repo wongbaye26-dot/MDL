@@ -84,9 +84,19 @@ const { mapRowToLocalTrack } = require('../src/core/localLibrary/mapTrack')
 
 test('mapRowToLocalTrack: DB 行 → MusicInfoLocal 字段映射', () => {
   const item = mapRowToLocalTrack({
-    id: 'fp:abc', path: '/Music/a.flac', title: '夜曲', albumArtist: '周杰伦',
-    albumName: '十一月的萧邦', durationMs: 225160, format: 'flac', bitrate: 900000,
-    sampleRate: 44100, size: 1234, mtime: 5678, coverKey: 'cover_a', source: 'local',
+    id: 'fp:abc',
+    path: '/Music/a.flac',
+    title: '夜曲',
+    albumArtist: '周杰伦',
+    albumName: '十一月的萧邦',
+    durationMs: 225160,
+    format: 'flac',
+    bitrate: 900000,
+    sampleRate: 44100,
+    size: 1234,
+    mtime: 5678,
+    coverKey: 'cover_a',
+    source: 'local',
   })
   assert.equal(item.id, 'fp:abc')
   assert.equal(item.name, '夜曲')

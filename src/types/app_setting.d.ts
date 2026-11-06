@@ -72,6 +72,16 @@ declare global {
       'common.reduceMotion': boolean
 
       /**
+       * 首页大卡装饰动效（与全局「减少动态效果」同时生效）
+       */
+      'common.homeCardMotion': boolean
+
+      /**
+       * 胶囊/迷你播放器专辑封面自转
+       */
+      'common.coverRotation': boolean
+
+      /**
        * 主题id
        */
       'theme.id': string

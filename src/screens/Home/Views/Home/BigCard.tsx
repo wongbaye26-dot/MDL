@@ -6,6 +6,7 @@ import Text from '@/components/common/Text'
 import { Icon } from '@/components/common/Icon'
 import { createStyle } from '@/utils/tools'
 import { useHorizontalMode, useReducedMotion } from '@/utils/hooks'
+import { useSettingValue } from '@/store/setting/hook'
 import { useListeningStats } from '@/core/player/listenStats'
 import { scaleSizeH, scaleSizeW } from '@/utils/pixelRatio'
 
@@ -35,6 +36,9 @@ export interface BigCardProps {
   index?: number
   /** 横向滚动进度：0 = 卡片吸附在正中（焦点），±1 = 左右相邻卡 */
   progress?: Animated.AnimatedInterpolation<number>
+  /** 平铺网格用的卡片宽高（不传则用默认 152×196） */
+  width?: number
+  height?: number
   onPress: () => void
 }
 
@@ -63,9 +67,9 @@ const CARD_THEMES: Record<BigCardVariant, { colors: string[], label: string }> =
 
 
 /** 听歌统计：今日分钟数 + 最近 7 天的收听柱状 */
-const StatsArt = ({ compact }: { compact: boolean }) => {
+const StatsArt = ({ compact, enabled }: { compact: boolean, enabled: boolean }) => {
   const stats = useListeningStats()
-  const reduced = useReducedMotion()
+  const reduced = useReducedMotion() || !enabled
   const rise = useRef(new Animated.Value(reduced ? 1 : 0)).current
   /** 常驻呼吸：柱状透明度轻微起伏 + 「今日」旁的圆点一闪一闪，避免统计卡像静态图 */
   const breathe = useRef(new Animated.Value(0)).current
@@ -171,10 +175,10 @@ const StatsArt = ({ compact }: { compact: boolean }) => {
 }
 
 /** 排行榜：一排柱子上下跳，锚在底部所以 scaleY 之外还要补 translateY */
-const BarsArt = ({ compact, phase }: { compact: boolean, phase: number }) => {
+const BarsArt = ({ compact, phase, enabled }: { compact: boolean, phase: number, enabled: boolean }) => {
   const heights = compact ? [20, 34, 26, 40] : [28, 46, 34, 52]
   const bars = useRef(heights.map(() => new Animated.Value(0.4))).current
-  const reduced = useReducedMotion()
+  const reduced = useReducedMotion() || !enabled
 
   useEffect(() => {
     if (reduced) {
@@ -245,11 +249,11 @@ const BarsArt = ({ compact, phase }: { compact: boolean, phase: number }) => {
  *  2. 唱片后面一团光晕做 2.4s 的呼吸（亮度 + 缩放缓慢起伏）。
  * 唱片自转保留，三个速度不同步，看起来就是「一张正在放的黑胶」。
  */
-const VinylArt = ({ compact, label }: { compact: boolean, label: string }) => {
+const VinylArt = ({ compact, label, enabled }: { compact: boolean, label: string, enabled: boolean }) => {
   const spin = useRef(new Animated.Value(0)).current
   const orbit = useRef(new Animated.Value(0)).current
   const breathe = useRef(new Animated.Value(0)).current
-  const reduced = useReducedMotion()
+  const reduced = useReducedMotion() || !enabled
 
   useEffect(() => {
     if (reduced) {
@@ -382,9 +386,9 @@ const VinylArt = ({ compact, label }: { compact: boolean, label: string }) => {
 }
 
 /** 收藏：几颗爱心错开时间往上飘，边飘边淡出 */
-const HeartsArt = ({ compact, phase }: { compact: boolean, phase: number }) => {
+const HeartsArt = ({ compact, phase, enabled }: { compact: boolean, phase: number, enabled: boolean }) => {
   const hearts = useRef([0, 1, 2, 3].map(() => new Animated.Value(0))).current
-  const reduced = useReducedMotion()
+  const reduced = useReducedMotion() || !enabled
 
   useEffect(() => {
     if (reduced) {
@@ -446,9 +450,9 @@ const HeartsArt = ({ compact, phase }: { compact: boolean, phase: number }) => {
 }
 
 /** 音源：一圈圈向外扩散的波纹，中心一个小亮点 */
-const RippleArt = ({ compact, phase }: { compact: boolean, phase: number }) => {
+const RippleArt = ({ compact, phase, enabled }: { compact: boolean, phase: number, enabled: boolean }) => {
   const rings = useRef([0, 1, 2].map(() => new Animated.Value(0))).current
-  const reduced = useReducedMotion()
+  const reduced = useReducedMotion() || !enabled
 
   useEffect(() => {
     if (reduced) {
@@ -510,8 +514,9 @@ const RippleArt = ({ compact, phase }: { compact: boolean, phase: number }) => {
   )
 }
 
-export default ({ title, subtitle, icon, variant = 'bars', index = 0, progress, onPress }: BigCardProps) => {
-  const compact = useHorizontalMode()
+export default ({ title, subtitle, icon, variant = 'bars', index = 0, progress, width, height, onPress }: BigCardProps) => {
+  const compact = useHorizontalMode() || (width != null && width < 140)
+  const cardMotion = useSettingValue('common.homeCardMotion')
   const pressScale = useRef(new Animated.Value(1)).current
   const palette = CARD_THEMES[variant]
 
@@ -571,11 +576,11 @@ export default ({ title, subtitle, icon, variant = 'bars', index = 0, progress, 
     : null
 
   return (
-    <Animated.View style={[compact ? styles.wrapperCompact : styles.wrapper, scrollStyle]}>
+    <Animated.View style={[compact ? styles.wrapperCompact : styles.wrapper, width != null ? { marginRight: 0 } : null, scrollStyle]}>
       <Animated.View style={{ transform: [{ scale: pressScale }] }}>
         <TouchableOpacity
           activeOpacity={0.9}
-          style={[styles.card, compact ? styles.cardCompact : null, { backgroundColor: palette.colors[1] }]}
+          style={[styles.card, compact ? styles.cardCompact : null, { backgroundColor: palette.colors[1] }, width != null && height != null ? { width, height, borderRadius: Math.round(width * 0.12), paddingLeft: 10, paddingRight: 10, paddingBottom: 10 } : null]}
           onPress={onPress}
           onPressIn={() => { animatePress(0.955) }}
           onPressOut={() => { animatePress(1) }}
@@ -591,11 +596,11 @@ export default ({ title, subtitle, icon, variant = 'bars', index = 0, progress, 
           />
 
           {/* 每张卡自己的持续动效 */}
-          {variant === 'bars' ? <BarsArt compact={compact} phase={index} /> : null}
-          {variant === 'vinyl' ? <VinylArt compact={compact} label={palette.label} /> : null}
-          {variant === 'hearts' ? <HeartsArt compact={compact} phase={index} /> : null}
-          {variant === 'ripple' ? <RippleArt compact={compact} phase={index} /> : null}
-          {variant === 'stats' ? <StatsArt compact={compact} /> : null}
+          {variant === 'bars' ? <BarsArt compact={compact} phase={index} enabled={cardMotion} /> : null}
+          {variant === 'vinyl' ? <VinylArt compact={compact} label={palette.label} enabled={cardMotion} /> : null}
+          {variant === 'hearts' ? <HeartsArt compact={compact} phase={index} enabled={cardMotion} /> : null}
+          {variant === 'ripple' ? <RippleArt compact={compact} phase={index} enabled={cardMotion} /> : null}
+          {variant === 'stats' ? <StatsArt compact={compact} enabled={cardMotion} /> : null}
 
           {/* 柔光斑点：两个大圆把渐变「打亮」，避免整块平涂 */}
           <View pointerEvents='none' style={styles.glowBig} />
@@ -615,8 +620,8 @@ export default ({ title, subtitle, icon, variant = 'bars', index = 0, progress, 
           />
 
           <View style={styles.labelRow}>
-            <Icon name={icon} size={15} color='#FFFFFF' />
-            <Text size={15} color='#FFFFFF' style={styles.label}>{title}</Text>
+            <Icon name={icon} size={compact ? 13 : 15} color='#FFFFFF' />
+            <Text size={compact ? 12.5 : 15} color='#FFFFFF' style={styles.label}>{title}</Text>
           </View>
           {
             subtitle
