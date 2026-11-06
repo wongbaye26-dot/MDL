@@ -1,4 +1,7 @@
-import { View } from 'react-native'
+import { useState } from 'react'
+import { TextInput, TouchableOpacity, View } from 'react-native'
+import Text from '@/components/common/Text'
+import { Icon } from '@/components/common/Icon'
 
 import Section from '../components/Section'
 import SettingRow from '../components/SettingRow'
@@ -23,6 +26,7 @@ const onOff = (value: boolean | undefined) => value ? '开' : '关'
 export default ({ onPress }: { onPress: (id: SettingScreenIds) => void }) => {
   const theme = useTheme()
   const t = useI18n()
+  const [keyword, setKeyword] = useState('')
 
   const langId = useSettingValue('common.langId')
   const apiSource = useSettingValue('common.apiSource')
@@ -59,10 +63,41 @@ export default ({ onPress }: { onPress: (id: SettingScreenIds) => void }) => {
     misc: `v${process.versions.app} · 缓存 · 日志 · 关于`,
   }
 
+  const query = keyword.trim().toLowerCase()
+  const groups = SCREEN_GROUPS
+    .map(group => ({
+      ...group,
+      ids: group.ids.filter(id => {
+        if (!query) return true
+        const title = t(`setting_${id}` as 'setting_basic').toLowerCase()
+        return title.includes(query) || (previews[id] ?? '').toLowerCase().includes(query) || group.title.toLowerCase().includes(query)
+      }),
+    }))
+    .filter(group => group.ids.length > 0)
+
   return (
     <View style={styles.container}>
+      <View style={styles.searchWrap}>
+        <View style={[styles.searchBox, { backgroundColor: theme['c-primary-alpha-900'], borderColor: theme['c-primary-alpha-700'] }]}>
+          <Icon name='magnify' size={16} color={theme['c-450']} />
+          <TextInput
+            value={keyword}
+            onChangeText={setKeyword}
+            placeholder='搜索设置'
+            placeholderTextColor={theme['c-400']}
+            style={[styles.searchInput, { color: theme['c-font'] }]}
+          />
+          {keyword ? (
+            <TouchableOpacity hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} onPress={() => { setKeyword('') }}>
+              <Icon name='close' size={15} color={theme['c-450']} />
+            </TouchableOpacity>
+          ) : null}
+        </View>
+      </View>
       {
-        SCREEN_GROUPS.map(group => (
+        groups.length === 0
+          ? <Text size={12} color={theme['c-450']} style={styles.empty}>没有匹配的设置分类</Text>
+          : groups.map(group => (
           <Section key={group.title} title={group.title} icon={group.icon} color={group.color}>
             {
               group.ids.map(id => {
@@ -80,13 +115,17 @@ export default ({ onPress }: { onPress: (id: SettingScreenIds) => void }) => {
               })
             }
           </Section>
-        ))
+          ))
       }
     </View>
   )
 }
 
 const styles = createStyle({
+  searchWrap: { paddingLeft: 2, paddingRight: 2, marginBottom: 12 },
+  searchBox: { height: 42, borderRadius: 21, borderWidth: 0.5, flexDirection: 'row', alignItems: 'center', paddingLeft: 13, paddingRight: 12 },
+  searchInput: { flexGrow: 1, flexShrink: 1, marginLeft: 8, paddingVertical: 0, fontSize: 13 },
+  empty: { textAlign: 'center', paddingTop: 24 },
   container: {
     paddingLeft: 18,
     paddingRight: 18,
