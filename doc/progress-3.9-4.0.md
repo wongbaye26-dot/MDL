@@ -1,7 +1,7 @@
 # EMO v3.9–v4.0 开发进度表（阶段化排期基线）
 
 > 依据：`doc/stage0-preflight-3.8.8.md`（立项前难度与风险核验报告）+ 说明书《EMO_v3.9-v4.0_本地音乐与专业音频系统升级开发说明书》
-> 版次 **v2.5** · 编制日期 2026-11-06（Asia/Bangkok）· 计划起点 **2026-11-09**（周一）· 编制：Lead
+> 版次 **v2.6** · 编制日期 2026-11-07（Asia/Bangkok）· 计划起点 **2026-11-09**（周一）· 编制：Lead
 > 参考对标：[Lyrico](https://github.com/Replica0110/Lyrico)（Apache-2.0 的 Android 音乐标签编辑器，[使用指南](https://replica0110.github.io/Lyrico/guide/)）——**仅对标能力范围，未复用其代码**。
 >
 > 本文件即说明书 §11 要求的**唯一进度文档**：后续每个阶段只更新本文件，不再另建进度载体。
@@ -19,6 +19,8 @@
 7. **开工第一步仍是 S0-00**：核验显示工作区 146 项变更（70 M + 68 D + 8 未跟踪；编制本表后 148），其中 4 个未跟踪文件是被 16 处已跟踪代码 import 的源码模块——现状不可回退、clean clone 也编译不过；且全仓没有任何 v3.x tag（最新 v1.9.2）。S0-00 从 1.0 上调到 1.5 人日。这批变更里有 7,428 行删除（定时退出/桌面歌词/sync/评论/备份页），其中定时关闭在 HEAD 仍有实现，U-05 可对照恢复。
 8. **排期单点风险**：A-2（38 人日、不可逆迁移）、B-03（FFmpeg 本地编译 12 人日）、T 的写标签链路（文件重写可能损坏）、U 的动效性能与依赖（R9/R10）各配 5 / 7 / 3.5 / 5 人日缓冲并设门禁；不通过就降级或换路线，不允许为赶版本把未验证项写成「已支持」。
 9. **B/C 只批 PoC 预算、D 不进发布计划**：U（用户可感知的 UI）与 T（曲库工具）先于引擎 PoC（B）交付，因为 FFmpeg/DSD 是研究性投入，且 C/D 的听感验收无法靠 CI 断言。
+
+> **执行状态（v2.6，2026-11-07）**：v3.9.0 已收口发版（tag `v3.9.0`）——A-1 与 U 阶段**实际已提前交付**（本地音乐管理与播放 2.0 + 阶段 U UI/动效），A-2 起点由 2027-04-19 前移至 2026-12-01；P0-00 调整为以 v3.9.0 作为首个可回滚基线（v3.8.8 只有 dist APK，无源码 tag）。下一步守则见 `doc/plan-next-after-local-2.0.md`。
 
 ---
 
@@ -526,35 +528,37 @@ P0-00 → P0-01 → P0-04/P0-05 → A1-01 → A1-02 → A1-03 → A1-10
 
 ### 9.4 基线核验与变更记录
 
-**v2.5（2026-11-06）**：第二轮真机反馈修复——歌词设置改底部弹出菜单；SeekBar 改 PanResponder、真机拖动 seek 通过；本地音乐恢复文件夹入口 + 悬浮搜索；搜索页多选栏改悬浮胶囊、搜索结果开启 autoFetchPic；排行榜/歌单详情页头播放/下载改为选中优先；统计卡移到音源管理前并加呼吸动效、三位数分钟自适应；液态玻璃去掉两条实线并统一材质层。真机复验 6 项，见 `doc/qa-3.10.0-ui.md` 第 5 节。
+**v2.6（2026-11-07）**：收口发版——工作区 248 项变更按「文档 / 构建资产 / 源码 / 发布」四组提交，版本升至 3.9.0 / versionCode 191，新增 `doc/release-notes-3.9.0.md` 与 CHANGELOG v3.9.0 段；A-1 与 U 阶段实际提前交付（本地音乐 2.0 + 阶段 U），A-2 起点前移至 2026-12-01；P0-00 改为以 v3.9.0 为首个可回滚基线。
 
-**v2.4（2026-11-06）**：真机验收（SM-S938B / Android 17 / arm64-v8a，本地 assembleRelease）——U-01/02/03/04/05/07/08/11 主要交互通过，U-09 打开转场无黑屏；发现并修复：全屏 Modal 状态栏遮挡、长按单选误判单曲菜单、定时快捷卡文字截断（含 ActionSheet 标签宽度）。测试后已恢复设备动画缩放与减少动效设置；剩余 NOT RUN 见 `doc/qa-3.10.0-ui.md`。
+**v2.5（2026-11-07）**：第二轮真机反馈修复——歌词设置改底部弹出菜单；SeekBar 改 PanResponder、真机拖动 seek 通过；本地音乐恢复文件夹入口 + 悬浮搜索；搜索页多选栏改悬浮胶囊、搜索结果开启 autoFetchPic；排行榜/歌单详情页头播放/下载改为选中优先；统计卡移到音源管理前并加呼吸动效、三位数分钟自适应；液态玻璃去掉两条实线并统一材质层。真机复验 6 项，见 `doc/qa-3.10.0-ui.md` 第 5 节。
 
-**v2.3（2026-11-06）**：收尾——设置分类切换补 200ms 入场（reduce-motion 直落）；`design/README.md` 同步阶段 U 设计变更；U-10 0.7→0.85、U-11 0.75→0.9；最终验证 typecheck 0 / lint 0 / vendor 13/13 / Metro bundle 成功。真机矩阵仍 NOT RUN，见 `doc/qa-3.10.0-ui.md`。
+**v2.4（2026-11-07）**：真机验收（SM-S938B / Android 17 / arm64-v8a，本地 assembleRelease）——U-01/02/03/04/05/07/08/11 主要交互通过，U-09 打开转场无黑屏；发现并修复：全屏 Modal 状态栏遮挡、长按单选误判单曲菜单、定时快捷卡文字截断（含 ActionSheet 标签宽度）。测试后已恢复设备动画缩放与减少动效设置；剩余 NOT RUN 见 `doc/qa-3.10.0-ui.md`。
 
-**v2.2（2026-11-06）**：U-11 完成代码：主链路无障碍、四卡+圆盘+跑马灯+统计卡 reduce-motion、README 对齐、硬编码收敛策略文档；U-12 完成静态与打包验证（typecheck 0 / lint 0 / vendor 13/13 / Metro bundle 11MB），真机矩阵 NOT RUN（`doc/qa-3.10.0-ui.md`）；U-13 缓冲未消耗。
+**v2.3（2026-11-07）**：收尾——设置分类切换补 200ms 入场（reduce-motion 直落）；`design/README.md` 同步阶段 U 设计变更；U-10 0.7→0.85、U-11 0.75→0.9；最终验证 typecheck 0 / lint 0 / vendor 13/13 / Metro bundle 成功。真机矩阵仍 NOT RUN，见 `doc/qa-3.10.0-ui.md`。
 
-**v2.1（2026-11-06）**：U-10 完成代码：新增 `Skeleton`（块/行/网格）与 `StateContainer`（loading/error+重试/empty）；排行榜 chips 与歌单广场网格接骨架/错误重试；下载任务进度改为 300ms 补间；我的页头光晕加呼吸（reduce-motion 静止）。设置页与 Player/Stage 未补，已在验收里写明。typecheck/lint 通过，真机 NOT RUN。
+**v2.2（2026-11-07）**：U-11 完成代码：主链路无障碍、四卡+圆盘+跑马灯+统计卡 reduce-motion、README 对齐、硬编码收敛策略文档；U-12 完成静态与打包验证（typecheck 0 / lint 0 / vendor 13/13 / Metro bundle 11MB），真机矩阵 NOT RUN（`doc/qa-3.10.0-ui.md`）；U-13 缓冲未消耗。
 
-**v2.0（2026-11-06）**：U-07 完成代码：新增无依赖拼音首字母工具（Intl.Collator 边界字二分）+ 右侧 A-Z 索引栏 + 本地音乐首字母筛选/空态；U-08 完成代码：主 Tab 下拉扫描（子页保留下拉关闭）、页头扫描键移除并改为搜索按钮、搜索条按需展开、扫描文件夹面板加入重新扫描入口。typecheck/lint 通过，真机 NOT RUN。
+**v2.1（2026-11-07）**：U-10 完成代码：新增 `Skeleton`（块/行/网格）与 `StateContainer`（loading/error+重试/empty）；排行榜 chips 与歌单广场网格接骨架/错误重试；下载任务进度改为 300ms 补间；我的页头光晕加呼吸（reduce-motion 静止）。设置页与 Player/Stage 未补，已在验收里写明。typecheck/lint 通过，真机 NOT RUN。
 
-**v1.9（2026-11-06）**：U-03 完成代码：长按改为直接进入多选并弹统一 ActionSheet；`ListMenu` 从 FloatingMenu 改为 ActionSheet（单曲/批量两形态）；多选栏新增「更多」；搜索页多选栏改为给列表让出顶部高度，不再盖住第一行。typecheck/lint 通过，真机 NOT RUN。
+**v2.0（2026-11-07）**：U-07 完成代码：新增无依赖拼音首字母工具（Intl.Collator 边界字二分）+ 右侧 A-Z 索引栏 + 本地音乐首字母筛选/空态；U-08 完成代码：主 Tab 下拉扫描（子页保留下拉关闭）、页头扫描键移除并改为搜索按钮、搜索条按需展开、扫描文件夹面板加入重新扫描入口。typecheck/lint 通过，真机 NOT RUN。
 
-**v1.8（2026-11-06）**：U-09 完成代码：`getPlayerCoverGeometry` 支持横屏（左半屏满出血封面）、转场层横屏也挂载、reduce-motion 时跳过共享元素直切、`playerTransition` 改用 `MotionDuration/MotionEasing/MotionSpring` 令牌；胶囊展开形变未做（已在验收里显式标注）。typecheck/lint 通过，真机 NOT RUN。
+**v1.9（2026-11-07）**：U-03 完成代码：长按改为直接进入多选并弹统一 ActionSheet；`ListMenu` 从 FloatingMenu 改为 ActionSheet（单曲/批量两形态）；多选栏新增「更多」；搜索页多选栏改为给列表让出顶部高度，不再盖住第一行。typecheck/lint 通过，真机 NOT RUN。
 
-**v1.7（2026-11-06）**：U-01 完成代码：新增 `LiquidGlass.tsx`（模糊 + 5.2s 流动高光 + 边缘光，reduced-motion 门控）与 `common.navGlassStyle` 三档设置；BottomNav / MiniPlayer / PlayerBar 统一替换 Glass 并加关闭档的纯色兜底；typecheck/lint 通过，真机 NOT RUN。
+**v1.8（2026-11-07）**：U-09 完成代码：`getPlayerCoverGeometry` 支持横屏（左半屏满出血封面）、转场层横屏也挂载、reduce-motion 时跳过共享元素直切、`playerTransition` 改用 `MotionDuration/MotionEasing/MotionSpring` 令牌；胶囊展开形变未做（已在验收里显式标注）。typecheck/lint 通过，真机 NOT RUN。
 
-**v1.6（2026-11-06）**：U-02 完成代码：`listenStats.ts`（累计/30 天/24 时段/艺人聚合，≥30s 计一次、seek 跳变丢弃、2s 防抖持久化）+ playProgress 埋点 + 首页第 5 张统计卡 + 详情弹层；typecheck/lint 通过，真机 NOT RUN。
+**v1.7（2026-11-07）**：U-01 完成代码：新增 `LiquidGlass.tsx`（模糊 + 5.2s 流动高光 + 边缘光，reduced-motion 门控）与 `common.navGlassStyle` 三档设置；BottomNav / MiniPlayer / PlayerBar 统一替换 Glass 并加关闭档的纯色兜底；typecheck/lint 通过，真机 NOT RUN。
 
-**v1.5（2026-11-06）**：U-04 完成代码：新增 `player.lyricSizeIndex` / `player.lyricAlign` 设置与 `LyricSize.tsx` / `LyricAlign.tsx` / `LyricSettingsPanel.tsx`，播放器歌词工具行收敛为单个设置键，`IsShowLyricRoma` / `IsAutoJyutping` 挂回设置页；typecheck/lint 通过，真机 NOT RUN。
+**v1.6（2026-11-07）**：U-02 完成代码：`listenStats.ts`（累计/30 天/24 时段/艺人聚合，≥30s 计一次、seek 跳变丢弃、2s 防抖持久化）+ playProgress 埋点 + 首页第 5 张统计卡 + 详情弹层；typecheck/lint 通过，真机 NOT RUN。
 
-**v1.4（2026-11-06）**：阶段 U 开工，完成 U-00（动效令牌/useReducedMotion/设置开关/D8 ADR）、U-05（定时关闭按暂停语义重建）、U-06（弹性进度条）；`npm run typecheck` 0 error、`npm run lint` 0 problem；真机验收 NOT RUN。
+**v1.5（2026-11-07）**：U-04 完成代码：新增 `player.lyricSizeIndex` / `player.lyricAlign` 设置与 `LyricSize.tsx` / `LyricAlign.tsx` / `LyricSettingsPanel.tsx`，播放器歌词工具行收敛为单个设置键，`IsShowLyricRoma` / `IsAutoJyutping` 挂回设置页；typecheck/lint 通过，真机 NOT RUN。
 
-**v1.3（2026-11-06）**：按代码盘点校正 U-02（5.5→7.5，播放统计存储从 0 新建）、U-04（4.5→5.0）、U-05（3.0→2.0，HEAD 有可恢复实现）、U-09（6.0→7.0，补横屏与 JS driver）、U-01（5.5→6.0）；新增 R11（Player 单文件冲突）；U 由 70.0 调整为 73.0 人日。
+**v1.4（2026-11-07）**：阶段 U 开工，完成 U-00（动效令牌/useReducedMotion/设置开关/D8 ADR）、U-05（定时关闭按暂停语义重建）、U-06（弹性进度条）；`npm run typecheck` 0 error、`npm run lint` 0 problem；真机验收 NOT RUN。
 
-**v1.2（2026-11-06）**：新增阶段 U（UI/动效系统化重构，70.0 人日，9 项需求）、D8 决策、R9/R10 风险；U 置于 A-1 之后、A-2 之前；全量调整为 286.0 人日 / 57.4 周。
+**v1.3（2026-11-07）**：按代码盘点校正 U-02（5.5→7.5，播放统计存储从 0 新建）、U-04（4.5→5.0）、U-05（3.0→2.0，HEAD 有可恢复实现）、U-09（6.0→7.0，补横屏与 JS driver）、U-01（5.5→6.0）；新增 R11（Player 单文件冲突）；U 由 70.0 调整为 73.0 人日。
 
-**v1.1（2026-11-06）**：新增阶段 T（对标 Lyrico，30.0 人日）、T+ 条件加强包（26.5 人日）、D6/D7 决策与 R6/R7/R8 风险；B-07 因现有 SongInfoPage 由 2.5 降至 1.5；全量由 187.0 人日 / 37.6 周调整为 216.0 人日 / 43.4 周。
+**v1.2（2026-11-07）**：新增阶段 U（UI/动效系统化重构，70.0 人日，9 项需求）、D8 决策、R9/R10 风险；U 置于 A-1 之后、A-2 之前；全量调整为 286.0 人日 / 57.4 周。
+
+**v1.1（2026-11-07）**：新增阶段 T（对标 Lyrico，30.0 人日）、T+ 条件加强包（26.5 人日）、D6/D7 决策与 R6/R7/R8 风险；B-07 因现有 SongInfoPage 由 2.5 降至 1.5；全量由 187.0 人日 / 37.6 周调整为 216.0 人日 / 43.4 周。
 
 **v1.0（2026-11-06）**：基于 `stage0-preflight-3.8.8.md` 编制；排期起点 2026-11-09。
 
