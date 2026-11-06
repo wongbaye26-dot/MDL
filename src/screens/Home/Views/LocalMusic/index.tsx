@@ -26,6 +26,7 @@ import ChoosePath, { type ChoosePathType } from '@/components/common/ChoosePath'
 import MusicMultiAddModal, { type MusicMultiAddModalType } from '@/components/MusicMultiAddModal'
 import { useTheme } from '@/store/theme/hook'
 import { contrastOn } from '@/theme/solid'
+import { setNavActiveId } from '@/core/common'
 import { confirmDialog, createStyle, tipDialog, toast } from '@/utils/tools'
 import { formatSize, formatSampleRate } from '@/core/download/utils'
 import { getLocalMusicList, getScanPartialList, subscribeScanPartialList, scanLocalMusicInBackground, isScanning, useScanState, getTotalSize, deleteLocalMusic, getScanDirs, getExtraDirs, setExtraDirs, getLastScanReport, type ScanDir, type ScanReport } from '@/core/localMusic'
@@ -1274,21 +1275,6 @@ export default ({ onClose, initialTab, onOpenFavorites }: { onClose?: () => void
       {hasClose ? null : (
         <PageHeader
           title='本地音乐'
-          titleRight={
-            (
-                <TouchableOpacity
-                  style={[styles.titleFavBtn, { backgroundColor: theme['c-primary-alpha-900'] }]}
-                  activeOpacity={0.8}
-                  accessibilityRole='button'
-                  accessibilityLabel='我的收藏'
-                  onPress={() => {
-                    if (onOpenFavorites) onOpenFavorites()
-                    else global.app_event.openFavorites()
-                  }}
-                >
-                  <Icon name='heart-outline' size={15} color={theme['c-primary']} />
-                </TouchableOpacity>
-          )}
           subtitle={(
             <View style={styles.headerTags}>
               {list.length ? <Tag label={`${list.length} 首`} style={styles.headerTag} /> : null}
@@ -1297,6 +1283,21 @@ export default ({ onClose, initialTab, onOpenFavorites }: { onClose?: () => void
           )}
           right={(
             <View style={styles.headerActions}>
+              <TouchableOpacity
+                style={{ ...styles.headerBtn, backgroundColor: theme['c-primary-alpha-900'] }}
+                activeOpacity={0.8}
+                accessibilityRole='button'
+                accessibilityLabel='我的收藏'
+                onPress={() => {
+                  if (onOpenFavorites) onOpenFavorites()
+                  else {
+                    setNavActiveId('nav_home')
+                    setTimeout(() => { global.app_event.openFavorites() }, 180)
+                  }
+                }}
+              >
+                <Icon name='heart-outline' size={19} color={theme['c-border-background']} />
+              </TouchableOpacity>
               {/* 文件夹图标回归：直接进「扫描文件夹」面板，不用先展开搜索 */}
               <TouchableOpacity
                 style={{ ...styles.headerBtn, backgroundColor: theme['c-primary-alpha-900'] }}
@@ -1644,10 +1645,10 @@ export default ({ onClose, initialTab, onOpenFavorites }: { onClose?: () => void
           曲库上千首时封顶 600 行，剩下的交给虚拟化按批补，
           避免一帧挂几千行把主线程堵死。
         */
-        initialNumToRender={Math.min(rows.length, MAX_INITIAL_ROWS)}
-        maxToRenderPerBatch={MAX_RENDER_BATCH}
+        initialNumToRender={tab === 'song' ? Math.min(rows.length, MAX_INITIAL_ROWS) : 18}
+        maxToRenderPerBatch={tab === 'song' ? MAX_RENDER_BATCH : 8}
         updateCellsBatchingPeriod={40}
-        windowSize={21}
+        windowSize={tab === 'song' ? 21 : 9}
         removeClippedSubviews={false}
         scrollEventThrottle={32}
         onScroll={e => { scrollY.current = e.nativeEvent.contentOffset.y }}

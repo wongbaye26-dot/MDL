@@ -32,6 +32,8 @@ import Leaderboard from '../Leaderboard'
 import CompactHero from '../Leaderboard/Vertical/CompactHero'
 import SongListHeaderSourceBar from '../SongList/HeaderSourceBar'
 import Favorites, { FavoriteTabs, type FavoriteTab } from '../Mylist/Favorites'
+import ListNameEdit, { type ListNameEditType } from '../Mylist/MyList/ListNameEdit'
+import listState from '@/store/list/state'
 import LocalMusic, { type LocalTab } from '../LocalMusic'
 import { useBackHandler } from '@/utils/hooks/useBackHandler'
 import UserApiEditModal, { type UserApiEditModalType } from '../Setting/settings/Basic/UserApiEditModal'
@@ -103,6 +105,7 @@ export default () => {
   /** 本地曲库 */
   const [localList, setLocalList] = useState<LX.Music.MusicInfoLocal[]>([])
   const userApiModalRef = useRef<UserApiEditModalType>(null)
+  const listNameEditRef = useRef<ListNameEditType>(null)
 
   /**
    * 首页 5 张大卡：对齐飞牛音乐的大卡横向轮播。
@@ -450,8 +453,8 @@ export default () => {
           accessibilityLabel='搜索'
           onPress={() => { setSearchVisible(true) }}
         >
-          <LiquidGlass mode={glassStyle} blurRadius={20} radius={20} tint={theme.isDark ? 'rgba(22,17,30,0.55)' : 'rgba(255,255,255,0.80)'} isDark={theme.isDark} />
-          <Icon name='magnify' size={19} color={theme['c-font']} />
+          <LiquidGlass mode={glassStyle} blurRadius={20} radius={20} tint={theme['c-primary-alpha-800']} isDark={theme.isDark} />
+          <Icon name='magnify' size={19} color={theme['c-primary']} />
         </TouchableOpacity>
       </View>
 
@@ -490,7 +493,17 @@ export default () => {
                 <PageModal
                   title='收藏'
                   onClose={() => { setModal(null) }}
-                  titleRight={<FavoriteTabs tab={favoriteTab} onChange={setFavoriteTab} />}
+                  titleRight={(
+                    <View style={styles.headerRight}>
+                      <FavoriteTabs tab={favoriteTab} onChange={setFavoriteTab} />
+                      <HeaderButton
+                        icon='plus'
+                        size={20}
+                        color={theme['c-primary']}
+                        onPress={() => { listNameEditRef.current?.showCreate(listState.userList.length) }}
+                      />
+                    </View>
+                  )}
                 >
                   <Favorites tab={favoriteTab} onTabChange={setFavoriteTab} />
                 </PageModal>
@@ -507,6 +520,7 @@ export default () => {
           : null
       }
       <UserApiEditModal ref={userApiModalRef} />
+      <ListNameEdit ref={listNameEditRef} />
       <ListeningStatsModal visible={statsVisible} onClose={() => { setStatsVisible(false) }} />
     </View>
   )
