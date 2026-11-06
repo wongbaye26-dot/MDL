@@ -1,4 +1,4 @@
-import { cpFile, existsFile, mkdir, privateStorageDirectoryPath, unlink } from '@/utils/fs'
+import { cpFile, existsFile, mkdir, privateStorageDirectoryPath, unlink, writeFile } from '@/utils/fs'
 import { deleteLocalMusic } from '@/core/localMusic'
 import { getData, saveData } from '@/plugins/storage'
 
@@ -124,3 +124,54 @@ export const getRecycleStats = (list: RecycleItem[]) => ({
   count: list.length,
   size: list.reduce((sum, item) => sum + (item.size || 0), 0),
 })
+
+export interface RecycleSelfTestResult {
+  ok: boolean
+  steps: string[]
+}
+
+/**
+ * 回收站自检：用临时文件走一遍「移入 → 恢复 → 清理」，不碰真实歌曲。
+ * 仅用于 A-2/N1 真机验证入口。
+ */
+export const selfTestRecycle = async(): Promise<RecycleSelfTestResult> => {
+  const steps: string[] = []
+  const testPath = `${privateStorageDirectoryPath}/recycle_selftest_${Date.now()}.txt`
+  let recycleRecord: RecycleItem | undefined
+  try {
+    await mkdir(privateStorageDirectoryPath).catch(() => {})
+    await writeFile(testPath, 'emo recycle selftest')
+    steps.push('创建临时文件')
+    const fakeItem = {
+      id: `selftest_recycle_${Date.now()}`,
+      name: '回收站自检',
+      singer: '',
+      interval: '',
+      meta: { filePath: testPath, ext: 'txt', size: 20, mtime: Date.now() },
+    } as unknown as LX.Music.MusicInfoLocal
+    const moved = await moveSongToRecycle(fakeItem)
+    if (!moved.ok) throw new Error(moved.error ?? '移入失败')
+    steps.push('移入回收站')
+    const list = await loadRecycleBin()
+    recycleRecord = list.find(item => item.originalPath === testPath)
+    if (!recycleRecord) throw new Error('回收站索引未写入')
+    if (await existsFile(testPath)) throw new Error('原文件仍存在')
+    if (!await existsFile(recycleRecord.recyclePath)) throw new Error('回收文件不存在')
+    steps.push('校验原文件已移除、回收文件存在')
+    const restored = await restoreRecycleItem(recycleRecord)
+    if (!restored.ok) throw new Error(restored.error ?? '恢复失败')
+    if (!await existsFile(testPath)) throw new Error('恢复后原文件不存在')
+    steps.push('恢复原路径')
+    const after = await loadRecycleBin()
+    if (after.some(item => item.originalPath === testPath)) throw new Error('恢复后索引未清理')
+    steps.push('索引清理')
+    await unlink(testPath).catch(() => {})
+    return { ok: true, steps }
+  } catch (error) {
+    if (recycleRecord && await existsFile(recycleRecord.recyclePath).catch(() => false)) {
+      await restoreRecycleItem(recycleRecord).catch(() => {})
+    }
+    await unlink(testPath).catch(() => {})
+    return { ok: false, steps: [...steps, error instanceof Error ? error.message : '自检失败'] }
+  }
+}

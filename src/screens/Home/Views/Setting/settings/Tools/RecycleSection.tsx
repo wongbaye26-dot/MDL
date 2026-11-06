@@ -10,6 +10,7 @@ import {
   getRecycleStats,
   loadRecycleBin,
   restoreRecycleItem,
+  selfTestRecycle,
   type RecycleItem,
 } from '@/core/localMusic/recycle'
 import { ButtonRow, Card, EmptyState, InfoLine, SecondaryButton } from './parts'
@@ -30,6 +31,7 @@ export default memo(() => {
   const theme = useTheme()
   const [items, setItems] = useState<RecycleItem[]>([])
   const [busy, setBusy] = useState(false)
+  const [selfTest, setSelfTest] = useState('')
 
   const refresh = useCallback(async() => {
     setItems(await loadRecycleBin())
@@ -38,6 +40,16 @@ export default memo(() => {
   useEffect(() => { void refresh() }, [refresh])
 
   const stats = getRecycleStats(items)
+
+  const runSelfTest = useCallback(() => {
+    if (busy) return
+    setBusy(true)
+    setSelfTest('运行中…')
+    void selfTestRecycle().then(async result => {
+      setSelfTest(result.ok ? `通过：${result.steps.join(' → ')}` : `失败：${result.steps.join(' → ')}`)
+      await refresh()
+    }).finally(() => { setBusy(false) })
+  }, [busy, refresh])
 
   const restoreOne = useCallback((item: RecycleItem) => {
     if (busy) return
@@ -121,6 +133,14 @@ export default memo(() => {
             )
       }
       {
+        selfTest
+          ? <Text size={10} color={theme['c-450']} style={styles.selfTest}>{selfTest}</Text>
+          : null
+      }
+      <ButtonRow>
+        <SecondaryButton label='回收站自检' icon='flask-outline' disabled={busy} onPress={runSelfTest} />
+      </ButtonRow>
+      {
         items.length
           ? (
             <ButtonRow>
@@ -155,5 +175,11 @@ const styles = createStyle({
   more: {
     marginTop: 4,
     marginBottom: 8,
+  },
+  selfTest: {
+    paddingLeft: 14,
+    paddingRight: 14,
+    paddingTop: 4,
+    lineHeight: 16,
   },
 })

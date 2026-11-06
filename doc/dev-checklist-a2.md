@@ -8,7 +8,7 @@
 |---|---|---|---|
 | A2-01 | 存储选型 ADR + schema + 迁移/回滚方案 | `doc/adr-0002-local-library-storage.md` | ✅ 2026-11-07 |
 | A2-02 | SQLite PoC：RN 0.73/Hermes 构建、10k 插入/查询/事务基准、license 登记 | ✅ `react-native-sqlite-2` 3.6.3：整包构建通过；10k 插入 1,141ms / 合计 1,193ms；MIT |
-| A2-03 | `LocalLibraryRepository`：schema 建表、CRUD、事务、WAL、错误处理 | ✅ `src/core/localLibrary/repository.ts`：tracks/playlists/scan_roots/recycle/meta 建表、upsert/get/count、事务封装、10k 基准；playlist CRUD 与迁移表待 A2-04 | 🟡 部分 |
+| A2-03 | `LocalLibraryRepository`：schema 建表、CRUD、事务、WAL、错误处理 | ✅ tracks/playlists/scan_roots/recycle/meta 建表、upsert/get/count、事务封装；playlist CRUD 待 A2-04；10k 基准真机通过 | ✅ |
 | A2-04 | 双写影子表：旧 JSON 写路径同步写 DB；差异对比日志 | shadow writer + 对比脚本 | ⏳ |
 | A2-05 | 迁移 + 回滚演练：备份、10k 扫描入库、checksum、断电恢复 | 迁移脚本 + 回滚演练记录 | ⏳ |
 | A2-06 | 身份模型：指纹（首尾采样+size+duration）、MediaStore id、legacy 映射、懒迁移 | `identity.ts` + 单测 | ⏳ |
