@@ -9,7 +9,7 @@
 | A2-01 | 存储选型 ADR + schema + 迁移/回滚方案 | `doc/adr-0002-local-library-storage.md` | ✅ 2026-11-07 |
 | A2-02 | SQLite PoC：RN 0.73/Hermes 构建、10k 插入/查询/事务基准、license 登记 | ✅ `react-native-sqlite-2` 3.6.3：整包构建通过；10k 插入 1,141ms / 合计 1,193ms；MIT |
 | A2-03 | `LocalLibraryRepository`：schema 建表、CRUD、事务、WAL、错误处理 | ✅ tracks/playlists/scan_roots/recycle/meta 建表、upsert/get/count、事务封装；playlist CRUD 待 A2-04；10k 基准真机通过 | ✅ |
-| A2-04 | 双写影子表：旧 JSON 写路径同步写 DB；差异对比日志 | 🟡 已做 playlist CRUD + 迁移预演（JSON→DB，不切读）；WAL 事务错误已修；预演复跑待下轮；双写钩子未接 | 🟡 |
+| A2-04 | 双写影子表：旧 JSON 写路径同步写 DB；差异对比日志 | 🟡 迁移预演真机通过（238/238、3/3、8/8、95ms、checksum 3ce4637c）；双写钩子/差异日志未接 | 🟡 |
 | A2-05 | 迁移 + 回滚演练：备份、10k 扫描入库、checksum、断电恢复 | 迁移脚本 + 回滚演练记录 | ⏳ |
 | A2-06 | 身份模型：指纹（首尾采样+size+duration）、MediaStore id、legacy 映射、懒迁移 | `identity.ts` + 单测 | ⏳ |
 | A2-07 | 三路扫描统一：MediaStore/SAF/直读目录 → repository；增量/失权/重复 | scan service + 回归 | ⏳ |
