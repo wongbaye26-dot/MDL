@@ -14,6 +14,7 @@ import TagScrapeSection from './TagScrapeSection'
 import LyricFixSection from './LyricFixSection'
 import InvalidEntriesSection from './InvalidEntriesSection'
 import HiddenSection from './HiddenSection'
+import RecycleSection from './RecycleSection'
 import DuplicateSection from './DuplicateSection'
 import RenameSection from './RenameSection'
 
@@ -140,6 +141,7 @@ export default memo(() => {
       <LyricFixSection health={health} scanning={scanning} onChanged={handleChanged} />
       <InvalidEntriesSection health={health} scanning={scanning} onChanged={handleChanged} />
       <HiddenSection />
+      <RecycleSection />
       <DuplicateSection health={health} scanning={scanning} onChanged={handleChanged} />
       <RenameSection health={health} scanning={scanning} onChanged={handleChanged} />
 

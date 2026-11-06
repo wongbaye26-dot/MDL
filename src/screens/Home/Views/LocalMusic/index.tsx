@@ -35,6 +35,7 @@ import { initialOfText } from '@/utils/pinyinInitial'
 import { normalizeGroupKey, useLocalLibraryIndex } from '@/core/localMusic/libraryIndex'
 import { hideFolder, hideSong, isHiddenItem, useHidden } from '@/core/localMusic/hidden'
 import { isLikelyUnsupportedLocal } from '@/core/localMusic/formats'
+import { moveSongToRecycle } from '@/core/localMusic/recycle'
 import { buildM3U8, matchM3UEntries, parseM3U } from '@/core/localMusic/m3u'
 import { readFile, selectManagedFolder, writeFile } from '@/utils/fs'
 import {
@@ -724,7 +725,7 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
     })
   }, [])
 
-  const runBatch = useCallback((action: 'queue' | 'playlist' | 'hide' | 'remove') => {
+  const runBatch = useCallback((action: 'queue' | 'playlist' | 'hide' | 'remove' | 'deleteFiles') => {
     const items = batchItems
     if (!items.length) return
     if (action === 'queue') {
@@ -740,7 +741,7 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
         setBatchMode(false)
       })
       return
-    } else {
+    } else if (action === 'remove') {
       void confirmDialog({
         title: '从曲库移除',
         message: `从曲库移除 ${items.length} 首歌？只删除曲库记录，不会删除磁盘文件。`,
@@ -750,6 +751,23 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
         if (!confirmed) return
         void Promise.all(items.map(async item => deleteLocalMusic(item, false))).then(() => {
           toast(`已从曲库移除 ${items.length} 首`)
+          setBatchSelected(new Set())
+          setBatchMode(false)
+        })
+      })
+      return
+    } else {
+      void confirmDialog({
+        title: '删除文件到回收站',
+        message: `把 ${items.length} 首歌的文件移入回收站（音乐工具可恢复），并从曲库移除？`,
+        confirmButtonText: '移入回收站',
+        danger: true,
+      }).then(confirmed => {
+        if (!confirmed) return
+        void Promise.all(items.map(async item => moveSongToRecycle(item))).then(results => {
+          const ok = results.filter(result => result.ok).length
+          const failed = results.length - ok
+          toast(failed ? `已移入回收站 ${ok} 首，${failed} 首失败` : `已移入回收站 ${ok} 首`)
           setBatchSelected(new Set())
           setBatchMode(false)
         })
@@ -1346,6 +1364,19 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
                       : `用时 ${(lastReport.durationMs / 1000).toFixed(1)} 秒`}
                 </Text>
               </View>
+              {
+                lastReport.needAuth.length
+                  ? (
+                    <TouchableOpacity
+                      onPress={() => { setDirModal(true) }}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      style={{ paddingHorizontal: 8 }}
+                    >
+                      <Text size={11} color={WARN_COLOR}>重新授权</Text>
+                    </TouchableOpacity>
+                    )
+                  : null
+              }
               <TouchableOpacity
                 onPress={showScanReport}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -1640,6 +1671,10 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
               <TouchableOpacity style={styles.batchBtn} onPress={() => { runBatch('hide') }} accessibilityLabel='隐藏所选'>
                 <Icon name='eye-off-outline' size={19} color={theme['c-font']} />
                 <Text size={9.5} color={theme['c-450']} style={styles.batchLabel}>隐藏</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.batchBtn} onPress={() => { runBatch('deleteFiles') }} accessibilityLabel='删除文件到回收站'>
+                <Icon name='delete-forever-outline' size={19} color={WARN_COLOR} />
+                <Text size={9.5} color={WARN_COLOR} style={styles.batchLabel}>删文件</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.batchBtn} onPress={() => { runBatch('remove') }} accessibilityLabel='从曲库移除'>
                 <Icon name='delete-outline' size={19} color={WARN_COLOR} />
