@@ -231,3 +231,26 @@ CREATE TABLE recycle (
 ---
 
 **Decision owner**：Lead；**Reviewers**：Android/性能；**PoC 结果回填本 ADR 后转 Accepted。**
+
+## 8. A2-02 PoC 结果（2026-11-07）
+
+### 结论：采用 `react-native-sqlite-2` 3.6.3 作为 A-2 PoC 引擎
+
+| 候选 | 结果 | 证据 |
+|---|---|---|
+| `@op-engineering/op-sqlite` 19.0.5 | ❌ 构建失败 | CMake: `Target "op-sqlite" links to target "ReactAndroid::reactnative" but the target was not found`；RN 0.73 旧架构（`newArchEnabled=false`）不提供该 prefab target；需新架构/更新 RN |
+| `react-native-sqlite-2` 3.6.3 | ✅ 模块与整包构建通过 | 需两处 AGP8 补丁：`namespace "dog.craftz.sqlite_2"`、删除 AndroidManifest 的 `package` 属性；补丁已加入 `dependencies-patch.js`；`assembleRelease` 成功 |
+| `react-native-nitro-sqlite` 10.2.0 | ❌ 不适用 | peer 要求 RN >=0.75、nitro-modules |
+| `react-native-sqlite-storage` 6.0.1 | ❌ 高风险 | 旧 AGP/无 namespace、维护停滞 |
+
+### 现状与边界
+
+- 依赖已写入 `package.json` 与 `package-lock.json`（`react-native-sqlite-2@3.6.3`）；
+- 补丁随 `npm install` 的 `postinstall`（`dependencies-patch.js`）应用；
+- **运行期基准尚未做**：打开 DB、建表、10k 插入/查询/事务耗时与内存，属 A2-03 门禁；
+- JS API 为 WebSQL 兼容（`openDatabase` / `transaction` / `executeSql`），不引入新架构依赖。
+
+### A2-03 开始前
+
+- 若运行期基准不达标（单条 >10ms、10k >30s），退回「JSON + 派生索引」或重新评估新架构；
+- 在 repository 层封装 Promise API，禁止业务代码直接用 WebSQL 回调。

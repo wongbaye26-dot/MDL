@@ -6,6 +6,19 @@ const path = require('node:path')
 const rootPath = path.join(__dirname, './')
 
 const patchs = [
+  // ---- react-native-sqlite-2（A-2 曲库存储 PoC）----
+  // AGP 8 要求 library 显式声明 namespace，且 AndroidManifest 里的 package 属性
+  // 已被禁止；上游 3.6.3 仍是 AGP4 写法，这里在安装后补两处。
+  [
+    path.join(rootPath, 'node_modules/react-native-sqlite-2/android/build.gradle'),
+    'android {',
+    'android {\n  namespace "dog.craftz.sqlite_2"',
+  ],
+  [
+    path.join(rootPath, 'node_modules/react-native-sqlite-2/android/src/main/AndroidManifest.xml'),
+    ' package="dog.craftz.sqlite_2"',
+    '',
+  ],
   // 这两个 fork 的 package.json 把 types 指到了不存在的 lib/typescript/src/index.d.ts，
   // 导致 utils/fs.ts 和 localMediaMetadata.ts 整层没有类型（TS2307 + 一串隐式 any）。
   // 源码本身是 TS，直接指向 src/index.ts 即可。
