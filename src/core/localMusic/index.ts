@@ -140,6 +140,23 @@ export const getLocalMusicList = async(): Promise<LX.Music.MusicInfoLocal[]> => 
 }
 
 /** 清掉内存缓存，下次重新读存储 */
+/** A-3：按映射改写曲库条目 id（主键迁移用；不触发影子同步，DB 已单独迁移） */
+export const rewriteLocalMusicIds = async(mapping: Map<string, string>): Promise<number> => {
+  const list = await getLocalMusicList()
+  let changed = 0
+  const next = list.map(item => {
+    const newId = mapping.get(item.id)
+    if (!newId || newId === item.id) return item
+    changed += 1
+    return { ...item, id: newId }
+  })
+  if (!changed) return 0
+  cachedList = next
+  await saveData(STORAGE_KEY, next)
+  emitLocalMusicUpdated(next)
+  return changed
+}
+
 export const clearLocalMusicCache = () => {
   cachedList = null
 }

@@ -424,6 +424,33 @@ class LocalLibraryRepository {
     })
   }
 
+  /** A-3：把 tracks.id / playlist_tracks.track_id 从 legacy id 切到 fp id（可反向调用回滚） */
+  async migrateTrackIds(mapping: Array<[string, string]>): Promise<{ updated: number, conflicts: number, skipped: number, playlistUpdated: number }> {
+    const db = await this.open()
+    let existing = new Set<string>()
+    await this.transaction(db, tx => {
+      exec(tx, 'SELECT id FROM tracks', [], (_, result) => {
+        existing = new Set(readRows(result).map(row => String(row.id)))
+      })
+    })
+    const pairs = mapping.filter(([from, to]) => from && to && from !== to)
+    const safe = pairs.filter(([from, to]) => {
+      if (!existing.has(from)) return false
+      if (existing.has(to)) return false
+      return true
+    })
+    const conflicts = pairs.filter(([from, to]) => existing.has(from) && existing.has(to)).length
+    const skipped = pairs.length - safe.length - conflicts
+    let playlistUpdated = 0
+    await this.transaction(db, tx => {
+      for (const [from, to] of safe) {
+        exec(tx, 'UPDATE tracks SET id = ?, updated_at = ? WHERE id = ? OR legacy_id = ?', [to, Date.now(), from, from])
+        exec(tx, 'UPDATE playlist_tracks SET track_id = ? WHERE track_id = ?', [to, from], (_, result) => { playlistUpdated += result.rowsAffected })
+      }
+    })
+    return { updated: safe.length, conflicts, skipped, playlistUpdated }
+  }
+
   /** 回填指纹（id 暂不切换，A2-07 切读时再改主键） */
   async updateTrackFingerprint(legacyId: string, fingerprint: string): Promise<number> {
     const db = await this.open()
