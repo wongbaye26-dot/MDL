@@ -183,3 +183,18 @@
 | M3U 实文件系统选择器往返、同名 .lrc、歌词偏移、隐藏恢复 | NOT RUN |
 
 说明：`npm install` 会被 vendor 的 `prepare: bob build` 阻断，Jest 依赖未进 package.json；测试脚本复用已有 `@babel/register`，clean clone 可直接跑 `npm run test:unit`。
+
+## 8. N1 真机补测（2026-11-07，v3.9.1）
+
+| 项 | 结果 |
+|---|---|
+| 关闭「启动后自动播放音乐」→ force-stop → 冷启动 | ✅ 媒体会话为 PAUSED（修复两层竞态后） |
+| 关于页版本 | ✅ v3.9.1 |
+| M3U 真机导入：Download/n1-test.m3u8 走系统选择器 | ✅ 导入后「添加到歌单」弹窗出现「导入歌单 2026/11/7 00:24:39」 |
+| M3U 未匹配行 | 无法从 UI 精确核对数量（导入 toast 已消失） |
+| M3U 导出 | ❌ NOT RUN：Android 存储权限被拒绝，App 内提示“最后又拒绝” |
+| 同名 .lrc 真机加载 | NOT RUN：测试 `.lrc` 已推送到歌曲同目录，但未能稳定进入歌词页；测试文件已删除 |
+| 歌词偏移听感 | NOT RUN |
+| 测试数据清理 | ✅ 删除 `Download/n1-test.m3u8` 与两个测试 `.lrc` |
+
+> 注意：测试 `.lrc` 覆盖了「如果只得一星期 - 谢霆锋.lrc」的原有内容，清理时已删除该文件，原歌词未备份；如需该曲歌词请用工具重新补。
