@@ -29,7 +29,7 @@ const STORAGE_KEY = 'local_music_list'
 
 /** 曲库写盘统一入口：旧 JSON 保存后异步写 SQLite 影子表（失败不影响主流程） */
 const saveLocalMusicList = async(list: LX.Music.MusicInfoLocal[]) => {
-  await saveLocalMusicList(list)
+  await saveData(STORAGE_KEY, list)
   scheduleShadowSync(list)
 }
 /** 用户额外添加的扫描目录 */

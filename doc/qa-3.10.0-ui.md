@@ -492,3 +492,8 @@
 - 起播：PlaybackState PLAYING，position=8080ms，metadata「分段 A」，专辑「CUE 自测」
 - 段末：约 10s 后 metadata 变「分段 B」，position=16349ms，说明段末 16s 自动切下一段
 - 结论：A2-09 起播偏移 + 段末切段真机通过；测试歌单「CUE 自测」留在设备，可手动删除
+
+## 41. 3.9.27 严重递归 + 回收站清空真机（2026-11-07）
+
+- **Bug**：`saveLocalMusicList` 内部调用自身，任何曲库写盘都 `Maximum call stack size exceeded`；已改为 `saveData(STORAGE_KEY, list)`。
+- 回收站自检真机通过：创建临时文件 → 移入回收站 → 校验原文件移除/回收文件存在 → 恢复原路径 → 索引清理 → 二次移入 → 清空回收站（删除 2 条）→ 清空校验通过。

@@ -165,6 +165,21 @@ export const selfTestRecycle = async(): Promise<RecycleSelfTestResult> => {
     const after = await loadRecycleBin()
     if (after.some(item => item.originalPath === testPath)) throw new Error('恢复后索引未清理')
     steps.push('索引清理')
+    // 再移入一次，验证「清空回收站」也会删除回收文件
+    await writeFile(testPath, 'emo recycle selftest 2')
+    const movedAgain = await moveSongToRecycle(fakeItem)
+    if (!movedAgain.ok) throw new Error(movedAgain.error ?? '二次移入失败')
+    const beforeEmpty = await loadRecycleBin()
+    const target = beforeEmpty.find(item => item.originalPath === testPath)
+    if (!target) throw new Error('二次移入索引未写入')
+    steps.push('二次移入回收站')
+    const removed = await emptyRecycleBin()
+    steps.push(`清空回收站（删除 ${removed} 条）`)
+    if (await existsFile(target.recyclePath)) throw new Error('清空后回收文件仍存在')
+    const afterEmpty = await loadRecycleBin()
+    if (afterEmpty.some(item => item.originalPath === testPath)) throw new Error('清空后索引未清理')
+    if (await existsFile(testPath)) throw new Error('清空后原路径文件存在')
+    steps.push('清空校验通过')
     await unlink(testPath).catch(() => {})
     return { ok: true, steps }
   } catch (error) {

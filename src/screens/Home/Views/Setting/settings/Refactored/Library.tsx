@@ -5,6 +5,7 @@ import { useTheme } from '@/store/theme/hook'
 import { Group, ToggleRow, ActionRow, UiSectionTitle } from '../../components/ui'
 import { toast } from '@/utils/tools'
 import { runPowerLossDrill } from '@/core/localLibrary/backup'
+import { selfTestRecycle } from '@/core/localMusic/recycle'
 import { getLocalMusicList } from '@/core/localMusic'
 import { parseCue } from '@/core/localLibrary/cue'
 import { buildCueVirtualTracks } from '@/core/localLibrary/cueTracks'
@@ -17,6 +18,7 @@ export default () => {
   const [running, setRunning] = useState(false)
   const [drillText, setDrillText] = useState('')
   const [cueText, setCueText] = useState('')
+  const [recycleText, setRecycleText] = useState('')
   const runDrill = async() => {
     if (running) return
     setRunning(true)
@@ -83,6 +85,17 @@ FILE "${fileName}" WAVE
       setRunning(false)
     }
   }
+  const runRecycleTest = async() => {
+    if (running) return
+    setRunning(true)
+    try {
+      const result = await selfTestRecycle()
+      setRecycleText(result.ok ? `通过：${result.steps.join(' → ')}` : `失败：${result.steps.join(' → ')}`)
+      toast(result.ok ? '回收站自检通过（含清空）' : '回收站自检失败')
+    } finally {
+      setRunning(false)
+    }
+  }
   return (
   <View>
     <Group title='列表显示' icon='format-list-bulleted' color='#F97316'>
@@ -91,6 +104,8 @@ FILE "${fileName}" WAVE
       <ToggleRow settingKey='list.isShowInterval' title='显示歌曲时长' />
     </Group>
     <Group title='迁移自检' icon='database-check-outline' color='#64748B' desc='A-2 开发入口；只动 SQLite 影子表，不改旧 JSON'>
+      <ActionRow title='回收站自检（含清空）' desc='临时文件走移入→恢复→再移入→清空，不碰真实歌曲' action={running ? '运行中…' : '运行'} onPress={() => { void runRecycleTest() }} />
+      {recycleText ? <Text size={10.5} color={theme['c-450']} style={{ paddingLeft: 16, paddingRight: 16, paddingBottom: 12, lineHeight: 16 }}>{recycleText}</Text> : null}
       <ActionRow title='CUE 分段自测' desc='用曲库第一首生成 00:08/00:16 两段并起播' action={running ? '运行中…' : '生成并播放'} onPress={() => { void runCueSelfTest() }} />
       {cueText ? <Text size={10.5} color={theme['c-450']} style={{ paddingLeft: 16, paddingRight: 16, paddingBottom: 12, lineHeight: 16 }}>{cueText}</Text> : null}
       <ActionRow title='断电恢复演练' desc='模拟 DB 只写一半断电，再从旧 JSON 重建并校验' action={running ? '运行中…' : '运行'} onPress={() => { void runDrill() }} />
