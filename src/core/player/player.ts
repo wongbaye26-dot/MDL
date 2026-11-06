@@ -302,6 +302,7 @@ export const setMusicUrl = (musicInfo: LX.Music.MusicInfo | LX.Download.ListItem
     log.error(err)
     setStatusText(err.message as string)
     global.app_event.error()
+    global.lx.restorePlayInfo = null
     addDelayNextTimeout()
   }).finally(() => {
     if (musicInfo === playerState.playMusicInfo.musicInfo) {
@@ -445,8 +446,13 @@ const handlePlay = async() => {
   resetRandomNextMusicInfo()
 
   if (global.lx.restorePlayInfo) {
+    /*
+      不要在这里清 restorePlayInfo：handleRestorePlay 是异步的，插件
+      handlePlayMusic 之后才真正拿到它来决定「恢复后是否 play」。
+      清早了会让插件以为这是一次普通播放，从而在关闭 startupAutoPlay 时也出声。
+      插件在 restore 分支处理完会自己置 null。
+    */
     void handleRestorePlay(global.lx.restorePlayInfo)
-    global.lx.restorePlayInfo = null
     return
   }
 

@@ -174,7 +174,17 @@ const handlePlayMusic = async(musicInfo: LX.Player.PlayMusic, url: string, time:
     await TrackPlayer.pause()
     if (!isTempTrack(track.id as string)) {
       await TrackPlayer.seekTo(time)
-      await TrackPlayer.play()
+      /*
+        恢复上次播放时（restorePlayInfo 非空），即使原生队列里还留着上一首
+        （currentTrackIndex 不为 null），也必须保持在暂停态：是否自动播由
+        core/init/player/playInfo.ts 里的 startupAutoPlay 决定。
+        之前这里无条件 play()，导致「启动后自动播放音乐」关闭也会自动出声。
+      */
+      if (global.lx.restorePlayInfo) {
+        global.lx.restorePlayInfo = null
+      } else {
+        await TrackPlayer.play()
+      }
     }
   }
 

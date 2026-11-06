@@ -1,7 +1,8 @@
 import { getPlayInfo } from '@/utils/data'
 import { existsFile } from '@/utils/fs'
 import { getListMusics } from '@/core/list'
-import { playList, play } from '@/core/player/player'
+import { playList, play, pause } from '@/core/player/player'
+import playerState from '@/store/player/state'
 
 
 export default async(setting: LX.AppSetting) => {
@@ -34,7 +35,21 @@ export default async(setting: LX.AppSetting) => {
 
   await playList(info.listId, index)
 
-  if (setting['player.startupAutoPlay']) setTimeout(play)
+  if (setting['player.startupAutoPlay']) {
+    setTimeout(play)
+  } else {
+    /*
+      恢复后默认暂停。原生播放队列可能跨进程保留，插件从「队列已存在」分支
+      恢复时仍可能 play()；这里在启动后几秒内兜底：一旦发现真的开始播就暂停，
+      确保「启动后自动播放音乐」关闭时不自动出声。
+    */
+    let tries = 0
+    const guard = setInterval(() => {
+      tries += 1
+      if (playerState.isPlay) void pause()
+      if (tries >= 20) clearInterval(guard)
+    }, 250)
+  }
 
 
   // if (!info.list || !info.list[info.index]) {
