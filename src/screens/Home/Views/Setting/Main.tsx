@@ -1,14 +1,14 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { Animated, Easing } from 'react-native'
 
-import Player from './settings/Player'
-import Download from './settings/Download'
-import Source from './settings/Source'
-import SearchList from './settings/SearchList'
-import Tools from './settings/Tools'
-import Basic from './settings/Basic'
-import Other from './settings/Other'
-import About from './settings/About'
+import Playback from './settings/Refactored/Playback'
+import Lyric from './settings/Refactored/Lyric'
+import Appearance from './settings/Refactored/Appearance'
+import Library from './settings/Refactored/Library'
+import SourceSearch from './settings/Refactored/SourceSearch'
+import DownloadStorage from './settings/Refactored/DownloadStorage'
+import System from './settings/Refactored/System'
+import Misc from './settings/Refactored/Misc'
 import { useReducedMotion } from '@/utils/hooks'
 
 /**
@@ -16,14 +16,14 @@ import { useReducedMotion } from '@/utils/hooks'
  * id 保持不变，`global.lx.settingActiveId` 里的旧值仍能定位到同一个页面。
  */
 export const SETTING_SCREENS = [
-  'player',
+  'playback',
+  'lyric',
+  'appearance',
+  'library',
+  'sourcesearch',
   'download',
-  'source',
-  'searchlist',
-  'tools',
-  'basic',
-  'other',
-  'about',
+  'system',
+  'misc',
 ] as const
 
 export type SettingScreenIds = typeof SETTING_SCREENS[number]
@@ -31,8 +31,15 @@ export type SettingScreenIds = typeof SETTING_SCREENS[number]
 // 旧版本里「搜索」「列表」是两个独立分组，现在合并为「搜索与列表」，
 // 内存里可能还残留旧 id（例如热重载/从旧导航状态恢复），这里统一迁移掉
 const LEGACY_SCREEN_IDS: Record<string, SettingScreenIds> = {
-  search: 'searchlist',
-  list: 'searchlist',
+  player: 'playback',
+  search: 'sourcesearch',
+  searchlist: 'sourcesearch',
+  list: 'library',
+  tools: 'library',
+  basic: 'appearance',
+  source: 'sourcesearch',
+  other: 'misc',
+  about: 'misc',
 }
 /** 把旧版本残留的 search / list 归一成 searchlist，非法值回退到 basic */
 export const normalizeSettingScreenId = (id: string | null | undefined): SettingScreenIds => {
@@ -83,15 +90,15 @@ const Main = forwardRef<MainType, {}>((props, ref) => {
 
   const component = useMemo(() => {
     switch (id) {
-      case 'player': return <Player />
-      case 'download': return <Download />
-      case 'source': return <Source />
-      case 'searchlist': return <SearchList />
-      case 'tools': return <Tools />
-      case 'other': return <Other />
-      case 'about': return <About />
-      case 'basic':
-      default: return <Basic />
+      case 'playback': return <Playback />
+      case 'lyric': return <Lyric />
+      case 'appearance': return <Appearance />
+      case 'library': return <Library />
+      case 'sourcesearch': return <SourceSearch />
+      case 'download': return <DownloadStorage />
+      case 'system': return <System />
+      case 'misc':
+      default: return <Misc />
     }
   }, [id])
 

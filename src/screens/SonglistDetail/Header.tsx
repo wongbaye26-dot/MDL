@@ -5,6 +5,8 @@ import { useNavigationComponentDidAppear } from '@/navigation'
 import { NAV_SHEAR_NATIVE_IDS } from '@/config/constant'
 import { scaleSizeW } from '@/utils/pixelRatio'
 import { useTheme } from '@/store/theme/hook'
+import { useSettingValue } from '@/store/setting/hook'
+import LiquidGlass from '@/components/common/LiquidGlass'
 import Text, { AnimatedText } from '@/components/common/Text'
 import { createStyle } from '@/utils/tools'
 import Image from '@/components/common/Image'
@@ -78,6 +80,7 @@ export interface DetailInfo {
  * 页头的返回键/标题是固定的一行，在 index.tsx 里用 PageHeader 渲染。
  */
 export default forwardRef<HeaderType, HeaderProps>(({ componentId }: { componentId: string }, ref) => {
+  const glassStyle = useSettingValue('common.navGlassStyle') ?? 'liquid'
   const theme = useTheme()
   const info = useListInfo()
   const [detailInfo, setDetailInfo] = useState<DetailInfo>({ name: '', desc: '', playCount: '', imgUrl: info.img })
@@ -92,9 +95,9 @@ export default forwardRef<HeaderType, HeaderProps>(({ componentId }: { component
     <View style={styles.wrap}>
       <View style={{
         ...styles.card,
-        backgroundColor: theme['c-primary-alpha-900'],
         borderColor: theme['c-primary-alpha-800'],
       }}>
+        <LiquidGlass mode={glassStyle} blurRadius={24} radius={16} tint={theme.isDark ? 'rgba(20,16,28,0.42)' : 'rgba(255,255,255,0.34)'} isDark={theme.isDark} seamless />
         <View style={styles.headRow}>
           <Pic componentId={componentId} playCount={detailInfo.playCount} imgUrl={detailInfo.imgUrl} />
           <View style={styles.infoArea} nativeID={NAV_SHEAR_NATIVE_IDS.songlistDetail_title}>

@@ -90,14 +90,14 @@ export default ({ onPress }: { onPress: (id: SettingScreenIds) => void }) => {
 
   // 列表只给一行摘要，摘要保持实时、尽量精简
   const previews: Record<SettingScreenIds, string> = {
-    player: `${QUALITY_LABEL[playQuality] ?? playQuality} · 逐字`,
+    playback: `${QUALITY_LABEL[playQuality] ?? playQuality} · 淡入淡出 · 缓存`,
+    lyric: '逐字 · 翻译 · 蓝牙歌词',
+    appearance: `${theme.name || 'Emo'} · ${LANG_LABEL[(langId ?? 'zh-cn').replace('_', '-')] ?? langId ?? ''} · 动效`,
+    library: '曲库体检 · 封面 · 标签 · 重命名',
+    sourcesearch: `${sourcePreview} · 历史${onOff(showHistory)} · 热搜${onOff(showHot)}`,
     download: `${QUALITY_LABEL[downloadQuality] ?? downloadQuality} · ${maxDownloadNum ?? 3}并发${autoSave ? ' · 边听边存' : ''}`,
-    source: sourcePreview,
-    searchlist: `历史${onOff(showHistory)} · 热搜${onOff(showHot)} · 专辑名${onOff(showAlbumName)}`,
-    tools: '批量补封面 · 写标签 · 重命名',
-    basic: `${theme.name || 'Emo'} · ${LANG_LABEL[(langId ?? 'zh-cn').replace('_', '-')] ?? langId ?? ''}`,
-    other: '缓存管理 · 权限 · 日志',
-    about: `v${process.versions.app}`,
+    system: '权限 · 电池优化 · 自启动',
+    misc: `v${process.versions.app} · 缓存 · 日志 · 关于`,
   }
 
   return (

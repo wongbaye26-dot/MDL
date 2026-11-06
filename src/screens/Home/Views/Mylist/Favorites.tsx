@@ -15,14 +15,15 @@ import { measureStartRect, openPlayerWithTransition } from '@/utils/playerOpen'
 import { useTheme } from '@/store/theme/hook'
 import { usePlayerMusicInfo, useIsPlay, useProgress, usePlayInfo } from '@/store/player/hook'
 import { useSettingValue } from '@/store/setting/hook'
+import { useMyList } from '@/store/list/hook'
+import { getListMusicSync } from '@/utils/listManage'
 import { useLrcPlay } from '@/plugins/lyric'
 import { useKeyboard } from '@/utils/hooks'
-import { getListMusicSync } from '@/utils/listManage'
 import { contrastOn } from '@/theme/solid'
 import { cleanSongName } from '@/utils/songName'
 import { createStyle } from '@/utils/tools'
 
-export type FavoriteTab = 'love' | 'temp'
+export type FavoriteTab = 'playlist' | 'love' | 'temp'
 
 /** 试听列表只展示最近多少首（真实播放队列不动，只在展示层截断） */
 export const TEMP_DISPLAY_LIMIT = 30
@@ -264,14 +265,16 @@ const QueueSheet = memo(({ visible, onClose }: { visible: boolean, onClose: () =
  * 状态由 Home 持有（受控）：页头页签和下方列表共用同一份 tab，
  * 收起再打开收藏页时也能记住上次看的是哪个列表。
  */
-export const FavoriteTabs = ({ tab, onChange }: {
+export const FavoriteTabs = ({ tab, onChange, onCreate }: {
   tab: FavoriteTab
   onChange: (tab: FavoriteTab) => void
+  onCreate: () => void
 }) => {
   const theme = useTheme()
   const items: Array<{ key: FavoriteTab, label: string, icon: string }> = [
-    { key: 'love', label: '我的收藏', icon: 'heart' },
-    { key: 'temp', label: '试听列表', icon: 'clock-outline' },
+    { key: 'playlist', label: '歌单', icon: 'playlist-music' },
+    { key: 'love', label: '收藏', icon: 'heart' },
+    { key: 'temp', label: '试听', icon: 'clock-outline' },
   ]
 
   return (
@@ -298,7 +301,6 @@ export const FavoriteTabs = ({ tab, onChange }: {
               />
               <Text
                 size={11.5}
-                // 主色实心的胶囊上按主色亮度取黑/白，浅色主题下也读得清
                 color={active ? contrastOn(theme['c-primary']) : theme['c-450']}
                 numberOfLines={1}
               >{item.label}</Text>
@@ -306,6 +308,18 @@ export const FavoriteTabs = ({ tab, onChange }: {
           )
         })
       }
+      <TouchableOpacity
+        style={{
+          ...styles.headerTab,
+          backgroundColor: theme['c-primary'],
+          borderColor: theme['c-primary'],
+        }}
+        activeOpacity={0.85}
+        onPress={onCreate}
+      >
+        <Icon name='plus' size={12} color={contrastOn(theme['c-primary'])} style={styles.headerTabIcon} />
+        <Text size={11.5} color={contrastOn(theme['c-primary'])} numberOfLines={1}>新建歌单</Text>
+      </TouchableOpacity>
     </View>
   )
 }
@@ -323,16 +337,20 @@ export const FavoriteTabs = ({ tab, onChange }: {
  *
  * tab 是受控的（Home 持有状态，页头页签和这里共用），切换时照旧 setActiveList。
  */
-export default ({ tab }: {
+export default ({ tab, onCreate }: {
   tab: FavoriteTab
+  onCreate: () => void
   /** 当前由 PageHeader 里的 FavoriteTabs 直接改 Home 的状态；这里保留受控签名，方便以后页内再出现切换入口 */
   onTabChange: (tab: FavoriteTab) => void
 }) => {
   const theme = useTheme()
   const [queueVisible, setQueueVisible] = useState(false)
+  const userLists = useMyList().slice(2) as LX.List.UserListInfo[]
+  const [playlist, setPlaylist] = useState<LX.List.UserListInfo | null>(null)
   const counts = useListCounts()
-  const count = tab === 'love' ? counts.love : counts.temp
-  const tabTitle = tab === 'love' ? '我的收藏' : '试听列表'
+  const playlistCount = playlist ? getListMusicSync(playlist.id).length : 0
+  const count = tab === 'playlist' ? playlistCount : tab === 'love' ? counts.love : counts.temp
+  const tabTitle = tab === 'playlist' ? (playlist?.name ?? '我的歌单') : tab === 'love' ? '我的收藏' : '试听列表'
 
   /*
     打开收藏页时不要沿用「跳到正在播放的那首」的列表：
@@ -342,16 +360,9 @@ export default ({ tab }: {
   useMemo(() => { global.lx.jumpMyListPosition = false }, [])
 
   useEffect(() => {
-    const id = tab === 'love' ? LIST_IDS.LOVE : LIST_IDS.TEMP
+    if (tab === 'playlist' && !playlist) return
+    const id = tab === 'playlist' ? playlist!.id : tab === 'love' ? LIST_IDS.LOVE : LIST_IDS.TEMP
     setActiveList(id)
-    /*
-      只 setActiveList 不会让 MusicList 重新加载（它的挂载 effect 只看 mylistToggled 等事件），
-      切页签时主动通知一次，保证列表跟着页签走。
-
-      这里要等页签切换动画/触摸交互结束再通知列表重建：
-      收藏/试听列表可能是几百上千首，立刻重建 + 渲染会和动画挤在同一帧，
-      真机上表现为切页签直接卡死（ANR 10s）。InteractionManager 会把重建排到交互结束之后。
-    */
     let cancelled = false
     const task = InteractionManager.runAfterInteractions(() => {
       if (cancelled) return
@@ -363,61 +374,112 @@ export default ({ tab }: {
       cancelled = true
       task.cancel()
     }
-  }, [tab])
+  }, [tab, playlist])
 
   const handlePlayAll = useCallback(() => {
     if (!count) return
-    // 试听列表只展示最近 30 首，播放全部也要从这 30 首的第一首开始
+    if (tab === 'playlist' && playlist) {
+      void playList(playlist.id, 0)
+      return
+    }
     const offset = tab === 'temp' ? Math.max(0, counts.temp - TEMP_DISPLAY_LIMIT) : 0
     void playList(tab === 'love' ? LIST_IDS.LOVE : LIST_IDS.TEMP, offset)
-  }, [tab, count, counts.temp])
+  }, [tab, count, counts.temp, playlist])
 
   const handleOpenQueue = useCallback(() => { setQueueVisible(true) }, [])
   const handleCloseQueue = useCallback(() => { setQueueVisible(false) }, [])
 
   return (
     <View style={styles.container}>
-      {/* 子页概览区：标题 + 统计 + 播放全部，和本地音乐的扫描卡/下载中心的页头标签同一套 token */}
-      <View
-        style={{
-          ...styles.overview,
-          backgroundColor: theme['c-primary-alpha-900'],
-          borderColor: theme['c-primary-alpha-700'],
-        }}
-      >
-        <View style={{ ...styles.overviewIcon, backgroundColor: theme['c-primary-alpha-800'] }}>
-          <Icon name={tab === 'love' ? 'love' : 'clock-outline'} size={20} color={theme['c-primary']} />
-        </View>
-        <View style={styles.overviewInfo}>
-          <Text size={14} style={styles.overviewTitle}>{tabTitle}</Text>
-          <Text size={10.5} color={theme['c-450']} numberOfLines={1} style={styles.overviewMeta}>
-            {tab === 'love'
-              ? `我的收藏 · ${count} 首 · 长按歌曲可以批量管理`
-              : `试听列表 · 共 ${count} 首 · 只显示最近 ${TEMP_DISPLAY_LIMIT} 首`}
-          </Text>
-        </View>
-        <TouchableOpacity
-          style={{
-            ...styles.playAllBtn,
-            backgroundColor: count ? theme['c-primary'] : theme['c-primary-alpha-800'],
-          }}
-          activeOpacity={0.85}
-          disabled={!count}
-          onPress={handlePlayAll}
-        >
-          <Icon name='play' size={12} color={count ? contrastOn(theme['c-primary']) : theme['c-450']} />
-          <Text
-            size={11}
-            color={count ? contrastOn(theme['c-primary']) : theme['c-450']}
-            style={styles.playAllText}
-          >播放全部</Text>
-        </TouchableOpacity>
-      </View>
+      {
+        tab === 'playlist' && !playlist
+          ? (
+            <ScrollView contentContainerStyle={styles.playlistContent} showsVerticalScrollIndicator={false}>
+              <View style={styles.playlistHero}>
+                <View style={[styles.playlistHeroIcon, { backgroundColor: theme['c-primary-alpha-800'] }]}>
+                  <Icon name='playlist-music' size={26} color={theme['c-primary']} />
+                </View>
+                <View style={styles.playlistHeroText}>
+                  <Text size={17} style={styles.overviewTitle}>我的歌单</Text>
+                  <Text size={11} color={theme['c-450']} style={styles.overviewMeta}>{userLists.length ? `${userLists.length} 个自建歌单` : '还没有自建歌单，点右上角「新建歌单」创建'}</Text>
+                </View>
+                <TouchableOpacity style={[styles.playAllBtn, { backgroundColor: theme['c-primary'] }]} activeOpacity={0.85} onPress={onCreate}>
+                  <Icon name='plus' size={12} color={contrastOn(theme['c-primary'])} />
+                  <Text size={11} color={contrastOn(theme['c-primary'])} style={styles.playAllText}>新建</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.playlistGrid}>
+                {
+                  userLists.map(item => {
+                    const size = getListMusicSync(item.id).length
+                    return (
+                      <TouchableOpacity key={item.id} style={styles.playlistCard} activeOpacity={0.82} onPress={() => { setPlaylist(item) }}>
+                        <View style={[styles.playlistCover, { backgroundColor: theme['c-primary-alpha-800'] }]}>
+                          <Icon name='playlist-music' size={30} color={theme['c-primary']} />
+                        </View>
+                        <Text size={13} numberOfLines={1} style={styles.playlistName}>{item.name}</Text>
+                        <Text size={10} color={theme['c-450']} numberOfLines={1}>{size} 首</Text>
+                      </TouchableOpacity>
+                    )
+                  })
+                }
+              </View>
+            </ScrollView>
+            )
+          : (
+            <>
+              {/* 子页概览区：标题 + 统计 + 播放全部 */}
+              <View
+                style={{
+                  ...styles.overview,
+                  backgroundColor: theme['c-primary-alpha-900'],
+                  borderColor: theme['c-primary-alpha-700'],
+                }}
+              >
+                <View style={{ ...styles.overviewIcon, backgroundColor: theme['c-primary-alpha-800'] }}>
+                  <Icon name={tab === 'love' ? 'love' : tab === 'temp' ? 'clock-outline' : 'playlist-music'} size={20} color={theme['c-primary']} />
+                </View>
+                <View style={styles.overviewInfo}>
+                  <Text size={14} style={styles.overviewTitle}>{tabTitle}</Text>
+                  <Text size={10.5} color={theme['c-450']} numberOfLines={1} style={styles.overviewMeta}>
+                    {tab === 'love'
+                      ? `我的收藏 · ${count} 首 · 长按歌曲可以批量管理`
+                      : tab === 'temp'
+                        ? `试听列表 · 共 ${count} 首 · 只显示最近 ${TEMP_DISPLAY_LIMIT} 首`
+                        : `${playlist?.name ?? ''} · ${playlistCount} 首`}
+                  </Text>
+                </View>
+                {tab === 'playlist'
+                  ? (
+                    <TouchableOpacity style={styles.overviewBack} activeOpacity={0.8} onPress={() => { setPlaylist(null) }}>
+                      <Icon name='chevron-left' size={16} color={theme['c-450']} />
+                    </TouchableOpacity>
+                    )
+                  : null}
+                <TouchableOpacity
+                  style={{
+                    ...styles.playAllBtn,
+                    backgroundColor: count ? theme['c-primary'] : theme['c-primary-alpha-800'],
+                  }}
+                  activeOpacity={0.85}
+                  disabled={!count}
+                  onPress={handlePlayAll}
+                >
+                  <Icon name='play' size={12} color={count ? contrastOn(theme['c-primary']) : theme['c-450']} />
+                  <Text
+                    size={11}
+                    color={count ? contrastOn(theme['c-primary']) : theme['c-450']}
+                    style={styles.playAllText}
+                  >播放全部</Text>
+                </TouchableOpacity>
+              </View>
 
-      <View style={styles.list}>
-        {/* 页签在 PageHeader 标题行内；试听列表只在展示层截断最近 30 首，真实队列不动 */}
-        <MusicList hideHeader displayLimit={tab === 'temp' ? TEMP_DISPLAY_LIMIT : undefined} />
-      </View>
+              <View style={styles.list}>
+                <MusicList hideHeader displayLimit={tab === 'temp' ? TEMP_DISPLAY_LIMIT : undefined} />
+              </View>
+            </>
+            )
+      }
 
       <MiniPlayer onOpenQueue={handleOpenQueue} />
       <QueueSheet visible={queueVisible} onClose={handleCloseQueue} />
@@ -426,6 +488,60 @@ export default ({ tab }: {
 }
 
 const styles = createStyle({
+  playlistContent: {
+    paddingLeft: 16,
+    paddingRight: 16,
+    paddingBottom: 140,
+  },
+  playlistHero: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+    padding: 12,
+    borderRadius: 16,
+    backgroundColor: 'rgba(128,128,128,0.08)',
+  },
+  playlistHeroIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  playlistHeroText: {
+    flexGrow: 1,
+    flexShrink: 1,
+    minWidth: 0,
+    paddingLeft: 10,
+  },
+  playlistGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 14,
+    gap: 12,
+  },
+  playlistCard: {
+    width: '47.8%',
+  },
+  playlistCover: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  playlistName: {
+    marginTop: 7,
+    fontWeight: '600',
+  },
+  overviewBack: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 4,
+  },
   container: {
     flex: 1,
   },

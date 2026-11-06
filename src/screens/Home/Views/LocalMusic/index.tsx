@@ -27,6 +27,8 @@ import MusicMultiAddModal, { type MusicMultiAddModalType } from '@/components/Mu
 import { useTheme } from '@/store/theme/hook'
 import { contrastOn } from '@/theme/solid'
 import { setNavActiveId } from '@/core/common'
+import LiquidGlass from '@/components/common/LiquidGlass'
+import { useSettingValue } from '@/store/setting/hook'
 import { confirmDialog, createStyle, tipDialog, toast } from '@/utils/tools'
 import { formatSize, formatSampleRate } from '@/core/download/utils'
 import { getLocalMusicList, getScanPartialList, subscribeScanPartialList, scanLocalMusicInBackground, isScanning, useScanState, getTotalSize, deleteLocalMusic, getScanDirs, getExtraDirs, setExtraDirs, getLastScanReport, type ScanDir, type ScanReport } from '@/core/localMusic'
@@ -172,7 +174,7 @@ const secondsOfInterval = (interval?: string | null) => {
 
 export type LocalTab = 'recent' | 'album' | 'artist' | 'folder' | 'song'
 
-export default ({ onClose, initialTab, onOpenFavorites }: { onClose?: () => void, /** 打开时直接落到哪个页签（首页「最近添加歌曲」进来用） */ initialTab?: LocalTab, /** 标题后的收藏入口（打开我的收藏） */ onOpenFavorites?: () => void }) => {
+export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClose?: () => void, /** 打开时直接落到哪个页签（首页「最近添加歌曲」进来用） */ initialTab?: LocalTab, /** 直接打开某张专辑的歌曲列表（首页最近添加专辑） */ initialAlbum?: string | null, /** 标题后的收藏入口（打开我的收藏） */ onOpenFavorites?: () => void }) => {
   const theme = useTheme()
   const { width: windowWidth, height: windowHeight } = useWindowSize()
   const [list, setList] = useState<LX.Music.MusicInfoLocal[]>([])
@@ -193,6 +195,12 @@ export default ({ onClose, initialTab, onOpenFavorites }: { onClose?: () => void
   /** 搜索改为页头按钮触发：不打开时列表保持满宽（不再常驻搜索条） */
   const [searchOpen, setSearchOpen] = useState(false)
   const statusBarHeight = useStatusbarHeight()
+  const glassStyle = useSettingValue('common.navGlassStyle') ?? 'liquid'
+  useEffect(() => {
+    if (!initialAlbum) return
+    setTab('album')
+    setDetail({ type: 'album', title: initialAlbum })
+  }, [initialAlbum])
   /** 专辑 / 艺人的二级页 */
   const [detail, setDetail] = useState<{ type: 'album' | 'artist', title: string } | null>(null)
   /** 文件夹树当前目录（null = 根） */
@@ -1553,6 +1561,7 @@ export default ({ onClose, initialTab, onOpenFavorites }: { onClose?: () => void
               )
             : (
               <View style={styles.tabBar}>
+                <LiquidGlass mode={glassStyle} blurRadius={24} radius={0} tint={theme.isDark ? 'rgba(20,16,28,0.42)' : 'rgba(255,255,255,0.34)'} isDark={theme.isDark} seamless />
                 <LocalTabs
                   active={tab}
                   onChange={key => {
@@ -1589,6 +1598,7 @@ export default ({ onClose, initialTab, onOpenFavorites }: { onClose?: () => void
         !searching && !detail
           ? (
             <View style={styles.viewTools}>
+              <LiquidGlass mode={glassStyle} blurRadius={24} radius={0} tint={theme.isDark ? 'rgba(20,16,28,0.42)' : 'rgba(255,255,255,0.34)'} isDark={theme.isDark} seamless />
               <TouchableOpacity
                 style={styles.viewToolBtn}
                 activeOpacity={0.75}

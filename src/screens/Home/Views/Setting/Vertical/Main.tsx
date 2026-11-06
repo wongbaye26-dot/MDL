@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Animated, View, ScrollView, TouchableOpacity, StyleSheet } from 'react-native'
 
-import Source from '../settings/Source'
-import Basic from '../settings/Basic'
-import Player from '../settings/Player'
-import SearchList from '../settings/SearchList'
-import Download from '../settings/Download'
-import Other from '../settings/Other'
-import About from '../settings/About'
-import Tools from '../settings/Tools'
+import Playback from '../settings/Refactored/Playback'
+import Lyric from '../settings/Refactored/Lyric'
+import Appearance from '../settings/Refactored/Appearance'
+import Library from '../settings/Refactored/Library'
+import SourceSearch from '../settings/Refactored/SourceSearch'
+import DownloadStorage from '../settings/Refactored/DownloadStorage'
+import System from '../settings/Refactored/System'
+import Misc from '../settings/Refactored/Misc'
 import { createStyle } from '@/utils/tools'
 import { type SettingScreenIds } from '../Main'
 import { Icon } from '@/components/common/Icon'
@@ -34,15 +34,15 @@ let lastActiveId: SettingScreenIds | null = null
 
 const getSection = (id: SettingScreenIds) => {
   switch (id) {
-    case 'source': return <Source />
-    case 'player': return <Player />
-    case 'download': return <Download />
-    case 'searchlist': return <SearchList />
-    case 'other': return <Other />
-    case 'tools': return <Tools />
-    case 'about': return <About />
-    case 'basic':
-    default: return <Basic />
+    case 'playback': return <Playback />
+    case 'lyric': return <Lyric />
+    case 'appearance': return <Appearance />
+    case 'library': return <Library />
+    case 'sourcesearch': return <SourceSearch />
+    case 'download': return <DownloadStorage />
+    case 'system': return <System />
+    case 'misc':
+    default: return <Misc />
   }
 }
 

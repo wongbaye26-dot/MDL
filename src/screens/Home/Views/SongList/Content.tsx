@@ -4,6 +4,8 @@ import { ScrollView, View } from 'react-native'
 import Chip from '@/components/common/Chip'
 import { useI18n } from '@/lang'
 import { useTheme } from '@/store/theme/hook'
+import { useSettingValue } from '@/store/setting/hook'
+import LiquidGlass from '@/components/common/LiquidGlass'
 import { createStyle } from '@/utils/tools'
 import { getSongListSetting, saveSongListSetting } from '@/utils/data'
 import { getTags } from '@/core/songlist'
@@ -31,6 +33,7 @@ interface SonglistInfo {
 export default () => {
   const t = useI18n()
   const theme = useTheme()
+  const glassStyle = useSettingValue('common.navGlassStyle') ?? 'liquid'
   const listRef = useRef<ListType>(null)
   const openListModalRef = useRef<OpenListModalType>(null)
   const songlistInfo = useRef<SonglistInfo>({ source: 'kw', sortId: '', tagId: '' })
@@ -153,6 +156,7 @@ export default () => {
   return (
     <View style={styles.container}>
       <View style={styles.filters}>
+        <LiquidGlass mode={glassStyle} blurRadius={24} radius={0} tint={theme.isDark ? 'rgba(20,16,28,0.42)' : 'rgba(255,255,255,0.34)'} isDark={theme.isDark} seamless />
         {/* 排序 + 分类（同一排横向滚动，细竖线分隔两组；来源图标已移到页头标题右侧） */}
         <ScrollView
           horizontal

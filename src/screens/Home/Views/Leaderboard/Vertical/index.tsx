@@ -14,6 +14,9 @@ import { BoardChips } from './Chips'
 import { resetHeaderSources, setHeaderSources } from './headerSources'
 import { resetLeaderboardHero, setLeaderboardHero } from '@/utils/leaderboardHero'
 import PlayerBar from '@/components/player/PlayerBar'
+import LiquidGlass from '@/components/common/LiquidGlass'
+import { useSettingValue } from '@/store/setting/hook'
+import { useTheme } from '@/store/theme/hook'
 
 /**
  * 排行榜（横竖屏共用）。
@@ -27,6 +30,8 @@ import PlayerBar from '@/components/player/PlayerBar'
  * CompactHero → HeaderSourceBar（导航层级隔了几层，用不了 props）。
  */
 export default () => {
+  const glassStyle = useSettingValue('common.navGlassStyle') ?? 'liquid'
+  const theme = useTheme()
   const musicListRef = useRef<MusicListType>(null)
   const [source, setSource] = useState<LX.OnlineSource>(leaderboardState.sources[0] ?? 'kw')
   const [boards, setBoards] = useState<BoardItem[]>([])
@@ -139,6 +144,7 @@ export default () => {
   return (
     <View style={styles.container}>
       <View style={styles.filters}>
+        <LiquidGlass mode={glassStyle} blurRadius={24} radius={0} tint={theme.isDark ? 'rgba(20,16,28,0.42)' : 'rgba(255,255,255,0.34)'} isDark={theme.isDark} seamless />
         <BoardChips boards={boards} activeId={activeId} onChange={handleBoardChange} />
       </View>
       <View style={styles.list}>

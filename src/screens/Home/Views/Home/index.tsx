@@ -99,6 +99,7 @@ export default () => {
   const [localVisible, setLocalVisible] = useState(false)
   const [statsVisible, setStatsVisible] = useState(false)
   const [localTab, setLocalTab] = useState<LocalTab>('song')
+  const [localAlbum, setLocalAlbum] = useState<string | null>(null)
   const [recommend, setRecommend] = useState<ListInfoItem[]>([])
   /** 最近播放（已去重、最新的在前） */
   const [playedMusic, setPlayedMusic] = useState<LX.Music.MusicInfo[]>([])
@@ -206,8 +207,9 @@ export default () => {
     void playList(LIST_IDS.TEMP, index)
   }, [])
 
-  const openLocal = useCallback((tab: LocalTab) => {
+  const openLocal = useCallback((tab: LocalTab, album?: string) => {
     setLocalTab(tab)
+    setLocalAlbum(album ?? null)
     setLocalVisible(true)
   }, [])
 
@@ -334,7 +336,7 @@ export default () => {
                           key={album.key}
                           style={styles.albumCard}
                           activeOpacity={0.8}
-                          onPress={() => { openLocal('album') }}
+                          onPress={() => { openLocal('album', album.name) }}
                         >
                           <CoverImage item={album.coverItem} size={scaleSizeW(118)} radius={16} inset={0} />
                           <Text size={12.5} numberOfLines={1} style={styles.albumName}>{album.name}</Text>
@@ -494,18 +496,14 @@ export default () => {
                   title='收藏'
                   onClose={() => { setModal(null) }}
                   titleRight={(
-                    <View style={styles.headerRight}>
-                      <FavoriteTabs tab={favoriteTab} onChange={setFavoriteTab} />
-                      <HeaderButton
-                        icon='plus'
-                        size={20}
-                        color={theme['c-primary']}
-                        onPress={() => { listNameEditRef.current?.showCreate(listState.userList.length) }}
-                      />
-                    </View>
+                    <FavoriteTabs
+                      tab={favoriteTab}
+                      onChange={setFavoriteTab}
+                      onCreate={() => { listNameEditRef.current?.showCreate(listState.userList.length) }}
+                    />
                   )}
                 >
-                  <Favorites tab={favoriteTab} onTabChange={setFavoriteTab} />
+                  <Favorites tab={favoriteTab} onTabChange={setFavoriteTab} onCreate={() => { listNameEditRef.current?.showCreate(listState.userList.length) }} />
                 </PageModal>
                 )
               : null
@@ -514,7 +512,7 @@ export default () => {
         localVisible
           ? (
             <PageModal title='本地音乐' onClose={() => { setLocalVisible(false) }}>
-              <LocalMusic initialTab={localTab} onClose={() => { setLocalVisible(false) }} onOpenFavorites={() => { setLocalVisible(false); setModal('mylist') }} />
+              <LocalMusic initialTab={localTab} initialAlbum={localAlbum} onClose={() => { setLocalVisible(false) }} onOpenFavorites={() => { setLocalVisible(false); setModal('mylist') }} />
             </PageModal>
             )
           : null
