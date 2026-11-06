@@ -1,4 +1,5 @@
 /* eslint-disable require-atomic-updates -- 扫描状态是模块级单例，只在扫描回调里整体更新 */
+import { canReuseScannedFile } from './scanDiff'
 import { useEffect, useState } from 'react'
 import { getData, saveData } from '@/plugins/storage'
 import { existsFile, extname, readDir, unlink } from '@/utils/fs'
@@ -554,10 +555,7 @@ export const scanLocalMusic = async(
     if (seen.has(file.path)) continue
     seen.add(file.path)
     const prev = previousByPath.get(file.path)
-    const fileMtime = typeof file.mtime === 'number' ? file.mtime : (file.mtime instanceof Date ? file.mtime.getTime() : 0)
-    const prevMtime = prev?.meta.mtime ?? 0
-    const sameSize = (file.size ?? 0) === ((prev?.meta as { size?: number } | undefined)?.size ?? 0)
-    const canReuse = !!prev && fileMtime > 0 && prevMtime > 0 && fileMtime === prevMtime && sameSize
+    const canReuse = canReuseScannedFile(prev, file)
     if (canReuse && prev) {
       list.push(prev)
       unchanged += 1

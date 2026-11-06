@@ -31,6 +31,11 @@
 
 **门禁 N0**：tag 可构建；v3.9.0 安装包在真机冷启动/扫描/播放/本地列表无回归；文档状态与 tag 一致。
 
+**N1 进行中（2026-11-07）**
+- 测试基线：`npm run test:unit`（node:test + Babel 注册器，不新增依赖）；11/11 通过；10k 索引基准 16.7ms / +3.2MB。
+- 说明：项目 `npm install` 会被 vendor 的 `prepare: bob build` 阻断，因此 Jest 依赖暂未进 package.json；测试脚本复用已有 `@babel/register`，clean clone 可直接跑。
+- 待办：N-09 杀进程恢复/淡入淡出真机、N-10 M3U 实文件往返、N-11 歌词同名 `.lrc`/偏移、N-12 引用迁移/回收目录。
+
 **N0 完成记录（2026-11-07）**
 - 提交：`34545bab` docs / `85f235ba` build / `32918489` feat / `07ba2510` release；tag `v3.9.0`（annotated）。
 - 版本：`3.9.0` / `versionCode 191`（真机 `versionCode=191003`、`versionName=3.9.0`）。
@@ -42,8 +47,8 @@
 
 ## 2. N1 · 2.0 缺口 + 质量基线（2026-11-14 → 11-28，约 9 人日）
 
-- [ ] **N-07 测试框架（P0-05）**：纯逻辑单测覆盖 `buildLibraryIndex`、增量扫描 diff、`parseM3U/matchM3UEntries`、重复分组、隐藏过滤。
-- [ ] **N-08 10k 曲库压测（P0-04 前置）**：构造 1 万首元数据样本，测索引构建、首屏、搜索、增量扫描；记录内存/耗时，不达标先优化再进 A-2。
+- [x] **N-07 测试框架（P0-05）**：零新增依赖方案（Node `node:test` + 仓库已有 Babel 注册器），`npm run test:unit` 覆盖 `buildLibraryIndex`、增量扫描 diff、`parseM3U/buildM3U8/matchM3UEntries`、不可解码标记；11 test / 11 pass。重复分组与隐藏过滤待补。
+- [x] **N-08 10k 曲库压测（P0-04 前置）**：已加 1 万首纯索引基准——`buildLibraryIndex` 16.7ms / heap +3.2MB（Node，非 UI）；首屏渲染/搜索/增量扫描真机性能仍 **NOT RUN**。
 - [ ] **N-09 队列/恢复真机**：杀进程恢复队列+进度；丢文件跳过；缓入淡出无爆音、暂停后音量恢复。
 - [ ] **N-10 M3U 往返**：真实文件导出→重新导入，1000 首样本校验数量/顺序/未匹配；补「未匹配项手动指定」P1。
 - [ ] **N-11 歌词**：同名 `.lrc` 实际加载、偏移 ±0.5s/±0.1s 生效；`content://` 曲目的同目录 `.lrc` 方案（SAF 查询）评估。
