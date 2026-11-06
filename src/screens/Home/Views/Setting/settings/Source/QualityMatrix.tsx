@@ -1,13 +1,10 @@
 import { memo } from 'react'
 import { View } from 'react-native'
-
-import Section from '../../components/Section'
 import Text from '@/components/common/Text'
-import Tag from '@/components/common/Tag'
-import Chip from '@/components/common/Chip'
 import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
 import { createStyle } from '@/utils/tools'
+import { Group } from '../../components/ui'
 import { useQualityList } from './state'
 import { getTopQuality, getSourceDisplayName, qualityLabel, sortQualitys } from './helpers'
 
@@ -16,82 +13,53 @@ export default memo(() => {
   const t = useI18n()
   const theme = useTheme()
   const qualityList = useQualityList()
-
   const entries = Object.entries(qualityList)
     .filter((entry): entry is [LX.Source, LX.Quality[]] => Array.isArray(entry[1]) && entry[1].length > 0)
     .sort((a, b) => a[0].localeCompare(b[0]))
 
   return (
-    <Section title={t('setting_source_quality')} icon='chart-bar'>
+    <Group title={t('setting_source_quality')} icon='chart-bar' color='#3B82F6' desc={t('setting_source_quality_tip')}>
       <View style={styles.content}>
-        {
-          entries.length
-            ? entries.map(([source, qualities]) => {
-              const sorted = sortQualitys(qualities)
-              const topQuality = getTopQuality(sorted)
-              return (
-                <View key={source} style={styles.row}>
-                  <View style={styles.head}>
-                    <Text size={13} numberOfLines={1} style={styles.sourceName}>{getSourceDisplayName(source)}</Text>
-                    {topQuality ? <Tag label={qualityLabel(topQuality)} size='sm' tone='primary' style={styles.topTag} /> : null}
-                  </View>
-                  <View style={styles.chips}>
-                    {
-                      sorted.map(quality => (
-                        <View key={quality} style={styles.chip}>
-                          <Chip size='sm' soft={quality !== topQuality} active={quality === topQuality} label={qualityLabel(quality)} />
-                        </View>
-                      ))
-                    }
-                  </View>
+        {entries.length
+          ? entries.map(([source, qualities]) => {
+            const sorted = sortQualitys(qualities)
+            const topQuality = getTopQuality(sorted)
+            return (
+              <View key={source} style={styles.row}>
+                <View style={styles.head}>
+                  <Text size={12.5} numberOfLines={1} style={styles.sourceName}>{getSourceDisplayName(source)}</Text>
+                  {topQuality ? (
+                    <View style={[styles.topTag, { backgroundColor: theme['c-primary-alpha-900'] }]}>
+                      <Text size={9.5} color={theme['c-primary']}>{qualityLabel(topQuality)}</Text>
+                    </View>
+                  ) : null}
                 </View>
-              )
-            })
-            : (
-              <Text size={11.5} color={theme['c-450']} style={styles.empty}>
-                {t('setting_source_quality_empty')}
-              </Text>
-              )
-        }
-        <Text size={10.5} color={theme['c-400']} style={styles.tip}>{t('setting_source_quality_tip')}</Text>
+                <View style={styles.chips}>
+                  {sorted.map(quality => {
+                    const top = quality === topQuality
+                    return (
+                      <View key={quality} style={[styles.chip, { backgroundColor: top ? theme['c-primary'] : theme['c-primary-alpha-900'] }]}>
+                        <Text size={10.5} color={top ? '#FFFFFF' : theme['c-450']}>{qualityLabel(quality)}</Text>
+                      </View>
+                    )
+                  })}
+                </View>
+              </View>
+            )
+          })
+          : <Text size={11.5} color={theme['c-450']} style={styles.empty}>{t('setting_source_quality_empty')}</Text>}
       </View>
-    </Section>
+    </Group>
   )
 })
 
 const styles = createStyle({
-  content: {
-    paddingLeft: 14,
-    paddingRight: 14,
-    paddingTop: 10,
-    paddingBottom: 10,
-  },
-  row: {
-    marginBottom: 12,
-  },
-  head: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  sourceName: {
-    fontWeight: '600',
-  },
-  topTag: {
-    marginLeft: 8,
-  },
-  chips: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginTop: 6,
-  },
-  chip: {
-    marginBottom: 6,
-  },
-  empty: {
-    lineHeight: 17,
-  },
-  tip: {
-    lineHeight: 15,
-    marginTop: 2,
-  },
+  content: { paddingLeft: 14, paddingRight: 14, paddingTop: 10, paddingBottom: 12 },
+  row: { marginBottom: 12 },
+  head: { flexDirection: 'row', alignItems: 'center' },
+  sourceName: { fontWeight: '600' },
+  topTag: { marginLeft: 8, height: 20, paddingLeft: 8, paddingRight: 8, borderRadius: 10, justifyContent: 'center' },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
+  chip: { height: 26, paddingLeft: 10, paddingRight: 10, borderRadius: 13, justifyContent: 'center' },
+  empty: { padding: 4 },
 })
