@@ -74,8 +74,8 @@ export const Card = memo(({ title, desc, right, icon, children }: {
             )
           : null}
         <View style={styles.cardTitleWrap}>
-          <Text size={15.5} style={styles.cardTitle}>{title}</Text>
-          {desc ? <Text size={10.5} color={theme['c-450']} style={styles.cardDesc}>{desc}</Text> : null}
+          <Text size={13.5} style={styles.cardTitle}>{title}</Text>
+          {desc ? <Text size={10} color={theme['c-450']} style={styles.cardDesc}>{desc}</Text> : null}
         </View>
         {right}
       </View>
@@ -118,8 +118,8 @@ export const HeroCard = memo(({
           <Icon name='stethoscope' size={19} color={getIconColor(theme, '#8B5CF6')} />
         </View>
         <View style={styles.heroTitleWrap}>
-          <Text size={17} style={styles.cardTitle}>{title}</Text>
-          <Text size={11} color={theme['c-450']} style={styles.heroSubtitle}>{subtitle}</Text>
+          <Text size={15} style={styles.cardTitle}>{title}</Text>
+          <Text size={10.5} color={theme['c-450']} style={styles.heroSubtitle}>{subtitle}</Text>
         </View>
         <TouchableOpacity
           activeOpacity={0.8}
@@ -140,8 +140,8 @@ export const HeroCard = memo(({
             return (
               <View key={stat.key} style={styles.statCell}>
                 <View style={{ ...styles.statTile, backgroundColor: tileBackground(theme) }}>
-                  <Text size={19} color={color} style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit>{stat.value}</Text>
-                  <Text size={10} color={theme['c-450']} style={styles.statLabel} numberOfLines={1}>{stat.label}</Text>
+                  <Text size={18} color={color} style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit>{stat.value}</Text>
+                  <Text size={9.5} color={theme['c-450']} style={styles.statLabel} numberOfLines={1}>{stat.label}</Text>
                 </View>
               </View>
             )
@@ -173,7 +173,7 @@ export const InfoLine = memo(({ label, desc, value, tone }: {
         <Text size={13.5}>{label}</Text>
         {desc ? <Text size={10} color={theme['c-450']} style={styles.infoDesc}>{desc}</Text> : null}
       </View>
-      <Text size={19} color={color} style={styles.infoValue}>{value}</Text>
+      <Text size={16} color={color} style={styles.infoValue}>{value}</Text>
     </View>
   )
 })
@@ -510,7 +510,7 @@ const styles = createStyle({
     paddingBottom: 8,
   },
   statTile: {
-    borderRadius: 12,
+    borderRadius: 14,
     paddingLeft: 10,
     paddingRight: 8,
     paddingTop: 8,
