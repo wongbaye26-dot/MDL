@@ -9,6 +9,7 @@ import LiquidGlass from '@/components/common/LiquidGlass'
 import AlbumDiscSpin, { DISC_SIZE } from '@/components/common/AlbumDiscSpin'
 import { useTheme } from '@/store/theme/hook'
 import { usePlayerMusicInfo, useIsPlay, useProgress } from '@/store/player/hook'
+import { useLrcPlay } from '@/plugins/lyric'
 import { useSettingValue } from '@/store/setting/hook'
 import { useKeyboard } from '@/utils/hooks'
 import { playNext, togglePlay } from '@/core/player/player'
@@ -61,6 +62,7 @@ export default memo(({ isHome = false }: { isHome?: boolean }) => {
   const musicInfo = usePlayerMusicInfo()
   const isPlay = useIsPlay()
   const { progress } = useProgress()
+  const lrcPlay = useLrcPlay()
   const autoHidePlayBar = useSettingValue('common.autoHidePlayBar')
   const progressStyle = useSettingValue('common.navProgressStyle') ?? 'ring'
   const glassStyle = useSettingValue('common.navGlassStyle') ?? 'liquid'
@@ -118,7 +120,7 @@ export default memo(({ isHome = false }: { isHome?: boolean }) => {
               color={theme['c-font']}
               style={isDark ? styles.name : [styles.name, styles.lightTextShadow]}
             />
-            <Text size={11} color={theme['c-450']} numberOfLines={1} style={isDark ? styles.singer : [styles.singer, styles.lightTextShadow]}>{musicInfo.singer}</Text>
+            <Text size={11} color={theme['c-450']} numberOfLines={1} style={isDark ? styles.singer : [styles.singer, styles.lightTextShadow]}>{lrcPlay.text || musicInfo.singer || '未知歌手'}</Text>
           </View>
         </TouchableOpacity>
 

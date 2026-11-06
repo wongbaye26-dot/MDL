@@ -131,7 +131,7 @@ const Cover = ({ item, size = 56, round = false }: {
   size?: number
   /** 艺人头像用圆形 */
   round?: boolean
-}) => <CoverImage item={item} size={size} round={round} style={{ marginRight: 12 }} />
+}) => <CoverImage item={item} size={size} round={round} inset={0} radius={9} style={{ marginRight: 12 }} />
 
 /** '03:55' → 秒；用于时长排序 */
 const secondsOfInterval = (interval?: string | null) => {
@@ -145,7 +145,7 @@ const secondsOfInterval = (interval?: string | null) => {
 
 export type LocalTab = 'recent' | 'album' | 'artist' | 'folder' | 'song'
 
-export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时直接落到哪个页签（首页「最近添加歌曲」进来用） */ initialTab?: LocalTab }) => {
+export default ({ onClose, initialTab, onOpenFavorites }: { onClose?: () => void, /** 打开时直接落到哪个页签（首页「最近添加歌曲」进来用） */ initialTab?: LocalTab, /** 标题后的收藏入口（打开我的收藏） */ onOpenFavorites?: () => void }) => {
   const theme = useTheme()
   const { width: windowWidth, height: windowHeight } = useWindowSize()
   const [list, setList] = useState<LX.Music.MusicInfoLocal[]>([])
@@ -160,7 +160,9 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
   /** 浏览层级：最近添加 / 专辑 / 艺人 / 文件夹树 / 全部歌曲 */
   const [tab, setTab] = useState<LocalTab>(initialTab ?? 'song')
   /** 歌名首字母筛选：null = 全部；'#' = 数字/符号/无法识别 */
-  const [letterFilter, setLetterFilter] = useState<string | null>(null)
+  /** 右侧字母栏：当前高亮字母（跟随滚动，不参与筛选） */
+  const [activeLetter, setActiveLetter] = useState<string | null>(null)
+  const flatListRef = useRef<FlatList<any>>(null)
   /** 搜索改为页头按钮触发：不打开时列表保持满宽（不再常驻搜索条） */
   const [searchOpen, setSearchOpen] = useState(false)
   const statusBarHeight = useStatusbarHeight()
@@ -477,9 +479,7 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
 
   const rows = useMemo(() => {
     // 首字母筛选只作用于「全部歌曲 / 最近添加」的平铺列表；专辑/艺人/文件夹分组不受影响
-    const songSource = sortSongs(letterFilter
-      ? filteredList.filter(item => initialOfText(cleanSongName(item.name, item.singer)) === letterFilter)
-      : filteredList)
+    const songSource = sortSongs(filteredList)
 
     type Row =
       | { type: 'song', key: string, item: LX.Music.MusicInfoLocal, index: number }
@@ -595,17 +595,29 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
         count: artist.count,
         cover: coverOf(artist.coverId),
       }))
-  }, [detail, deferredTab, filteredList, list, indexOfId, folderTree, folderPath, searchResults, letterFilter, libraryIndex, tabSort, compareSongs, sortSongs])
-
-  /** 当前曲库里出现过的首字母（没有歌的字母在索引栏里置灰） */
-  const availableInitials = useMemo(() => {
-    if (tab !== 'song' || detail !== null || searchKeyword !== '' || searchOpen) return undefined
-    const set = new Set<string>()
-    for (const item of filteredList) set.add(initialOfText(cleanSongName(item.name, item.singer)))
-    return set
-  }, [filteredList, tab, detail, searchKeyword, searchOpen])
+  }, [detail, deferredTab, filteredList, list, indexOfId, folderTree, folderPath, searchResults, libraryIndex, tabSort, compareSongs, sortSongs])
 
   const letterBarVisible = tab === 'song' && !detail && !searchKeyword && !searchOpen
+
+  interface LetterRow { type?: string, item?: LX.Music.MusicInfoLocal }
+  const activeLetterOfRow = (row: LetterRow | null): string | null => {
+    if (row?.type !== 'song' || !row.item) return null
+    return initialOfText(cleanSongName(row.item.name, row.item.singer))
+  }
+
+  const handleLetterSelect = (letter: string) => {
+    const index = rows.findIndex(row => activeLetterOfRow(row as LetterRow) === letter)
+    if (index < 0) return
+    setActiveLetter(letter)
+    flatListRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0 })
+  }
+
+  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: Array<{ item: any, isViewable: boolean }> }) => {
+    const first = viewableItems.find(item => item.isViewable)
+    const letter = first ? activeLetterOfRow(first.item as LetterRow) : null
+    if (letter) setActiveLetter(letter)
+  }).current
+  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 10 }).current
 
   // 下滑关闭：回到下载中心。
   // onClose 放进 ref：外层每次重渲染都会传新闭包，如果进 useMemo 依赖，
@@ -1262,6 +1274,21 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
       {hasClose ? null : (
         <PageHeader
           title='本地音乐'
+          titleRight={
+            (
+                <TouchableOpacity
+                  style={[styles.titleFavBtn, { backgroundColor: theme['c-primary-alpha-900'] }]}
+                  activeOpacity={0.8}
+                  accessibilityRole='button'
+                  accessibilityLabel='我的收藏'
+                  onPress={() => {
+                    if (onOpenFavorites) onOpenFavorites()
+                    else global.app_event.openFavorites()
+                  }}
+                >
+                  <Icon name='heart-outline' size={15} color={theme['c-primary']} />
+                </TouchableOpacity>
+          )}
           subtitle={(
             <View style={styles.headerTags}>
               {list.length ? <Tag label={`${list.length} 首`} style={styles.headerTag} /> : null}
@@ -1326,7 +1353,7 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
             <Input
               value={searchText}
               autoFocus
-              onChangeText={text => { setSearchText(text); if (text) setLetterFilter(null) }}
+              onChangeText={text => { setSearchText(text) }}
               placeholder='搜索本地歌曲、歌手或专辑'
               style={styles.searchInput}
               clearBtn={searchText.length > 0}
@@ -1516,7 +1543,6 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
                           setTab(item.key)
                           setFolderPath(null)
                           setDetail(null)
-                          setLetterFilter(null)
                         }}
                       />
                     ))
@@ -1590,6 +1616,7 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
       }
 
       <FlatList
+        ref={flatListRef}
         key={isGrid ? 'grid' : 'list'}
         data={rows}
         renderItem={renderItem}
@@ -1597,6 +1624,12 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
         numColumns={isGrid ? 3 : 1}
         columnWrapperStyle={isGrid ? styles.gridRow : undefined}
         contentContainerStyle={[styles.listContent, letterBarVisible ? styles.listContentWithIndex : null]}
+        showsVerticalScrollIndicator={false}
+        onViewableItemsChanged={onViewableItemsChanged}
+        viewabilityConfig={viewabilityConfig}
+        onScrollToIndexFailed={info => {
+          flatListRef.current?.scrollToOffset({ offset: info.averageItemLength * info.index, animated: true })
+        }}
         /*
           本工程 VirtualizedList 有「只渲染初始批次、滚动不补」的坑
           （见 components/OnlineList/List.tsx 的注释，线上已经踩过一次），
@@ -1644,25 +1677,7 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
                 </TouchableOpacity>
               </View>
               )
-            : letterFilter
-              ? (
-                <View style={styles.empty}>
-                  <View style={{ ...styles.emptyIcon, backgroundColor: theme['c-primary-alpha-900'] }}>
-                    <Icon name='alphabetical-variant' size={26} color={theme['c-400']} />
-                  </View>
-                  <Text size={13} style={styles.emptyTitle} numberOfLines={2}>
-                    {`没有「${letterFilter}」开头的歌曲`}
-                  </Text>
-                  <TouchableOpacity
-                    style={{ ...styles.emptyBtn, backgroundColor: theme['c-primary'] }}
-                    activeOpacity={0.85}
-                    onPress={() => { setLetterFilter(null) }}
-                  >
-                    <Text size={12} color={contrastOn(theme['c-primary'])} style={[styles.emptyBtnText, chipText(12)]}>清除筛选</Text>
-                  </TouchableOpacity>
-                </View>
-                )
-              : (
+            : (
               <View style={styles.empty}>
                 <View style={{ ...styles.emptyIcon, backgroundColor: theme['c-primary-alpha-900'] }}>
                   <Icon name='music_time' size={26} color={theme['c-400']} />
@@ -1674,13 +1689,13 @@ export default ({ onClose, initialTab }: { onClose?: () => void, /** 打开时�
                   下载完成的歌曲会自动保存在这里，扫描后即可离线播放
                 </Text>
               </View>
-                )
+              )
         )}
       />
 
       {
         letterBarVisible
-          ? <LetterIndexBar active={letterFilter} available={availableInitials} onSelect={setLetterFilter} />
+          ? <LetterIndexBar active={activeLetter} onSelect={handleLetterSelect} />
           : null
       }
 
@@ -1998,6 +2013,14 @@ const editStyles = StyleSheet.create({
 })
 
 const styles = createStyle({
+  titleFavBtn: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+  },
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',

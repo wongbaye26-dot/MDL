@@ -6,6 +6,9 @@ import { Icon } from '@/components/common/Icon'
 import Image from '@/components/common/Image'
 import PicImage from '@/components/common/PicImage'
 import PageHeader, { HeaderButton } from '@/components/common/PageHeader'
+import LiquidGlass from '@/components/common/LiquidGlass'
+import { useStatusbarHeight } from '@/store/common/hook'
+import { useSettingValue } from '@/store/setting/hook'
 import { useTheme } from '@/store/theme/hook'
 import { useDownloadList } from '@/store/download'
 import commonState from '@/store/common/state'
@@ -84,6 +87,8 @@ const SectionHead = ({ title, hint, onPress }: {
 
 export default () => {
   const theme = useTheme()
+  const statusBarHeight = useStatusbarHeight()
+  const glassStyle = useSettingValue('common.navGlassStyle') ?? 'liquid'
   const downloadList = useDownloadList()
   const [searchVisible, setSearchVisible] = useState(false)
   const [modal, setModal] = useState<ModalType>(null)
@@ -219,6 +224,12 @@ export default () => {
     }
   }, [])
 
+  useEffect(() => {
+    const open = () => { setModal('mylist') }
+    global.app_event.on('openFavorites', open)
+    return () => { global.app_event.off('openFavorites', open) }
+  }, [])
+
   useBackHandler(useCallback(() => {
     if (localVisible) {
       setLocalVisible(false)
@@ -242,10 +253,7 @@ export default () => {
         contentContainerStyle={{ paddingBottom: NAV_BAR_SPACE }}
         showsVerticalScrollIndicator={false}
       >
-        <PageHeader
-          title='Emo音乐'
-          right={<HeaderButton icon='search' iconSet='material' onPress={() => { setSearchVisible(true) }} />}
-        />
+        <PageHeader title='Emo音乐' />
 
         {/*
           5 张大卡：对齐飞牛音乐的横向吸附轮播；卡片视觉由 BigCard 负责。
@@ -433,6 +441,20 @@ export default () => {
         }
       </ScrollView>
 
+      {/* 悬浮搜索：下滑时固定在右上角，液态玻璃胶囊 */}
+      <View style={{ position: 'absolute', top: statusBarHeight + 12, right: 16 }}>
+        <TouchableOpacity
+          style={{ width: 40, height: 40, borderRadius: 20, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}
+          activeOpacity={0.85}
+          accessibilityRole='button'
+          accessibilityLabel='搜索'
+          onPress={() => { setSearchVisible(true) }}
+        >
+          <LiquidGlass mode={glassStyle} blurRadius={20} radius={20} tint={theme.isDark ? 'rgba(22,17,30,0.55)' : 'rgba(255,255,255,0.80)'} isDark={theme.isDark} />
+          <Icon name='magnify' size={19} color={theme['c-font']} />
+        </TouchableOpacity>
+      </View>
+
       {searchVisible ? <SearchModal onClose={() => { setSearchVisible(false) }} /> : null}
       {
         modal === 'songlist'
@@ -479,7 +501,7 @@ export default () => {
         localVisible
           ? (
             <PageModal title='本地音乐' onClose={() => { setLocalVisible(false) }}>
-              <LocalMusic initialTab={localTab} onClose={() => { setLocalVisible(false) }} />
+              <LocalMusic initialTab={localTab} onClose={() => { setLocalVisible(false) }} onOpenFavorites={() => { setLocalVisible(false); setModal('mylist') }} />
             </PageModal>
             )
           : null

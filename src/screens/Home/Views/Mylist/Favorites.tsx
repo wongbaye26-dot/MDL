@@ -15,6 +15,7 @@ import { measureStartRect, openPlayerWithTransition } from '@/utils/playerOpen'
 import { useTheme } from '@/store/theme/hook'
 import { usePlayerMusicInfo, useIsPlay, useProgress, usePlayInfo } from '@/store/player/hook'
 import { useSettingValue } from '@/store/setting/hook'
+import { useLrcPlay } from '@/plugins/lyric'
 import { useKeyboard } from '@/utils/hooks'
 import { getListMusicSync } from '@/utils/listManage'
 import { contrastOn } from '@/theme/solid'
@@ -79,6 +80,7 @@ const MiniPlayer = memo(({ onOpenQueue }: { onOpenQueue: () => void }) => {
   const musicInfo = usePlayerMusicInfo()
   const isPlay = useIsPlay()
   const { progress } = useProgress()
+  const lrcPlay = useLrcPlay()
   const progressStyle = useSettingValue('common.navProgressStyle') ?? 'ring'
   const autoHidePlayBar = useSettingValue('common.autoHidePlayBar')
   const { keyboardShown } = useKeyboard()
@@ -160,7 +162,7 @@ const MiniPlayer = memo(({ onOpenQueue }: { onOpenQueue: () => void }) => {
           <View style={styles.playerText}>
             <Text size={13} numberOfLines={1} style={isDark ? styles.playerName : [styles.playerName, styles.lightTextShadow]}>{songName}</Text>
             <Text size={10.5} color={theme['c-450']} numberOfLines={1} style={isDark ? styles.playerSinger : [styles.playerSinger, styles.lightTextShadow]}>
-              {musicInfo.singer || '未知歌手'}
+              {lrcPlay.text || musicInfo.singer || '未知歌手'}
             </Text>
           </View>
         </TouchableOpacity>

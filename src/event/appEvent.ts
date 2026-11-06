@@ -176,6 +176,11 @@ export class AppEvent extends Event {
     this.emit('changeLoveListVisible', visible)
   }
 
+  /** 打开首页「我的收藏」弹层（本地音乐标题后的收藏入口用） */
+  openFavorites() {
+    this.emit('openFavorites')
+  }
+
   showSonglistTagList(source: SonglistSource, activeId: string) {
     this.emit('showSonglistTagList', source, activeId)
   }
