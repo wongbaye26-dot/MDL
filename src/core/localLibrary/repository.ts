@@ -245,6 +245,17 @@ class LocalLibraryRepository {
     return tracks.length
   }
 
+  async getTrackIds(): Promise<string[]> {
+    const db = await this.open()
+    let ids: string[] = []
+    await this.transaction(db, tx => {
+      exec(tx, 'SELECT id FROM tracks', [], (_, result) => {
+        ids = readRows(result).map(row => String(row.id))
+      })
+    })
+    return ids
+  }
+
   async getTrackCount(): Promise<number> {
     const db = await this.open()
     let count = 0

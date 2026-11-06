@@ -1,6 +1,7 @@
 import { localLibraryRepository } from './repository'
 import { mapLocalTrackToRow } from './mapTrack'
 import { log } from '@/utils/log'
+import { saveData } from '@/plugins/storage'
 
 /**
  * 双写影子表（A2-04）。
@@ -19,12 +20,16 @@ export interface ShadowStatus {
   written: number
   durationMs: number
   error: string
+  /** 旧 JSON 有、DB 没有的 id 数 */
+  missing: number
+  /** DB 有、旧 JSON 没有的 id 数 */
+  extra: number
 }
 
 let timer: ReturnType<typeof setTimeout> | null = null
 let pending: LX.Music.MusicInfoLocal[] | null = null
 let running = false
-let status: ShadowStatus = { lastAt: 0, dbCount: 0, written: 0, durationMs: 0, error: '' }
+let status: ShadowStatus = { lastAt: 0, dbCount: 0, written: 0, durationMs: 0, error: '', missing: 0, extra: 0 }
 
 const writeAll = async(list: LX.Music.MusicInfoLocal[]): Promise<ShadowStatus> => {
   const start = Date.now()
@@ -34,7 +39,31 @@ const writeAll = async(list: LX.Music.MusicInfoLocal[]): Promise<ShadowStatus> =
     await localLibraryRepository.upsertTracks(rows.slice(i, i + 500))
   }
   const dbCount = await localLibraryRepository.getTrackCount()
-  return { lastAt: Date.now(), dbCount, written: rows.length, durationMs: Date.now() - start, error: '' }
+  const dbIds = await localLibraryRepository.getTrackIds()
+  const dbSet = new Set(dbIds)
+  const listSet = new Set(rows.map(row => row.id))
+  const missingIds = rows.map(row => row.id).filter(id => !dbSet.has(id))
+  const extraIds = dbIds.filter(id => !listSet.has(id))
+  const diff = {
+    at: Date.now(),
+    listCount: rows.length,
+    dbCount,
+    missingCount: missingIds.length,
+    extraCount: extraIds.length,
+    missingSample: missingIds.slice(0, 20),
+    extraSample: extraIds.slice(0, 20),
+  }
+  // 差异日志落盘：A2-05 切读/回滚时对照新旧两条链路
+  await saveData('local_library_shadow_diff_v1', diff).catch(() => {})
+  return {
+    lastAt: diff.at,
+    dbCount,
+    written: rows.length,
+    durationMs: Date.now() - start,
+    error: '',
+    missing: missingIds.length,
+    extra: extraIds.length,
+  }
 }
 
 const flush = async() => {
@@ -54,6 +83,8 @@ const flush = async() => {
       ...status,
       lastAt: Date.now(),
       error: error instanceof Error ? error.message : '影子同步失败',
+      missing: status.missing,
+      extra: status.extra,
     }
     log.warn('local library shadow sync failed: ' + status.error)
   } finally {

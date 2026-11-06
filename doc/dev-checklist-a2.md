@@ -9,8 +9,8 @@
 | A2-01 | 存储选型 ADR + schema + 迁移/回滚方案 | `doc/adr-0002-local-library-storage.md` | ✅ 2026-11-07 |
 | A2-02 | SQLite PoC：RN 0.73/Hermes 构建、10k 插入/查询/事务基准、license 登记 | ✅ `react-native-sqlite-2` 3.6.3：整包构建通过；10k 插入 1,141ms / 合计 1,193ms；MIT |
 | A2-03 | `LocalLibraryRepository`：schema 建表、CRUD、事务、WAL、错误处理 | ✅ tracks/playlists/scan_roots/recycle/meta 建表、upsert/get/count、事务封装；playlist CRUD 待 A2-04；10k 基准真机通过 | ✅ |
-| A2-04 | 双写影子表：旧 JSON 写路径同步写 DB；差异对比日志 | 🟡 双写钩子已接（保存后 1s 防抖全量镜像）；真机影子同步 238/238/129ms；迁移预演通过；差异日志尚未落盘 | 🟡 |
-| A2-05 | 迁移 + 回滚演练：备份、10k 扫描入库、checksum、断电恢复 | 迁移脚本 + 回滚演练记录 | ⏳ |
+| A2-04 | 双写影子表：旧 JSON 写路径同步写 DB；差异对比日志 | 🟡 双写钩子已接（保存后 1s 防抖全量镜像）；真机影子同步 238/238/129ms；迁移预演通过；差异日志已落盘 `local_library_shadow_diff_v1` | 🟡 |
+| A2-05 | 迁移 + 回滚演练：备份、10k 扫描入库、checksum、断电恢复 | 🟡 备份/差异日志/回滚演练代码完成；真机按钮 NOT RUN；断电恢复未做 | 🟡 |
 | A2-06 | 身份模型：指纹（首尾采样+size+duration）、MediaStore id、legacy 映射、懒迁移 | `identity.ts` + 单测 | ⏳ |
 | A2-07 | 三路扫描统一：MediaStore/SAF/直读目录 → repository；增量/失权/重复 | scan service + 回归 | ⏳ |
 | A2-08 | CUE 解析 + 样本 | `cue.ts` + 样本/单测 | ⏳ |

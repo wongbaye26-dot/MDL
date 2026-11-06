@@ -8,7 +8,10 @@ import { localLibraryRepository, type BenchmarkResult } from '@/core/localLibrar
 import { runMigrationDryRun, type MigrationPreview } from '@/core/localLibrary/migrate'
 import { getShadowStatus, syncShadowNow, type ShadowStatus } from '@/core/localLibrary/shadow'
 import { getLocalMusicList } from '@/core/localMusic'
+import { createLibraryBackup, getBackupInfo, runRollbackDrill, type BackupInfo, type RollbackDrillResult } from '@/core/localLibrary/backup'
 import { ButtonRow, Card, InfoLine, SecondaryButton } from './parts'
+
+const WARN_COLOR = '#E8A33D'
 
 /**
  * A-2 存储自检（临时开发入口）。
@@ -23,6 +26,8 @@ export default memo(() => {
   const [error, setError] = useState('')
   const [preview, setPreview] = useState<MigrationPreview | null>(null)
   const [shadow, setShadow] = useState<ShadowStatus>(() => getShadowStatus())
+  const [backup, setBackup] = useState<BackupInfo | null>(null)
+  const [drill, setDrill] = useState<RollbackDrillResult | null>(null)
 
   const run = useCallback(() => {
     if (running) return
@@ -56,6 +61,8 @@ export default memo(() => {
       .finally(() => { setRunning(false) })
   }, [running])
 
+  useEffect(() => { void getBackupInfo().then(setBackup) }, [])
+
   const autoRanRef = useRef(false)
   useEffect(() => {
     // A-2 自检：进入音乐工具时自动跑一次影子同步（仅开发入口，切读前移除）
@@ -63,6 +70,27 @@ export default memo(() => {
     autoRanRef.current = true
     runShadow()
   }, [runShadow])
+
+  const runBackup = useCallback(() => {
+    if (running) return
+    setRunning(true)
+    setError('')
+    void createLibraryBackup()
+      .then(setBackup)
+      .catch((err: unknown) => { setError(err instanceof Error ? err.message : String(err)) })
+      .finally(() => { setRunning(false) })
+  }, [running])
+
+  const runDrill = useCallback(() => {
+    if (running) return
+    setRunning(true)
+    setError('')
+    setDrill(null)
+    void runRollbackDrill()
+      .then(setDrill)
+      .catch((err: unknown) => { setError(err instanceof Error ? err.message : String(err)) })
+      .finally(() => { setRunning(false) })
+  }, [running])
 
   const clearDb = useCallback(() => {
     if (running) return
@@ -98,7 +126,25 @@ export default memo(() => {
           shadow.lastAt
             ? (
               <Text size={11} color={theme['c-450']} style={styles.lines}>
-                {`\n影子表：写入 ${shadow.written} 首 / DB ${shadow.dbCount} 首 / ${shadow.durationMs} ms${shadow.error ? ` / 失败：${shadow.error}` : ''}`}
+                {`\n影子表：写入 ${shadow.written} 首 / DB ${shadow.dbCount} 首 / 缺失 ${shadow.missing} / 多余 ${shadow.extra} / ${shadow.durationMs} ms${shadow.error ? ` / 失败：${shadow.error}` : ''}`}
+              </Text>
+              )
+            : null
+        }
+        {
+          backup?.exists
+            ? (
+              <Text size={11} color={theme['c-450']} style={styles.lines}>
+                {`\n备份：${backup.tracks} 首 / ${backup.keys} keys / ${(backup.bytes / 1024).toFixed(0)} KB\n创建于 ${new Date(backup.createdAt).toLocaleString()} · checksum ${backup.checksum}`}
+              </Text>
+              )
+            : null
+        }
+        {
+          drill
+            ? (
+              <Text size={11} color={drill.ok ? theme['c-450'] : WARN_COLOR} style={styles.lines}>
+                {`\n回滚演练：DB ${drill.beforeDb} → 清空 → ${drill.afterDb}\n旧 JSON ${drill.listCount} 首 · 缺失 ${drill.missing} / 多余 ${drill.extra} · ${drill.durationMs} ms${drill.error ? `\n失败：${drill.error}` : ''}`}
               </Text>
               )
             : null
@@ -120,6 +166,10 @@ export default memo(() => {
         <SecondaryButton label='迁移预演' icon='database-import-outline' disabled={running} onPress={runPreview} />
         <SecondaryButton label='影子同步' icon='database-sync-outline' disabled={running} onPress={runShadow} />
         <SecondaryButton label='清空测试库' icon='database-remove-outline' danger disabled={running} onPress={clearDb} />
+      </ButtonRow>
+      <ButtonRow>
+        <SecondaryButton label='创建备份' icon='content-save-outline' disabled={running} onPress={runBackup} />
+        <SecondaryButton label='回滚演练' icon='backup-restore' disabled={running} onPress={runDrill} />
       </ButtonRow>
     </Card>
   )
