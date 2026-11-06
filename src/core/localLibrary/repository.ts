@@ -382,6 +382,20 @@ class LocalLibraryRepository {
     return count
   }
 
+  async getIdMapEntries(): Promise<Array<{ legacyId: string, newId: string }>> {
+    const db = await this.open()
+    let rows: Array<{ legacyId: string, newId: string }> = []
+    await this.transaction(db, tx => {
+      exec(tx, 'SELECT legacy_id, new_id FROM id_map', [], (_, result) => {
+        rows = readRows(result).map(row => ({
+          legacyId: String(row.legacy_id),
+          newId: String(row.new_id),
+        }))
+      })
+    })
+    return rows
+  }
+
   async replaceIdMap(entries: Array<{ legacyId: string, newId: string, fingerprint: string | null, kind: string }>): Promise<void> {
     const db = await this.open()
     const now = Date.now()

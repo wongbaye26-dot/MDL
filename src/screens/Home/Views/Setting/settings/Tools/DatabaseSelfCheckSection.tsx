@@ -11,6 +11,7 @@ import { getLocalMusicList } from '@/core/localMusic'
 import { createLibraryBackup, getBackupInfo, runRollbackDrill, type BackupInfo, type RollbackDrillResult } from '@/core/localLibrary/backup'
 import { backfillIdentities, type BackfillResult } from '@/core/localLibrary/backfill'
 import { buildIdMapPreview, type IdMapPreview } from '@/core/localLibrary/identitySwitch'
+import { previewReferenceRewrite, type ReferenceRewritePreview } from '@/core/localLibrary/referenceRewrite'
 import { ButtonRow, Card, InfoLine, SecondaryButton } from './parts'
 
 const WARN_COLOR = '#E8A33D'
@@ -32,6 +33,7 @@ export default memo(() => {
   const [drill, setDrill] = useState<RollbackDrillResult | null>(null)
   const [backfill, setBackfill] = useState<BackfillResult | null>(null)
   const [idMap, setIdMap] = useState<IdMapPreview | null>(null)
+  const [refPreview, setRefPreview] = useState<ReferenceRewritePreview | null>(null)
 
   const run = useCallback(() => {
     if (running) return
@@ -66,6 +68,7 @@ export default memo(() => {
         setDrill(await runRollbackDrill())
         setBackfill(await backfillIdentities(list))
         setIdMap(await buildIdMapPreview())
+        setRefPreview(await previewReferenceRewrite())
       })
       .catch((err: unknown) => { setError(err instanceof Error ? err.message : String(err)) })
       .finally(() => { setRunning(false) })
@@ -173,6 +176,15 @@ export default memo(() => {
             ? (
               <Text size={11} color={theme['c-450']} style={styles.lines}>
                 {`\n身份映射：${idMap.mapped}/${idMap.tracks} 条 / 未回填 ${idMap.missing} / 碰撞 ${idMap.collisions} / DB id_map ${idMap.dbMapped} / ${idMap.durationMs} ms`}
+              </Text>
+              )
+            : null
+        }
+        {
+          refPreview
+            ? (
+              <Text size={11} color={theme['c-450']} style={styles.lines}>
+                {`\n引用改写：会替换 ${refPreview.mappedTotal} 条 / 冲突 ${refPreview.conflictsTotal}\n${refPreview.lists.map(list => `${list.name}: ${list.mapped}/${list.local}`).join(' · ')}\n${refPreview.durationMs} ms`}
               </Text>
               )
             : null
