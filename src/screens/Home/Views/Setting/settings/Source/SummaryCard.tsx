@@ -68,14 +68,14 @@ export default memo(() => {
 
 const styles = createStyle({
   card: {
-    borderRadius: 22,
-    borderWidth: 0.8,
+    borderRadius: 24,
+    borderWidth: 0.5,
     paddingLeft: 16,
     paddingRight: 16,
     paddingTop: 16,
     paddingBottom: 12,
     marginTop: 4,
-    marginBottom: 20,
+    marginBottom: 14,
   },
   grid: {
     flexDirection: 'row',

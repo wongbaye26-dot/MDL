@@ -434,11 +434,11 @@ export const ReportButtons = memo(({ getTitle, getLines, disabled }: {
 
 const styles = createStyle({
   card: {
-    borderRadius: 22,
-    borderWidth: 0.8,
-    marginBottom: 16,
-    paddingTop: 16,
-    paddingBottom: 14,
+    borderRadius: 24,
+    borderWidth: 0.5,
+    marginBottom: 14,
+    paddingTop: 13,
+    paddingBottom: 12,
     overflow: 'hidden',
   },
   heroCard: {
@@ -446,14 +446,14 @@ const styles = createStyle({
   },
   cardHead: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     paddingLeft: 16,
     paddingRight: 14,
-    paddingBottom: 12,
+    paddingBottom: 10,
   },
   cardIcon: {
-    width: 28,
-    height: 28,
+    width: 27,
+    height: 27,
     borderRadius: 9,
     justifyContent: 'center',
     alignItems: 'center',
