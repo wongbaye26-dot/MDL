@@ -35,42 +35,49 @@ export default ({ title, desc, icon, color, card = true, children }: Props) => {
   const theme = useTheme()
   const items = Children.toArray(children).filter(item => item != null)
 
+  const head = (
+    <View style={styles.head}>
+      {icon
+        ? (
+          <View style={{ ...styles.iconWrap, backgroundColor: getTileBackground(theme, color) }}>
+            <Icon name={icon} size={15} color={getIconColor(theme, color)} />
+          </View>
+          )
+        : null}
+      <View style={styles.headText}>
+        <Text size={13.5} style={styles.title}>{title}</Text>
+        {desc ? <Text size={10} color={theme['c-450']} style={styles.desc}>{desc}</Text> : null}
+      </View>
+    </View>
+  )
+
+  if (!card) {
+    return (
+      <View style={styles.container}>
+        {head}
+        {items}
+      </View>
+    )
+  }
+
   return (
     <View style={styles.container}>
-      <View style={styles.head}>
-        {icon
-          ? (
-            <View style={{ ...styles.iconWrap, backgroundColor: getTileBackground(theme, color) }}>
-              <Icon name={icon} size={16} color={getIconColor(theme, color)} />
+      <View style={{
+        ...styles.card,
+        backgroundColor: getCardBackground(theme),
+        borderColor: getCardBorder(theme),
+        ...getCardShadow(theme),
+      }}>
+        {head}
+        {
+          items.map((item, index) => (
+            <View key={index}>
+              {index > 0 ? <View style={{ ...styles.divider, backgroundColor: getDividerColor(theme) }} /> : null}
+              {item}
             </View>
-            )
-          : null}
-        <View style={styles.headText}>
-          <Text size={16} style={styles.title}>{title}</Text>
-          {desc ? <Text size={10.5} color={theme['c-450']} style={styles.desc}>{desc}</Text> : null}
-        </View>
+          ))
+        }
       </View>
-      {
-        card
-          ? (
-            <View style={{
-              ...styles.card,
-              backgroundColor: getCardBackground(theme),
-              borderColor: getCardBorder(theme),
-              ...getCardShadow(theme),
-            }}>
-              {
-                items.map((item, index) => (
-                  <View key={index}>
-                    {index > 0 ? <View style={{ ...styles.divider, backgroundColor: getDividerColor(theme) }} /> : null}
-                    {item}
-                  </View>
-                ))
-              }
-            </View>
-            )
-          : items
-      }
     </View>
   )
 }
@@ -78,18 +85,19 @@ export default ({ title, desc, icon, color, card = true, children }: Props) => {
 
 const styles = createStyle({
   container: {
-    marginBottom: 16,
+    marginBottom: 14,
   },
   head: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingLeft: 2,
-    paddingRight: 2,
-    marginBottom: 9,
+    paddingLeft: 16,
+    paddingRight: 16,
+    paddingTop: 13,
+    paddingBottom: 9,
   },
   iconWrap: {
-    width: 30,
-    height: 30,
+    width: 27,
+    height: 27,
     borderRadius: 9,
     justifyContent: 'center',
     alignItems: 'center',
@@ -110,10 +118,8 @@ const styles = createStyle({
     lineHeight: 14,
   },
   card: {
-    borderRadius: 20,
+    borderRadius: 24,
     borderWidth: 0.5,
-    paddingTop: 4,
-    paddingBottom: 4,
     overflow: 'hidden',
   },
   divider: {

@@ -35,11 +35,11 @@ export default memo(({ icon, title, desc, color, right, children, chevron, onPre
   const content = (
     <>
       <View style={{ ...styles.iconWrap, backgroundColor: getTileBackground(theme, color) }}>
-        <Icon name={icon} size={19} color={getIconColor(theme, color)} />
+        <Icon name={icon} size={16} color={getIconColor(theme, color)} />
       </View>
       <View style={styles.info}>
-        <Text size={15} numberOfLines={1}>{title}</Text>
-        {desc ? <Text size={11.5} color={theme['c-450']} numberOfLines={2} style={styles.desc}>{desc}</Text> : null}
+        <Text size={13.5} numberOfLines={1}>{title}</Text>
+        {desc ? <Text size={10.5} color={theme['c-450']} numberOfLines={2} style={styles.desc}>{desc}</Text> : null}
         {children}
       </View>
       {right ? <View style={styles.right}>{right}</View> : null}
@@ -61,19 +61,19 @@ const styles = createStyle({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    minHeight: 64,
+    minHeight: 56,
     paddingLeft: 16,
     paddingRight: 16,
     paddingTop: 10,
     paddingBottom: 10,
   },
   iconWrap: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
+    width: 32,
+    height: 32,
+    borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 13,
+    marginRight: 11,
     flexShrink: 0,
   },
   info: {
