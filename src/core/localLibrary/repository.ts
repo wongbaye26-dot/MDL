@@ -353,6 +353,20 @@ class LocalLibraryRepository {
     })
   }
 
+  async deleteTracksNotIn(ids: string[]): Promise<void> {
+    const db = await this.open()
+    await this.transaction(db, tx => {
+      if (!ids.length) {
+        exec(tx, 'DELETE FROM tracks')
+        return
+      }
+      for (let i = 0; i < ids.length; i += 500) {
+        const chunk = ids.slice(i, i + 500)
+        exec(tx, `DELETE FROM tracks WHERE id NOT IN (${chunk.map(() => '?').join(',')})`, chunk)
+      }
+    })
+  }
+
   async getFingerprintRows(): Promise<Array<{ legacyId: string, fingerprint: string }>> {
     const db = await this.open()
     let rows: Array<{ legacyId: string, fingerprint: string }> = []

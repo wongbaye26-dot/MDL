@@ -1,6 +1,7 @@
 import { localLibraryRepository } from './repository'
 import { mapLocalTrackToRow } from './mapTrack'
 import { log } from '@/utils/log'
+import { computeFileFingerprint } from './identity'
 import { saveData } from '@/plugins/storage'
 
 /**
@@ -34,7 +35,18 @@ let status: ShadowStatus = { lastAt: 0, dbCount: 0, written: 0, durationMs: 0, e
 const writeAll = async(list: LX.Music.MusicInfoLocal[]): Promise<ShadowStatus> => {
   const start = Date.now()
   const rows = list.map(mapLocalTrackToRow)
-  await localLibraryRepository.clearTracks()
+  // 保留已回填指纹（按 legacyId），只给新曲目增量补指纹
+  const fingerprints = new Map((await localLibraryRepository.getFingerprintRows()).map(row => [row.legacyId, row.fingerprint]))
+  for (const row of rows) {
+    if (row.fingerprint) continue
+    if (!row.legacyId) continue
+    row.fingerprint = fingerprints.get(row.legacyId) ?? null
+    if (!row.fingerprint) {
+      const fp = await computeFileFingerprint(row.path, row.durationMs ?? 0, row.size ?? undefined).catch(() => null)
+      if (fp) row.fingerprint = fp
+    }
+  }
+  await localLibraryRepository.deleteTracksNotIn(rows.map(row => row.id))
   for (let i = 0; i < rows.length; i += 500) {
     await localLibraryRepository.upsertTracks(rows.slice(i, i + 500))
   }
