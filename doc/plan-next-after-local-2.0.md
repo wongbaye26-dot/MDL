@@ -36,9 +36,9 @@
 - 说明：项目 `npm install` 会被 vendor 的 `prepare: bob build` 阻断，因此 Jest 依赖暂未进 package.json；测试脚本复用已有 `@babel/register`，clean clone 可直接跑。
 - 待办：N-09 杀进程恢复/淡入淡出真机、N-10 M3U 实文件往返、N-11 歌词同名 `.lrc`/偏移、N-12 引用迁移/回收目录。
 
-**N0 完成记录（2026-11-07）**
+**N0 完成记录（2026-11-07，v3.9.1 修订）**
 - 提交：`34545bab` docs / `85f235ba` build / `32918489` feat / `07ba2510` release；tag `v3.9.0`（annotated）。
-- 版本：`3.9.0` / `versionCode 191`（真机 `versionCode=191003`、`versionName=3.9.0`）。
+- 版本：`3.9.0` / `versionCode 191` 首发；发现 JS bundle 旧缓存导致 About 显示 3.8.8、且关闭自动播放后仍出声，已发 **3.9.1 / versionCode 192** 修复（tag `v3.9.1`）。
 - 门禁：typecheck 0 / lint 0 / assembleRelease 成功；真机冷启动恢复播放器、本地音乐页加载正常。
 - 产物：`dist/v3.9.0/em-music-v3.9.0-arm64-v8a.apk`（SHA256 `56a5d01aae140210f5cef82669527a5b74a4fe3eb6a0e9c197330f98dc087352`）、universal APK 与 `SHA256SUMS`（dist 已加入 .gitignore，不随仓库提交）。
 - 说明：工作区原先混有 3.8.7/3.8.8 未提交改动，无法再单独还原 3.8.8 源码；本次一并纳入 v3.9.0，`v3.8.8` 仅保留 dist APK。
@@ -49,7 +49,7 @@
 
 - [x] **N-07 测试框架（P0-05）**：零新增依赖方案（Node `node:test` + 仓库已有 Babel 注册器），`npm run test:unit` 覆盖 `buildLibraryIndex`、增量扫描 diff、`parseM3U/buildM3U8/matchM3UEntries`、不可解码标记；11 test / 11 pass。重复分组与隐藏过滤待补。
 - [x] **N-08 10k 曲库压测（P0-04 前置）**：已加 1 万首纯索引基准——`buildLibraryIndex` 16.7ms / heap +3.2MB（Node，非 UI）；首屏渲染/搜索/增量扫描真机性能仍 **NOT RUN**。
-- [x] **N-09 队列/恢复真机（部分）**：杀进程后同曲恢复通过（媒体会话仍为「错的人」并继续播放）；精确进度/默认暂停、丢失文件跳过、淡入淡出听感仍 **NOT RUN**（`startupAutoPlay` 开启导致无法验证默认暂停）。
+- [x] **N-09 队列/恢复真机**：杀进程后同曲恢复通过；发现并修复「关闭 startupAutoPlay 仍自动播」两层竞态（`restorePlayInfo` 被提前清除、原生队列非空时恢复分支无条件 play），真机确认冷启动为 **PAUSED**；已验证版本 3.9.1。丢文件跳过、淡入淡出听感仍 NOT RUN。
 - [ ] **N-10 M3U 往返**：真实文件导出→重新导入，1000 首样本校验数量/顺序/未匹配；补「未匹配项手动指定」P1。
 - [x] **N-11 歌词（部分）**：抽出纯函数 `getSidecarLrcPath`（content:// 跳过、扩展名/无扩展名/查询串）并单测；偏移与同名 `.lrc` 真机加载仍 **NOT RUN**；`content://` 的 SAF 查询方案待评估。
 - [x] **N-12 曲库健康补齐（部分）**：重复清理前把收藏/用户歌单里的「多余条目」替换为保留条目（`migrateDuplicateReferences`），清理报告显示替换数量；TEMP 队列按曲库重建不处理；批量删除回收目录、扫描失权 UI 仍待做。
