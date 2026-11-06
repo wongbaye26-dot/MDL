@@ -170,3 +170,16 @@
 | 播放设置：倍速、切歌淡入淡出、歌词偏移 UI | ✅ |
 | 扫描报告 banner / 面板摘要 | 入口可见；失败/失权场景未构造 |
 | 杀进程恢复队列/进度、淡入淡出听感、M3U 实际往返、同名 .lrc、不可解码样本 | NOT RUN |
+
+## 7. N1 质量基线记录（2026-11-07）
+
+| 项 | 结果 |
+|---|---|
+| `npm run test:unit`（node:test + Babel 注册器） | ✅ 11/11 通过 |
+| 单测覆盖：scanDiff / M3U 解析生成匹配 / 不可解码标记 / 索引分组 | ✅ |
+| 10k 纯索引基准 `buildLibraryIndex` | ✅ 16.7ms，heap +3.2MB（Node 环境，非 UI） |
+| 杀进程恢复：同一首歌 | ✅ 重启后仍为「错的人 - 萧亚轩」，播放器加载完成并继续播放 |
+| 杀进程恢复：精确进度 / 默认暂停 | NOT RUN（本次 `startupAutoPlay` 开启，媒体会话 position 单位/起点无法作为精确定论；需关闭自动播后再测） |
+| M3U 实文件系统选择器往返、同名 .lrc、歌词偏移、隐藏恢复 | NOT RUN |
+
+说明：`npm install` 会被 vendor 的 `prepare: bob build` 阻断，Jest 依赖未进 package.json；测试脚本复用已有 `@babel/register`，clean clone 可直接跑 `npm run test:unit`。
