@@ -205,6 +205,13 @@ class LocalLibraryRepository {
         size INTEGER,
         deleted_at INTEGER NOT NULL
       )`)
+      exec(tx, `CREATE TABLE IF NOT EXISTS id_map (
+        legacy_id TEXT PRIMARY KEY,
+        new_id TEXT NOT NULL,
+        fingerprint TEXT,
+        kind TEXT NOT NULL,
+        updated_at INTEGER NOT NULL
+      )`)
     })
   }
 
@@ -341,6 +348,49 @@ class LocalLibraryRepository {
         exec(tx,
           'INSERT OR REPLACE INTO playlist_tracks (playlist_id, track_id, position, added_at) VALUES (?,?,?,?)',
           [track.playlistId, track.trackId, track.position, now],
+        )
+      }
+    })
+  }
+
+  async getFingerprintRows(): Promise<Array<{ legacyId: string, fingerprint: string }>> {
+    const db = await this.open()
+    let rows: Array<{ legacyId: string, fingerprint: string }> = []
+    await this.transaction(db, tx => {
+      exec(tx,
+        'SELECT legacy_id, fingerprint FROM tracks WHERE fingerprint IS NOT NULL AND fingerprint != ""',
+        [],
+        (_, result) => {
+          rows = readRows(result).map(row => ({
+            legacyId: String(row.legacy_id),
+            fingerprint: String(row.fingerprint),
+          }))
+        },
+      )
+    })
+    return rows
+  }
+
+  async getIdMapCount(): Promise<number> {
+    const db = await this.open()
+    let count = 0
+    await this.transaction(db, tx => {
+      exec(tx, 'SELECT COUNT(*) AS c FROM id_map', [], (_, result) => {
+        count = Number(result.rows.item(0).c ?? 0)
+      })
+    })
+    return count
+  }
+
+  async replaceIdMap(entries: Array<{ legacyId: string, newId: string, fingerprint: string | null, kind: string }>): Promise<void> {
+    const db = await this.open()
+    const now = Date.now()
+    await this.transaction(db, tx => {
+      exec(tx, 'DELETE FROM id_map')
+      for (const entry of entries) {
+        exec(tx,
+          'INSERT OR REPLACE INTO id_map (legacy_id, new_id, fingerprint, kind, updated_at) VALUES (?,?,?,?,?)',
+          [entry.legacyId, entry.newId, entry.fingerprint, entry.kind, now],
         )
       }
     })

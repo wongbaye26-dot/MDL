@@ -10,6 +10,7 @@ import { getShadowStatus, syncShadowNow, type ShadowStatus } from '@/core/localL
 import { getLocalMusicList } from '@/core/localMusic'
 import { createLibraryBackup, getBackupInfo, runRollbackDrill, type BackupInfo, type RollbackDrillResult } from '@/core/localLibrary/backup'
 import { backfillIdentities, type BackfillResult } from '@/core/localLibrary/backfill'
+import { buildIdMapPreview, type IdMapPreview } from '@/core/localLibrary/identitySwitch'
 import { ButtonRow, Card, InfoLine, SecondaryButton } from './parts'
 
 const WARN_COLOR = '#E8A33D'
@@ -30,6 +31,7 @@ export default memo(() => {
   const [backup, setBackup] = useState<BackupInfo | null>(null)
   const [drill, setDrill] = useState<RollbackDrillResult | null>(null)
   const [backfill, setBackfill] = useState<BackfillResult | null>(null)
+  const [idMap, setIdMap] = useState<IdMapPreview | null>(null)
 
   const run = useCallback(() => {
     if (running) return
@@ -63,6 +65,7 @@ export default memo(() => {
         // A-2 自检序列：影子 → 回滚演练 → 指纹回填（仅开发入口）
         setDrill(await runRollbackDrill())
         setBackfill(await backfillIdentities(list))
+        setIdMap(await buildIdMapPreview())
       })
       .catch((err: unknown) => { setError(err instanceof Error ? err.message : String(err)) })
       .finally(() => { setRunning(false) })
@@ -161,6 +164,15 @@ export default memo(() => {
             ? (
               <Text size={11} color={theme['c-450']} style={styles.lines}>
                 {`\n指纹回填：${backfill.fingerprint} 首 / 媒体回退 ${backfill.media} / 旧 id ${backfill.legacy} / 失败 ${backfill.failed} / ${backfill.durationMs} ms`}
+              </Text>
+              )
+            : null
+        }
+        {
+          idMap
+            ? (
+              <Text size={11} color={theme['c-450']} style={styles.lines}>
+                {`\n身份映射：${idMap.mapped}/${idMap.tracks} 条 / 未回填 ${idMap.missing} / 碰撞 ${idMap.collisions} / DB id_map ${idMap.dbMapped} / ${idMap.durationMs} ms`}
               </Text>
               )
             : null

@@ -11,8 +11,8 @@
 | A2-03 | `LocalLibraryRepository`：schema 建表、CRUD、事务、WAL、错误处理 | ✅ tracks/playlists/scan_roots/recycle/meta 建表、upsert/get/count、事务封装；playlist CRUD 待 A2-04；10k 基准真机通过 | ✅ |
 | A2-04 | 双写影子表：旧 JSON 写路径同步写 DB；差异对比日志 | 🟡 双写钩子已接（保存后 1s 防抖全量镜像）；真机影子同步 238/238/129ms；迁移预演通过；差异日志已落盘 `local_library_shadow_diff_v1` | 🟡 |
 | A2-05 | 迁移 + 回滚演练：备份、10k 扫描入库、checksum、断电恢复 | ✅ 备份 238 首/14 keys/286KB；回滚演练真机通过（238/0/0/75ms）；断电恢复未做（可下轮补） | 🟡 |
-| A2-06 | 身份模型：指纹（首尾采样+size+duration）、MediaStore id、legacy 映射、懒迁移 | ✅ 指纹回填真机 238 首/失败 0/7529ms；尚未切换主键/懒迁移 | 🟡 |
-| A2-07 | 三路扫描统一：MediaStore/SAF/直读目录 → repository；增量/失权/重复 | scan service + 回归 | ⏳ |
+| A2-06 | 身份模型：指纹（首尾采样+size+duration）、MediaStore id、legacy 映射、懒迁移 | ✅ 指纹回填 238/失败0/7529ms；legacy→fp 映射 238/238、碰撞0、id_map 238；主键切换/懒迁移未做 | 🟡 |
+| A2-07 | 三路扫描统一：MediaStore/SAF/直读目录 → repository；增量/失权/重复 | 🟡 身份映射预演真机 238/238、碰撞 0、id_map 238/62ms；扫描写 repository 未接 | 🟡 |
 | A2-08 | CUE 解析 + 样本 | ✅ `cue.ts` + 单测（FILE/TRACK/INDEX/时长） | 🟡 |
 | A2-09 | CUE 分段播放链路（虚拟 track、seek 偏移） | player 接入 + 真机 | ⏳ |
 | A2-10 | 全量回归 + v3.10.0 发版（扫描/排序/播放/队列/M3U/歌词/回收） | release notes + tag | ⏳ |
