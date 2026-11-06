@@ -210,7 +210,7 @@ CREATE TABLE recycle (
 | 指纹计算慢（10k 文件读首尾） | 增量指纹缓存；只对新文件/变化文件算；后台低优先级 |
 | content:// 无法读指纹 | 回退 MediaStore id/旧 id，标 needs_identity |
 | 播放队列引用断裂 | legacy_id 映射 + resolveTrack 懒迁移 + 双写期回归 |
-| DB 损坏 | WAL + 每日备份到私有目录；损坏时回旧 JSON |
+| DB 损坏 | 默认 journal + 每日备份到私有目录；WAL 需在事务外 PRAGMA（sqlite-2 当前封装限制，A2-04 再评估）；损坏时回旧 JSON |
 | 包体/内存 | 仅本地曲库进 DB；封面/歌词仍文件缓存 |
 
 ## 6. 开放问题（A2-02 前必须回答）

@@ -219,15 +219,19 @@ export const parseLyric = (lrc: string): LX.Music.LyricInfo => {
   return { lyric, ...parsedInfo }
 }
 
-const getMusicFileLyric = async(filePath: string) => {
-  const lyric = await readLyric(filePath).catch(() => null)
-  if (lyric) return parseLyric(lyric)
+export const readSidecarLyricFile = async(filePath: string): Promise<LX.Music.LyricInfo | null> => {
   // 内嵌歌词没有时，尝试同目录同名 .lrc（content:// 文档 uri 无法直接拼路径，跳过）
   const sidecarPath = getSidecarLrcPath(filePath)
   if (!sidecarPath) return null
   if (!await existsFile(sidecarPath).catch(() => false)) return null
   const sidecar = await readFile(sidecarPath, 'utf8').catch(() => null)
   return sidecar ? parseLyric(sidecar) : null
+}
+
+const getMusicFileLyric = async(filePath: string) => {
+  const lyric = await readLyric(filePath).catch(() => null)
+  if (lyric) return parseLyric(lyric)
+  return readSidecarLyricFile(filePath)
 }
 export const getLyricInfo = async({ musicInfo, isRefresh, skipFileLyric, onToggleSource = () => {} }: {
   musicInfo: LX.Music.MusicInfoLocal

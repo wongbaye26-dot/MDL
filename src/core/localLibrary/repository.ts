@@ -205,7 +205,6 @@ class LocalLibraryRepository {
         size INTEGER,
         deleted_at INTEGER NOT NULL
       )`)
-      exec(tx, 'PRAGMA journal_mode = WAL')
     })
   }
 
@@ -289,6 +288,61 @@ class LocalLibraryRepository {
   async clearTracks(): Promise<void> {
     const db = await this.open()
     await this.transaction(db, tx => { exec(tx, 'DELETE FROM tracks') })
+  }
+
+  async getPlaylistCount(): Promise<number> {
+    const db = await this.open()
+    let count = 0
+    await this.transaction(db, tx => {
+      exec(tx, 'SELECT COUNT(*) AS c FROM playlists', [], (_, result) => {
+        count = Number(result.rows.item(0).c ?? 0)
+      })
+    })
+    return count
+  }
+
+  async getPlaylistTrackCount(): Promise<number> {
+    const db = await this.open()
+    let count = 0
+    await this.transaction(db, tx => {
+      exec(tx, 'SELECT COUNT(*) AS c FROM playlist_tracks', [], (_, result) => {
+        count = Number(result.rows.item(0).c ?? 0)
+      })
+    })
+    return count
+  }
+
+  /** 迁移/双写用：写播放列表与条目（调用方负责事务外分批） */
+  async upsertPlaylists(
+    playlists: Array<{ id: string, type: string, name: string, position: number }>,
+    tracks: Array<{ playlistId: string, trackId: string, position: number }>,
+  ): Promise<void> {
+    const db = await this.open()
+    const now = Date.now()
+    await this.transaction(db, tx => {
+      for (const playlist of playlists) {
+        exec(tx,
+          'INSERT OR REPLACE INTO playlists (id, type, name, position, created_at, updated_at) VALUES (?,?,?,?,?,?)',
+          [playlist.id, playlist.type, playlist.name, playlist.position, now, now],
+        )
+      }
+      for (const track of tracks) {
+        exec(tx,
+          'INSERT OR REPLACE INTO playlist_tracks (playlist_id, track_id, position, added_at) VALUES (?,?,?,?)',
+          [track.playlistId, track.trackId, track.position, now],
+        )
+      }
+    })
+  }
+
+  /** 仅用于 A-2 迁移预演/自检，清空曲库与列表表（不动回收站文件） */
+  async clearAll(): Promise<void> {
+    const db = await this.open()
+    await this.transaction(db, tx => {
+      exec(tx, 'DELETE FROM playlist_tracks')
+      exec(tx, 'DELETE FROM playlists')
+      exec(tx, 'DELETE FROM tracks')
+    })
   }
 
   /**
