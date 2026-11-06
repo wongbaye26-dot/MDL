@@ -98,3 +98,13 @@ test('formats: APE/WMA/DSF/DFF 标记为可能不支持', () => {
   assert.equal(isLikelyUnsupportedLocal(makeItem('/a.flac')), false)
   assert.equal(isLikelyUnsupportedLocal(makeItem('/a.mp3')), false)
 })
+
+const { getSidecarLrcPath } = require('../src/core/localMusic/lrcPath')
+
+test('lrcPath: 普通路径/无扩展名/查询串/content uri', () => {
+  assert.equal(getSidecarLrcPath('/Music/A - B.flac'), '/Music/A - B.lrc')
+  assert.equal(getSidecarLrcPath('/Music/A - B'), '/Music/A - B.lrc')
+  assert.equal(getSidecarLrcPath('/Music/A - B.flac?x=1'), '/Music/A - B.lrc')
+  assert.equal(getSidecarLrcPath('content://media/external/audio/1'), null)
+  assert.equal(getSidecarLrcPath(''), null)
+})
