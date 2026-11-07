@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Modal, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native'
+import { BackHandler, Modal, PanResponder, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native'
 import LinearGradient from 'react-native-linear-gradient'
 
 import Text from '@/components/common/Text'
@@ -343,6 +343,24 @@ export default ({ tab, onCreate, onTabChange, onRename }: {
   const userLists = useMyList().slice(2) as LX.List.UserListInfo[]
   const [playlist, setPlaylist] = useState<LX.List.UserListInfo | null>(null)
   const [menuPlaylist, setMenuPlaylist] = useState<LX.List.UserListInfo | null>(null)
+
+  // 歌单详情：系统返回键回歌单列表
+  useEffect(() => {
+    if (!playlist) return
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      setPlaylist(null)
+      return true
+    })
+    return () => { sub.remove() }
+  }, [playlist])
+
+  // 歌单详情：右滑返回歌单列表（不跟手动画，和系统返回一致）
+  const playlistSwipe = useRef(PanResponder.create({
+    onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 24 && Math.abs(g.dx) > Math.abs(g.dy) * 1.6,
+    onPanResponderRelease: (_, g) => {
+      if (g.dx > 90) setPlaylist(null)
+    },
+  })).current
   const counts = useListCounts()
   const playlistCount = playlist ? getListMusicSync(playlist.id).length : 0
   const count = tab === 'playlist' ? playlistCount : tab === 'love' ? counts.love : counts.temp
@@ -415,7 +433,7 @@ export default ({ tab, onCreate, onTabChange, onRename }: {
   const handleCloseQueue = useCallback(() => { setQueueVisible(false) }, [])
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} {...(playlist ? playlistSwipe.panHandlers : null)}>
       {
         tab === 'playlist' && !playlist
           ? (
@@ -465,13 +483,6 @@ export default ({ tab, onCreate, onTabChange, onRename }: {
                             <Text size={14} numberOfLines={1} color='#FFFFFF' style={styles.waterfallName}>{item.name}</Text>
                             <Text size={10.5} numberOfLines={1} color='rgba(255,255,255,0.72)'>{musics.length} 首</Text>
                           </View>
-                          <TouchableOpacity
-                            style={styles.waterfallDelete}
-                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                            onPress={() => { void handleDeletePlaylist(item) }}
-                          >
-                            <Icon name='trash-can-outline' size={15} color='#FFFFFF' />
-                          </TouchableOpacity>
                         </TouchableOpacity>
                       )
                     })}
@@ -513,13 +524,6 @@ export default ({ tab, onCreate, onTabChange, onRename }: {
                         : `${playlist?.name ?? ''} · ${playlistCount} 首`}
                   </Text>
                 </View>
-                {tab === 'playlist'
-                  ? (
-                    <TouchableOpacity style={styles.overviewBack} activeOpacity={0.8} onPress={() => { setPlaylist(null) }}>
-                      <Icon name='chevron-left' size={16} color={theme['c-450']} />
-                    </TouchableOpacity>
-                    )
-                  : null}
                 <TouchableOpacity
                   style={{
                     ...styles.playAllBtn,
