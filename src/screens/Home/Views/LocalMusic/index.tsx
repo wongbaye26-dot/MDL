@@ -1452,7 +1452,7 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
               ? `扫描中，已找到 ${progress} 首…`
               : needAuth.length
                 ? `${list.length} 首 · ${needAuth.length} 个文件夹需重新授权`
-                 : inited ? `${list.length} 首 · ${totalSize}` : '载入中…'}
+                : inited ? `${list.length} 首 · ${totalSize}` : '载入中…'}
           </Text>
         </View>
         <TouchableOpacity
@@ -1724,7 +1724,7 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
               </View>
               )
             : searching && searchResults
-            ? (
+              ? (
               <View style={styles.empty}>
                 <View style={{ ...styles.emptyIcon, backgroundColor: theme['c-primary-alpha-900'] }}>
                   <Icon name='music-note-off' size={26} color={theme['c-400']} />
@@ -1743,8 +1743,8 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
                   <Text size={12} color={contrastOn(theme['c-primary'])} style={[styles.emptyBtnText, chipText(12)]}>清空搜索</Text>
                 </TouchableOpacity>
               </View>
-              )
-            : (
+                )
+              : (
               <View style={styles.empty}>
                 <View style={{ ...styles.emptyIcon, backgroundColor: theme['c-primary-alpha-900'] }}>
                   <Icon name='music_time' size={26} color={theme['c-400']} />
@@ -1756,7 +1756,7 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
                   下载完成的歌曲会自动保存在这里，扫描后即可离线播放
                 </Text>
               </View>
-              )
+                )
         )}
       />
 
