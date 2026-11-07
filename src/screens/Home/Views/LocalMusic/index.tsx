@@ -3,6 +3,7 @@ import {
   Animated,
   FlatList,
   InteractionManager,
+  Keyboard,
   PanResponder,
   RefreshControl,
   StyleSheet,
@@ -1115,6 +1116,7 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
    * 这样 LocalRow 的 memo 才生效（否则每次渲染都传新闭包，等于没 memo）。
    */
   const handleRowPress = useCallback((item: LX.Music.MusicInfoLocal) => {
+    Keyboard.dismiss()
     void handlePlay(item)
   }, [handlePlay])
 
@@ -1469,6 +1471,7 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
                 value={searchText}
                 autoFocus
                 onChangeText={text => { setSearchText(text) }}
+                onSubmitEditing={() => { Keyboard.dismiss() }}
                 placeholder='搜索本地歌曲、歌手或专辑'
                 style={styles.searchInput}
                 clearBtn={searchText.length > 0}
@@ -1816,6 +1819,7 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
         scrollEventThrottle={32}
         onScroll={e => { scrollY.current = e.nativeEvent.contentOffset.y }}
         onScrollEndDrag={handleScrollEndDrag}
+        onScrollBeginDrag={() => { if (searchOpen) Keyboard.dismiss() }}
         refreshControl={refreshControl}
         // 搜索时键盘开着也要能直接点结果播放（默认会先吃掉一次点击去收键盘）
         keyboardShouldPersistTaps='handled'
