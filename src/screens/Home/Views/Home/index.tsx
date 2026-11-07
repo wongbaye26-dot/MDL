@@ -31,7 +31,7 @@ import SongList from '../SongList'
 import Leaderboard from '../Leaderboard'
 import CompactHero from '../Leaderboard/Vertical/CompactHero'
 import SongListHeaderSourceBar from '../SongList/HeaderSourceBar'
-import Favorites, { FavoriteTabs, type FavoriteTab } from '../Mylist/Favorites'
+import Favorites, { type FavoriteTab } from '../Mylist/Favorites'
 import ListNameEdit, { type ListNameEditType } from '../Mylist/MyList/ListNameEdit'
 import listState from '@/store/list/state'
 import LocalMusic, { type LocalTab } from '../LocalMusic'
@@ -495,13 +495,6 @@ export default () => {
                 <PageModal
                   title='收藏'
                   onClose={() => { setModal(null) }}
-                  titleRight={(
-                    <FavoriteTabs
-                      tab={favoriteTab}
-                      onChange={setFavoriteTab}
-                      onCreate={() => { listNameEditRef.current?.showCreate(listState.userList.length) }}
-                    />
-                  )}
                 >
                   <Favorites tab={favoriteTab} onTabChange={setFavoriteTab} onCreate={() => { listNameEditRef.current?.showCreate(listState.userList.length) }} />
                 </PageModal>

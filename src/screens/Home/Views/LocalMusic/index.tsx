@@ -425,7 +425,7 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
     })
   }, [list, hidden, hasActiveFilter, tabFilterFormat, tabFilterCover])
 
-  const compareSongs = useCallback((a: LX.Music.MusicInfoLocal, b: LX.Music.MusicInfoLocal, sort = tabSort) => {
+  const compareSongs = useCallback((a: LX.Music.MusicInfoLocal, b: LX.Music.MusicInfoLocal, sort: { key: LocalSortKey, dir: 'asc' | 'desc' }) => {
     let result = 0
     switch (sort.key) {
       case 'singer': result = (a.singer ?? '').localeCompare(b.singer ?? '', 'zh-Hans-CN'); break
@@ -437,8 +437,8 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
       default: result = cleanSongName(a.name, a.singer).localeCompare(cleanSongName(b.name, b.singer), 'zh-Hans-CN')
     }
     return sort.dir === 'asc' ? result : -result
-  }, [tabSort])
-  const sortSongs = useCallback((songs: LX.Music.MusicInfoLocal[], sort = tabSort) => [...songs].sort((a, b) => compareSongs(a, b, sort)), [compareSongs, tabSort])
+  }, [])
+  const sortSongs = useCallback((songs: LX.Music.MusicInfoLocal[], sort: { key: LocalSortKey, dir: 'asc' | 'desc' }) => [...songs].sort((a, b) => compareSongs(a, b, sort)), [compareSongs])
 
   const totalSize = useMemo(() => formatSize(getTotalSize(list)), [list])
   const visibleCount = useMemo(() => list.filter(item => !isHiddenItem(item, hidden)).length, [list, hidden])
@@ -624,7 +624,7 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
         count: artist.count,
         cover: coverOf(artist.coverId),
       }))
-  }, [detail, filteredList, list, indexOfId, folderTree, folderPath, searchResults, libraryIndex, compareSongs, sortSongs])
+  }, [detail, filteredList, list, indexOfId, folderTree, folderPath, searchResults, libraryIndex, sortSongs])
 
   /** 五个 tab 的 rows 一次算好，切 tab 不再重建列表数据（根因是同步构建几百行） */
   const rowsByTab = useMemo(() => {

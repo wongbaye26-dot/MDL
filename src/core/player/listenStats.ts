@@ -47,6 +47,8 @@ export interface ListeningStats {
   totalPlays: number
   todaySeconds: number
   weekSeconds: number
+  monthSeconds: number
+  yearSeconds: number
   days: ListeningStatsDay[]
   topArtists: Array<{ name: string, seconds: number }>
   topSongs: Array<{ name: string, singer: string, seconds: number }>
@@ -208,6 +210,14 @@ const buildSnapshot = (): ListeningStats => {
     if (i < 7) weekSeconds += seconds
     days.push({ key, label: weekdayLabel(date), seconds })
   }
+  const monthPrefix = `${today.getFullYear()}-${pad(today.getMonth() + 1)}`
+  const yearPrefix = `${today.getFullYear()}-`
+  let monthSeconds = 0
+  let yearSeconds = 0
+  for (const [key, seconds] of Object.entries(state.days)) {
+    if (key.startsWith(monthPrefix)) monthSeconds += seconds
+    if (key.startsWith(yearPrefix)) yearSeconds += seconds
+  }
   const topArtists = Object.entries(state.artists)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5)
@@ -221,6 +231,8 @@ const buildSnapshot = (): ListeningStats => {
     totalPlays: state.totalPlays,
     todaySeconds: Math.round(state.days[dateKey(today)] ?? 0),
     weekSeconds,
+    monthSeconds: Math.round(monthSeconds),
+    yearSeconds: Math.round(yearSeconds),
     days,
     topArtists,
     topSongs,

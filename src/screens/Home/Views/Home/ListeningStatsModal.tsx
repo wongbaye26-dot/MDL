@@ -1,21 +1,32 @@
-import { memo, useCallback, useMemo } from 'react'
+import { memo, useCallback, useMemo, useState } from 'react'
 import { Modal, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native'
 
 import Text from '@/components/common/Text'
 import { Icon } from '@/components/common/Icon'
 import { useTheme } from '@/store/theme/hook'
 import { clearListeningStats, useListeningStats } from '@/core/player/listenStats'
+import { getListMusicSync } from '@/utils/listManage'
+import { useMyList } from '@/store/list/hook'
+import { LIST_IDS } from '@/config/constant'
 import { confirmDialog, createStyle, toast } from '@/utils/tools'
 
-/**
- * 首页「听歌统计」的大卡片详情。
- *
- * 旧版是整屏页面，这里按反馈改成「居中大卡片」：
- * 遮罩 + 26dp 圆角卡 + 今日主 KPI + 6 项小指标 + 7 日柱状 + 常听艺人 + 清空。
- * 信息分层：主数字（今日）最大，其次是本周/累计，柱状与艺人作为明细。
- */
+type Period = 'week' | 'month' | 'year' | 'all'
+
+const PERIODS: Array<{ key: Period, label: string }> = [
+  { key: 'week', label: '本周' },
+  { key: 'month', label: '本月' },
+  { key: 'year', label: '今年' },
+  { key: 'all', label: '全部' },
+]
+
+const hourText = (seconds: number) => {
+  const hours = seconds / 3600
+  if (hours >= 10) return hours.toFixed(1)
+  return hours.toFixed(1)
+}
+
 const formatDuration = (seconds: number) => {
-  if (seconds < 60) return `${seconds} 秒`
+  if (seconds < 60) return `${Math.round(seconds)} 秒`
   const minutes = Math.round(seconds / 60)
   if (minutes < 60) return `${minutes} 分钟`
   const hours = Math.floor(minutes / 60)
@@ -23,23 +34,23 @@ const formatDuration = (seconds: number) => {
   return rest ? `${hours} 小时 ${rest} 分钟` : `${hours} 小时`
 }
 
-const shortDuration = (seconds: number) => {
-  if (seconds < 60) return `${seconds}s`
-  const minutes = Math.round(seconds / 60)
-  if (minutes < 60) return `${minutes}m`
-  const hours = Math.floor(minutes / 60)
-  const rest = minutes % 60
-  return rest ? `${hours}h${rest}m` : `${hours}h`
-}
-
 export default memo(({ visible, onClose }: { visible: boolean, onClose: () => void }) => {
   const theme = useTheme()
   const stats = useListeningStats()
+  const userLists = useMyList().slice(2) as LX.List.UserListInfo[]
+  const [period, setPeriod] = useState<Period>('week')
 
+  const totalSeconds = period === 'week'
+    ? stats.weekSeconds
+    : period === 'month'
+      ? stats.monthSeconds
+      : period === 'year'
+        ? stats.yearSeconds
+        : stats.totalSeconds
   const maxDay = useMemo(() => Math.max(1, ...stats.days.map(day => day.seconds)), [stats.days])
-  const maxArtist = useMemo(() => Math.max(1, ...stats.topArtists.map(item => item.seconds)), [stats.topArtists])
-  const todayKey = stats.days[stats.days.length - 1]?.key
-  const maxSong = useMemo(() => Math.max(1, ...stats.topSongs.map(item => item.seconds)), [stats.topSongs])
+  const today = stats.days[stats.days.length - 1]
+  const favorite = stats.topSongs[0]
+  const loveCount = getListMusicSync(LIST_IDS.LOVE).length
 
   const handleClear = useCallback(async() => {
     const confirmed = await confirmDialog({
@@ -53,156 +64,135 @@ export default memo(({ visible, onClose }: { visible: boolean, onClose: () => vo
   return (
     <Modal visible={visible} transparent animationType='fade' statusBarTranslucent onRequestClose={onClose}>
       <View style={styles.backdrop}>
-        {/* 遮罩单独绝对定位，卡片里是 ScrollView；之前整个卡片套 Pressable 会抢走竖向滑动 */}
-        <Pressable
-          style={StyleSheet.absoluteFill}
-          onPress={onClose}
-          accessibilityRole='button'
-          accessibilityLabel='关闭听歌统计'
-        />
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityRole='button' accessibilityLabel='关闭听歌统计' />
         <View style={[styles.card, { backgroundColor: theme['c-content-background'] }]}>
-          <View style={styles.header}>
-            <View style={styles.headerText}>
-              <Text size={18} style={styles.title}>听歌统计</Text>
-              <Text size={11} color={theme['c-450']} style={styles.subtitle}>从开启统计之日起累计</Text>
-            </View>
-            <TouchableOpacity
-              style={styles.closeBtn}
-              activeOpacity={0.7}
-              onPress={onClose}
-              accessibilityRole='button'
-              accessibilityLabel='关闭听歌统计'
-            >
-              <Icon name='close' size={20} color={theme['c-font']} />
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView style={styles.scroll} contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
-            {/* 主 KPI：今日分钟数，最大字号 */}
-            <View style={[styles.hero, { backgroundColor: theme['c-primary-alpha-900'] }]}>
-              <View style={styles.heroTop}>
-                <Text size={11.5} color={theme['c-450']}>今日</Text>
-                <View style={[styles.heroPill, { backgroundColor: theme['c-primary'] }]}>
-                  <Text size={9.5} color='#FFFFFF'>实时</Text>
-                </View>
+          <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+            <View style={styles.header}>
+              <View style={styles.headerTitle}>
+                <Icon name='chart-bar' size={20} color={theme['c-primary']} />
+                <Text size={18} style={styles.title}>听歌统计</Text>
               </View>
-              <View style={styles.heroValueRow}>
-                <Text size={34} color={theme['c-font']} numberOfLines={1} adjustsFontSizeToFit style={styles.heroValue}>
-                  {formatDuration(stats.todaySeconds)}
-                </Text>
-              </View>
-              <Text size={11} color={theme['c-450']} style={styles.heroMeta}>
-                {`本周 ${formatDuration(stats.weekSeconds)} · 累计 ${formatDuration(stats.totalSeconds)}`}
-              </Text>
+              <TouchableOpacity style={styles.closeBtn} activeOpacity={0.7} onPress={onClose} accessibilityLabel='关闭'>
+                <Icon name='close' size={19} color={theme['c-font']} />
+              </TouchableOpacity>
             </View>
 
-            {/* 三项明细 */}
-            <View style={styles.metrics}>
-              {[
-                { label: '累计时长', value: formatDuration(stats.totalSeconds), icon: 'clock-outline' },
-                { label: '播放次数', value: `${stats.totalPlays} 次`, icon: 'play-circle-outline' },
-                { label: '常听艺人', value: `${stats.topArtists.length} 位`, icon: 'account-music-outline' },
-              ].map(item => (
-                <View key={item.label} style={[styles.metric, { backgroundColor: theme['c-primary-alpha-900'] }]}>
-                  <Icon name={item.icon} size={14} color={theme['c-primary']} />
-                  <Text size={10.5} color={theme['c-450']} style={styles.metricLabel}>{item.label}</Text>
-                  <Text size={13} numberOfLines={1} adjustsFontSizeToFit style={styles.metricValue}>{item.value}</Text>
-                </View>
-              ))}
-            </View>
-
-            <View style={styles.sectionHead}>
-              <Text size={13} style={styles.sectionTitle}>最近 7 天</Text>
-              <Text size={10.5} color={theme['c-450']}>{`峰值 ${shortDuration(maxDay)}`}</Text>
-            </View>
-            <View style={[styles.chart, { backgroundColor: theme['c-primary-alpha-900'] }]}>
-              {stats.days.map(day => {
-                const height = Math.max(5, Math.round((day.seconds / maxDay) * 76))
-                const isToday = day.key === todayKey
+            <View style={[styles.periods, { backgroundColor: theme['c-primary-alpha-900'] }]}>
+              {PERIODS.map(item => {
+                const active = period === item.key
                 return (
-                  <View key={day.key} style={styles.chartCol}>
-                    <Text size={8.5} color={isToday ? theme['c-primary'] : theme['c-400']} style={styles.chartValue}>
-                      {Math.round(day.seconds / 60)}
-                    </Text>
-                    <View style={styles.chartBarWrap}>
-                      <View style={[
-                        styles.chartBar,
-                        {
-                          height,
-                          backgroundColor: isToday ? theme['c-primary'] : theme['c-primary-alpha-700'],
-                        },
-                      ]} />
-                    </View>
-                    <Text size={9} color={isToday ? theme['c-primary'] : theme['c-450']}>{day.label}</Text>
-                  </View>
+                  <TouchableOpacity
+                    key={item.key}
+                    style={[styles.periodPill, active ? { backgroundColor: theme['c-primary'] } : null]}
+                    activeOpacity={0.85}
+                    onPress={() => { setPeriod(item.key) }}
+                  >
+                    <Text size={11.5} color={active ? '#FFFFFF' : theme['c-450']} style={styles.periodText}>{item.label}</Text>
+                  </TouchableOpacity>
                 )
               })}
             </View>
 
-            <View style={styles.sectionHead}>
-              <Text size={13} style={styles.sectionTitle}>常听歌曲</Text>
-              <Text size={10.5} color={theme['c-450']}>按收听时长</Text>
-            </View>
-            {stats.topSongs.length
-              ? (
-                <View style={[styles.artists, { backgroundColor: theme['c-primary-alpha-900'] }]}>
-                  {stats.topSongs.map((song, index) => (
-                    <View key={`${song.name}_${song.singer}`} style={styles.artistRow}>
-                      <View style={[styles.artistRank, { backgroundColor: theme['c-primary-alpha-800'] }]}>
-                        <Text size={10} color={theme['c-primary']} style={styles.artistRankText}>{index + 1}</Text>
-                      </View>
-                      <View style={styles.artistInfo}>
-                        <View style={styles.artistLine}>
-                          <Text size={12.5} numberOfLines={1} style={styles.artistName}>{song.name}</Text>
-                          <Text size={10.5} color={theme['c-450']}>{formatDuration(song.seconds)}</Text>
-                        </View>
-                        <View style={[styles.artistBarTrack, { backgroundColor: theme['c-primary-alpha-700'] }]}>
-                          <View
-                            style={[styles.artistBarFill, {
-                              width: `${Math.max(5, (song.seconds / maxSong) * 100)}%`,
-                              backgroundColor: theme['c-primary'],
-                            }]}
-                          />
-                        </View>
-                        {song.singer ? <Text size={9.5} color={theme['c-400']} numberOfLines={1} style={styles.songSinger}>{song.singer}</Text> : null}
-                      </View>
-                    </View>
-                  ))}
+            <View style={styles.hero}>
+              <View style={styles.heroInfo}>
+                <Text size={11.5} color={theme['c-450']}>这段时间你一共听了</Text>
+                <View style={styles.heroValueRow}>
+                  <Text size={44} numberOfLines={1} adjustsFontSizeToFit style={styles.heroValue}>{hourText(totalSeconds)}</Text>
+                  <Text size={14} color={theme['c-450']} style={styles.heroUnit}>小时</Text>
                 </View>
-                )
-              : <Text size={11.5} color={theme['c-450']} style={styles.empty}>还没有常听歌曲，多听几首就会出现</Text>}
+                <View style={styles.heroMetaRow}>
+                  <Icon name='arrow-up' size={13} color='#22B07D' />
+                  <Text size={11} color='#22B07D'>{`今日 ${formatDuration(stats.todaySeconds)}`}</Text>
+                  <Text size={11} color={theme['c-450']} style={styles.heroDot}>·</Text>
+                  <Text size={11} color={theme['c-450']}>{`累计 ${formatDuration(stats.totalSeconds)}`}</Text>
+                </View>
+              </View>
+              {/* 唱片插画：纯 View 画，避免额外图片资源 */}
+              <View style={styles.vinylWrap} pointerEvents='none'>
+                <View style={[styles.vinyl, { backgroundColor: theme.isDark ? '#23202E' : '#171522' }]}>
+                  <View style={[styles.vinylRing, { borderColor: 'rgba(255,255,255,0.08)' }]} />
+                  <View style={[styles.vinylLabel, { backgroundColor: theme['c-primary'] }]}>
+                    <Icon name='music-note' size={22} color='#FFFFFF' />
+                  </View>
+                </View>
+                <View style={[styles.vinylOrbit, { borderColor: theme['c-primary-alpha-700'] }]} />
+              </View>
+            </View>
 
-            <View style={styles.sectionHead}>
-              <Text size={13} style={styles.sectionTitle}>常听艺人</Text>
-              <Text size={10.5} color={theme['c-450']}>按收听时长</Text>
-            </View>
-            {stats.topArtists.length
-              ? (
-                <View style={[styles.artists, { backgroundColor: theme['c-primary-alpha-900'] }]}>
-                  {stats.topArtists.map((artist, index) => (
-                    <View key={artist.name} style={styles.artistRow}>
-                      <View style={[styles.artistRank, { backgroundColor: theme['c-primary-alpha-800'] }]}>
-                        <Text size={10} color={theme['c-primary']} style={styles.artistRankText}>{index + 1}</Text>
-                      </View>
-                      <View style={styles.artistInfo}>
-                        <View style={styles.artistLine}>
-                          <Text size={12.5} numberOfLines={1} style={styles.artistName}>{artist.name}</Text>
-                          <Text size={10.5} color={theme['c-450']}>{formatDuration(artist.seconds)}</Text>
-                        </View>
-                        <View style={[styles.artistBarTrack, { backgroundColor: theme['c-primary-alpha-700'] }]}>
-                          <View
-                            style={[styles.artistBarFill, {
-                              width: `${Math.max(5, (artist.seconds / maxArtist) * 100)}%`,
-                              backgroundColor: theme['c-primary'],
-                            }]}
-                          />
-                        </View>
-                      </View>
+            <View style={[styles.chartCard, { backgroundColor: theme['c-primary-alpha-900'] }]}>
+              <View style={styles.chartHead}>
+                <Text size={12} style={styles.chartTitle}>最近 7 天</Text>
+                <Text size={10} color={theme['c-450']}>{`今日 ${formatDuration(stats.todaySeconds)}`}</Text>
+              </View>
+              <View style={styles.chart}>
+                {stats.days.map(day => {
+                  const height = Math.max(8, Math.round((day.seconds / maxDay) * 92))
+                  const isToday = day.key === today?.key
+                  return (
+                    <View key={day.key} style={styles.chartCol}>
+                      {day.seconds === maxDay && day.seconds > 0
+                        ? (
+                          <View style={[styles.bubble, { backgroundColor: theme['c-primary'] }]}>
+                            <Text size={9} color='#FFFFFF'>{`${(day.seconds / 3600).toFixed(1)}h`}</Text>
+                          </View>
+                          )
+                        : null}
+                      <View style={[styles.bar, { height, backgroundColor: isToday ? theme['c-primary'] : theme['c-primary-alpha-700'] }]} />
+                      <Text size={9} color={isToday ? theme['c-primary'] : theme['c-450']} style={styles.barLabel}>{day.label}</Text>
                     </View>
-                  ))}
+                  )
+                })}
+              </View>
+            </View>
+
+            <View style={styles.metrics}>
+              <View style={[styles.metric, { backgroundColor: theme['c-primary-alpha-900'] }]}>
+                <View style={[styles.metricIcon, { backgroundColor: theme['c-primary-alpha-800'] }]}>
+                  <Icon name='headphones' size={17} color={theme['c-primary']} />
                 </View>
-                )
-              : <Text size={11.5} color={theme['c-450']} style={styles.empty}>还统计不到艺人，听几首带歌手的歌就会出现</Text>}
+                <Text size={20} style={styles.metricValue}>{stats.totalPlays}</Text>
+                <Text size={10} color={theme['c-450']}>播放次数</Text>
+              </View>
+              <View style={[styles.metric, { backgroundColor: theme['c-primary-alpha-900'] }]}>
+                <View style={[styles.metricIcon, { backgroundColor: 'rgba(255,90,120,0.16)' }]}>
+                  <Icon name='heart' size={17} color='#FF5A78' />
+                </View>
+                <Text size={20} style={styles.metricValue}>{loveCount}</Text>
+                <Text size={10} color={theme['c-450']}>喜欢歌曲</Text>
+              </View>
+              <View style={[styles.metric, { backgroundColor: theme['c-primary-alpha-900'] }]}>
+                <View style={[styles.metricIcon, { backgroundColor: theme['c-primary-alpha-800'] }]}>
+                  <Icon name='playlist-music' size={17} color={theme['c-primary']} />
+                </View>
+                <Text size={20} style={styles.metricValue}>{userLists.length}</Text>
+                <Text size={10} color={theme['c-450']}>收藏歌单</Text>
+              </View>
+            </View>
+
+            <View style={[styles.favoriteCard, { backgroundColor: theme['c-primary-alpha-900'] }]}>
+              <View style={styles.favoriteHead}>
+                <Icon name='trophy-outline' size={16} color='#F5A524' />
+                <Text size={13} style={styles.favoriteTitle}>本周最爱</Text>
+                <Text size={10.5} color={theme['c-450']}>按收听时长</Text>
+              </View>
+              {favorite
+                ? (
+                  <View style={styles.favoriteRow}>
+                    <View style={[styles.favoriteCover, { backgroundColor: theme['c-primary-alpha-800'] }]}>
+                      <Icon name='music-note' size={24} color={theme['c-primary']} />
+                    </View>
+                    <View style={styles.favoriteInfo}>
+                      <Text size={14} numberOfLines={1} style={styles.favoriteName}>{favorite.name}</Text>
+                      <Text size={10.5} color={theme['c-450']} numberOfLines={1} style={styles.favoriteSinger}>{favorite.singer || '未知歌手'}</Text>
+                    </View>
+                    <Text size={10.5} color={theme['c-450']}>{formatDuration(favorite.seconds)}</Text>
+                    <View style={[styles.favoriteHeart, { backgroundColor: theme['c-primary-alpha-800'] }]}>
+                      <Icon name='heart' size={16} color={theme['c-primary']} />
+                    </View>
+                  </View>
+                  )
+                : <Text size={11} color={theme['c-450']} style={styles.empty}>还没有常听歌曲，多听几首就会出现</Text>}
+            </View>
 
             <TouchableOpacity style={styles.clearBtn} activeOpacity={0.7} onPress={() => { void handleClear() }}>
               <Icon name='trash-can-outline' size={14} color={theme['c-450']} />
@@ -218,193 +208,247 @@ export default memo(({ visible, onClose }: { visible: boolean, onClose: () => vo
 const styles = createStyle({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.55)',
     alignItems: 'center',
+    justifyContent: 'center',
     padding: 16,
   },
   card: {
     width: '100%',
-    maxWidth: 440,
-    maxHeight: '86%',
+    maxWidth: 520,
+    maxHeight: '90%',
     borderRadius: 26,
-    overflow: 'hidden',
-    elevation: 24,
-    shadowColor: '#000000',
-    shadowOpacity: 0.3,
-    shadowRadius: 30,
-    shadowOffset: { width: 0, height: 16 },
+    paddingTop: 14,
+  },
+  body: {
+    paddingLeft: 16,
+    paddingRight: 16,
+    paddingBottom: 18,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingLeft: 20,
-    paddingRight: 10,
-    paddingTop: 18,
-    paddingBottom: 10,
+    marginBottom: 10,
   },
-  headerText: {
-    flexShrink: 1,
+  headerTitle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   title: {
     fontWeight: '700',
   },
-  subtitle: {
-    marginTop: 2,
-  },
   closeBtn: {
-    width: 38,
-    height: 38,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  scroll: {
-    // 卡片有 maxHeight，ScrollView 必须能收缩，否则它按内容高度摊开、被卡片裁掉却不滚动
-    flexShrink: 1,
+  periods: {
+    flexDirection: 'row',
+    borderRadius: 14,
+    padding: 3,
+    marginBottom: 14,
   },
-  body: {
-    paddingHorizontal: 16,
-    paddingBottom: 16,
+  periodPill: {
+    flex: 1,
+    height: 30,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  periodText: {
+    fontWeight: '600',
   },
   hero: {
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 14,
-  },
-  heroTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    marginBottom: 14,
   },
-  heroPill: {
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 8,
+  heroInfo: {
+    flexGrow: 1,
+    flexShrink: 1,
+    minWidth: 0,
+    paddingRight: 6,
   },
   heroValueRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-end',
     marginTop: 2,
   },
   heroValue: {
-    fontWeight: '700',
-    flexShrink: 1,
+    fontWeight: '800',
+    letterSpacing: -1,
   },
-  heroMeta: {
-    marginTop: 4,
-  },
-  metrics: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 10,
-  },
-  metric: {
-    flex: 1,
-    borderRadius: 16,
-    paddingHorizontal: 10,
-    paddingTop: 10,
-    paddingBottom: 11,
-  },
-  metricLabel: {
-    marginTop: 5,
-  },
-  metricValue: {
-    marginTop: 2,
-    fontWeight: '600',
-  },
-  sectionHead: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-    marginTop: 16,
+  heroUnit: {
+    marginLeft: 6,
     marginBottom: 8,
-    paddingHorizontal: 2,
   },
-  sectionTitle: {
+  heroMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  heroDot: {
+    marginHorizontal: 6,
+  },
+  vinylWrap: {
+    width: 128,
+    height: 128,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  vinyl: {
+    width: 108,
+    height: 108,
+    borderRadius: 54,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  vinylRing: {
+    position: 'absolute',
+    width: 86,
+    height: 86,
+    borderRadius: 43,
+    borderWidth: 1,
+  },
+  vinylLabel: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  vinylOrbit: {
+    position: 'absolute',
+    width: 138,
+    height: 62,
+    borderRadius: 69,
+    borderWidth: 1,
+    transform: [{ rotate: '-24deg' }],
+  },
+  chartCard: {
+    borderRadius: 18,
+    padding: 12,
+    paddingTop: 10,
+    marginBottom: 14,
+  },
+  chartHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  chartTitle: {
     fontWeight: '600',
   },
   chart: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    borderRadius: 18,
-    paddingHorizontal: 12,
-    paddingTop: 10,
-    paddingBottom: 10,
+    height: 150,
+    paddingTop: 18,
   },
   chartCol: {
     flex: 1,
     alignItems: 'center',
-  },
-  chartValue: {
-    marginBottom: 4,
-  },
-  chartBarWrap: {
-    height: 64,
     justifyContent: 'flex-end',
   },
-  chartBar: {
-    width: 12,
-    borderRadius: 6,
+  bubble: {
+    position: 'absolute',
+    top: 0,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 9,
   },
-  artists: {
-    borderRadius: 18,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+  bar: {
+    width: '58%',
+    borderRadius: 8,
+    minHeight: 8,
   },
-  artistRow: {
+  barLabel: {
+    marginTop: 6,
+  },
+  metrics: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
+    gap: 10,
+    marginBottom: 14,
   },
-  artistRank: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+  metric: {
+    flex: 1,
+    borderRadius: 18,
+    paddingTop: 12,
+    paddingBottom: 12,
+    alignItems: 'center',
+  },
+  metricIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 10,
+    marginBottom: 6,
   },
-  artistRankText: {
-    fontWeight: '600',
+  metricValue: {
+    fontWeight: '700',
   },
-  artistInfo: {
-    flex: 1,
-    minWidth: 0,
+  favoriteCard: {
+    borderRadius: 18,
+    padding: 12,
+    marginBottom: 12,
   },
-  artistLine: {
+  favoriteHead: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 5,
+    marginBottom: 10,
+    gap: 6,
   },
-  artistName: {
+  favoriteTitle: {
+    flexGrow: 1,
+    fontWeight: '700',
+  },
+  favoriteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  favoriteCover: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  favoriteInfo: {
+    flexGrow: 1,
     flexShrink: 1,
+    minWidth: 0,
+    paddingLeft: 10,
+    paddingRight: 8,
   },
-  artistBarTrack: {
-    height: 4,
-    borderRadius: 2,
-    overflow: 'hidden',
+  favoriteName: {
+    fontWeight: '600',
   },
-  artistBarFill: {
-    height: 4,
-    borderRadius: 2,
+  favoriteSinger: {
+    marginTop: 2,
+  },
+  favoriteHeart: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 10,
   },
   empty: {
-    paddingVertical: 18,
+    paddingVertical: 10,
     textAlign: 'center',
-  },
-  songSinger: {
-    marginTop: 3,
   },
   clearBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 16,
-    paddingVertical: 12,
+    paddingVertical: 8,
   },
   clearText: {
     marginLeft: 5,

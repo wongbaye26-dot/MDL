@@ -292,12 +292,6 @@ export const FavoriteTabs = ({ tab, onChange, onCreate }: {
               activeOpacity={0.85}
               onPress={() => { if (!active) onChange(item.key) }}
             >
-              <Icon
-                name={item.icon}
-                size={12}
-                color={active ? contrastOn(theme['c-primary']) : theme['c-450']}
-                style={styles.headerTabIcon}
-              />
               <Text
                 size={11.5}
                 color={active ? contrastOn(theme['c-primary']) : theme['c-450']}
@@ -316,7 +310,7 @@ export const FavoriteTabs = ({ tab, onChange, onCreate }: {
         onPress={onCreate}
       >
         <Icon name='plus' size={12} color={theme['c-primary']} style={styles.headerTabIcon} />
-        <Text size={11.5} color={theme['c-primary']} numberOfLines={1}>新建歌单</Text>
+        <Text size={11.5} color={theme['c-primary']} numberOfLines={1}>新建</Text>
       </TouchableOpacity>
     </View>
   )
@@ -335,7 +329,7 @@ export const FavoriteTabs = ({ tab, onChange, onCreate }: {
  *
  * tab 是受控的（Home 持有状态，页头页签和这里共用），切换时照旧 setActiveList。
  */
-export default ({ tab, onCreate }: {
+export default ({ tab, onCreate, onTabChange }: {
   tab: FavoriteTab
   onCreate: () => void
   /** 当前由 PageHeader 里的 FavoriteTabs 直接改 Home 的状态；这里保留受控签名，方便以后页内再出现切换入口 */
@@ -401,6 +395,7 @@ export default ({ tab, onCreate }: {
 
   return (
     <View style={styles.container}>
+      <FavoriteTabs tab={tab} onChange={onTabChange} onCreate={onCreate} />
       {
         tab === 'playlist' && !playlist
           ? (
@@ -702,17 +697,18 @@ const styles = createStyle({
   headerTabs: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 34,
+    marginLeft: 12,
+    marginRight: 12,
+    marginTop: 6,
     padding: 3,
     borderRadius: 17,
     gap: 2,
   },
   headerTab: {
-    height: 28,
+    flex: 1,
+    height: 30,
     flexDirection: 'row',
-    paddingLeft: 8,
-    paddingRight: 9,
-    borderRadius: 14,
+    borderRadius: 15,
     justifyContent: 'center',
     alignItems: 'center',
   },
