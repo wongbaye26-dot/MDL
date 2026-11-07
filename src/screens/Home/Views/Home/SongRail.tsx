@@ -74,7 +74,7 @@ const Cell = memo(({ musicInfo, showSource, compact, onPress, onLongPress }: {
 
   return (
     <TouchableOpacity
-      style={[styles.cell, compact ? styles.cellCompact : null]}
+      style={styles.cell}
       activeOpacity={0.65}
       onPress={onPress}
       onLongPress={onLongPress}
@@ -186,17 +186,13 @@ const styles = createStyle({
     marginLeft: 12,
   },
   columnGapCompact: {
-    marginLeft: 6,
+    marginLeft: 4,
   },
   cell: {
     flexDirection: 'row',
     alignItems: 'center',
     height: 56,
     marginBottom: 6,
-  },
-  cellCompact: {
-    height: 50,
-    marginBottom: 1,
   },
   cover: {
     width: 44,
