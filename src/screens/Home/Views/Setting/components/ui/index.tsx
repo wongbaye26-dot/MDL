@@ -170,7 +170,7 @@ export const ValueRow = ({ title, desc, value, onPress }: {
         <Text size={13.5}>{title}</Text>
         {desc ? <Text size={10.5} color={theme['c-450']} style={styles.desc}>{desc}</Text> : null}
       </View>
-      {value ? <Text size={11.5} color={theme['c-450']} numberOfLines={1} style={[styles.value, { width: Math.min(210, value.length * 7 + 18) }]}>{value}</Text> : null}
+      {value ? <Text size={11.5} color={theme['c-450']} numberOfLines={2} style={[styles.value, { width: Math.min(240, value.length * 9 + 24) }]}>{value}</Text> : null}
       {onPress ? <Icon name='chevron-right' size={16} color={theme['c-350']} /> : null}
     </TouchableOpacity>
   )
