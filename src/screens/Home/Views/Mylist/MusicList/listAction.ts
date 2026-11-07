@@ -1,5 +1,5 @@
 import { addListMusics, removeListMusics, updateListMusicPosition, updateListMusics } from '@/core/list'
-import { playList, playListById, playNext } from '@/core/player/player'
+import { playList, playListById, playMusicInfo, playNext } from '@/core/player/player'
 import { addTempPlayList } from '@/core/player/tempPlayList'
 import settingState from '@/store/setting/state'
 import { similar, sortInsert, toOldMusicInfo } from '@/utils'
@@ -13,8 +13,8 @@ import musicSdk from '@/utils/musicSdk'
 import { getListMusicSync } from '@/utils/listManage'
 import { clearMusicUrlByMusic } from '@/utils/data'
 
-export const handlePlay = (listId: SelectInfo['listId'], index: SelectInfo['index'], id?: string) => {
-  if (id) void playListById(listId, id)
+export const handlePlay = (listId: SelectInfo['listId'], index: SelectInfo['index'], musicInfo?: LX.Music.MusicInfo) => {
+  if (musicInfo) void playMusicInfo(listId, musicInfo)
   else void playList(listId, index)
 }
 export const handlePlayLater = (listId: SelectInfo['listId'], musicInfo: SelectInfo['musicInfo'], selectedList: SelectInfo['selectedList'], onCancelSelect: () => void) => {

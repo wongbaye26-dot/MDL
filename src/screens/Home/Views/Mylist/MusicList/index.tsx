@@ -172,7 +172,7 @@ export default ({ hideHeader = false, displayLimit }: {
         onUpdatePosition={(info, postion) => { handleUpdateMusicPosition(postion, info.listId, info.musicInfo, info.selectedList, hancelExitSelect) }} />
       <ListMenu
         ref={listMenuRef}
-        onPlay={info => { handlePlay(info.listId, info.index, info.musicInfo.id) }}
+        onPlay={info => { handlePlay(info.listId, info.index, info.musicInfo) }}
         onPlayLater={info => { hancelExitSelect(); handlePlayLater(info.listId, info.musicInfo, info.selectedList, hancelExitSelect) }}
         onRemove={info => { hancelExitSelect(); handleRemove(info.listId, info.musicInfo, info.selectedList, hancelExitSelect) }}
         onDislikeMusic={info => { void handleDislikeMusic(info.musicInfo) }}

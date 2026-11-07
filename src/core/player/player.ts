@@ -532,6 +532,19 @@ export const playListById = async(listId: string, id: string) => {
 }
 
 /**
+ * 直接播放指定的完整歌曲对象（不做 listId/index 反查）。
+ * 歌单排序/过滤后显示 index 与原始列表不一致，用这个最稳。
+ */
+export const playMusicInfo = async(listId: string, musicInfo: LX.Music.MusicInfo, isRestore = false) => {
+  const prevListId = playerState.playInfo.playerListId
+  setPlayListId(listId)
+  setPlayMusicInfo(listId, musicInfo)
+  if (settingState.setting['player.isAutoCleanPlayedList'] || prevListId != listId) clearPlayedList()
+  clearTempPlayeList()
+  await handlePlay(isRestore)
+}
+
+/**
  * 播放列表内歌曲
  * @param listId 列表id
  * @param index 播放的歌曲位置
