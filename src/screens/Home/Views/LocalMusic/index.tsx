@@ -178,6 +178,8 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
   const theme = useTheme()
   const { width: windowWidth, height: windowHeight } = useWindowSize()
   const [list, setList] = useState<LX.Music.MusicInfoLocal[]>([])
+  const listRef = useRef<LX.Music.MusicInfoLocal[]>([])
+  listRef.current = list
   const [dir, setDir] = useState('')
   // 扫描状态来自 core（后台扫描，组件卸载也不中断）
   const { scanning, progress } = useScanState()
@@ -333,9 +335,12 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
       // 扫描结束 / 工具补封面等事件可能已经先把新列表推进来了，别用慢一步的旧缓存盖回去
       if (freshListRef.current) return
       if (cached.length) {
-        // 这里拿到的已经是副本（core 保证），直接进 state 不会被 core 后续原地改动影响
+        // 快照和 DB 结果一致时不要二次替换，避免首屏列表闪一下
+        const prev = listRef.current
+        const same = prev.length === cached.length &&
+          (prev.length === 0 || (prev[0].id === cached[0].id && prev[prev.length - 1].id === cached[cached.length - 1].id))
         partialOwnedRef.current = false
-        setList(cached)
+        if (!same) setList(cached)
         setInited(true)
       } else {
         void handleScan()
