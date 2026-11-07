@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { InteractionManager, Modal, ScrollView, TouchableOpacity, View } from 'react-native'
+import { InteractionManager, Modal, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native'
 import LinearGradient from 'react-native-linear-gradient'
 
 import Text from '@/components/common/Text'
@@ -423,7 +423,7 @@ export default ({ tab, onCreate }: {
                   userLists.map(item => {
                     const size = getListMusicSync(item.id).length
                     return (
-                      <TouchableOpacity key={item.id} style={styles.playlistCard} activeOpacity={0.82} onPress={() => { setPlaylist(item) }} onLongPress={() => { void handleDeletePlaylist(item) }}>
+                      <TouchableOpacity key={item.id} style={[styles.playlistCard, { backgroundColor: theme['c-primary-alpha-900'], borderColor: theme['c-primary-alpha-700'] }]} activeOpacity={0.82} onPress={() => { setPlaylist(item) }} onLongPress={() => { void handleDeletePlaylist(item) }}>
                         <View style={[styles.playlistCover, { backgroundColor: theme['c-primary-alpha-800'] }]}>
                           <Icon name='playlist-music' size={30} color={theme['c-primary']} />
                           <TouchableOpacity style={styles.playlistDelete} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }} onPress={() => { void handleDeletePlaylist(item) }}>
@@ -431,12 +431,22 @@ export default ({ tab, onCreate }: {
                           </TouchableOpacity>
                         </View>
                         <Text size={13} numberOfLines={1} style={styles.playlistName}>{item.name}</Text>
-                        <Text size={10} color={theme['c-450']} numberOfLines={1}>{size} 首</Text>
+                        <Text size={10} color={theme['c-450']} numberOfLines={1} style={styles.playlistCount}>{size} 首</Text>
                       </TouchableOpacity>
                     )
                   })
                 }
               </View>
+              {
+                !userLists.length
+                  ? (
+                    <View style={[styles.playlistEmpty, { borderColor: theme['c-primary-alpha-700'] }]}>
+                      <Icon name='playlist-music' size={30} color={theme['c-primary']} />
+                      <Text size={12} color={theme['c-450']} style={styles.playlistEmptyText}>还没有自建歌单，点右上角「新建歌单」创建</Text>
+                    </View>
+                    )
+                  : null
+              }
             </ScrollView>
             )
           : (
@@ -535,6 +545,24 @@ const styles = createStyle({
   },
   playlistCard: {
     width: '47.8%',
+    borderRadius: 18,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 8,
+    paddingBottom: 10,
+  },
+  playlistEmpty: {
+    marginTop: 16,
+    paddingVertical: 28,
+    borderRadius: 18,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  playlistEmptyText: {
+    marginTop: 10,
+    textAlign: 'center',
+    paddingHorizontal: 20,
   },
   playlistDelete: {
     position: 'absolute',
@@ -550,12 +578,17 @@ const styles = createStyle({
   playlistCover: {
     width: '100%',
     aspectRatio: 1,
-    borderRadius: 16,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  playlistCount: {
+    marginTop: 2,
+    paddingHorizontal: 2,
+  },
   playlistName: {
-    marginTop: 7,
+    marginTop: 9,
+    paddingHorizontal: 2,
     fontWeight: '600',
   },
   overviewBack: {

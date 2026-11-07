@@ -188,6 +188,8 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
   const dirsRef = useRef<ScanDir[]>([])
   /** 浏览层级：最近添加 / 专辑 / 艺人 / 文件夹树 / 全部歌曲 */
   const [tab, setTab] = useState<LocalTab>(initialTab ?? 'song')
+  /** 页签高亮立即切换；列表数据延迟一帧构建，避免点击时同步重建几百行 */
+  const deferredTab = useDeferredValue(tab)
   /** 歌名首字母筛选：null = 全部；'#' = 数字/符号/无法识别 */
   /** 右侧字母栏：当前高亮字母（跟随滚动，不参与筛选） */
   const [activeLetter, setActiveLetter] = useState<string | null>(null)
@@ -547,14 +549,14 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
     }
 
     // 最近添加：按文件修改时间倒序
-    if (tab === 'recent') {
+    if (deferredTab === 'recent') {
       return [...songSource].sort(compareSongs).map(item => toSongRow(item))
     }
 
-    if (tab === 'song') return songSource.map((item, i) => toSongRow(item, i))
+    if (deferredTab === 'song') return songSource.map((item, i) => toSongRow(item, i))
 
     // 文件夹：只列「直接装了歌」的目录（不再逐层钻），点进去就是这一层的歌
-    if (tab === 'folder') {
+    if (deferredTab === 'folder') {
       if (folderPath && folderTree.has(folderPath)) {
         return sortSongs(folderTree.get(folderPath)?.songs ?? []).map(item => toSongRow(item))
       }
@@ -580,7 +582,7 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
       const position = indexOfId.get(coverId)
       return position == null ? undefined : list[position]
     }
-    if (tab === 'album') {
+    if (deferredTab === 'album') {
       return Object.values(libraryIndex.albums)
         .sort((a, b) => {
           let result = 0
@@ -624,7 +626,7 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
         count: artist.count,
         cover: coverOf(artist.coverId),
       }))
-  }, [detail, tab, filteredList, list, indexOfId, folderTree, folderPath, searchResults, libraryIndex, tabSort, compareSongs, sortSongs])
+  }, [detail, deferredTab, filteredList, list, indexOfId, folderTree, folderPath, searchResults, libraryIndex, tabSort, compareSongs, sortSongs])
 
   const letterBarVisible = tab === 'song' && !detail && !searchKeyword && !searchOpen
 
