@@ -506,6 +506,20 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
     })
   }, [filteredList, filterKeyword])
 
+  /** 搜索候选歌手/专辑：点击直接进对应标签页，而不是只给歌曲列表 */
+  const searchArtists = useMemo(() => {
+    if (!filterKeyword) return []
+    return Object.values(libraryIndex.artists)
+      .filter(item => item.name.toLowerCase().includes(filterKeyword))
+      .slice(0, 6)
+  }, [libraryIndex.artists, filterKeyword])
+  const searchAlbums = useMemo(() => {
+    if (!filterKeyword) return []
+    return Object.values(libraryIndex.albums)
+      .filter(item => item.name.toLowerCase().includes(filterKeyword))
+      .slice(0, 6)
+  }, [libraryIndex.albums, filterKeyword])
+
   /** id → 在原列表里的下标（分组后仍然按原列表播放） */
   const indexOfId = useMemo(() => {
     const map = new Map<string, number>()
@@ -1458,7 +1472,7 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
             style={{
               ...styles.searchFloat,
               // 必须用不透明底：半透明会和页头「本地音乐」文字叠在一起
-              backgroundColor: theme['c-content-background'],
+              backgroundColor: theme['c-main-background'],
               borderColor: theme['c-primary-alpha-700'],
               top: statusBarHeight + 10,
             }}
@@ -1603,6 +1617,7 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
         // 搜索态：页签让位给结果说明（搜索范围永远是全部歌曲，避免「搜了却搜不到当前页签外」）
         searching
           ? (
+            <>
             <View style={styles.searchSummary}>
               <Icon name='search-2' size={13} color={theme['c-450']} />
               <Text size={11} color={theme['c-450']} numberOfLines={1} style={[styles.searchSummaryText, chipText(11)]}>
@@ -1617,6 +1632,57 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
                 <Text size={11} color={theme['c-primary']} style={[styles.searchClearText, chipText(11)]}>清除搜索</Text>
               </TouchableOpacity>
             </View>
+            {
+              searchArtists.length || searchAlbums.length
+                ? (
+                  <View style={styles.searchGroups}>
+                    {searchArtists.length
+                      ? (
+                        <View style={styles.searchGroupRow}>
+                          <Text size={10.5} color={theme['c-450']} style={styles.searchGroupLabel}>歌手</Text>
+                          {searchArtists.map(artist => (
+                            <TouchableOpacity
+                              key={artist.key}
+                              style={[styles.searchChip, { backgroundColor: theme['c-primary-alpha-900'] }]}
+                              onPress={() => {
+                                setSearchOpen(false)
+                                setSearchText('')
+                                setDetail({ type: 'artist', title: artist.name })
+                              }}
+                            >
+                              <Icon name='account' size={12} color={theme['c-primary']} />
+                              <Text size={11} numberOfLines={1} style={styles.searchChipText}>{artist.name}</Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                        )
+                      : null}
+                    {searchAlbums.length
+                      ? (
+                        <View style={styles.searchGroupRow}>
+                          <Text size={10.5} color={theme['c-450']} style={styles.searchGroupLabel}>专辑</Text>
+                          {searchAlbums.map(album => (
+                            <TouchableOpacity
+                              key={album.key}
+                              style={[styles.searchChip, { backgroundColor: theme['c-primary-alpha-900'] }]}
+                              onPress={() => {
+                                setSearchOpen(false)
+                                setSearchText('')
+                                setDetail({ type: 'album', title: album.name })
+                              }}
+                            >
+                              <Icon name='album' size={12} color={theme['c-primary']} />
+                              <Text size={11} numberOfLines={1} style={styles.searchChipText}>{album.name}</Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                        )
+                      : null}
+                  </View>
+                  )
+                : null
+            }
+            </>
             )
           : detail
             ? (
@@ -2253,6 +2319,34 @@ const styles = createStyle({
     flexGrow: 1,
     flexShrink: 1,
     marginLeft: 5,
+  },
+  searchGroups: {
+    paddingLeft: 16,
+    paddingRight: 16,
+    paddingBottom: 4,
+    gap: 6,
+  },
+  searchGroupRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  searchGroupLabel: {
+    width: 30,
+  },
+  searchChip: {
+    flexShrink: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    height: 28,
+    paddingLeft: 9,
+    paddingRight: 10,
+    borderRadius: 14,
+  },
+  searchChipText: {
+    flexShrink: 1,
   },
   /** 摘要行右侧「清除搜索」 */
   searchClearText: {
