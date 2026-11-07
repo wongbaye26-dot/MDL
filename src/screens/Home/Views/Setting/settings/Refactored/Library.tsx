@@ -25,7 +25,7 @@ export default () => {
     let alive = true
     void previewIdMigration().then(result => {
       if (!alive) return
-      setIdText(`预演：曲库 ${result.tracks} 首，可映射 ${result.localMapped} 首；列表引用 ${result.mappedTotal} 条，冲突 ${result.conflictsTotal}；${result.durationMs}ms`)
+      setIdText(`预演：曲库 ${result.tracks} 首（fp ${result.localFp}/legacy ${result.localLegacy}）；DB fp ${result.dbFp}/legacy ${result.dbLegacy}；列表引用 fp ${result.listFp}/legacy ${result.listLegacy}，可映射 ${result.mappedTotal}，冲突 ${result.conflictsTotal}；${result.durationMs}ms`)
     }).catch(() => {})
     return () => { alive = false }
   }, [])

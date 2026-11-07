@@ -23,12 +23,20 @@ export interface IdListPreview {
   total: number
   mapped: number
   conflicts: number
+  fp: number
+  legacy: number
 }
 
 export interface IdMigrationPreview {
   tracks: number
   mapEntries: number
   localMapped: number
+  localFp: number
+  localLegacy: number
+  dbFp: number
+  dbLegacy: number
+  listFp: number
+  listLegacy: number
   lists: IdListPreview[]
   mappedTotal: number
   conflictsTotal: number
@@ -71,7 +79,13 @@ const rewriteLists = async(map: Map<string, string>): Promise<IdListPreview[]> =
       return { ...music, id: newId }
     })
     if (mapped) await overwriteListMusics(def.id, next).catch(() => {})
-    result.push({ listId: def.id, name: def.name, total: musics.length, mapped, conflicts })
+    let fp = 0
+    let legacy = 0
+    for (const music of next) {
+      if (music.id.startsWith('fp:')) fp += 1
+      else legacy += 1
+    }
+    result.push({ listId: def.id, name: def.name, total: musics.length, mapped, conflicts, fp, legacy })
   }
   return result
 }
@@ -83,6 +97,11 @@ export const previewIdMigration = async(): Promise<IdMigrationPreview> => {
   const list = await getLocalMusicList()
   const map = await buildMap()
   const localMapped = list.filter(item => map.has(item.id)).length
+  const localFp = list.filter(item => item.id.startsWith('fp:')).length
+  const localLegacy = list.length - localFp
+  const ids = await localLibraryRepository.getTrackIds()
+  const dbFp = ids.filter(id => id.startsWith('fp:')).length
+  const dbLegacy = ids.length - dbFp
   const lists: IdListPreview[] = []
   let mappedTotal = 0
   let conflictsTotal = 0
@@ -101,12 +120,24 @@ export const previewIdMigration = async(): Promise<IdMigrationPreview> => {
     }
     mappedTotal += mapped
     conflictsTotal += conflicts
-    lists.push({ listId: def.id, name: def.name, total: musics.length, mapped, conflicts })
+    let fp = 0
+    let legacy = 0
+    for (const music of musics) {
+      if (music.id.startsWith('fp:')) fp += 1
+      else legacy += 1
+    }
+    lists.push({ listId: def.id, name: def.name, total: musics.length, mapped, conflicts, fp, legacy })
   }
   return {
     tracks: list.length,
     mapEntries: map.size,
     localMapped,
+    localFp,
+    localLegacy,
+    dbFp,
+    dbLegacy,
+    listFp: lists.reduce((n, l) => n + l.fp, 0),
+    listLegacy: lists.reduce((n, l) => n + l.legacy, 0),
     lists,
     mappedTotal,
     conflictsTotal,
