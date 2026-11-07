@@ -32,7 +32,7 @@ const PAGES = [
  * 淡入 + 轻微上浮 + 一点点推近（240~280ms ease-out），比原来的纯 200ms 淡入更有层次；
  * 已访问过的页面不会重播（visible 只置 true 一次），回来时内容不跳。
  */
-const Page = ({ id, children }: { id: CommonState['navActiveId'], children: React.ReactNode }) => {
+const Page = ({ id, mounted, children }: { id: CommonState['navActiveId'], mounted: boolean, children: React.ReactNode }) => {
   const [visible, setVisible] = useState(commonState.navActiveId == id)
   // children 只在首次挂载时取一次：切 Tab 不应该重建页面（否则滚动位置、播放状态都会丢）
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -102,13 +102,12 @@ const Page = ({ id, children }: { id: CommonState['navActiveId'], children: Reac
     // id 是固定 prop，加上不会导致重复订阅，但能让 lint 满意
   }, [id])
 
-  return visible
-    ? (
-      <Animated.View style={{ flex: 1, opacity, transform: [{ translateY }, { scale }] }}>
-        {component}
-      </Animated.View>
-      )
-    : null
+  if (!mounted) return null
+  return (
+    <Animated.View style={{ flex: 1, display: visible ? 'flex' : 'none', opacity, transform: [{ translateY }, { scale }] }}>
+      {component}
+    </Animated.View>
+  )
 }
 
 const getIndex = (id: CommonState['navActiveId']) => {
@@ -118,6 +117,25 @@ const getIndex = (id: CommonState['navActiveId']) => {
 
 const Main = () => {
   const pagerViewRef = useRef<ComponentRef<typeof PagerView>>(null)
+  /** 首屏空闲时依次预挂载其余主页面，避免第一次切页同时挂载+动画造成闪屏 */
+  const [warmPages, setWarmPages] = useState<Set<string>>(() => new Set(['nav_home']))
+  useEffect(() => {
+    let cancelled = false
+    const ids = PAGES.filter(page => page.id !== 'nav_home').map(page => page.id)
+    const timers = ids.map((id, index) => setTimeout(() => {
+      if (cancelled) return
+      setWarmPages(prev => {
+        if (prev.has(id)) return prev
+        const next = new Set(prev)
+        next.add(id)
+        return next
+      })
+    }, 500 + index * 300))
+    return () => {
+      cancelled = true
+      timers.forEach(timer => { clearTimeout(timer) })
+    }
+  }, [])
   const activeIndexRef = useRef(getIndex(commonState.navActiveId))
 
   const onPageSelected = useCallback(({ nativeEvent }: PagerViewOnPageSelectedEvent) => {
@@ -181,12 +199,12 @@ const Main = () => {
       {
         PAGES.map(({ id, component: PageComponent }) => (
           <View collapsable={false} key={id} style={styles.pageStyle}>
-            <Page id={id}><PageComponent /></Page>
+            <Page id={id} mounted={warmPages.has(id)}><PageComponent /></Page>
           </View>
         ))
       }
     </PagerView>
-  ), [onPageScrollStateChanged, onPageSelected])
+  ), [onPageScrollStateChanged, onPageSelected, warmPages])
 
   return component
 }
