@@ -278,39 +278,39 @@ export const FavoriteTabs = ({ tab, onChange, onCreate }: {
   ]
 
   return (
-    <View style={[styles.headerTabs, { backgroundColor: theme['c-primary-alpha-900'] }]}>
+    <View style={styles.headerTabs}>
       {
         items.map(item => {
           const active = tab === item.key
           return (
             <TouchableOpacity
               key={item.key}
-              style={{
-                ...styles.headerTab,
-                backgroundColor: active ? theme['c-primary'] : 'transparent',
-              }}
-              activeOpacity={0.85}
+              style={[
+                styles.iconTab,
+                { backgroundColor: active ? theme['c-primary'] : theme['c-primary-alpha-900'] },
+              ]}
+              activeOpacity={0.8}
               onPress={() => { if (!active) onChange(item.key) }}
+              accessibilityRole='button'
+              accessibilityLabel={item.label}
             >
-              <Text
-                size={11.5}
+              <Icon
+                name={item.icon}
+                size={18}
                 color={active ? contrastOn(theme['c-primary']) : theme['c-450']}
-                numberOfLines={1}
-              >{item.label}</Text>
+              />
             </TouchableOpacity>
           )
         })
       }
       <TouchableOpacity
-        style={{
-          ...styles.headerTab,
-          backgroundColor: theme['c-primary-alpha-800'],
-        }}
-        activeOpacity={0.85}
+        style={[styles.iconTab, { backgroundColor: theme['c-primary-alpha-800'] }]}
+        activeOpacity={0.8}
         onPress={onCreate}
+        accessibilityRole='button'
+        accessibilityLabel='新建歌单'
       >
-        <Icon name='plus' size={12} color={theme['c-primary']} style={styles.headerTabIcon} />
-        <Text size={11.5} color={theme['c-primary']} numberOfLines={1}>新建</Text>
+        <Icon name='plus' size={19} color={theme['c-primary']} />
       </TouchableOpacity>
     </View>
   )
@@ -395,7 +395,6 @@ export default ({ tab, onCreate, onTabChange }: {
 
   return (
     <View style={styles.container}>
-      <FavoriteTabs tab={tab} onChange={onTabChange} onCreate={onCreate} />
       {
         tab === 'playlist' && !playlist
           ? (
@@ -697,18 +696,12 @@ const styles = createStyle({
   headerTabs: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginLeft: 12,
-    marginRight: 12,
-    marginTop: 6,
-    padding: 3,
-    borderRadius: 17,
-    gap: 2,
+    gap: 6,
   },
-  headerTab: {
-    flex: 1,
-    height: 30,
-    flexDirection: 'row',
-    borderRadius: 15,
+  iconTab: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     justifyContent: 'center',
     alignItems: 'center',
   },
