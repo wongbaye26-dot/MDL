@@ -3,9 +3,11 @@ import { Animated, StyleSheet, TouchableOpacity, View } from 'react-native'
 import LinearGradient from 'react-native-linear-gradient'
 
 import TabIcon, { type TabIconName } from '@/components/common/TabIcon'
-import AlbumDiscButton from '@/components/common/AlbumDiscButton'
+import AlbumDiscSpin, { DISC_RING_SIZE } from '@/components/common/AlbumDiscSpin'
 import Glass from '@/components/common/Glass'
 import { useNavActiveId } from '@/store/common/hook'
+import { useProgress } from '@/store/player/hook'
+import { useSettingValue } from '@/store/setting/hook'
 import { useTheme } from '@/store/theme/hook'
 import { NAV_MENUS, HORIZONTAL_NAV_SPACE } from '@/config/constant'
 import type { InitState } from '@/store/common/state'
@@ -33,7 +35,6 @@ const ACTIVE_SIZE = 52
 const SLOT_SIZE = 58
 const BAR_PADDING = 1
 const ICON_SIZE = 27
-const DISC_SIZE = 48
 
 /** 四个入口用设计稿的矢量图标（和竖屏同一套） */
 const MENU_ICONS: Record<string, TabIconName> = {
@@ -99,6 +100,8 @@ export default memo(() => {
   const isDark = theme.isDark
   /** 播放器页是深色底，导航也切深色玻璃 */
   const dark = isDark || navActiveId === 'nav_player'
+  const { progress } = useProgress()
+  const progressStyle = useSettingValue('common.navProgressStyle') ?? 'ring'
 
   return (
     <View style={styles.wrap} pointerEvents='box-none'>
@@ -162,11 +165,13 @@ export default memo(() => {
                   activeOpacity={0.85}
                   onPress={() => { setNavActiveId('nav_player') }}
                 >
-                  <AlbumDiscButton
-                    size={DISC_SIZE}
-                    inactiveColor={dark ? 'rgba(255,255,255,0.26)' : theme['c-primary-alpha-600']}
-                    onPress={() => { setNavActiveId('nav_player') }}
-                  />
+                  <View style={styles.discWrap}>
+                    <AlbumDiscSpin
+                      progress={progressStyle === 'ring' ? progress : 0}
+                      showRing={progressStyle !== 'none'}
+                      dark={dark}
+                    />
+                  </View>
                 </TouchableOpacity>
                 )
               : (
@@ -239,6 +244,12 @@ const styles = StyleSheet.create({
     borderRadius: BAR_RADIUS,
     borderWidth: 0.5,
     borderColor: 'rgba(255,255,255,0.75)',
+  },
+  discWrap: {
+    width: DISC_RING_SIZE,
+    height: DISC_RING_SIZE,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   item: {
     width: SLOT_SIZE,
