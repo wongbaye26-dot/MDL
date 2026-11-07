@@ -7,7 +7,6 @@ import { Icon } from '@/components/common/Icon'
 import Glass from '@/components/common/Glass'
 import AlbumDiscSpin, { DISC_SIZE } from '@/components/common/AlbumDiscSpin'
 import PicImage from '@/components/common/PicImage'
-import Image from '@/components/common/Image'
 import MusicList from './MusicList'
 import { playList, togglePlay } from '@/core/player/player'
 import { getListMusics, removeUserList, setActiveList } from '@/core/list'
@@ -417,22 +416,22 @@ export default ({ tab, onCreate, onTabChange }: {
                     {userLists.filter((_, i) => i % 2 === col).map((item, rowIndex) => {
                       const musics = getListMusicSync(item.id)
                       const first = musics.find(m => m.meta?.picUrl) ?? musics[0]
-                      const tall = rowIndex % 3 === 0
+                      const heights = [210, 158, 190, 146, 202, 170]
+                      const cardHeight = heights[userLists.indexOf(item) % heights.length]
                       return (
                         <TouchableOpacity
                           key={item.id}
-                          style={[styles.waterfallCard, { height: tall ? 196 : 156 }]}
+                          style={[styles.waterfallCard, { height: cardHeight }]}
                           activeOpacity={0.85}
                           onPress={() => { setPlaylist(item) }}
                           onLongPress={() => { void handleDeletePlaylist(item) }}
                         >
-                          {
-                            first?.meta?.picUrl
-                              ? <Image url={first.meta.picUrl} style={styles.waterfallCover} />
-                              : <View style={[styles.waterfallCover, styles.waterfallPlaceholder, { backgroundColor: theme['c-primary-alpha-800'] }]}>
-                                <Icon name='playlist-music' size={34} color={theme['c-primary']} />
-                              </View>
-                          }
+                          <View style={[styles.waterfallCover, styles.waterfallPlaceholder, { backgroundColor: theme['c-primary-alpha-800'] }]}>
+                            <Icon name='playlist-music' size={34} color={theme['c-primary']} />
+                          </View>
+                          {first
+                            ? <PicImage musicInfo={first} listId={item.id} style={styles.waterfallCover} />
+                            : null}
                           <LinearGradient
                             colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.18)', 'rgba(0,0,0,0.82)']}
                             locations={[0, 0.55, 1]}
@@ -564,6 +563,7 @@ const styles = createStyle({
   waterfallCol: {
     flex: 1,
     gap: 10,
+    alignItems: 'stretch',
   },
   waterfallCard: {
     borderRadius: 18,

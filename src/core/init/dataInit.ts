@@ -1,7 +1,8 @@
 // import { getPlayInfo } from '@/utils/data'
 // import { log } from '@/utils/log'
 import { init as musicSdkInit } from '@/utils/musicSdk'
-import { getUserLists, setUserList } from '@/core/list'
+import { getUserLists, setUserList, getListMusics, overwriteListMusics } from '@/core/list'
+import { getLocalMusicList } from '@/core/localMusic'
 import { setNavActiveId } from '../common'
 import { getViewPrevState } from '@/utils/data'
 import { bootLog } from '@/utils/bootLog'
@@ -28,7 +29,27 @@ export default async(appSetting: LX.AppSetting) => {
   // ]).catch(err => log.error(err))
   void musicSdkInit() // 初始化音乐sdk
   bootLog('User list init...')
-  setUserList(await getUserLists()) // 获取用户列表
+  const userLists = await getUserLists()
+  setUserList(userLists) // 获取用户列表
+  // 修复历史版本可能写入的损坏条目（缺 source/meta 的精简 MusicInfo）：
+  // 能按 id 从本地曲库找回完整条目就替换，否则移除，避免歌单播放/收藏页崩溃。
+  void (async() => {
+    try {
+      const local = await getLocalMusicList()
+      const byId = new Map(local.map(item => [item.id, item]))
+      for (const list of userLists.slice(2)) {
+        const musics = await getListMusics(list.id)
+        let changed = false
+        const next = musics.flatMap(item => {
+          if (item.source && item.meta) return [item]
+          changed = true
+          const full = byId.get(item.id)
+          return full ? [full] : []
+        })
+        if (changed) await overwriteListMusics(list.id, next)
+      }
+    } catch {}
+  })()
   setDislikeInfo(await getDislikeInfo()) // 获取不喜欢列表
   bootLog('User list inited.')
   // 冷启动固定回首页，不再恢复上次停留的 tab
