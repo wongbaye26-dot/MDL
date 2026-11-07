@@ -11,6 +11,7 @@ import { setApiSource } from '@/core/apiSource'
 import { init as initDownload } from '@/core/download'
 import commonActions from '@/store/common/action'
 import { bootLog } from '@/utils/bootLog'
+import { getLocalMusicList } from '@/core/localMusic'
 
 let isFirstPush = true
 const handlePushedHomeScreen = async() => {
@@ -48,6 +49,8 @@ export default async() => {
   bootLog('Player inited.')
   await dataInit(setting)
   bootLog('Data inited.')
+  // 首页启动期间后台预加载曲库，用户点开本地音乐时直接命中内存，不再等 DB
+  void getLocalMusicList().catch(() => {})
   await initDownload()
   bootLog('Download inited.')
   await initCommonState(setting)

@@ -2,6 +2,7 @@ import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, st
 import {
   Animated,
   FlatList,
+  InteractionManager,
   PanResponder,
   RefreshControl,
   StyleSheet,
@@ -31,7 +32,7 @@ import LiquidGlass from '@/components/common/LiquidGlass'
 import { useSettingValue } from '@/store/setting/hook'
 import { confirmDialog, createStyle, tipDialog, toast } from '@/utils/tools'
 import { formatSize, formatSampleRate } from '@/core/download/utils'
-import { getLocalMusicList, getLocalMusicListCacheOnly, getScanPartialList, subscribeScanPartialList, scanLocalMusicInBackground, isScanning, useScanState, getTotalSize, deleteLocalMusic, getScanDirs, getExtraDirs, setExtraDirs, getLastScanReport, type ScanDir, type ScanReport } from '@/core/localMusic'
+import { getLocalMusicList, getLocalMusicListCacheOnly, getLocalMusicListSync, getScanPartialList, subscribeScanPartialList, scanLocalMusicInBackground, isScanning, useScanState, getTotalSize, deleteLocalMusic, getScanDirs, getExtraDirs, setExtraDirs, getLastScanReport, type ScanDir, type ScanReport } from '@/core/localMusic'
 import { pickDirectory, isDirectoryPickerSupported } from '@/utils/directoryPicker'
 import { cleanSongName } from '@/utils/songName'
 import { initialOfText } from '@/utils/pinyinInitial'
@@ -177,13 +178,13 @@ export type LocalTab = 'recent' | 'album' | 'artist' | 'folder' | 'song'
 export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClose?: () => void, /** 打开时直接落到哪个页签（首页「最近添加歌曲」进来用） */ initialTab?: LocalTab, /** 直接打开某张专辑的歌曲列表（首页最近添加专辑） */ initialAlbum?: string | null, /** 标题后的收藏入口（打开我的收藏） */ onOpenFavorites?: () => void }) => {
   const theme = useTheme()
   const { width: windowWidth, height: windowHeight } = useWindowSize()
-  const [list, setList] = useState<LX.Music.MusicInfoLocal[]>([])
+  const [list, setList] = useState<LX.Music.MusicInfoLocal[]>(() => getLocalMusicListSync() ?? [])
   const listRef = useRef<LX.Music.MusicInfoLocal[]>([])
   listRef.current = list
   const [dir, setDir] = useState('')
   // 扫描状态来自 core（后台扫描，组件卸载也不中断）
   const { scanning, progress } = useScanState()
-  const [inited, setInited] = useState(false)
+  const [inited, setInited] = useState(() => (getLocalMusicListSync()?.length ?? 0) > 0)
   /** 全部扫描根目录（默认下载目录 + 用户添加的） */
   const [dirs, setDirs] = useState<ScanDir[]>([])
   const [dirModal, setDirModal] = useState(false)
@@ -318,6 +319,12 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
 
   // 首屏先用 JSON 快照秒出列表，SQLite 权威数据到了再覆盖（重启/冷启动主要卡在 DB 读取）
   useEffect(() => {
+    const sync = getLocalMusicListSync()
+    if (sync?.length) {
+      setList(sync)
+      setInited(true)
+      return
+    }
     let alive = true
     void getLocalMusicListCacheOnly().then(cached => {
       if (!alive || !mountedRef.current || !cached.length) return
@@ -643,12 +650,47 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
       }))
   }, [detail, filteredList, list, indexOfId, folderTree, folderPath, searchResults, libraryIndex, sortSongs])
 
-  /**
-   * 只构建当前 tab 的 rows。
-   * 之前一次性预计算 5 个 tab，扫描/补封面每次推送都会同步跑 5 遍排序分组，
-   * 冷启动阶段会把 JS 线程连续堵住十几秒（切页签/底部导航都没反应）。
-   */
-  const rows = useMemo(() => buildRows(tab, tabSort), [buildRows, tab, tabSort])
+  /** 当前 tab 的 rows：优先命中懒缓存；其余 tab 在空闲时分片预构建 */
+  const rowsCacheRef = useRef<{ key: string, map: Map<string, ReturnType<typeof buildRows>> }>({ key: '', map: new Map() })
+  const rowsDataKey = `${filteredList.length}|${list.length}|${JSON.stringify(viewPrefs.sort)}|${folderTree.size}|${libraryIndex.albums ? Object.keys(libraryIndex.albums).length : 0}|${libraryIndex.artists ? Object.keys(libraryIndex.artists).length : 0}`
+  const rows = useMemo(() => {
+    const cache = rowsCacheRef.current
+    const key = `${rowsDataKey}`
+    if (cache.key !== key) {
+      cache.key = key
+      cache.map.clear()
+    }
+    const rowKey = `${tab}|${tabSort.key}|${tabSort.dir}`
+    const hit = cache.map.get(rowKey)
+    if (hit) return hit
+    const built = buildRows(tab, tabSort)
+    cache.map.set(rowKey, built)
+    return built
+  }, [buildRows, tab, tabSort, rowsDataKey])
+
+  // 空闲时把其余 tab 的 rows 分片算好，避免用户切过去时才构建
+  useEffect(() => {
+    if (searchResults !== null || detail !== null || (folderPath?.length ?? 0) > 0) return
+    let cancelled = false
+    let index = 0
+    const queue = TABS.filter(item => item.key !== tab)
+    const run = () => {
+      if (cancelled || index >= queue.length) return
+      const tabDef = queue[index++]
+      const sort = viewPrefs.sort[tabDef.key] ?? defaultViewPrefs().sort[tabDef.key] ?? { key: 'name' as LocalSortKey, dir: 'asc' as const }
+      const cache = rowsCacheRef.current
+      if (cache.key === rowsDataKey) {
+        const rowKey = `${tabDef.key}|${sort.key}|${sort.dir}`
+        if (!cache.map.has(rowKey)) cache.map.set(rowKey, buildRows(tabDef.key, sort))
+      }
+      setTimeout(run, 80)
+    }
+    const task = InteractionManager.runAfterInteractions(() => { setTimeout(run, 120) })
+    return () => {
+      cancelled = true
+      task.cancel()
+    }
+  }, [buildRows, tab, rowsDataKey, viewPrefs.sort, searchResults, detail, folderPath])
 
   const letterBarVisible = tab === 'song' && !detail && !searchKeyword && !searchOpen
 
