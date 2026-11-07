@@ -9,7 +9,6 @@ import {
   TouchableOpacity,
   View,
   Modal,
-  Pressable,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native'
@@ -475,7 +474,6 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
     })
     return decorated.map(entry => entry.item)
   }, [])
-
 
 
   const totalSize = useMemo(() => formatSize(getTotalSize(list)), [list])
@@ -1455,52 +1453,42 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
         独立 Modal 覆盖在当前页上，列表不位移；点空白/返回/关闭按钮都收起，
         收起后搜索框不占布局（旧版会在页头下面留一条输入框）。
       */}
-      <Modal
-        visible={searchOpen}
-        transparent
-        animationType='fade'
-        statusBarTranslucent
-        onRequestClose={() => { setSearchOpen(false); setSearchText('') }}
-      >
-        <Pressable
-          style={styles.searchBackdrop}
-          onPress={() => { setSearchOpen(false); setSearchText('') }}
-          accessibilityRole='button'
-          accessibilityLabel='关闭搜索'
-        >
-          <Pressable
-            style={{
-              ...styles.searchFloat,
-              // 必须用不透明底：半透明会和页头「本地音乐」文字叠在一起
-              backgroundColor: theme['c-main-background'],
-              borderColor: theme['c-primary-alpha-700'],
-              top: statusBarHeight + 10,
-            }}
-            onPress={() => {}}
-          >
-            <Icon name='search-2' size={16} color={theme['c-450']} style={styles.searchIcon} />
-            <Input
-              value={searchText}
-              autoFocus
-              onChangeText={text => { setSearchText(text) }}
-              placeholder='搜索本地歌曲、歌手或专辑'
-              style={styles.searchInput}
-              clearBtn={searchText.length > 0}
-              returnKeyType='search'
-              accessibilityLabel='搜索本地音乐'
-            />
-            <TouchableOpacity
-              style={styles.searchClose}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              accessibilityRole='button'
-              accessibilityLabel='关闭搜索'
-              onPress={() => { setSearchOpen(false); setSearchText('') }}
+      {searchOpen
+        ? (
+          <View style={styles.searchOverlay} pointerEvents='box-none'>
+            <View
+              style={{
+                ...styles.searchFloat,
+                backgroundColor: theme['c-main-background'],
+                borderColor: theme['c-primary-alpha-700'],
+                top: statusBarHeight + 10,
+              }}
             >
-              <Icon name='close' size={16} color={theme['c-450']} />
-            </TouchableOpacity>
-          </Pressable>
-        </Pressable>
-      </Modal>
+              <Icon name='search-2' size={16} color={theme['c-450']} style={styles.searchIcon} />
+              <Input
+                value={searchText}
+                autoFocus
+                onChangeText={text => { setSearchText(text) }}
+                placeholder='搜索本地歌曲、歌手或专辑'
+                style={styles.searchInput}
+                clearBtn={searchText.length > 0}
+                returnKeyType='search'
+                accessibilityLabel='搜索本地音乐'
+              />
+              <TouchableOpacity
+                style={styles.searchClose}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole='button'
+                accessibilityLabel='关闭搜索'
+                onPress={() => { setSearchOpen(false); setSearchText('') }}
+              >
+                <Icon name='close' size={16} color={theme['c-450']} />
+              </TouchableOpacity>
+            </View>
+          </View>
+          )
+        : null}
+
 
       {
         (scanning || needAuth.length > 0)
@@ -2276,9 +2264,14 @@ const styles = createStyle({
     flex: 1,
   },
   /** 页内搜索：和搜索页/歌单页的搜索框同一套圆角语言 */
-  searchBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.32)',
+  searchOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    zIndex: 30,
+    elevation: 30,
   },
   // 顶部悬浮搜索框：圆角 + 投影，独立于列表布局
   searchFloat: {
@@ -2346,7 +2339,7 @@ const styles = createStyle({
     borderRadius: 14,
   },
   searchChipText: {
-    flexShrink: 1,
+    flexShrink: 0,
   },
   /** 摘要行右侧「清除搜索」 */
   searchClearText: {

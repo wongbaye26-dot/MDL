@@ -1,7 +1,7 @@
 {
   "name": "em-music",
-  "version": "3.11.11",
-  "versionCode": 259,
+  "version": "3.11.12",
+  "versionCode": 260,
   "private": true,
   "scripts": {
     "dev": "react-native run-android --active-arch-only",
