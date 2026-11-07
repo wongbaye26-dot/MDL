@@ -668,6 +668,10 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
   const rowsCacheRef = useRef<{ key: string, map: Map<string, ReturnType<typeof buildRows>> }>({ key: '', map: new Map() })
   const rowsDataKey = `${filteredList.length}|${list.length}|${JSON.stringify(viewPrefs.sort)}|${folderTree.size}|${libraryIndex.albums ? Object.keys(libraryIndex.albums).length : 0}|${libraryIndex.artists ? Object.keys(libraryIndex.artists).length : 0}`
   const rows = useMemo(() => {
+    // 搜索/二级页/文件夹详情不走 tab 缓存：结果集随关键词变化，缓存会返回旧列表
+    if (searchResults !== null || detail !== null || (folderPath?.length ?? 0) > 0) {
+      return buildRows(tab, tabSort)
+    }
     const cache = rowsCacheRef.current
     const key = `${rowsDataKey}`
     if (cache.key !== key) {
@@ -680,7 +684,7 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
     const built = buildRows(tab, tabSort)
     cache.map.set(rowKey, built)
     return built
-  }, [buildRows, tab, tabSort, rowsDataKey])
+  }, [buildRows, tab, tabSort, rowsDataKey, searchResults, detail, folderPath])
 
   // 空闲时把其余 tab 的 rows 分片算好，避免用户切过去时才构建
   useEffect(() => {
