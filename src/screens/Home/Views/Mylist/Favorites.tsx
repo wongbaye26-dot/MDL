@@ -356,9 +356,11 @@ export default ({ tab, onCreate, onTabChange, onRename }: {
 
   // 歌单详情：右滑返回歌单列表（不跟手动画，和系统返回一致）
   const playlistSwipe = useRef(PanResponder.create({
-    onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 24 && Math.abs(g.dx) > Math.abs(g.dy) * 1.6,
+    // 左边缘起手的右滑返回：立即捕获，避免被列表的长按/滚动抢走
+    onStartShouldSetPanResponderCapture: e => e.nativeEvent.pageX <= 36,
+    onMoveShouldSetPanResponderCapture: (_, g) => g.dx > 16 && Math.abs(g.dx) > Math.abs(g.dy),
     onPanResponderRelease: (_, g) => {
-      if (g.dx > 90) setPlaylist(null)
+      if (g.dx > 70) setPlaylist(null)
     },
   })).current
   const counts = useListCounts()

@@ -1387,7 +1387,7 @@ export default () => {
                 <Icon name={collected ? 'love' : 'heart-outline'} size={u(22)} color={collected ? accent : 'rgba(255,255,255,0.92)'} />
               </TouchableOpacity>
               <TouchableOpacity style={styles.iconBtnLand} onPress={handleAddToPlaylist} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }} accessibilityRole='button' accessibilityLabel='添加至歌单'>
-                <AddPlaylistIcon size={u(21)} color='rgba(255,255,255,0.92)' />
+                <AddPlaylistIcon size={u(26)} color='rgba(255,255,255,0.92)' />
               </TouchableOpacity>
               <TouchableOpacity style={styles.iconBtnLand} onPress={() => { setDetailVisible(true) }} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
                 <Icon name='information-outline' size={u(20)} color='rgba(255,255,255,0.92)' />
@@ -1723,7 +1723,7 @@ export default () => {
                     />
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.iconBtn} onPress={handleAddToPlaylist} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }} accessibilityRole='button' accessibilityLabel='添加至歌单'>
-                    <AddPlaylistIcon size={u(25)} color='rgba(255,255,255,0.92)' />
+                    <AddPlaylistIcon size={u(30)} color='rgba(255,255,255,0.92)' />
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.iconBtn} onPress={() => { setDetailVisible(true) }} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
                     <Icon name='information-outline' size={u(24)} color='rgba(255,255,255,0.92)' />
@@ -1756,7 +1756,7 @@ export default () => {
                     <Icon name={collected ? 'love' : 'heart-outline'} size={u(26)} color={collected ? accent : 'rgba(255,255,255,0.9)'} />
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.iconBtn} onPress={handleAddToPlaylist} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }} accessibilityRole='button' accessibilityLabel='添加至歌单'>
-                    <AddPlaylistIcon size={u(25)} color='rgba(255,255,255,0.9)' />
+                    <AddPlaylistIcon size={u(30)} color='rgba(255,255,255,0.9)' />
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.iconBtn} onPress={() => { setDetailVisible(true) }} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
                     <Icon name='information-outline' size={u(24)} color='rgba(255,255,255,0.9)' />
