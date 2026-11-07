@@ -117,6 +117,9 @@ export const previewIdMigration = async(): Promise<IdMigrationPreview> => {
 export interface IdMigrationResult {
   ok: boolean
   backupTracks: number
+  mapSize: number
+  dbBefore: number
+  dbAfter: number
   tracksUpdated: number
   conflicts: number
   localUpdated: number
@@ -130,8 +133,14 @@ export const applyIdMigration = async(): Promise<IdMigrationResult> => {
   const start = Date.now()
   try {
     const backup = await createLibraryBackup()
+    // 强制重建指纹与 id_map：断电/回滚演练或旧版本可能让 id_map 为空
+    const list = await getLocalMusicList()
+    await backfillIdentities(list)
+    await buildIdMapPreview()
     const map = await buildMap()
+    const dbBefore = await localLibraryRepository.getTrackCount()
     const dbResult = await localLibraryRepository.migrateTrackIds([...map.entries()])
+    const dbAfter = await localLibraryRepository.getTrackCount()
     const localUpdated = await rewriteLocalMusicIds(map)
     const lists = await rewriteLists(map)
     let playInfoUpdated = false
@@ -147,6 +156,9 @@ export const applyIdMigration = async(): Promise<IdMigrationResult> => {
     return {
       ok: true,
       backupTracks: backup.tracks,
+      mapSize: map.size,
+      dbBefore,
+      dbAfter,
       tracksUpdated: dbResult.updated,
       conflicts: dbResult.conflicts,
       localUpdated,
@@ -158,6 +170,9 @@ export const applyIdMigration = async(): Promise<IdMigrationResult> => {
     return {
       ok: false,
       backupTracks: 0,
+      mapSize: 0,
+      dbBefore: 0,
+      dbAfter: 0,
       tracksUpdated: 0,
       conflicts: 0,
       localUpdated: 0,
@@ -190,6 +205,9 @@ export const rollbackIdMigration = async(): Promise<IdMigrationResult> => {
     return {
       ok: true,
       backupTracks: 0,
+      mapSize: reverse.size,
+      dbBefore: 0,
+      dbAfter: 0,
       tracksUpdated: dbResult.updated,
       conflicts: dbResult.conflicts,
       localUpdated,
@@ -201,6 +219,9 @@ export const rollbackIdMigration = async(): Promise<IdMigrationResult> => {
     return {
       ok: false,
       backupTracks: 0,
+      mapSize: 0,
+      dbBefore: 0,
+      dbAfter: 0,
       tracksUpdated: 0,
       conflicts: 0,
       localUpdated: 0,

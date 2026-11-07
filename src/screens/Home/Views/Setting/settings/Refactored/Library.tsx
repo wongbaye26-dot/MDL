@@ -122,7 +122,7 @@ FILE "${fileName}" WAVE
     try {
       const result = await applyIdMigration()
       setIdText(result.ok
-        ? `应用完成：备份 ${result.backupTracks} 首；DB ${result.tracksUpdated} 行，曲库 ${result.localUpdated} 首；列表映射 ${result.lists.reduce((n, l) => n + l.mapped, 0)} 条，冲突 ${result.conflicts}；${result.durationMs}ms`
+        ? `应用完成：备份 ${result.backupTracks} 首；id_map ${result.mapSize}；DB ${result.dbBefore}→${result.dbAfter}，更新 ${result.tracksUpdated} 行；曲库 ${result.localUpdated} 首；列表映射 ${result.lists.reduce((n, l) => n + l.mapped, 0)} 条，冲突 ${result.conflicts}；${result.durationMs}ms`
         : `应用失败：${result.error ?? '未知错误'}`)
     } catch (error) { setIdText(`应用失败：${error instanceof Error ? error.message : String(error)}`) } finally { setRunning(false) }
   }
