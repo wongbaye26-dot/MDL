@@ -1223,8 +1223,10 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
   }, [sheetItem, sheetLoved, handlePlay, handleDelete])
 
   /** 网格视图：专辑/艺人在无二级页、无搜索时用 3 列卡片（D-08） */
-  const isGrid = (tab === 'album' || tab === 'artist') && detail === null && !searching
-  const gridSize = Math.max(88, Math.floor((windowWidth - 24 - 20) / 3))
+  const isLandscape = windowWidth > windowHeight
+  // 横屏专辑/艺人改用列表：3 列大图在横屏会被放得过大
+  const isGrid = !isLandscape && (tab === 'album' || tab === 'artist') && detail === null && !searching
+  const gridSize = Math.max(88, Math.floor((Math.min(windowWidth, windowHeight) - 24 - 20) / 3))
 
   const renderItem = useCallback(({ item: row }: { item:
   | { type: 'song', key: string, item: LX.Music.MusicInfoLocal, index: number }
@@ -1424,6 +1426,60 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
           )}
           right={(
             <View style={styles.headerActions}>
+              {isLandscape
+                ? (
+                  <>
+                    {TABS.map(item => {
+                      const active = tab === item.key
+                      return (
+                        <TouchableOpacity
+                          key={item.key}
+                          style={[styles.headerBtn, styles.landHeaderBtn, { backgroundColor: active ? theme['c-primary'] : theme['c-primary-alpha-900'] }]}
+                          activeOpacity={0.8}
+                          accessibilityRole='button'
+                          accessibilityLabel={item.label}
+                          onPress={() => {
+                            startTransition(() => {
+                              setTab(item.key)
+                              setFolderPath(null)
+                              setDetail(null)
+                            })
+                          }}
+                        >
+                          <Icon name={item.icon} size={17} color={active ? contrastOn(theme['c-primary']) : theme['c-font']} />
+                        </TouchableOpacity>
+                      )
+                    })}
+                    <TouchableOpacity
+                      style={[styles.headerBtn, styles.landHeaderBtn, { backgroundColor: theme['c-primary-alpha-900'] }]}
+                      activeOpacity={0.8}
+                      accessibilityRole='button'
+                      accessibilityLabel={`排序方式：${tabSortLabel}`}
+                      onPress={() => { setSortSheet(true) }}
+                    >
+                      <Icon name='sort' size={17} color={theme['c-primary']} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.headerBtn, styles.landHeaderBtn, { backgroundColor: theme['c-primary-alpha-900'] }]}
+                      activeOpacity={0.8}
+                      accessibilityRole='button'
+                      accessibilityLabel={`筛选：${filterLabel}`}
+                      onPress={() => { setFilterSheet(true) }}
+                    >
+                      <Icon name='filter-variant' size={17} color={hasActiveFilter ? theme['c-primary'] : theme['c-font']} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.headerBtn, styles.landHeaderBtn, { backgroundColor: batchMode ? theme['c-primary'] : theme['c-primary-alpha-900'] }]}
+                      activeOpacity={0.8}
+                      accessibilityRole='button'
+                      accessibilityLabel={batchMode ? '退出批量选择' : '批量选择'}
+                      onPress={toggleBatchMode}
+                    >
+                      <Icon name={batchMode ? 'close' : 'checkbox-multiple-marked-outline'} size={17} color={batchMode ? contrastOn(theme['c-primary']) : theme['c-font']} />
+                    </TouchableOpacity>
+                  </>
+                  )
+                : null}
               <TouchableOpacity
                 style={{ ...styles.headerBtn, backgroundColor: theme['c-primary-alpha-900'] }}
                 activeOpacity={0.8}
@@ -1715,7 +1771,9 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
                 </TouchableOpacity>
               </View>
               )
-            : (
+            : isLandscape
+              ? null
+              : (
               <View style={styles.tabBar}>
                 <LocalTabs
                   active={tab}
@@ -1728,7 +1786,7 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
                   }}
                 />
               </View>
-              )
+                )
       }
 
       {
@@ -1750,7 +1808,7 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
 
       {
         // 排序 / 筛选工具行（D-05 / D-06）；搜索和二级页不显示，避免抢层级
-        !searching && !detail
+        !searching && !detail && !isLandscape
           ? (
             <View style={styles.viewTools}>
               <TouchableOpacity
@@ -2269,6 +2327,11 @@ const styles = createStyle({
   /** 歌曲行第三行的小标签（Tag 组件） */
   thirdTag: {
     marginRight: 5,
+  },
+  landHeaderBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
   },
   headerBtn: {
     width: 38,
