@@ -1239,6 +1239,7 @@ export default () => {
 
   <LyricQuickMenu
     visible={lyricSettingsVisible}
+    landscape={isLandscape}
     hasTranslation={lyricExtras.some(extras => extras.length > 0)}
     onClose={() => { setLyricSettingsVisible(false) }}
   />

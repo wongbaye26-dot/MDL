@@ -26,9 +26,11 @@ const ALIGN_VALUES = ['auto', 'center', 'left'] as const
 export default memo(({
   visible,
   hasTranslation,
+  landscape = false,
   onClose,
 }: {
   visible: boolean
+  landscape?: boolean
   /** 当前歌词是否有翻译/注音等扩展行（没有就不显示「歌词翻译」） */
   hasTranslation: boolean
   onClose: () => void
@@ -38,6 +40,7 @@ export default memo(({
   const align = useSettingValue('player.lyricAlign')
   const showTranslation = useSettingValue('player.isShowLyricTranslation')
   const autoJyutping = useSettingValue('player.isAutoJyutping')
+  const wordByWord = useSettingValue('player.isWordByWordLyric')
 
   const sizeLabel = LYRIC_SIZE_LABELS[Math.max(0, Math.min(LYRIC_SIZE_LABELS.length - 1, sizeIndex))] ?? '标准'
   const alignIndex = Math.max(0, ALIGN_VALUES.indexOf(align as typeof ALIGN_VALUES[number]))
@@ -75,6 +78,14 @@ export default memo(({
         }]
       : []),
     {
+      key: 'wordByWord',
+      icon: 'format-text',
+      label: '逐字显示',
+      value: wordByWord ? '开' : '关',
+      active: wordByWord,
+      onPress: () => { updateSetting({ 'player.isWordByWordLyric': !wordByWord }) },
+    },
+    {
       key: 'jyutping',
       icon: 'alphabetical',
       label: '粤拼',
@@ -86,10 +97,11 @@ export default memo(({
 
   return (
     <Modal visible={visible} transparent statusBarTranslucent animationType='fade' onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose} accessibilityRole='button' accessibilityLabel='关闭歌词快捷菜单'>
+      <Pressable style={[styles.backdrop, landscape ? styles.backdropLand : null]} onPress={onClose} accessibilityRole='button' accessibilityLabel='关闭歌词快捷菜单'>
         <View
           style={[
             styles.menu,
+            landscape ? styles.menuLand : null,
             {
               backgroundColor: 'rgba(24,20,32,0.94)',
               borderColor: 'rgba(255,255,255,0.12)',
@@ -101,7 +113,7 @@ export default memo(({
             不再跟主题走（白色主题下不会出现一块白卡片）。
             每行只有 44×44 的图标键，靠图标 + 颜色区分状态，状态值通过无障碍标签播报。
           */}
-          <View style={styles.iconRow}>
+          <View style={[styles.iconRow, landscape ? styles.iconRowLand : null]}>
             {
               rows.map(row => (
                 <TouchableOpacity
@@ -134,6 +146,23 @@ const styles = createStyle({
     alignItems: 'flex-start',
     paddingLeft: 16,
     paddingBottom: 170,
+  },
+  backdropLand: {
+    justifyContent: 'flex-start',
+    alignItems: 'flex-end',
+    paddingLeft: 0,
+    paddingRight: 20,
+    paddingBottom: 0,
+    paddingTop: 96,
+  },
+  menuLand: {
+    width: undefined,
+    borderRadius: 24,
+    paddingHorizontal: 6,
+    paddingVertical: 6,
+  },
+  iconRowLand: {
+    flexDirection: 'row',
   },
   menu: {
     width: 56,

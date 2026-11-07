@@ -148,7 +148,7 @@ export default memo(({ items, onPress, onLongPress, showSource, onWidthChange }:
           columns.map((column, colIndex) => (
             <View
               key={column[0]?.id ?? colIndex}
-              style={[styles.column, { width: colWidth > 0 ? colWidth : undefined }, colIndex > 0 ? styles.columnGap : null]}
+              style={[styles.column, { width: colWidth > 0 ? colWidth : undefined }, colIndex > 0 ? (compact ? styles.columnGapCompact : styles.columnGap) : null]}
             >
               {
                 column.map((musicInfo, rowIndex) => (
@@ -184,6 +184,9 @@ const styles = createStyle({
   },
   columnGap: {
     marginLeft: 12,
+  },
+  columnGapCompact: {
+    marginLeft: 6,
   },
   cell: {
     flexDirection: 'row',
