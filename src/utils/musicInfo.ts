@@ -4,6 +4,16 @@ export const normalizeMusicInfo = <T extends LX.Music.MusicInfo>(raw: T): T => {
   if (!item.meta) item.meta = {}
   if (!item.meta.picUrl) item.meta.picUrl = item.pic ?? item.picUrl ?? ''
   if (!item.meta.albumName) item.meta.albumName = item.album ?? item.albumName ?? ''
+  if (!item.meta._qualitys) {
+    const types = Array.isArray(item.types) ? item.types : []
+    const qualitys: Record<string, boolean> = {}
+    for (const type of types) {
+      const q = typeof type === 'string' ? type : type?.type
+      if (q && q !== '128k') qualitys[q] = true
+    }
+    item.meta._qualitys = qualitys
+  }
+  if (!item.meta._types) item.meta._types = {}
   // 酷我播放 URL 读取顶层 songmid；扁平条目可能只剩 kw_151614 这样的 id
   if (!item.songmid && typeof item.id === 'string' && item.id.startsWith('kw_')) item.songmid = item.id.slice(3)
   if (!item.source && typeof item.id === 'string' && !item.id.startsWith('local_')) {
