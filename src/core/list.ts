@@ -3,6 +3,7 @@ import listAction from '@/store/list/action'
 import listState from '@/store/list/state'
 import settingState from '@/store/setting/state'
 import { fixNewMusicInfoQuality } from '@/utils'
+import { normalizeMusicInfo } from '@/utils/musicInfo'
 import { saveListPrevSelectId } from '@/utils/data'
 
 /**
@@ -47,7 +48,7 @@ export const updateUserListPosition = async(position: number, ids: string[]) => 
  * 批量添加歌曲到列表
  */
 export const addListMusics = async(id: string, musicInfos: LX.Music.MusicInfo[], addMusicLocationType: LX.AddMusicLocationType) => {
-  await global.list_event.list_music_add(id, musicInfos, addMusicLocationType)
+  await global.list_event.list_music_add(id, musicInfos.map(normalizeMusicInfo), addMusicLocationType)
 }
 
 /**

@@ -4,6 +4,7 @@ import {
 } from '@/core/player/playStatus'
 import playerState from '@/store/player/state'
 import settingState from '@/store/setting/state'
+import { normalizeMusicInfo } from '@/utils/musicInfo'
 import { getLocalMusicListSync } from '@/core/localMusic'
 import {
   getList,
@@ -538,21 +539,7 @@ export const playListById = async(listId: string, id: string) => {
  */
 export const playMusicInfo = async(listId: string, musicInfo: LX.Music.MusicInfo, isRestore = false) => {
   // 歌单里的历史条目可能缺 source/meta：按本地文件路径/id 找回完整条目再播
-  let info: any = musicInfo
-  // 歌单广场收藏来的在线条目是扁平结构：pic/lrc/album 在顶层，没有 meta
-  if (!info.meta) {
-    info.meta = {
-      picUrl: info.pic ?? info.picUrl ?? '',
-      albumName: info.album ?? info.albumName ?? '',
-    }
-  } else {
-    if (!info.meta.picUrl) info.meta.picUrl = info.pic ?? ''
-    if (!info.meta.albumName) info.meta.albumName = info.album ?? ''
-  }
-  if (!info.source && typeof info.id === 'string' && !info.id.startsWith('local_')) {
-    const guess = info.id.split('_')[0]
-    if (guess && guess !== info.id) info.source = guess
-  }
+  let info: any = normalizeMusicInfo(musicInfo as LX.Music.MusicInfo)
   if (!info.source || !info.meta) {
     const local = getLocalMusicListSync()
     const legacyPath = info.id?.startsWith('local_') ? info.id.slice(6) : ''

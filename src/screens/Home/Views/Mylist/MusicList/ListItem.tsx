@@ -10,6 +10,7 @@ import { useTheme } from '@/store/theme/hook'
 import { scaleSizeH } from '@/utils/pixelRatio'
 import Text from '@/components/common/Text'
 import Badge from '@/components/common/Badge'
+import { normalizeMusicInfo } from '@/utils/musicInfo'
 
 export const ITEM_HEIGHT = scaleSizeH(LIST_ITEM_HEIGHT)
 
@@ -34,6 +35,7 @@ export default memo(({ item, index, activeIndex, onPress, onShowMenu, onLongPres
   isShowInterval: boolean
 }) => {
   const theme = useTheme()
+  const info = normalizeMusicInfo(item)
 
   const isSelected = selectedList.includes(item)
   // console.log(item.name, selectedList, selectedList.includes(item))
@@ -48,18 +50,18 @@ export default memo(({ item, index, activeIndex, onPress, onShowMenu, onLongPres
   }
   const active = activeIndex == index
 
-  const singer = `${item.singer}${isShowAlbumName && item.meta?.albumName ? ` · ${item.meta.albumName}` : ''}`
+  const singer = `${info.singer}${isShowAlbumName && info.meta?.albumName ? ` · ${info.meta.albumName}` : ''}`
 
   return (
     <View style={{ ...styles.listItem, width: rowInfo.rowWidth, height: ITEM_HEIGHT, backgroundColor: isSelected ? theme['c-primary-background-hover'] : 'rgba(0,0,0,0)', opacity: 1 }}>
       <TouchableOpacity style={styles.listItemLeft} onPress={() => { onPress(item, index) }} onLongPress={() => { onLongPress(item, index) }}>
-        <Image url={item.meta?.picUrl ?? (item as any).pic} style={styles.cover} />
+        <Image url={info.meta?.picUrl} style={styles.cover} />
         <View style={styles.itemInfo}>
           {/* <View style={styles.listItemTitle}> */}
           <Text color={active ? theme['c-primary-font'] : theme['c-font']} numberOfLines={1}>{item.name}</Text>
           {/* </View> */}
           <View style={styles.listItemSingle}>
-            <Badge>{getSourceLabel(item.source)}</Badge>
+            <Badge>{getSourceLabel(info.source)}</Badge>
             <Text style={styles.listItemSingleText} size={11} color={active ? theme['c-primary-alpha-200'] : theme['c-500']} numberOfLines={1}>
               {singer}
             </Text>
@@ -67,7 +69,7 @@ export default memo(({ item, index, activeIndex, onPress, onShowMenu, onLongPres
         </View>
         {
           isShowInterval ? (
-            <Text size={11} color={active ? theme['c-primary-alpha-400'] : theme['c-250']} numberOfLines={1} style={styles.interval}>{item.interval ?? ''}</Text>
+            <Text size={11} color={active ? theme['c-primary-alpha-400'] : theme['c-250']} numberOfLines={1} style={styles.interval}>{info.interval ?? ''}</Text>
           ) : null
         }
       </TouchableOpacity>
