@@ -538,7 +538,13 @@ export const playListById = async(listId: string, id: string) => {
  */
 export const playMusicInfo = async(listId: string, musicInfo: LX.Music.MusicInfo, isRestore = false) => {
   // 歌单里的历史条目可能缺 source/meta：按本地文件路径/id 找回完整条目再播
-  let info = musicInfo
+  let info: any = musicInfo
+  // 在线歌单条目可能缺 meta/source：先兜底，source 可从 id 前缀推断
+  if (!info.meta) info.meta = {}
+  if (!info.source && typeof info.id === 'string' && !info.id.startsWith('local_')) {
+    const guess = info.id.split('_')[0]
+    if (guess && guess !== info.id) info.source = guess
+  }
   if (!info.source || !info.meta) {
     const local = getLocalMusicListSync()
     const legacyPath = info.id?.startsWith('local_') ? info.id.slice(6) : ''

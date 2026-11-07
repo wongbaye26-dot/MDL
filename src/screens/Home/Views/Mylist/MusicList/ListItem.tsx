@@ -6,7 +6,7 @@ import { Icon } from '@/components/common/Icon'
 import Image from '@/components/common/Image'
 import { createStyle, type RowInfo } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
-import { useAssertApiSupport } from '@/store/common/hook'
+
 import { scaleSizeH } from '@/utils/pixelRatio'
 import Text from '@/components/common/Text'
 import Badge from '@/components/common/Badge'
@@ -37,7 +37,6 @@ export default memo(({ item, index, activeIndex, onPress, onShowMenu, onLongPres
 
   const isSelected = selectedList.includes(item)
   // console.log(item.name, selectedList, selectedList.includes(item))
-  const isSupported = useAssertApiSupport(item.source)
   const moreButtonRef = useRef<TouchableOpacity>(null)
   const handleShowMenu = () => {
     if (moreButtonRef.current?.measure) {
@@ -52,7 +51,7 @@ export default memo(({ item, index, activeIndex, onPress, onShowMenu, onLongPres
   const singer = `${item.singer}${isShowAlbumName && item.meta?.albumName ? ` · ${item.meta.albumName}` : ''}`
 
   return (
-    <View style={{ ...styles.listItem, width: rowInfo.rowWidth, height: ITEM_HEIGHT, backgroundColor: isSelected ? theme['c-primary-background-hover'] : 'rgba(0,0,0,0)', opacity: isSupported ? 1 : 0.5 }}>
+    <View style={{ ...styles.listItem, width: rowInfo.rowWidth, height: ITEM_HEIGHT, backgroundColor: isSelected ? theme['c-primary-background-hover'] : 'rgba(0,0,0,0)', opacity: 1 }}>
       <TouchableOpacity style={styles.listItemLeft} onPress={() => { onPress(item, index) }} onLongPress={() => { onLongPress(item, index) }}>
         <Image url={item.meta?.picUrl} style={styles.cover} />
         <View style={styles.itemInfo}>

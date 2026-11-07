@@ -392,9 +392,12 @@ export default ({ tab, onCreate, onTabChange, onRename }: {
             changed = true
             const legacyPath = item.id.startsWith('local_') ? item.id.slice(6) : ''
             const full = byId.get(item.id) ?? local.find(x => legacyPath && x.meta?.filePath === legacyPath)
-            return full ? [full] : []
+            if (full) return [full]
+            // 在线条目：补空 meta，并从 id 前缀推断 source
+            const guess = !item.id.startsWith('local_') ? item.id.split('_')[0] : ''
+            return [{ ...item, meta: item.meta ?? ({} as typeof item.meta), source: item.source ?? (guess as LX.Source) }]
           })
-          if (changed) await overwriteListMusics(playlist.id, next)
+          if (changed) await overwriteListMusics(playlist.id, next as LX.Music.MusicInfo[])
         } catch {}
       })()
     }
@@ -473,7 +476,7 @@ export default ({ tab, onCreate, onTabChange, onRename }: {
                             <Icon name='playlist-music' size={34} color={theme['c-primary']} />
                           </View>
                           {first
-                            ? <PicImage musicInfo={first} listId={item.id} style={styles.waterfallCover} />
+                            ? <PicImage musicInfo={first} listId={item.id} resizeMode='cover' style={styles.waterfallCover} />
                             : null}
                           <LinearGradient
                             colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.18)', 'rgba(0,0,0,0.82)']}
