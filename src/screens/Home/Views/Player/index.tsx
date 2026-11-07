@@ -1860,8 +1860,8 @@ const styles = {
     alignItems: 'stretch' as const,
     justifyContent: 'center' as const,
   },
-  headerName: { fontWeight: '600' as const, lineHeight: 20, textAlign: 'center' as const },
-  headerSinger: { lineHeight: 16, textAlign: 'center' as const },
+  headerName: { fontWeight: '600' as const, textAlign: 'center' as const },
+  headerSinger: { textAlign: 'center' as const },
 
   /* 封面态：封面下方的当前歌词行（飞牛 588.6..605.7） */
   lyricStrip: {
@@ -1873,8 +1873,8 @@ const styles = {
     paddingRight: 24,
   },
   nowLyric: {
-    lineHeight: 22,
     marginBottom: 17,
+    paddingVertical: 2,
     textShadowColor: 'rgba(0,0,0,0.3)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 8,
@@ -1976,7 +1976,7 @@ const styles = {
   },
   titleText: { flexGrow: 1, flexShrink: 1, paddingRight: 8 },
   songName: { fontWeight: '600' as const },
-  songSinger: { lineHeight: 20 },
+  songSinger: {},
   infoActions: { flexDirection: 'row' as const, alignItems: 'center' as const },
   iconBtn: {
     width: 40,
