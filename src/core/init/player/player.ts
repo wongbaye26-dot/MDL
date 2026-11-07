@@ -6,14 +6,21 @@ import { setStop } from '@/plugins/player'
 import { delayUpdateMusicInfo } from '@/plugins/player/playList'
 import playerState from '@/store/player/state'
 import settingState from '@/store/setting/state'
+import { syncMusicWidget } from '@/utils/widget'
 
 
 export default async(setting: LX.AppSetting) => {
+  const syncWidget = () => {
+    syncMusicWidget(playerState.musicInfo.name ?? '', playerState.musicInfo.singer ?? '', playerState.isPlay, playerState.musicInfo.pic ?? '')
+  }
+
   const setPlayStatus = () => {
     setIsPlay(true)
+    syncWidget()
   }
   const setPauseStatus = () => {
     setIsPlay(false)
+    syncWidget()
     if (global.lx.isPlayedStop) void pause()
   }
 
@@ -33,11 +40,13 @@ export default async(setting: LX.AppSetting) => {
 
   const setStopStatus = () => {
     setIsPlay(false)
+    syncWidget()
     setStatusText('')
     void setStop()
   }
 
   const updatePic = () => {
+    syncWidget()
     if (!settingState.setting['player.isShowNotificationImage']) return
     if (playerState.playMusicInfo.musicInfo && playerState.musicInfo.pic) {
       delayUpdateMusicInfo(playerState.musicInfo)
@@ -54,6 +63,7 @@ export default async(setting: LX.AppSetting) => {
   }
 
 
+  global.app_event.on('musicToggled', syncWidget)
   global.app_event.on('play', setPlayStatus)
   global.app_event.on('pause', setPauseStatus)
   global.app_event.on('error', setPauseStatus)

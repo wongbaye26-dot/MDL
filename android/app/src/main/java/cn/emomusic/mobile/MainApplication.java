@@ -13,6 +13,7 @@ import cn.emomusic.mobile.cache.CachePackage;
 import cn.emomusic.mobile.crypto.CryptoPackage;
 import cn.emomusic.mobile.dirpicker.DirectoryPickerPackage;
 import cn.emomusic.mobile.download.DownloadPackage;
+import cn.emomusic.mobile.widget.WidgetPackage;
 import cn.emomusic.mobile.lyric.LyricPackage;
 import cn.emomusic.mobile.userApi.UserApiPackage;
 import cn.emomusic.mobile.utils.UtilsPackage;
@@ -39,6 +40,7 @@ public class MainApplication extends NavigationApplication {
           packages.add(new UserApiPackage());
           packages.add(new DownloadPackage());
           packages.add(new DirectoryPickerPackage());
+          packages.add(new WidgetPackage());
           return packages;
         }
 

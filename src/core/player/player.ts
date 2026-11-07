@@ -27,6 +27,7 @@ import { getRandom } from '@/utils/common'
 import { filterList } from './utils'
 import { getCueStartSeconds } from '@/core/localLibrary/cuePlayback'
 import BackgroundTimer from 'react-native-background-timer'
+import { AppState } from 'react-native'
 import { checkIgnoringBatteryOptimization, checkNotificationPermission, debounceBackgroundTimer, toast } from '@/utils/tools'
 import { LIST_IDS } from '@/config/constant'
 import { addListMusics, removeListMusics } from '@/core/list'
@@ -373,6 +374,10 @@ const handleRestorePlay = async(restorePlayInfo: LX.Player.SavedPlayInfo) => {
   - 暂停时强制取消渐隐并把音量恢复，避免“暂停后声音变小”。
 */
 let fadeGeneration = 0
+/** 后台/锁屏时不跑淡入淡出：JS 定时器会被挂起，音量可能停在 0 */
+const isAppForeground = () => AppState.currentState === 'active'
+
+
 let fadeTimer: ReturnType<typeof setTimeout> | null = null
 let currentFadeVolume = 1
 
@@ -406,6 +411,11 @@ const restoreVolume = () => {
   currentFadeVolume = volume
   void setVolume(volume).catch(() => {})
 }
+
+AppState.addEventListener('change', state => {
+  // 回到前台兜底：若上一次切歌把音量压到 0，恢复用户音量
+  if (state === 'active' && playerState.isPlay && currentFadeVolume <= 0.01) restoreVolume()
+})
 
 const debouncePlay = debounceBackgroundTimer((musicInfo: LX.Player.PlayMusic) => {
   setMusicUrl(musicInfo)
@@ -472,7 +482,7 @@ const handlePlay = async(isRestore = false) => {
 
   const fadeSeconds = settingState.setting['player.fadeSeconds'] ?? 0
   const fadeMs = fadeSeconds > 0 ? Math.min(6000, fadeSeconds * 1000 / 2) : 0
-  if (fadeMs > 0 && isInitialized() && playerState.isPlay) {
+  if (fadeMs > 0 && isInitialized() && playerState.isPlay && isAppForeground()) {
     await fadeVolumeTo(0, fadeMs)
   } else {
     currentFadeVolume = settingState.setting['player.volume']
@@ -490,15 +500,17 @@ const handlePlay = async(isRestore = false) => {
   if (settingState.setting['player.togglePlayMethod'] == 'random' && !playMusicInfo.isTempPlay) addPlayedList(playMusicInfo as LX.Player.PlayMusicInfo)
 
   debouncePlay(musicInfo)
-  if (fadeMs > 0) {
+  if (fadeMs > 0 && isAppForeground()) {
     // 新歌加载/起播有延迟，稍等再渐入；播放失败时由下面的 restoreVolume 兜底
     currentFadeVolume = 0
     void setVolume(0).catch(() => {})
     fadeTimer = setTimeout(() => {
       fadeTimer = null
+      if (!isAppForeground()) { restoreVolume(); return }
       void fadeVolumeTo(settingState.setting['player.volume'], fadeMs)
     }, 350)
   } else {
+    // 后台/锁屏直接恢复用户音量，避免自动切歌后 0 音量
     restoreVolume()
   }
 }
