@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { InteractionManager, Modal, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native'
+import { Modal, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native'
 import LinearGradient from 'react-native-linear-gradient'
 
 import Text from '@/components/common/Text'
@@ -7,6 +7,7 @@ import { Icon } from '@/components/common/Icon'
 import Glass from '@/components/common/Glass'
 import AlbumDiscSpin, { DISC_SIZE } from '@/components/common/AlbumDiscSpin'
 import PicImage from '@/components/common/PicImage'
+import Image from '@/components/common/Image'
 import MusicList from './MusicList'
 import { playList, togglePlay } from '@/core/player/player'
 import { getListMusics, removeUserList, setActiveList } from '@/core/list'
@@ -410,37 +411,50 @@ export default ({ tab, onCreate, onTabChange }: {
                   <Text size={11} color={contrastOn(theme['c-primary'])} style={styles.playAllText}>新建</Text>
                 </TouchableOpacity>
               </View>
-              <View style={styles.playlistList}>
-                {
-                  userLists.map(item => {
-                    const size = getListMusicSync(item.id).length
-                    return (
-                      <TouchableOpacity
-                        key={item.id}
-                        style={[styles.playlistRow, { backgroundColor: theme['c-primary-alpha-900'], borderColor: theme['c-primary-alpha-700'] }]}
-                        activeOpacity={0.82}
-                        onPress={() => { setPlaylist(item) }}
-                        onLongPress={() => { void handleDeletePlaylist(item) }}
-                      >
-                        <View style={[styles.playlistRowCover, { backgroundColor: theme['c-primary-alpha-800'] }]}>
-                          <Icon name='playlist-music' size={24} color={theme['c-primary']} />
-                        </View>
-                        <View style={styles.playlistRowInfo}>
-                          <Text size={14} numberOfLines={1} style={styles.playlistRowName}>{item.name}</Text>
-                          <Text size={10.5} color={theme['c-450']} numberOfLines={1} style={styles.playlistRowMeta}>{size} 首 · 长按可删除</Text>
-                        </View>
+              <View style={styles.waterfall}>
+                {[0, 1].map(col => (
+                  <View key={col} style={styles.waterfallCol}>
+                    {userLists.filter((_, i) => i % 2 === col).map((item, rowIndex) => {
+                      const musics = getListMusicSync(item.id)
+                      const first = musics.find(m => m.meta?.picUrl) ?? musics[0]
+                      const tall = rowIndex % 3 === 0
+                      return (
                         <TouchableOpacity
-                          style={[styles.playlistRowDelete, { backgroundColor: theme['c-primary-alpha-800'] }]}
-                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                          onPress={() => { void handleDeletePlaylist(item) }}
+                          key={item.id}
+                          style={[styles.waterfallCard, { height: tall ? 196 : 156 }]}
+                          activeOpacity={0.85}
+                          onPress={() => { setPlaylist(item) }}
+                          onLongPress={() => { void handleDeletePlaylist(item) }}
                         >
-                          <Icon name='trash-can-outline' size={16} color={theme['c-primary']} />
+                          {
+                            first?.meta?.picUrl
+                              ? <Image url={first.meta.picUrl} style={styles.waterfallCover} />
+                              : <View style={[styles.waterfallCover, styles.waterfallPlaceholder, { backgroundColor: theme['c-primary-alpha-800'] }]}>
+                                <Icon name='playlist-music' size={34} color={theme['c-primary']} />
+                              </View>
+                          }
+                          <LinearGradient
+                            colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.18)', 'rgba(0,0,0,0.82)']}
+                            locations={[0, 0.55, 1]}
+                            style={styles.waterfallShade}
+                            pointerEvents='none'
+                          />
+                          <View style={styles.waterfallInfo} pointerEvents='none'>
+                            <Text size={14} numberOfLines={1} color='#FFFFFF' style={styles.waterfallName}>{item.name}</Text>
+                            <Text size={10.5} numberOfLines={1} color='rgba(255,255,255,0.72)'>{musics.length} 首</Text>
+                          </View>
+                          <TouchableOpacity
+                            style={styles.waterfallDelete}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            onPress={() => { void handleDeletePlaylist(item) }}
+                          >
+                            <Icon name='trash-can-outline' size={15} color='#FFFFFF' />
+                          </TouchableOpacity>
                         </TouchableOpacity>
-                        <Icon name='chevron-right' size={18} color={theme['c-350']} />
-                      </TouchableOpacity>
-                    )
-                  })
-                }
+                      )
+                    })}
+                  </View>
+                ))}
               </View>
               {
                 !userLists.length
@@ -541,6 +555,60 @@ const styles = createStyle({
     flexShrink: 1,
     minWidth: 0,
     paddingLeft: 10,
+  },
+  waterfall: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 14,
+  },
+  waterfallCol: {
+    flex: 1,
+    gap: 10,
+  },
+  waterfallCard: {
+    borderRadius: 18,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  waterfallCover: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
+  },
+  waterfallPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  waterfallShade: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '72%',
+  },
+  waterfallInfo: {
+    position: 'absolute',
+    left: 12,
+    right: 34,
+    bottom: 10,
+  },
+  waterfallName: {
+    fontWeight: '700',
+  },
+  waterfallDelete: {
+    position: 'absolute',
+    right: 8,
+    top: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0,0,0,0.38)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   playlistList: {
     marginTop: 14,

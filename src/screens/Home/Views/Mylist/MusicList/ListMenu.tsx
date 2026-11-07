@@ -49,7 +49,7 @@ export type {
 
 const hasEditMetadata = async(musicInfo: LX.Music.MusicInfo) => {
   if (musicInfo.source != 'local') return false
-  return existsFile(musicInfo.meta.filePath)
+  return existsFile(musicInfo.meta?.filePath ?? '')
 }
 const hasUrlCache = async(musicInfo: LX.Music.MusicInfo) => {
   return hasMusicUrlByMusic(musicInfo)

@@ -48,9 +48,9 @@ export const sortListMusicInfo = (list: LX.Music.MusicInfo[], sortType: 'up' | '
             break
           case 'album':
             list.sort((a, b) => {
-              if (a.meta.albumName == null) {
-                return b.meta.albumName == null ? 0 : -1
-              } else return b.meta.albumName == null ? 1 : a.meta.albumName.localeCompare(b.meta.albumName, localeId)
+              if (a.meta?.albumName == null) {
+                return b.meta?.albumName == null ? 0 : -1
+              } else return b.meta?.albumName == null ? 1 : a.meta.albumName.localeCompare(b.meta.albumName, localeId)
             })
             break
         }
@@ -76,9 +76,9 @@ export const sortListMusicInfo = (list: LX.Music.MusicInfo[], sortType: 'up' | '
             break
           case 'album':
             list.sort((a, b) => {
-              if (a.meta.albumName == null) {
-                return b.meta.albumName == null ? 0 : 1
-              } else return b.meta.albumName == null ? -1 : b.meta.albumName.localeCompare(a.meta.albumName, localeId)
+              if (a.meta?.albumName == null) {
+                return b.meta?.albumName == null ? 0 : 1
+              } else return b.meta?.albumName == null ? -1 : b.meta.albumName.localeCompare(a.meta.albumName, localeId)
             })
             break
         }

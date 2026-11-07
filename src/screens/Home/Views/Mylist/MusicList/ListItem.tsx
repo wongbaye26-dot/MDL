@@ -18,7 +18,7 @@ const SOURCE_LABELS: Record<string, string> = {
   local: '本地',
 }
 
-const getSourceLabel = (source: string) => SOURCE_LABELS[source] ?? source.toUpperCase()
+const getSourceLabel = (source: string) => SOURCE_LABELS[source] ?? (source ?? '').toUpperCase()
 
 
 export default memo(({ item, index, activeIndex, onPress, onShowMenu, onLongPress, selectedList, rowInfo, isShowAlbumName, isShowInterval }: {
@@ -49,12 +49,12 @@ export default memo(({ item, index, activeIndex, onPress, onShowMenu, onLongPres
   }
   const active = activeIndex == index
 
-  const singer = `${item.singer}${isShowAlbumName && item.meta.albumName ? ` · ${item.meta.albumName}` : ''}`
+  const singer = `${item.singer}${isShowAlbumName && item.meta?.albumName ? ` · ${item.meta.albumName}` : ''}`
 
   return (
     <View style={{ ...styles.listItem, width: rowInfo.rowWidth, height: ITEM_HEIGHT, backgroundColor: isSelected ? theme['c-primary-background-hover'] : 'rgba(0,0,0,0)', opacity: isSupported ? 1 : 0.5 }}>
       <TouchableOpacity style={styles.listItemLeft} onPress={() => { onPress(item, index) }} onLongPress={() => { onLongPress(item, index) }}>
-        <Image url={item.meta.picUrl} style={styles.cover} />
+        <Image url={item.meta?.picUrl} style={styles.cover} />
         <View style={styles.itemInfo}>
           {/* <View style={styles.listItemTitle}> */}
           <Text color={active ? theme['c-primary-font'] : theme['c-font']} numberOfLines={1}>{item.name}</Text>
