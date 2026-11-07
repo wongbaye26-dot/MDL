@@ -39,11 +39,12 @@ final class WidgetViews {
     views.setTextViewText(R.id.widget_title, title == null || title.isEmpty() ? "Emo 音乐" : title);
     views.setTextViewText(R.id.widget_singer, singer == null || singer.isEmpty() ? "未在播放" : singer);
     views.setImageViewResource(R.id.widget_play, playing ? R.drawable.widget_pause : R.drawable.widget_play);
-    views.setImageViewResource(R.id.widget_prev, R.drawable.widget_prev);
-    views.setImageViewResource(R.id.widget_next, R.drawable.widget_next);
+    boolean darkIcons = !wide || !dark;
+    views.setImageViewResource(R.id.widget_prev, darkIcons ? R.drawable.widget_prev_dark : R.drawable.widget_prev);
+    views.setImageViewResource(R.id.widget_next, darkIcons ? R.drawable.widget_next_dark : R.drawable.widget_next);
 
-    int textColor = wide ? (dark ? 0xFFFFFFFF : 0xFF1A1420) : 0xFFFFFFFF;
-    int subColor = wide ? (dark ? 0xCCFFFFFF : 0x99000000) : 0xCCFFFFFF;
+    int textColor = wide ? (dark ? 0xFFFFFFFF : 0xFF1A1420) : 0xFF1A1420;
+    int subColor = wide ? (dark ? 0xCCFFFFFF : 0x99000000) : 0xB3000000;
     views.setTextColor(R.id.widget_title, textColor);
     views.setTextColor(R.id.widget_singer, subColor);
 
@@ -54,11 +55,11 @@ final class WidgetViews {
       views.setInt(R.id.widget_scrim, "setBackgroundResource", dark ? R.drawable.widget_scrim : R.drawable.widget_scrim_light);
     }
 
-    views.setImageViewBitmap(R.id.widget_prev_bg, circle(dp(context, 34), tonalBg));
-    views.setImageViewBitmap(R.id.widget_play_bg, circle(dp(context, wide ? 38 : 38), primary));
-    views.setImageViewBitmap(R.id.widget_next_bg, circle(dp(context, 34), tonalBg));
+    views.setImageViewBitmap(R.id.widget_prev_bg, circle(dp(context, wide ? 34 : 40), tonalBg));
+    views.setImageViewBitmap(R.id.widget_play_bg, circle(dp(context, wide ? 38 : 44), primary));
+    views.setImageViewBitmap(R.id.widget_next_bg, circle(dp(context, wide ? 34 : 40), tonalBg));
 
-    Bitmap bitmap = loadCover(pic, wide ? dp(context, 48) : Math.min(dp(context, 300), 300), wide ? -1 : dp(context, 22));
+    Bitmap bitmap = loadCover(pic, wide ? dp(context, 48) : Math.min(dp(context, 384), 384), wide ? -1 : dp(context, 26));
     if (bitmap != null) views.setImageViewBitmap(R.id.widget_cover, bitmap);
 
     Intent open = new Intent().setClassName(PKG, PKG + ".MainActivity");
