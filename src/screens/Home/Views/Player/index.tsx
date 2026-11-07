@@ -48,6 +48,7 @@ import SeekBar from './SeekBar'
 import SleepTimerButton from './SleepTimerButton'
 import SleepTimerSheet from './SleepTimerSheet'
 import LyricQuickMenu from './LyricQuickMenu'
+import ListMusicAdd, { type MusicAddModalType } from '@/components/MusicAddModal'
 import PlayGlyph from './PlayGlyph'
 import QueueCoverFlow from './QueueCoverFlow'
 import FadeMask from './FadeMask'
@@ -466,6 +467,7 @@ export default () => {
   const [detailVisible, setDetailVisible] = useState(false)
   const [sleepTimerVisible, setSleepTimerVisible] = useState(false)
   const [lyricSettingsVisible, setLyricSettingsVisible] = useState(false)
+  const musicAddRef = useRef<MusicAddModalType>(null)
   /** 冷启动的短时兜底：模糊图首帧出来前，先用清晰封面垫底，避免透明 */
   const [bgFallback, setBgFallback] = useState(true)
   const downloadModalRef = useRef<DownloadQualityModalType>(null)
@@ -898,6 +900,13 @@ export default () => {
     }
   }, [collected])
 
+  /** 播放器当前歌：添加至歌单 */
+  const handleAddToPlaylist = useCallback(() => {
+    const raw = playerState.musicInfo
+    if (!raw) return
+    musicAddRef.current?.show({ musicInfo: raw as unknown as LX.Music.MusicInfo, listId: '', isMove: false })
+  }, [])
+
   const handleCycleMode = useCallback(() => {
     const index = PLAY_MODES.indexOf(playMode)
     const next = PLAY_MODES[(index + 1) % PLAY_MODES.length]
@@ -1241,6 +1250,8 @@ export default () => {
 
   <SleepTimerSheet visible={sleepTimerVisible} onClose={() => { setSleepTimerVisible(false) }} />
 
+  <ListMusicAdd ref={musicAddRef} />
+
   <LyricQuickMenu
     visible={lyricSettingsVisible}
     landscape={isLandscape}
@@ -1369,6 +1380,9 @@ export default () => {
               />
               <TouchableOpacity style={styles.iconBtnLand} onPress={handleToggleCollect} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
                 <Icon name={collected ? 'love' : 'heart-outline'} size={u(22)} color={collected ? accent : 'rgba(255,255,255,0.92)'} />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.iconBtnLand} onPress={handleAddToPlaylist} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }} accessibilityRole='button' accessibilityLabel='添加至歌单'>
+                <Icon name='playlist-plus' size={u(21)} color='rgba(255,255,255,0.92)' />
               </TouchableOpacity>
               <TouchableOpacity style={styles.iconBtnLand} onPress={() => { setDetailVisible(true) }} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
                 <Icon name='information-outline' size={u(20)} color='rgba(255,255,255,0.92)' />
@@ -1732,6 +1746,9 @@ export default () => {
                   />
                   <TouchableOpacity style={styles.iconBtn} onPress={handleToggleCollect} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
                     <Icon name={collected ? 'love' : 'heart-outline'} size={u(26)} color={collected ? accent : 'rgba(255,255,255,0.9)'} />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.iconBtn} onPress={handleAddToPlaylist} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }} accessibilityRole='button' accessibilityLabel='添加至歌单'>
+                    <Icon name='playlist-plus' size={u(25)} color='rgba(255,255,255,0.9)' />
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.iconBtn} onPress={() => { setDetailVisible(true) }} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
                     <Icon name='information-outline' size={u(24)} color='rgba(255,255,255,0.9)' />
