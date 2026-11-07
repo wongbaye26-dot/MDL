@@ -49,6 +49,7 @@ import SleepTimerButton from './SleepTimerButton'
 import SleepTimerSheet from './SleepTimerSheet'
 import LyricQuickMenu from './LyricQuickMenu'
 import ListMusicAdd, { type MusicAddModalType } from '@/components/MusicAddModal'
+import { getLocalMusicListSync } from '@/core/localMusic'
 import PlayGlyph from './PlayGlyph'
 import QueueCoverFlow from './QueueCoverFlow'
 import FadeMask from './FadeMask'
@@ -904,7 +905,10 @@ export default () => {
   const handleAddToPlaylist = useCallback(() => {
     const raw = playerState.musicInfo
     if (!raw) return
-    musicAddRef.current?.show({ musicInfo: raw as unknown as LX.Music.MusicInfo, listId: '', isMove: false })
+    // 播放器里的 MusicInfo 是精简结构；加入歌单后收藏页会按本地曲目读取 meta，
+    // 这里优先换成曲库里的完整条目，避免收藏-歌单页报错。
+    const full = getLocalMusicListSync()?.find(item => item.id === raw.id)
+    musicAddRef.current?.show({ musicInfo: (full ?? raw) as unknown as LX.Music.MusicInfo, listId: '', isMove: false })
   }, [])
 
   const handleCycleMode = useCallback(() => {
@@ -1716,6 +1720,9 @@ export default () => {
                       size={u(26)}
                       color={collected ? accent : 'rgba(255,255,255,0.92)'}
                     />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.iconBtn} onPress={handleAddToPlaylist} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }} accessibilityRole='button' accessibilityLabel='添加至歌单'>
+                    <Icon name='playlist-plus' size={u(25)} color='rgba(255,255,255,0.92)' />
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.iconBtn} onPress={() => { setDetailVisible(true) }} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
                     <Icon name='information-outline' size={u(24)} color='rgba(255,255,255,0.92)' />
