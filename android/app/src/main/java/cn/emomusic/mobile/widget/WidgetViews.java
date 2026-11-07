@@ -67,9 +67,9 @@ final class WidgetViews {
       views.setInt(R.id.widget_scrim, "setBackgroundResource", dark ? R.drawable.widget_scrim : R.drawable.widget_scrim_light);
     }
 
-    views.setImageViewBitmap(R.id.widget_prev_bg, circle(dp(context, wide ? 34 : 40), tonalBg));
-    views.setImageViewBitmap(R.id.widget_play_bg, circle(dp(context, wide ? 38 : 44), primary));
-    views.setImageViewBitmap(R.id.widget_next_bg, circle(dp(context, wide ? 34 : 40), tonalBg));
+    views.setImageViewBitmap(R.id.widget_prev_bg, circle(dp(context, wide ? 34 : 30), tonalBg));
+    views.setImageViewBitmap(R.id.widget_play_bg, circle(dp(context, wide ? 38 : 36), primary));
+    views.setImageViewBitmap(R.id.widget_next_bg, circle(dp(context, wide ? 34 : 30), tonalBg));
 
     int coverSize = wide ? dp(context, 48) : Math.min(dp(context, 384), 384);
     int coverRadius = wide ? -1 : dp(context, 26);
