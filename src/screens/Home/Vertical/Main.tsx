@@ -106,7 +106,7 @@ const Page = ({ id, children }: { id: CommonState['navActiveId'], children: Reac
 
   return visible
     ? (
-      <Animated.View style={{ flex: 1, backgroundColor: theme['c-content-background'], opacity, transform: [{ translateY }, { scale }] }}>
+      <Animated.View style={{ flex: 1, backgroundColor: theme['c-main-background'], opacity, transform: [{ translateY }, { scale }] }}>
         {component}
       </Animated.View>
       )
