@@ -25,7 +25,9 @@ import { contrastOn } from '@/theme/solid'
 /** 固定 4 行 */
 export const RAIL_ROWS = 4
 /** 一屏两列 */
-const COLS_PER_SCREEN = 2
+/** 竖屏 2 列；横屏 4 列，避免每列被拉满半屏、中间留大块空白 */
+const COLS_POR_SCREEN_PORTRAIT = 2
+const COLS_PER_SCREEN_LANDSCAPE = 4
 
 const PAD = scaleSizeW(16)
 const GAP = scaleSizeW(12)
@@ -129,8 +131,9 @@ export default memo(({ items, onPress, onLongPress, showSource, onWidthChange }:
   }, [items])
 
   // 首帧还没量到宽度时先用 0，列宽给个保守值避免闪一下超宽
+  const colsPerScreen = width > height ? COLS_PER_SCREEN_LANDSCAPE : COLS_POR_SCREEN_PORTRAIT
   const colWidth = boxWidth > 0
-    ? (boxWidth - PAD * 2 - GAP * (COLS_PER_SCREEN - 1)) / COLS_PER_SCREEN
+    ? (boxWidth - PAD * 2 - GAP * (colsPerScreen - 1)) / colsPerScreen
     : 0
 
   return (
