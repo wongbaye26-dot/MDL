@@ -1,7 +1,6 @@
 package cn.emomusic.mobile.widget;
 
 import android.appwidget.AppWidgetManager;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.SharedPreferences;
 
@@ -30,12 +29,13 @@ public class WidgetModule extends ReactContextBaseJavaModule {
   }
 
   @ReactMethod
-  public void update(String title, String singer, boolean playing, String pic) {
+  public void update(String title, String singer, boolean playing, String pic, boolean dark) {
     SharedPreferences.Editor editor = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit();
     editor.putString("title", title == null ? "" : title);
     editor.putString("singer", singer == null ? "" : singer);
     editor.putBoolean("playing", playing);
     editor.putString("pic", pic == null ? "" : pic);
+    editor.putBoolean("dark", dark);
     editor.apply();
     push();
   }

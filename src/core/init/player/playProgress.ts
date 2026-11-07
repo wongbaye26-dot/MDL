@@ -29,11 +29,14 @@ export default () => {
 
   let isScreenOn = true
   let cueAdvancing = false
+  /** 用户拖动进度后短暂屏蔽轮询回写，并补一次 seek，避免加载竞态把进度重置到 0 */
+  let seekHoldUntil = 0
 
   const getCurrentTime = () => {
+    if (Date.now() < seekHoldUntil) return
     let id = playerState.musicInfo.id
     void getPosition().then(position => {
-      if (!position || id != playerState.musicInfo.id) return
+      if (!position || id != playerState.musicInfo.id || Date.now() < seekHoldUntil) return
       setNowPlayTime(position)
       recordPlaybackTick(position)
       if (!playerState.isPlay) return
@@ -84,8 +87,17 @@ export default () => {
   const setProgress = (time: number, maxTime?: number) => {
     if (!playerState.musicInfo.id) return
     // console.log('setProgress', time, maxTime)
+    const seekTime = time
+    seekHoldUntil = Date.now() + 900
     setNowPlayTime(time)
     void setCurrentTime(time)
+    // 起播/换源的回调可能稍后才执行 seek(0)，900ms 内再补齐一次用户目标进度
+    BackgroundTimer.setTimeout(() => {
+      if (Date.now() < seekHoldUntil - 350) return
+      if (playerState.musicInfo.id && Math.abs(playerState.progress.nowPlayTime - seekTime) < 1.5) {
+        void setCurrentTime(seekTime)
+      }
+    }, 650)
 
     if (maxTime != null) setMaxplayTime(maxTime)
 
@@ -94,6 +106,7 @@ export default () => {
 
 
   const handlePlay = () => {
+    seekHoldUntil = 0
     void getMaxTime()
     // prevProgressStatus = 'normal'
     // handleSetTaskBarState(playProgress.progress, prevProgressStatus)

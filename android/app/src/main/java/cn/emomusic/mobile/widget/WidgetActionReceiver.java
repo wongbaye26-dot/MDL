@@ -9,12 +9,15 @@ import android.media.AudioManager;
 public class WidgetActionReceiver extends BroadcastReceiver {
   public static final String ACTION_TOGGLE = "cn.emomusic.mobile.widget.TOGGLE";
   public static final String ACTION_NEXT = "cn.emomusic.mobile.widget.NEXT";
+  public static final String ACTION_PREV = "cn.emomusic.mobile.widget.PREV";
 
   @Override
   public void onReceive(Context context, Intent intent) {
     AudioManager manager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
     if (manager == null) return;
-    int key = ACTION_NEXT.equals(intent.getAction()) ? KeyEvent.KEYCODE_MEDIA_NEXT : KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE;
+    int key = ACTION_NEXT.equals(intent.getAction())
+      ? KeyEvent.KEYCODE_MEDIA_NEXT
+      : ACTION_PREV.equals(intent.getAction()) ? KeyEvent.KEYCODE_MEDIA_PREVIOUS : KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE;
     manager.dispatchMediaKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN, key));
     manager.dispatchMediaKeyEvent(new KeyEvent(KeyEvent.ACTION_UP, key));
   }

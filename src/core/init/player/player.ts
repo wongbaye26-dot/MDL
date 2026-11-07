@@ -7,11 +7,12 @@ import { delayUpdateMusicInfo } from '@/plugins/player/playList'
 import playerState from '@/store/player/state'
 import settingState from '@/store/setting/state'
 import { syncMusicWidget } from '@/utils/widget'
+import themeState from '@/store/theme/state'
 
 
 export default async(setting: LX.AppSetting) => {
   const syncWidget = () => {
-    syncMusicWidget(playerState.musicInfo.name ?? '', playerState.musicInfo.singer ?? '', playerState.isPlay, playerState.musicInfo.pic ?? '')
+    syncMusicWidget(playerState.musicInfo.name ?? '', playerState.musicInfo.singer ?? '', playerState.isPlay, playerState.musicInfo.pic ?? '', themeState.theme.isDark)
   }
 
   const setPlayStatus = () => {
@@ -71,4 +72,5 @@ export default async(setting: LX.AppSetting) => {
   global.app_event.on('playerEnded', handleEnded)
   global.app_event.on('picUpdated', updatePic)
   global.state_event.on('configUpdated', handleConfigUpdated)
+  global.state_event.on('themeUpdated', syncWidget)
 }
