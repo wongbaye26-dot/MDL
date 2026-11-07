@@ -1353,6 +1353,9 @@ export default () => {
                     </TouchableOpacity>
                     )
               }
+              <TouchableOpacity style={styles.iconBtnLand} onPress={() => { setLyricSettingsVisible(true) }} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }} accessibilityRole='button' accessibilityLabel='歌词设置'>
+                <Icon name='tune' size={u(19)} color='rgba(255,255,255,0.92)' />
+              </TouchableOpacity>
               <SleepTimerButton
                 onPress={() => { setSleepTimerVisible(true) }}
                 size={u(20)}

@@ -9,6 +9,7 @@ import { cleanSongName } from '@/utils/songName'
 import { useTheme } from '@/store/theme/hook'
 import { createStyle } from '@/utils/tools'
 import { scaleSizeW } from '@/utils/pixelRatio'
+import { useWindowSize } from '@/utils/hooks'
 import { contrastOn } from '@/theme/solid'
 
 /**
@@ -41,10 +42,11 @@ export interface SongRailProps {
   onWidthChange?: (width: number) => void
 }
 
-const Cell = memo(({ musicInfo, showSource, onPress, onLongPress }: {
+const Cell = memo(({ musicInfo, showSource, compact, onPress, onLongPress }: {
   musicInfo: LX.Music.MusicInfo
   /** 显示「本地 / 在线」小标签（最近播放用） */
   showSource?: boolean
+  compact?: boolean
   onPress: () => void
   onLongPress?: () => void
 }) => {
@@ -72,7 +74,7 @@ const Cell = memo(({ musicInfo, showSource, onPress, onLongPress }: {
 
   return (
     <TouchableOpacity
-      style={styles.cell}
+      style={[styles.cell, compact ? styles.cellCompact : null]}
       activeOpacity={0.65}
       onPress={onPress}
       onLongPress={onLongPress}
@@ -109,6 +111,8 @@ const Cell = memo(({ musicInfo, showSource, onPress, onLongPress }: {
 })
 
 export default memo(({ items, onPress, onLongPress, showSource, onWidthChange }: SongRailProps) => {
+  const { width, height } = useWindowSize()
+  const compact = width > height
   const [boxWidth, setBoxWidth] = useState(0)
 
   const handleLayout = useCallback((e: LayoutChangeEvent) => {
@@ -152,6 +156,7 @@ export default memo(({ items, onPress, onLongPress, showSource, onWidthChange }:
                     key={`${musicInfo.id}_${rowIndex}`}
                     musicInfo={musicInfo}
                     showSource={showSource}
+                    compact={compact}
                     onPress={() => { onPress(colIndex * RAIL_ROWS + rowIndex) }}
                     onLongPress={onLongPress ? () => { onLongPress(colIndex * RAIL_ROWS + rowIndex) } : undefined}
                   />
@@ -185,6 +190,10 @@ const styles = createStyle({
     alignItems: 'center',
     height: 56,
     marginBottom: 6,
+  },
+  cellCompact: {
+    height: 50,
+    marginBottom: 1,
   },
   cover: {
     width: 44,

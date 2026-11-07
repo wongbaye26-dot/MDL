@@ -264,7 +264,6 @@ export default memo(({
       extrapolate: 'clamp',
     })
     const isActive = index === activeIndex
-    const isPlaying = item.id === currentId
 
     return (
       <Animated.View
@@ -285,18 +284,9 @@ export default memo(({
         <TouchableOpacity
           activeOpacity={0.92}
           onPress={() => {
-            /*
-              点任意一张封面都直接播这首，并且**不退出队列页**（横屏队列就是个封面流，
-              期望是「点哪张播哪张、队列继续留着」）。
-                1. 当前正在播的中间卡 → 切播放/暂停；
-                2. 其它卡（含侧卡）→ 先居中，再立刻切歌；队列保持打开，歌名/高亮跟着更新。
-            */
-            if (isActive && isPlaying) {
-              onToggle()
-              return
-            }
-            centerTo(index)
-            onPlay(index)
+            // 点封面只负责把这张卡滑到中间，不直接切歌；
+            // 切歌由中间卡上方的播放按钮触发，避免误触。
+            if (!isActive) centerTo(index)
           }}
           style={{ ...styles.cover, width: coverSize, height: coverSize }}
         >
@@ -315,7 +305,11 @@ export default memo(({
               <View pointerEvents='box-none' style={styles.playWrap}>
                 <TouchableOpacity
                   activeOpacity={0.82}
-                  onPress={onToggle}
+                  onPress={() => {
+                    // 中间卡是当前歌：切播放/暂停；不是当前歌：播放它
+                    if (activeItem?.id === currentId) onToggle()
+                    else onPlay(activeIndex)
+                  }}
                   style={{
                     ...styles.playBtn,
                     width: playBtnSize,
@@ -333,7 +327,7 @@ export default memo(({
                     style={styles.playGloss}
                   />
                   <PlayGlyph
-                    playing={playing}
+                    playing={activeItem?.id === currentId && playing}
                     box={Math.round(playBtnSize * 0.4)}
                     color={theme['c-primary']}
                   />
@@ -344,7 +338,7 @@ export default memo(({
         }
       </Animated.View>
     )
-  }, [activeIndex, centerTo, coverSize, currentId, listId, onPlay, onToggle, playing, playBtnSize, btnBase, btnTint, scrollX, spacing, theme])
+  }, [activeIndex, activeItem?.id, centerTo, coverSize, currentId, listId, onPlay, onToggle, playing, playBtnSize, btnBase, btnTint, scrollX, spacing, theme])
 
   if (!horizontal) return null
   // 关闭后还要留一小段做淡出（见上面 appear 的 effect）
