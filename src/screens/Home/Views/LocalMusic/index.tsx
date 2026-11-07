@@ -31,7 +31,7 @@ import LiquidGlass from '@/components/common/LiquidGlass'
 import { useSettingValue } from '@/store/setting/hook'
 import { confirmDialog, createStyle, tipDialog, toast } from '@/utils/tools'
 import { formatSize, formatSampleRate } from '@/core/download/utils'
-import { getLocalMusicList, getScanPartialList, subscribeScanPartialList, scanLocalMusicInBackground, isScanning, useScanState, getTotalSize, deleteLocalMusic, getScanDirs, getExtraDirs, setExtraDirs, getLastScanReport, type ScanDir, type ScanReport } from '@/core/localMusic'
+import { getLocalMusicList, getLocalMusicListCacheOnly, getScanPartialList, subscribeScanPartialList, scanLocalMusicInBackground, isScanning, useScanState, getTotalSize, deleteLocalMusic, getScanDirs, getExtraDirs, setExtraDirs, getLastScanReport, type ScanDir, type ScanReport } from '@/core/localMusic'
 import { pickDirectory, isDirectoryPickerSupported } from '@/utils/directoryPicker'
 import { cleanSongName } from '@/utils/songName'
 import { initialOfText } from '@/utils/pinyinInitial'
@@ -312,6 +312,18 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
       dirsRef.current = list
       setDirs(list)
     })
+  }, [])
+
+  // 首屏先用 JSON 快照秒出列表，SQLite 权威数据到了再覆盖（重启/冷启动主要卡在 DB 读取）
+  useEffect(() => {
+    let alive = true
+    void getLocalMusicListCacheOnly().then(cached => {
+      if (!alive || !mountedRef.current || !cached.length) return
+      if (freshListRef.current || cacheReadDoneRef.current) return
+      setList(cached)
+      setInited(true)
+    })
+    return () => { alive = false }
   }, [])
 
   useEffect(() => {
@@ -1322,8 +1334,8 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
           title='本地音乐'
           subtitle={(
             <View style={styles.headerTags}>
-              {list.length ? <Tag label={`${list.length} 首`} style={styles.headerTag} /> : null}
-              {totalSize ? <Tag label={totalSize.replace(/\s+/g, '')} style={styles.headerTag} /> : null}
+              {list.length ? <Tag label={`${list.length} 首`} style={styles.headerTag} /> : !inited ? <Tag label='载入中…' style={styles.headerTag} /> : null}
+              {inited && totalSize ? <Tag label={totalSize.replace(/\s+/g, '')} style={styles.headerTag} /> : null}
             </View>
           )}
           right={(
@@ -1440,7 +1452,7 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
               ? `扫描中，已找到 ${progress} 首…`
               : needAuth.length
                 ? `${list.length} 首 · ${needAuth.length} 个文件夹需重新授权`
-                : `${list.length} 首 · ${totalSize}`}
+                 : inited ? `${list.length} 首 · ${totalSize}` : '载入中…'}
           </Text>
         </View>
         <TouchableOpacity
@@ -1697,7 +1709,21 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
         // 搜索时键盘开着也要能直接点结果播放（默认会先吃掉一次点击去收键盘）
         keyboardShouldPersistTaps='handled'
         ListEmptyComponent={(
-          searching && searchResults
+          !inited && !list.length
+            ? (
+              <View style={styles.skeletonWrap}>
+                {Array.from({ length: 8 }, (_, i) => (
+                  <View key={i} style={styles.skeletonRow}>
+                    <View style={[styles.skeletonCover, { backgroundColor: theme['c-primary-alpha-900'] }]} />
+                    <View style={styles.skeletonText}>
+                      <View style={[styles.skeletonLineWide, { backgroundColor: theme['c-primary-alpha-900'] }]} />
+                      <View style={[styles.skeletonLineNarrow, { backgroundColor: theme['c-primary-alpha-900'] }]} />
+                    </View>
+                  </View>
+                ))}
+              </View>
+              )
+            : searching && searchResults
             ? (
               <View style={styles.empty}>
                 <View style={{ ...styles.emptyIcon, backgroundColor: theme['c-primary-alpha-900'] }}>
@@ -2078,6 +2104,36 @@ const styles = createStyle({
     marginRight: 5,
   },
   /** 页签胶囊文字（居中细节由 chipText() 在渲染时补，这里只留字重） */
+  skeletonWrap: {
+    paddingTop: 8,
+  },
+  skeletonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingLeft: 12,
+    paddingRight: 12,
+    height: 76,
+  },
+  skeletonCover: {
+    width: 56,
+    height: 56,
+    borderRadius: 9,
+  },
+  skeletonText: {
+    flex: 1,
+    paddingLeft: 12,
+  },
+  skeletonLineWide: {
+    height: 14,
+    borderRadius: 7,
+    width: '62%',
+  },
+  skeletonLineNarrow: {
+    height: 10,
+    borderRadius: 5,
+    width: '38%',
+    marginTop: 9,
+  },
   tabText: {
     fontWeight: '500',
   },

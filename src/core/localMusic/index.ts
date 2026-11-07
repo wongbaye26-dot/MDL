@@ -123,6 +123,12 @@ const emitLocalMusicUpdated = (list: LX.Music.MusicInfoLocal[]) => {
 }
 
 /** 读取上次扫描结果（不触发扫描）。返回副本，调用方可以放心放进 state */
+/** 启动首屏快照：只读 JSON 缓存，不等 SQLite（随后 getLocalMusicList 会用 DB 权威数据覆盖） */
+export const getLocalMusicListCacheOnly = async(): Promise<LX.Music.MusicInfoLocal[]> => {
+  const data = await getData<LX.Music.MusicInfoLocal[]>(STORAGE_KEY).catch(() => null)
+  return data ?? []
+}
+
 export const getLocalMusicList = async(): Promise<LX.Music.MusicInfoLocal[]> => {
   if (!cachedList) {
     const source = await getReadSource()
