@@ -37,13 +37,15 @@ export default async(appSetting: LX.AppSetting) => {
     try {
       const local = await getLocalMusicList()
       const byId = new Map(local.map(item => [item.id, item]))
+      const byPath = new Map(local.map(item => [item.meta?.filePath, item]).filter(([, item]) => !!item) as Array<[string, LX.Music.MusicInfoLocal]>)
       for (const list of userLists.slice(2)) {
         const musics = await getListMusics(list.id)
         let changed = false
         const next = musics.flatMap(item => {
           if (item.source && item.meta) return [item]
           changed = true
-          const full = byId.get(item.id)
+          const legacyPath = item.id.startsWith('local_') ? item.id.slice(6) : ''
+          const full = byId.get(item.id) ?? byPath.get(legacyPath)
           return full ? [full] : []
         })
         if (changed) await overwriteListMusics(list.id, next)

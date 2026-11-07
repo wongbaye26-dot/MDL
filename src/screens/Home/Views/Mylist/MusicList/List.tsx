@@ -1,4 +1,4 @@
-import { playList } from '@/core/player/player'
+import { playMusicInfo } from '@/core/player/player'
 import { useMemo, useRef, useState, useEffect, forwardRef, useImperativeHandle } from 'react'
 import { FlatList, type NativeScrollEvent, type NativeSyntheticEvent, type FlatListProps } from 'react-native'
 
@@ -213,8 +213,9 @@ const List = forwardRef<ListType, ListProps>(({ onShowMenu, onMuiltSelectMode, o
   }, [])
 
   const activeIndex = usePlayIndex()
-  const handlePlay = (index: number) => {
-    void playList(listState.activeListId, index)
+  const handlePlay = (item: LX.Music.MusicInfo) => {
+    // 直接播放完整对象：不依赖显示 index，也不会因 homePagerIdle 为 false 丢点击
+    void playMusicInfo(listState.activeListId, item)
   }
 
   const handleUpdateSelectedList = (newList: LX.List.ListMusics) => {
@@ -257,16 +258,8 @@ const List = forwardRef<ListType, ListProps>(({ onShowMenu, onMuiltSelectMode, o
   }
 
   const handlePress = (item: LX.Music.MusicInfo, index: number) => {
-    // console.log(global.lx.homePagerIdle)
-    requestAnimationFrame(() => {
-      // console.log(global.lx.homePagerIdle)
-      if (!global.lx.homePagerIdle) return
-      if (isMultiSelectModeRef.current) {
-        handleSelect(item, index)
-      } else {
-        handlePlay(index)
-      }
-    })
+    if (isMultiSelectModeRef.current) handleSelect(item, index)
+    else handlePlay(item)
   }
 
   const handleLongPress = (item: LX.Music.MusicInfo, index: number) => {

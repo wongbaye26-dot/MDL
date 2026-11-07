@@ -4,6 +4,7 @@ import {
 } from '@/core/player/playStatus'
 import playerState from '@/store/player/state'
 import settingState from '@/store/setting/state'
+import { getLocalMusicListSync } from '@/core/localMusic'
 import {
   getList,
   setPlayMusicInfo,
@@ -536,9 +537,17 @@ export const playListById = async(listId: string, id: string) => {
  * 歌单排序/过滤后显示 index 与原始列表不一致，用这个最稳。
  */
 export const playMusicInfo = async(listId: string, musicInfo: LX.Music.MusicInfo, isRestore = false) => {
+  // 歌单里的历史条目可能缺 source/meta：按本地文件路径/id 找回完整条目再播
+  let info = musicInfo
+  if (!info.source || !info.meta) {
+    const local = getLocalMusicListSync()
+    const legacyPath = info.id?.startsWith('local_') ? info.id.slice(6) : ''
+    const full = local?.find(item => item.id === info.id || (legacyPath && item.meta?.filePath === legacyPath))
+    if (full) info = full
+  }
   const prevListId = playerState.playInfo.playerListId
   setPlayListId(listId)
-  setPlayMusicInfo(listId, musicInfo)
+  setPlayMusicInfo(listId, info)
   if (settingState.setting['player.isAutoCleanPlayedList'] || prevListId != listId) clearPlayedList()
   clearTempPlayeList()
   await handlePlay(isRestore)
