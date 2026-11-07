@@ -59,7 +59,10 @@ final class WidgetViews {
     views.setImageViewBitmap(R.id.widget_play_bg, circle(dp(context, wide ? 38 : 44), primary));
     views.setImageViewBitmap(R.id.widget_next_bg, circle(dp(context, wide ? 34 : 40), tonalBg));
 
-    Bitmap bitmap = loadCover(pic, wide ? dp(context, 48) : Math.min(dp(context, 384), 384), wide ? -1 : dp(context, 26));
+    int coverSize = wide ? dp(context, 48) : Math.min(dp(context, 384), 384);
+    int coverRadius = wide ? -1 : dp(context, 26);
+    Bitmap bitmap = loadCover(pic, coverSize, coverRadius);
+    if (bitmap == null) bitmap = fallbackCover(coverSize, coverRadius, title, primary, dark);
     if (bitmap != null) views.setImageViewBitmap(R.id.widget_cover, bitmap);
 
     Intent open = new Intent().setClassName(PKG, PKG + ".MainActivity");
@@ -91,6 +94,26 @@ final class WidgetViews {
   private static PendingIntent broadcast(Context context, int code, String action) {
     Intent intent = new Intent(context, WidgetActionReceiver.class).setAction(action);
     return PendingIntent.getBroadcast(context, code, intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+  }
+
+  private static Bitmap fallbackCover(int size, int radius, String title, int primary, boolean dark) {
+    try {
+      Bitmap bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
+      Canvas canvas = new Canvas(bitmap);
+      Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+      paint.setColor(dark ? primary : (primary & 0x00FFFFFF) | 0x33000000);
+      if (radius < 0) canvas.drawCircle(size / 2f, size / 2f, size / 2f, paint);
+      else canvas.drawRoundRect(new RectF(0, 0, size, size), radius, radius, paint);
+      String label = title == null || title.isEmpty() ? "Emo" : title.substring(0, 1);
+      Paint text = new Paint(Paint.ANTI_ALIAS_FLAG);
+      text.setColor(dark ? 0xFFFFFFFF : 0xFF1A1420);
+      text.setTextSize(size * 0.38f);
+      text.setTextAlign(Paint.Align.CENTER);
+      Paint.FontMetrics metrics = text.getFontMetrics();
+      float baseline = size / 2f - (metrics.ascent + metrics.descent) / 2f;
+      canvas.drawText(label, size / 2f, baseline, text);
+      return bitmap;
+    } catch (Exception e) { return null; }
   }
 
   private static Bitmap loadCover(String pic, int size, int radius) {
