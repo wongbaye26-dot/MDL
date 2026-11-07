@@ -36,6 +36,7 @@ import ListNameEdit, { type ListNameEditType } from '../Mylist/MyList/ListNameEd
 import listState from '@/store/list/state'
 import LocalMusic, { type LocalTab } from '../LocalMusic'
 import { useBackHandler } from '@/utils/hooks/useBackHandler'
+import { useWindowSize } from '@/utils/hooks'
 import UserApiEditModal, { type UserApiEditModalType } from '../Setting/settings/Basic/UserApiEditModal'
 import BigCard from './BigCard'
 import ListeningStatsModal from './ListeningStatsModal'
@@ -115,7 +116,10 @@ export default () => {
   const GRID_PADDING = scaleSizeW(16)
   const GRID_GAP = scaleSizeW(12)
   const [cardsViewport, setCardsViewport] = useState(0)
-  const cardWidth = cardsViewport > 0 ? Math.round(cardsViewport * 0.42) : 0
+  const { width: windowWidth, height: windowHeight } = useWindowSize()
+  // 横屏时视口很宽，但仍按屏幕短边定卡片尺寸，保证和竖版卡片差不多大
+  const cardBase = Math.round(Math.min(windowWidth, windowHeight) * 0.42)
+  const cardWidth = cardsViewport > 0 ? Math.min(Math.round(cardsViewport * 0.42), cardBase) : 0
   const cardHeight = Math.round(cardWidth * 0.87)
 
   const recentDownload = useMemo(() => [...downloadList]
