@@ -53,7 +53,7 @@ export default memo(({ item, index, activeIndex, onPress, onShowMenu, onLongPres
   return (
     <View style={{ ...styles.listItem, width: rowInfo.rowWidth, height: ITEM_HEIGHT, backgroundColor: isSelected ? theme['c-primary-background-hover'] : 'rgba(0,0,0,0)', opacity: 1 }}>
       <TouchableOpacity style={styles.listItemLeft} onPress={() => { onPress(item, index) }} onLongPress={() => { onLongPress(item, index) }}>
-        <Image url={item.meta?.picUrl} style={styles.cover} />
+        <Image url={item.meta?.picUrl ?? (item as any).pic} style={styles.cover} />
         <View style={styles.itemInfo}>
           {/* <View style={styles.listItemTitle}> */}
           <Text color={active ? theme['c-primary-font'] : theme['c-font']} numberOfLines={1}>{item.name}</Text>

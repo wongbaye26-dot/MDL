@@ -389,13 +389,12 @@ export default ({ tab, onCreate, onTabChange, onRename }: {
           let changed = false
           const next = musics.flatMap(item => {
             if (item.source && item.meta) return [item]
-            changed = true
             const legacyPath = item.id.startsWith('local_') ? item.id.slice(6) : ''
             const full = byId.get(item.id) ?? local.find(x => legacyPath && x.meta?.filePath === legacyPath)
-            if (full) return [full]
-            // 在线条目：补空 meta，并从 id 前缀推断 source
-            const guess = !item.id.startsWith('local_') ? item.id.split('_')[0] : ''
-            return [{ ...item, meta: item.meta ?? ({} as typeof item.meta), source: item.source ?? (guess as LX.Source) }]
+            if (full) { changed = true; return [full] }
+            // 在线条目不在进入歌单时重写（大歌单会二次刷新、加载变慢）；
+            // 播放/显示时会按扁平结构做归一化。
+            return [item]
           })
           if (changed) await overwriteListMusics(playlist.id, next as LX.Music.MusicInfo[])
         } catch {}
@@ -462,8 +461,7 @@ export default ({ tab, onCreate, onTabChange, onRename }: {
                     {userLists.filter((_, i) => i % 2 === col).map((item, rowIndex) => {
                       const musics = getListMusicSync(item.id)
                       const first = musics.find(m => m.meta?.picUrl) ?? musics[0]
-                      const heights = [210, 158, 190, 146, 202, 170]
-                      const cardHeight = heights[userLists.indexOf(item) % heights.length]
+                      const cardHeight = 180
                       return (
                         <TouchableOpacity
                           key={item.id}
