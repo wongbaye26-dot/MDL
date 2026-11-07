@@ -4,6 +4,7 @@ import {
   FlatList,
   InteractionManager,
   Keyboard,
+  BackHandler,
   PanResponder,
   RefreshControl,
   StyleSheet,
@@ -252,6 +253,18 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
       mountedRef.current = false
     }
   }, [])
+
+  // 搜索态按系统返回键：收起搜索、清空关键词（键盘先由系统收起）
+  useEffect(() => {
+    if (!searchOpen) return
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      setSearchOpen(false)
+      setSearchText('')
+      Keyboard.dismiss()
+      return true
+    })
+    return () => { sub.remove() }
+  }, [searchOpen])
 
   useEffect(() => {
     if (scanning) return
@@ -1472,6 +1485,7 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
                 autoFocus
                 onChangeText={text => { setSearchText(text) }}
                 onSubmitEditing={() => { Keyboard.dismiss() }}
+                onBlur={() => { if (!searchText.trim()) setSearchOpen(false) }}
                 placeholder='搜索本地歌曲、歌手或专辑'
                 style={styles.searchInput}
                 clearBtn={searchText.length > 0}
