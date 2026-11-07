@@ -10,6 +10,7 @@ import { createStyle } from '@/utils/tools'
 import PagerView, { type PageScrollStateChangedNativeEvent, type PagerViewOnPageSelectedEvent } from 'react-native-pager-view'
 import { setNavActiveId } from '@/core/common'
 import settingState from '@/store/setting/state'
+import { useTheme } from '@/store/theme/hook'
 
 const hideKeys = [
   'list.isShowAlbumName',
@@ -33,6 +34,7 @@ const PAGES = [
  * 已访问过的页面不会重播（visible 只置 true 一次），回来时内容不跳。
  */
 const Page = ({ id, children }: { id: CommonState['navActiveId'], children: React.ReactNode }) => {
+  const theme = useTheme()
   const [visible, setVisible] = useState(commonState.navActiveId == id)
   // children 只在首次挂载时取一次：切 Tab 不应该重建页面（否则滚动位置、播放状态都会丢）
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -104,7 +106,7 @@ const Page = ({ id, children }: { id: CommonState['navActiveId'], children: Reac
 
   return visible
     ? (
-      <Animated.View style={{ flex: 1, opacity, transform: [{ translateY }, { scale }] }}>
+      <Animated.View style={{ flex: 1, backgroundColor: theme['c-content-background'], opacity, transform: [{ translateY }, { scale }] }}>
         {component}
       </Animated.View>
       )
