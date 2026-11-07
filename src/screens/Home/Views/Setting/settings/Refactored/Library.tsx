@@ -136,6 +136,8 @@ FILE "${fileName}" WAVE
         : `回滚失败：${result.error ?? '未知错误'}`)
     } catch (error) { setIdText(`回滚失败：${error instanceof Error ? error.message : String(error)}`) } finally { setRunning(false) }
   }
+  // 迁移/自检入口仅开发期使用，普通用户默认隐藏
+  const SHOW_MIGRATION_TOOLS = false
   return (
   <View>
     <Group title='列表显示' icon='format-list-bulleted' color='#F97316'>
@@ -143,7 +145,7 @@ FILE "${fileName}" WAVE
       <ToggleRow settingKey='list.isShowAlbumName' title='显示专辑名' />
       <ToggleRow settingKey='list.isShowInterval' title='显示歌曲时长' />
     </Group>
-    <Group title='迁移自检' icon='database-check-outline' color='#64748B' desc='A-2 开发入口；只动 SQLite 影子表，不改旧 JSON'>
+    {SHOW_MIGRATION_TOOLS ? <Group title='迁移自检' icon='database-check-outline' color='#64748B' desc='A-2 开发入口；只动 SQLite 影子表，不改旧 JSON'>
       <ActionRow title='tracks.id 迁移预演' desc='统计 fp 映射与收藏/歌单引用影响，不写数据' action={running ? '运行中…' : '预演'} onPress={() => { void runIdPreview() }} />
       <ActionRow title='应用 tracks.id 迁移' desc='备份 → DB 主键切换 → 曲库/收藏/歌单/@play_info 引用改写' action={running ? '运行中…' : '应用'} onPress={() => { void runIdApply() }} />
       <ActionRow title='回滚 tracks.id 迁移' desc='按 id_map 反向切回 legacy id' action={running ? '运行中…' : '回滚'} onPress={() => { void runIdRollback() }} />
@@ -154,7 +156,7 @@ FILE "${fileName}" WAVE
       {cueText ? <Text size={10.5} color={theme['c-450']} style={{ paddingLeft: 16, paddingRight: 16, paddingBottom: 12, lineHeight: 16 }}>{cueText}</Text> : null}
       <ActionRow title='断电恢复演练' desc='模拟 DB 只写一半断电，再从旧 JSON 重建并校验' action={running ? '运行中…' : '运行'} onPress={() => { void runDrill() }} />
       {drillText ? <Text size={10.5} color={theme['c-450']} style={{ paddingLeft: 16, paddingRight: 16, paddingBottom: 12, lineHeight: 16 }}>{drillText}</Text> : null}
-    </Group>
+    </Group> : null}
     <UiSectionTitle title='曲库工具' desc='体检、补封面、刮削标签、去重与重命名' />
     <Tools />
   </View>

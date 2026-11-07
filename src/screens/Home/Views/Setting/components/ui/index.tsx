@@ -169,7 +169,7 @@ export const ValueRow = ({ title, desc, value, onPress }: {
         <Text size={13.5}>{title}</Text>
         {desc ? <Text size={10.5} color={theme['c-450']} style={styles.desc}>{desc}</Text> : null}
       </View>
-      {value ? <Text size={11.5} color={theme['c-450']} numberOfLines={1} style={styles.value}>{value}</Text> : null}
+      {value ? <Text size={11.5} color={theme['c-450']} numberOfLines={2} style={styles.value}>{value}</Text> : null}
       {onPress ? <Icon name='chevron-right' size={16} color={theme['c-350']} /> : null}
     </TouchableOpacity>
   )
@@ -262,8 +262,8 @@ const styles = createStyle({
   desc: { marginTop: 2, lineHeight: 14 },
   choiceRow: { paddingLeft: 16, paddingRight: 14, paddingTop: 12, paddingBottom: 12 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 9 },
-  chip: { height: 30, paddingLeft: 11, paddingRight: 11, borderRadius: 15, justifyContent: 'center' },
-  value: { flexShrink: 0, maxWidth: '45%', marginRight: 4 },
+  chip: { minHeight: 30, paddingLeft: 12, paddingRight: 12, paddingTop: 6, paddingBottom: 6, borderRadius: 15, justifyContent: 'center', alignItems: 'center' },
+  value: { flexShrink: 1, maxWidth: '58%', marginRight: 4, textAlign: 'right', lineHeight: 16 },
   actionBtn: { height: 30, paddingLeft: 12, paddingRight: 12, borderRadius: 15, justifyContent: 'center' },
   stepper: { flexDirection: 'row', alignItems: 'center' },
   stepBtn: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
