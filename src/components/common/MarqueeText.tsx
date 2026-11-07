@@ -3,6 +3,8 @@ import { Animated, Easing, View, type StyleProp, type TextStyle } from 'react-na
 
 import Text from './Text'
 import { useReducedMotion } from '@/utils/hooks'
+import { useFontSize } from '@/store/common/hook'
+import { getTextSize } from '@/utils/pixelRatio'
 
 /**
  * 单行超长文本自动横向滚动。
@@ -32,6 +34,7 @@ export default ({
   const [textWidth, setTextWidth] = useState(0)
   const translateX = useRef(new Animated.Value(0)).current
   const reduced = useReducedMotion()
+  const fontScale = useFontSize()
 
   const shouldScroll = active && !reduced && boxWidth > 0 && textWidth > boxWidth + 4
 
@@ -63,7 +66,8 @@ export default ({
     return () => { loop.stop() }
   }, [shouldScroll, textWidth, boxWidth, translateX])
 
-  const lineHeight = Math.round(size * 1.45)
+  // 行高按实际渲染字号算，字体设置放大后不能再用固定高度裁掉字头
+  const lineHeight = Math.max(Math.round(getTextSize(size) * fontScale * 1.35), Math.round(size * 1.45))
 
   return (
     <View

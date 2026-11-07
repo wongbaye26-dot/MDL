@@ -123,7 +123,7 @@ export default () => {
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.list} scrollEnabled={false} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
         <Grid onPress={handlePress} />
       </ScrollView>
 
