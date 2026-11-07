@@ -9,7 +9,7 @@ import AlbumDiscSpin, { DISC_SIZE } from '@/components/common/AlbumDiscSpin'
 import PicImage from '@/components/common/PicImage'
 import MusicList from './MusicList'
 import { playList, togglePlay } from '@/core/player/player'
-import { getListMusics, setActiveList } from '@/core/list'
+import { getListMusics, removeUserList, setActiveList } from '@/core/list'
 import { LIST_IDS } from '@/config/constant'
 import { measureStartRect, openPlayerWithTransition } from '@/utils/playerOpen'
 import { useTheme } from '@/store/theme/hook'
@@ -21,7 +21,7 @@ import { useLrcPlay } from '@/plugins/lyric'
 import { useKeyboard } from '@/utils/hooks'
 import { contrastOn } from '@/theme/solid'
 import { cleanSongName } from '@/utils/songName'
-import { createStyle } from '@/utils/tools'
+import { confirmDialog, createStyle, toast } from '@/utils/tools'
 
 export type FavoriteTab = 'playlist' | 'love' | 'temp'
 
@@ -374,6 +374,18 @@ export default ({ tab, onCreate }: {
     }
   }, [tab, playlist])
 
+  const handleDeletePlaylist = useCallback(async(item: LX.List.UserListInfo) => {
+    const confirmed = await confirmDialog({
+      message: `删除歌单「${item.name}」？只删除歌单，不删除本地文件。`,
+      confirmButtonText: '删除',
+      danger: true,
+    })
+    if (!confirmed) return
+    if (playlist?.id === item.id) setPlaylist(null)
+    await removeUserList([item.id])
+    toast('歌单已删除')
+  }, [playlist])
+
   const handlePlayAll = useCallback(() => {
     if (!count) return
     if (tab === 'playlist' && playlist) {
@@ -411,9 +423,12 @@ export default ({ tab, onCreate }: {
                   userLists.map(item => {
                     const size = getListMusicSync(item.id).length
                     return (
-                      <TouchableOpacity key={item.id} style={styles.playlistCard} activeOpacity={0.82} onPress={() => { setPlaylist(item) }}>
+                      <TouchableOpacity key={item.id} style={styles.playlistCard} activeOpacity={0.82} onPress={() => { setPlaylist(item) }} onLongPress={() => { void handleDeletePlaylist(item) }}>
                         <View style={[styles.playlistCover, { backgroundColor: theme['c-primary-alpha-800'] }]}>
                           <Icon name='playlist-music' size={30} color={theme['c-primary']} />
+                          <TouchableOpacity style={styles.playlistDelete} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }} onPress={() => { void handleDeletePlaylist(item) }}>
+                            <Icon name='trash-can-outline' size={15} color='#FFFFFF' />
+                          </TouchableOpacity>
                         </View>
                         <Text size={13} numberOfLines={1} style={styles.playlistName}>{item.name}</Text>
                         <Text size={10} color={theme['c-450']} numberOfLines={1}>{size} 首</Text>
@@ -520,6 +535,17 @@ const styles = createStyle({
   },
   playlistCard: {
     width: '47.8%',
+  },
+  playlistDelete: {
+    position: 'absolute',
+    right: 6,
+    top: 6,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   playlistCover: {
     width: '100%',

@@ -22,7 +22,7 @@ export default async(setting: LX.AppSetting) => {
   }
   const startWidgetTimer = () => {
     if (widgetTimer != null) return
-    widgetTimer = BackgroundTimer.setInterval(syncWidget, 5000)
+    widgetTimer = BackgroundTimer.setInterval(syncWidget, 2000)
   }
 
   const syncWidget = () => {
@@ -31,6 +31,7 @@ export default async(setting: LX.AppSetting) => {
     const duration = playerState.progress.maxPlayTime
     const progress = duration > 0 ? playerState.progress.nowPlayTime / duration : 0
     syncMusicWidget(playerState.musicInfo.name ?? '', playerState.musicInfo.singer ?? '', playerState.isPlay, playerState.musicInfo.pic ?? '', themeState.theme.isDark, themeState.theme['c-primary'], progress, getCurrentLyricText())
+    if (playerState.isPlay) startWidgetTimer()
   }
 
   const setPlayStatus = () => {
@@ -86,6 +87,7 @@ export default async(setting: LX.AppSetting) => {
 
 
   global.app_event.on('musicToggled', syncWidget)
+  global.app_event.on('playerPlaying', startWidgetTimer)
   global.app_event.on('play', setPlayStatus)
   global.app_event.on('pause', setPauseStatus)
   global.app_event.on('error', setPauseStatus)

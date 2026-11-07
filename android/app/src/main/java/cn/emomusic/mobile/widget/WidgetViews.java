@@ -47,7 +47,7 @@ final class WidgetViews {
 
     int textColor = wide ? (dark ? 0xFFFFFFFF : 0xFF1A1420) : 0xFFFFFFFF;
     int subColor = wide ? (dark ? 0xCCFFFFFF : 0x99000000) : 0xCCFFFFFF;
-    views.setProgressBar(R.id.widget_progress, 1000, progress, false);
+    if (wide) views.setProgressBar(R.id.widget_progress, 1000, progress, false);
     views.setTextColor(R.id.widget_title, textColor);
     views.setTextColor(R.id.widget_singer, subColor);
     if (wide) {
