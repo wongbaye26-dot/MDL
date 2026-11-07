@@ -39,11 +39,21 @@ const Page = ({ id, children }: { id: CommonState['navActiveId'], children: Reac
   // children 只在首次挂载时取一次：切 Tab 不应该重建页面（否则滚动位置、播放状态都会丢）
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const component = useMemo(() => children, [])
+  const firstShowRef = useRef(true)
   const opacity = useRef(new Animated.Value(1)).current
   const translateY = useRef(new Animated.Value(0)).current
   const scale = useRef(new Animated.Value(1)).current
   useEffect(() => {
     if (!visible) return
+    // 首次挂载不做淡入：挂载帧本身需要布局，再叠加 opacity 0→1 会闪一下；
+    // 已挂载页面切换由 PagerView 手势负责，不需要这里再演一次。
+    if (firstShowRef.current) {
+      firstShowRef.current = false
+      opacity.setValue(1)
+      translateY.setValue(0)
+      scale.setValue(1)
+      return
+    }
     opacity.setValue(0)
     translateY.setValue(12)
     scale.setValue(0.992)
