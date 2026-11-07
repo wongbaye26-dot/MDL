@@ -8,8 +8,10 @@ import Glass from '@/components/common/Glass'
 import AlbumDiscSpin, { DISC_SIZE } from '@/components/common/AlbumDiscSpin'
 import PicImage from '@/components/common/PicImage'
 import MusicList from './MusicList'
+import ActionSheet from '@/components/common/ActionSheet'
 import { playList, togglePlay } from '@/core/player/player'
-import { getListMusics, removeUserList, setActiveList } from '@/core/list'
+import { getListMusics, overwriteListMusics, removeUserList, setActiveList } from '@/core/list'
+import { getLocalMusicListSync } from '@/core/localMusic'
 import { LIST_IDS } from '@/config/constant'
 import { measureStartRect, openPlayerWithTransition } from '@/utils/playerOpen'
 import { useTheme } from '@/store/theme/hook'
@@ -329,9 +331,10 @@ export const FavoriteTabs = ({ tab, onChange, onCreate }: {
  *
  * tab 是受控的（Home 持有状态，页头页签和这里共用），切换时照旧 setActiveList。
  */
-export default ({ tab, onCreate, onTabChange }: {
+export default ({ tab, onCreate, onTabChange, onRename }: {
   tab: FavoriteTab
   onCreate: () => void
+  onRename: (item: LX.List.UserListInfo) => void
   /** 当前由 PageHeader 里的 FavoriteTabs 直接改 Home 的状态；这里保留受控签名，方便以后页内再出现切换入口 */
   onTabChange: (tab: FavoriteTab) => void
 }) => {
@@ -339,6 +342,7 @@ export default ({ tab, onCreate, onTabChange }: {
   const [queueVisible, setQueueVisible] = useState(false)
   const userLists = useMyList().slice(2) as LX.List.UserListInfo[]
   const [playlist, setPlaylist] = useState<LX.List.UserListInfo | null>(null)
+  const [menuPlaylist, setMenuPlaylist] = useState<LX.List.UserListInfo | null>(null)
   const counts = useListCounts()
   const playlistCount = playlist ? getListMusicSync(playlist.id).length : 0
   const count = tab === 'playlist' ? playlistCount : tab === 'love' ? counts.love : counts.temp
@@ -355,6 +359,25 @@ export default ({ tab, onCreate, onTabChange }: {
     if (tab === 'playlist' && !playlist) return
     const id = tab === 'playlist' ? playlist!.id : tab === 'love' ? LIST_IDS.LOVE : LIST_IDS.TEMP
     setActiveList(id)
+    // 进入歌单时再修一次历史损坏条目（按 id / local_ 路径匹配本地曲库）
+    if (tab === 'playlist' && playlist) {
+      void (async() => {
+        try {
+          const musics = await getListMusics(playlist.id)
+          const local = getLocalMusicListSync() ?? []
+          const byId = new Map(local.map(item => [item.id, item]))
+          let changed = false
+          const next = musics.flatMap(item => {
+            if (item.source && item.meta) return [item]
+            changed = true
+            const legacyPath = item.id.startsWith('local_') ? item.id.slice(6) : ''
+            const full = byId.get(item.id) ?? local.find(x => legacyPath && x.meta?.filePath === legacyPath)
+            return full ? [full] : []
+          })
+          if (changed) await overwriteListMusics(playlist.id, next)
+        } catch {}
+      })()
+    }
     let cancelled = false
     // 不用 runAfterInteractions：冷启动时首页动画可能让队列一直不空闲，试听列表会永远不加载
     const timer = setTimeout(() => {
@@ -424,7 +447,7 @@ export default ({ tab, onCreate, onTabChange }: {
                           style={[styles.waterfallCard, { height: cardHeight }]}
                           activeOpacity={0.85}
                           onPress={() => { setPlaylist(item) }}
-                          onLongPress={() => { void handleDeletePlaylist(item) }}
+                          onLongPress={() => { setMenuPlaylist(item) }}
                         >
                           <View style={[styles.waterfallCover, styles.waterfallPlaceholder, { backgroundColor: theme['c-primary-alpha-800'] }]}>
                             <Icon name='playlist-music' size={34} color={theme['c-primary']} />
@@ -522,6 +545,15 @@ export default ({ tab, onCreate, onTabChange }: {
             )
       }
 
+      <ActionSheet
+        visible={!!menuPlaylist}
+        header={{ title: menuPlaylist?.name ?? '歌单' }}
+        items={[
+          { key: 'rename', label: '编辑歌单名', icon: 'pencil-outline', onPress: () => { const item = menuPlaylist; setMenuPlaylist(null); if (item) onRename(item) } },
+          { key: 'delete', label: '删除歌单', icon: 'trash-can-outline', danger: true, onPress: () => { const item = menuPlaylist; setMenuPlaylist(null); if (item) void handleDeletePlaylist(item) } },
+        ]}
+        onClose={() => { setMenuPlaylist(null) }}
+      />
       <MiniPlayer onOpenQueue={handleOpenQueue} />
       <QueueSheet visible={queueVisible} onClose={handleCloseQueue} />
     </View>

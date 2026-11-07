@@ -507,7 +507,7 @@ export default () => {
                     />
                   )}
                 >
-                  <Favorites tab={favoriteTab} onTabChange={setFavoriteTab} onCreate={() => { listNameEditRef.current?.showCreate(listState.userList.length) }} />
+                  <Favorites tab={favoriteTab} onTabChange={setFavoriteTab} onRename={item => { listNameEditRef.current?.show(item) }} onCreate={() => { listNameEditRef.current?.showCreate(listState.userList.length) }} />
                 </PageModal>
                 )
               : null
