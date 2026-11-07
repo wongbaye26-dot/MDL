@@ -34,6 +34,7 @@ final class WidgetViews {
     try { primary = Color.parseColor(primaryHex); } catch (Exception e) { primary = 0xFF6C5CE7; }
     int onPrimary = luminance(primary) > 0.55 ? 0xFF1A1420 : 0xFFFFFFFF;
     int tonalBg = (primary & 0x00FFFFFF) | (dark ? 0x33 : 0x22) << 24;
+    int progress = prefs.getInt("progress", 0);
 
     RemoteViews views = new RemoteViews(context.getPackageName(), wide ? R.layout.widget_music_wide : R.layout.widget_music_small);
     views.setTextViewText(R.id.widget_title, title == null || title.isEmpty() ? "Emo 音乐" : title);
@@ -45,6 +46,7 @@ final class WidgetViews {
 
     int textColor = wide ? (dark ? 0xFFFFFFFF : 0xFF1A1420) : 0xFF1A1420;
     int subColor = wide ? (dark ? 0xCCFFFFFF : 0x99000000) : 0xB3000000;
+    views.setProgressBar(R.id.widget_progress, 1000, progress, false);
     views.setTextColor(R.id.widget_title, textColor);
     views.setTextColor(R.id.widget_singer, subColor);
 

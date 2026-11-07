@@ -8,19 +8,38 @@ import playerState from '@/store/player/state'
 import settingState from '@/store/setting/state'
 import { syncMusicWidget } from '@/utils/widget'
 import themeState from '@/store/theme/state'
+import BackgroundTimer from 'react-native-background-timer'
 
 
 export default async(setting: LX.AppSetting) => {
+  let widgetTimer: number | null = null
+  const stopWidgetTimer = () => {
+    if (widgetTimer != null) {
+      BackgroundTimer.clearInterval(widgetTimer)
+      widgetTimer = null
+    }
+  }
+  const startWidgetTimer = () => {
+    if (widgetTimer != null) return
+    widgetTimer = BackgroundTimer.setInterval(syncWidget, 5000)
+  }
+
   const syncWidget = () => {
-    syncMusicWidget(playerState.musicInfo.name ?? '', playerState.musicInfo.singer ?? '', playerState.isPlay, playerState.musicInfo.pic ?? '', themeState.theme.isDark, themeState.theme['c-primary'])
+    // App 启动/恢复尚未拿到播放信息时不要用空值覆盖桌面小组件
+    if (!playerState.musicInfo.id || !playerState.musicInfo.name) return
+    const duration = playerState.progress.maxPlayTime
+    const progress = duration > 0 ? playerState.progress.nowPlayTime / duration : 0
+    syncMusicWidget(playerState.musicInfo.name ?? '', playerState.musicInfo.singer ?? '', playerState.isPlay, playerState.musicInfo.pic ?? '', themeState.theme.isDark, themeState.theme['c-primary'], progress)
   }
 
   const setPlayStatus = () => {
     setIsPlay(true)
     syncWidget()
+    startWidgetTimer()
   }
   const setPauseStatus = () => {
     setIsPlay(false)
+    stopWidgetTimer()
     syncWidget()
     if (global.lx.isPlayedStop) void pause()
   }
@@ -41,6 +60,7 @@ export default async(setting: LX.AppSetting) => {
 
   const setStopStatus = () => {
     setIsPlay(false)
+    stopWidgetTimer()
     syncWidget()
     setStatusText('')
     void setStop()
