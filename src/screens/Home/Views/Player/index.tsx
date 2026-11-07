@@ -24,7 +24,7 @@ import MarqueeText from '@/components/common/MarqueeText'
 import { Icon } from '@/components/common/Icon'
 import { useTheme } from '@/store/theme/hook'
 import { usePlayerMusicInfo, useIsPlay, useProgress } from '@/store/player/hook'
-import { useStatusbarHeight, useNavActiveId } from '@/store/common/hook'
+import { useStatusbarHeight, useNavActiveId, useFontSize } from '@/store/common/hook'
 import { useWindowSize } from '@/utils/hooks'
 import { useBackHandler } from '@/utils/hooks/useBackHandler'
 import { useSettingValue } from '@/store/setting/hook'
@@ -52,6 +52,7 @@ import PlayGlyph from './PlayGlyph'
 import QueueCoverFlow from './QueueCoverFlow'
 import FadeMask from './FadeMask'
 import { u } from './metrics'
+import { getTextSize } from '@/utils/pixelRatio'
 import { cleanSongName } from '@/utils/songName'
 import { getPlayerPalette } from '@/theme/playerPalette'
 import {
@@ -195,14 +196,16 @@ const LyricLine = memo(({ text, extras, active, startMs, endMs, playing, syncMs,
   /** 外文歌词：行高更松、折行用 balanced 策略（避免出现只有一两个词的短尾巴） */
   foreign?: boolean
 }) => {
+  const fontScale = useFontSize()
+  /** 行高必须按「实际渲染字号」算：字体设置放大后，固定行高会把字头裁掉 */
+  const textLineHeight = (px: number, ratio: number) => getTextSize(u(px)) * fontScale * ratio
   /** 非当前行字号：用档位字号 / 1.14，保持原来的视觉比例不变 */
   const normalSize = size / LYRIC_NORMAL_RATIO
   /** 当前高亮行字号：比其它行再大一点点（+1.3~1.9sp，随档位变化） */
   const highlightSize = getHighlightLyricSize(size)
   /** 主歌词行高（折行时每行都按这个高度）；高亮行按高亮字号单独算，行高自适应 */
   const lineHeightRatio = foreign ? LYRIC_LINE_HEIGHT_RATIO_FOREIGN : LYRIC_LINE_HEIGHT_RATIO
-  const lineHeight = size * lineHeightRatio
-  const highlightLineHeight = highlightSize * lineHeightRatio
+  const highlightLineHeight = textLineHeight(highlightSize, lineHeightRatio)
   /** 外文折行用 balanced：两行长度更接近，不会出现「一行只剩一两个单词」的短尾巴 */
   const textBreakStrategy = foreign ? 'balanced' : 'highQuality'
   /** 翻译/注音比主歌词小一半左右，行高同样按字号算，避免行距被撑开 */
@@ -223,7 +226,7 @@ const LyricLine = memo(({ text, extras, active, startMs, endMs, playing, syncMs,
                 : (active ? 'rgba(255,255,255,0.56)' : 'rgba(255,255,255,0.27)')}
               style={[
                 styles.lyricExtra,
-                { textAlign: align, lineHeight: fontSize * LYRIC_LINE_HEIGHT_RATIO },
+                { textAlign: align, lineHeight: textLineHeight(fontSize, LYRIC_LINE_HEIGHT_RATIO) },
                 i > 0 ? styles.lyricExtraGap : null,
               ]}
               numberOfLines={3}
@@ -239,7 +242,7 @@ const LyricLine = memo(({ text, extras, active, startMs, endMs, playing, syncMs,
         <Text
           size={u(normalSize)}
           color='rgba(255,255,255,0.38)'
-          style={[styles.lyricLine, { textAlign: align, lineHeight: lineHeight / LYRIC_NORMAL_RATIO }]}
+          style={[styles.lyricLine, { textAlign: align, lineHeight: textLineHeight(normalSize, lineHeightRatio) }]}
           numberOfLines={3}
           textBreakStrategy={textBreakStrategy}
         >{text || ' '}</Text>
@@ -339,7 +342,8 @@ const KaraokeText = memo(({ text, size, activeColor, align, foreign, startMs, en
     if (!playing) setRatio(ratioAt(syncMs))
   }, [syncMs, playing, ratioAt])
 
-  const lineHeight = size * (foreign ? LYRIC_LINE_HEIGHT_RATIO_FOREIGN : LYRIC_LINE_HEIGHT_RATIO)
+  const fontScale = useFontSize()
+  const lineHeight = getTextSize(u(size)) * fontScale * (foreign ? LYRIC_LINE_HEIGHT_RATIO_FOREIGN : LYRIC_LINE_HEIGHT_RATIO)
   const textBreakStrategy = foreign ? 'balanced' : 'highQuality'
   // 折行判断：显式行高下，1 行 = lineHeight，2 行 = 2×lineHeight
   const wrapped = textHeight > lineHeight * 1.5
