@@ -12,7 +12,7 @@ import themeState from '@/store/theme/state'
 
 export default async(setting: LX.AppSetting) => {
   const syncWidget = () => {
-    syncMusicWidget(playerState.musicInfo.name ?? '', playerState.musicInfo.singer ?? '', playerState.isPlay, playerState.musicInfo.pic ?? '', themeState.theme.isDark)
+    syncMusicWidget(playerState.musicInfo.name ?? '', playerState.musicInfo.singer ?? '', playerState.isPlay, playerState.musicInfo.pic ?? '', themeState.theme.isDark, themeState.theme['c-primary'])
   }
 
   const setPlayStatus = () => {
