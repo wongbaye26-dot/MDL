@@ -356,15 +356,13 @@ export default ({ tab, onCreate, onTabChange }: {
     const id = tab === 'playlist' ? playlist!.id : tab === 'love' ? LIST_IDS.LOVE : LIST_IDS.TEMP
     setActiveList(id)
     let cancelled = false
-    const task = InteractionManager.runAfterInteractions(() => {
-      if (cancelled) return
-      requestAnimationFrame(() => {
-        if (!cancelled) global.state_event.mylistToggled(id)
-      })
-    })
+    // 不用 runAfterInteractions：冷启动时首页动画可能让队列一直不空闲，试听列表会永远不加载
+    const timer = setTimeout(() => {
+      if (!cancelled) global.state_event.mylistToggled(id)
+    }, 60)
     return () => {
       cancelled = true
-      task.cancel()
+      clearTimeout(timer)
     }
   }, [tab, playlist])
 

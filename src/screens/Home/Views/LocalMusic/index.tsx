@@ -470,13 +470,16 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
     const numeric = sort.key === 'duration' || sort.key === 'added'
     const keyOf = (item: LX.Music.MusicInfoLocal) => {
       switch (sort.key) {
-        case 'singer': return item.singer ?? ''
-        case 'album': return item.meta.albumName ?? ''
+        case 'singer': return `${initialOfText(item.singer ?? '')}\u0000${item.singer ?? ''}`
+        case 'album': return `${initialOfText(item.meta.albumName ?? '')}\u0000${item.meta.albumName ?? ''}`
         case 'duration': return secondsOfInterval(item.interval)
         case 'added': return item.meta.mtime ?? 0
         case 'path': return item.meta.filePath
         case 'name':
-        default: return cleanSongName(item.name, item.singer)
+        default: {
+          const name = cleanSongName(item.name, item.singer)
+          return `${initialOfText(name)}\u0000${name}`
+        }
       }
     }
     const decorated = songs.map(item => ({ item, key: keyOf(item) }))
