@@ -135,10 +135,11 @@ export const ChoiceRow = <T extends string | number>({ settingKey, title, desc, 
         {
           options.map(option => {
             const active = option.value === value
+            const chipWidth = Math.min(210, Math.max(56, option.label.length * 14 + 24))
             return (
               <TouchableOpacity
                 key={String(option.value)}
-                style={[styles.chip, { backgroundColor: active ? theme['c-primary'] : theme['c-primary-alpha-900'] }]}
+                style={[styles.chip, { width: chipWidth, backgroundColor: active ? theme['c-primary'] : theme['c-primary-alpha-900'] }]}
                 activeOpacity={0.75}
                 onPress={() => {
                   // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
@@ -146,7 +147,7 @@ export const ChoiceRow = <T extends string | number>({ settingKey, title, desc, 
                   onChange?.(option.value)
                 }}
               >
-                <Text size={11.5} color={active ? contrastOn(theme['c-primary']) : theme['c-450']}>{option.label}</Text>
+                <Text size={11.5} color={active ? contrastOn(theme['c-primary']) : theme['c-450']} style={[styles.chipText, { width: chipWidth - 24, textAlign: 'center' }]}>{option.label}</Text>
               </TouchableOpacity>
             )
           })
@@ -169,7 +170,7 @@ export const ValueRow = ({ title, desc, value, onPress }: {
         <Text size={13.5}>{title}</Text>
         {desc ? <Text size={10.5} color={theme['c-450']} style={styles.desc}>{desc}</Text> : null}
       </View>
-      {value ? <Text size={11.5} color={theme['c-450']} numberOfLines={2} style={styles.value}>{value}</Text> : null}
+      {value ? <Text size={11.5} color={theme['c-450']} numberOfLines={1} style={[styles.value, { width: Math.min(210, value.length * 7 + 18) }]}>{value}</Text> : null}
       {onPress ? <Icon name='chevron-right' size={16} color={theme['c-350']} /> : null}
     </TouchableOpacity>
   )
@@ -261,9 +262,10 @@ const styles = createStyle({
   rowInfo: { flexGrow: 1, flexShrink: 1, minWidth: 0, paddingRight: 10 },
   desc: { marginTop: 2, lineHeight: 14 },
   choiceRow: { paddingLeft: 16, paddingRight: 14, paddingTop: 12, paddingBottom: 12 },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 9 },
-  chip: { minHeight: 30, paddingLeft: 12, paddingRight: 12, paddingTop: 6, paddingBottom: 6, borderRadius: 15, justifyContent: 'center', alignItems: 'center' },
-  value: { flexShrink: 1, maxWidth: '58%', marginRight: 4, textAlign: 'right', lineHeight: 16 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 9, alignItems: 'flex-start' },
+  chip: { flexShrink: 0, alignSelf: 'flex-start', minHeight: 30, paddingLeft: 12, paddingRight: 12, paddingTop: 6, paddingBottom: 6, borderRadius: 15, justifyContent: 'center', alignItems: 'center' },
+  chipText: { flexShrink: 0 },
+  value: { flexShrink: 0, maxWidth: '58%', marginRight: 4, textAlign: 'right', lineHeight: 16, paddingRight: 12 },
   actionBtn: { height: 30, paddingLeft: 12, paddingRight: 12, borderRadius: 15, justifyContent: 'center' },
   stepper: { flexDirection: 'row', alignItems: 'center' },
   stepBtn: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
