@@ -146,6 +146,19 @@ const applyResolvedMusicUrl = (
   log.info(`toggle source success: ${rootMusicInfo.source} -> ${result.musicInfo.source}`)
   // 只在真正换了音源时提示一次，让用户知道为什么音质/时长可能和原来不一样
   toast(`${global.i18n.t('toggle_source')}: ${getSourceName(result.musicInfo.source)}`)
+  // 换源后歌词/时长可能来自不同版本：重新拉取实际播放源的歌词
+  const resumeId = rootMusicInfo.id
+  void getLyricInfo({ musicInfo: result.musicInfo }).then(lyricInfo => {
+    if (playerState.playMusicInfo.musicInfo?.id !== resumeId) return
+    setMusicInfo({
+      lrc: lyricInfo.lyric,
+      tlrc: lyricInfo.tlyric,
+      lxlrc: lyricInfo.lxlyric,
+      rlrc: lyricInfo.rlyric,
+      rawlrc: lyricInfo.rawlrcInfo.lyric,
+    })
+    global.app_event.lyricUpdated()
+  }).catch(() => {})
 }
 
 const getMusicPlayUrl = async(
