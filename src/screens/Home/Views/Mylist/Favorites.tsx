@@ -418,20 +418,33 @@ export default ({ tab, onCreate }: {
                   <Text size={11} color={contrastOn(theme['c-primary'])} style={styles.playAllText}>新建</Text>
                 </TouchableOpacity>
               </View>
-              <View style={styles.playlistGrid}>
+              <View style={styles.playlistList}>
                 {
                   userLists.map(item => {
                     const size = getListMusicSync(item.id).length
                     return (
-                      <TouchableOpacity key={item.id} style={[styles.playlistCard, { backgroundColor: theme['c-primary-alpha-900'], borderColor: theme['c-primary-alpha-700'] }]} activeOpacity={0.82} onPress={() => { setPlaylist(item) }} onLongPress={() => { void handleDeletePlaylist(item) }}>
-                        <View style={[styles.playlistCover, { backgroundColor: theme['c-primary-alpha-800'] }]}>
-                          <Icon name='playlist-music' size={30} color={theme['c-primary']} />
-                          <TouchableOpacity style={styles.playlistDelete} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }} onPress={() => { void handleDeletePlaylist(item) }}>
-                            <Icon name='trash-can-outline' size={15} color='#FFFFFF' />
-                          </TouchableOpacity>
+                      <TouchableOpacity
+                        key={item.id}
+                        style={[styles.playlistRow, { backgroundColor: theme['c-primary-alpha-900'], borderColor: theme['c-primary-alpha-700'] }]}
+                        activeOpacity={0.82}
+                        onPress={() => { setPlaylist(item) }}
+                        onLongPress={() => { void handleDeletePlaylist(item) }}
+                      >
+                        <View style={[styles.playlistRowCover, { backgroundColor: theme['c-primary-alpha-800'] }]}>
+                          <Icon name='playlist-music' size={24} color={theme['c-primary']} />
                         </View>
-                        <Text size={13} numberOfLines={1} style={styles.playlistName}>{item.name}</Text>
-                        <Text size={10} color={theme['c-450']} numberOfLines={1} style={styles.playlistCount}>{size} 首</Text>
+                        <View style={styles.playlistRowInfo}>
+                          <Text size={14} numberOfLines={1} style={styles.playlistRowName}>{item.name}</Text>
+                          <Text size={10.5} color={theme['c-450']} numberOfLines={1} style={styles.playlistRowMeta}>{size} 首 · 长按可删除</Text>
+                        </View>
+                        <TouchableOpacity
+                          style={[styles.playlistRowDelete, { backgroundColor: theme['c-primary-alpha-800'] }]}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          onPress={() => { void handleDeletePlaylist(item) }}
+                        >
+                          <Icon name='trash-can-outline' size={16} color={theme['c-primary']} />
+                        </TouchableOpacity>
+                        <Icon name='chevron-right' size={18} color={theme['c-350']} />
                       </TouchableOpacity>
                     )
                   })
@@ -537,11 +550,46 @@ const styles = createStyle({
     minWidth: 0,
     paddingLeft: 10,
   },
-  playlistGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  playlistList: {
     marginTop: 14,
-    gap: 12,
+    gap: 10,
+  },
+  playlistRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingLeft: 10,
+    paddingRight: 12,
+    paddingVertical: 10,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  playlistRowCover: {
+    width: 52,
+    height: 52,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  playlistRowInfo: {
+    flexGrow: 1,
+    flexShrink: 1,
+    minWidth: 0,
+    paddingLeft: 12,
+    paddingRight: 8,
+  },
+  playlistRowName: {
+    fontWeight: '600',
+  },
+  playlistRowMeta: {
+    marginTop: 3,
+  },
+  playlistRowDelete: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 2,
   },
   playlistCard: {
     width: '47.8%',

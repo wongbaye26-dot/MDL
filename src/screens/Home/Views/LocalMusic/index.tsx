@@ -188,8 +188,6 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
   const dirsRef = useRef<ScanDir[]>([])
   /** 浏览层级：最近添加 / 专辑 / 艺人 / 文件夹树 / 全部歌曲 */
   const [tab, setTab] = useState<LocalTab>(initialTab ?? 'song')
-  /** 页签高亮立即切换；列表数据延迟一帧构建，避免点击时同步重建几百行 */
-  const deferredTab = useDeferredValue(tab)
   /** 歌名首字母筛选：null = 全部；'#' = 数字/符号/无法识别 */
   /** 右侧字母栏：当前高亮字母（跟随滚动，不参与筛选） */
   const [activeLetter, setActiveLetter] = useState<string | null>(null)
@@ -427,9 +425,9 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
     })
   }, [list, hidden, hasActiveFilter, tabFilterFormat, tabFilterCover])
 
-  const compareSongs = useCallback((a: LX.Music.MusicInfoLocal, b: LX.Music.MusicInfoLocal) => {
+  const compareSongs = useCallback((a: LX.Music.MusicInfoLocal, b: LX.Music.MusicInfoLocal, sort = tabSort) => {
     let result = 0
-    switch (tabSort.key) {
+    switch (sort.key) {
       case 'singer': result = (a.singer ?? '').localeCompare(b.singer ?? '', 'zh-Hans-CN'); break
       case 'album': result = (a.meta.albumName ?? '').localeCompare(b.meta.albumName ?? '', 'zh-Hans-CN'); break
       case 'duration': result = secondsOfInterval(a.interval) - secondsOfInterval(b.interval); break
@@ -438,9 +436,9 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
       case 'name':
       default: result = cleanSongName(a.name, a.singer).localeCompare(cleanSongName(b.name, b.singer), 'zh-Hans-CN')
     }
-    return tabSort.dir === 'asc' ? result : -result
+    return sort.dir === 'asc' ? result : -result
   }, [tabSort])
-  const sortSongs = useCallback((songs: LX.Music.MusicInfoLocal[]) => [...songs].sort(compareSongs), [compareSongs])
+  const sortSongs = useCallback((songs: LX.Music.MusicInfoLocal[], sort = tabSort) => [...songs].sort((a, b) => compareSongs(a, b, sort)), [compareSongs, tabSort])
 
   const totalSize = useMemo(() => formatSize(getTotalSize(list)), [list])
   const visibleCount = useMemo(() => list.filter(item => !isHiddenItem(item, hidden)).length, [list, hidden])
@@ -508,9 +506,9 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
     return map
   }, [filteredList])
 
-  const rows = useMemo(() => {
+  const buildRows = useCallback((targetTab: LocalTab, targetSort: { key: LocalSortKey, dir: 'asc' | 'desc' }) => {
     // 首字母筛选只作用于「全部歌曲 / 最近添加」的平铺列表；专辑/艺人/文件夹分组不受影响
-    const songSource = sortSongs(filteredList)
+    const songSource = sortSongs(filteredList, targetSort)
 
     type Row =
       | { type: 'song', key: string, item: LX.Music.MusicInfoLocal, index: number }
@@ -549,23 +547,23 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
     }
 
     // 最近添加：按文件修改时间倒序
-    if (deferredTab === 'recent') {
-      return [...songSource].sort(compareSongs).map(item => toSongRow(item))
+    if (targetTab === 'recent') {
+      return sortSongs(songSource, targetSort).map(item => toSongRow(item))
     }
 
-    if (deferredTab === 'song') return songSource.map((item, i) => toSongRow(item, i))
+    if (targetTab === 'song') return songSource.map((item, i) => toSongRow(item, i))
 
     // 文件夹：只列「直接装了歌」的目录（不再逐层钻），点进去就是这一层的歌
-    if (deferredTab === 'folder') {
+    if (targetTab === 'folder') {
       if (folderPath && folderTree.has(folderPath)) {
-        return sortSongs(folderTree.get(folderPath)?.songs ?? []).map(item => toSongRow(item))
+        return sortSongs(folderTree.get(folderPath)?.songs ?? [], targetSort).map(item => toSongRow(item))
       }
       return Object.values(libraryIndex.folders)
         .sort((a, b) => {
-          const result = tabSort.key === 'duration'
+          const result = targetSort.key === 'duration'
             ? a.count - b.count
             : a.path.localeCompare(b.path, 'zh-Hans-CN')
-          return tabSort.dir === 'asc' ? result : -result
+          return targetSort.dir === 'asc' ? result : -result
         })
         .map((folder): Row => ({
           type: 'folder',
@@ -582,11 +580,11 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
       const position = indexOfId.get(coverId)
       return position == null ? undefined : list[position]
     }
-    if (deferredTab === 'album') {
+    if (targetTab === 'album') {
       return Object.values(libraryIndex.albums)
         .sort((a, b) => {
           let result = 0
-          switch (tabSort.key) {
+          switch (targetSort.key) {
             case 'singer': result = a.singer.localeCompare(b.singer, 'zh-Hans-CN'); break
             case 'duration': result = a.totalSeconds - b.totalSeconds; break
             case 'album':
@@ -595,7 +593,7 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
             case 'path':
             default: result = a.name.localeCompare(b.name, 'zh-Hans-CN')
           }
-          return tabSort.dir === 'asc' ? result : -result
+          return targetSort.dir === 'asc' ? result : -result
         })
         .map((album): Row => ({
           type: 'album',
@@ -608,7 +606,7 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
     return Object.values(libraryIndex.artists)
       .sort((a, b) => {
         let result = 0
-        switch (tabSort.key) {
+        switch (targetSort.key) {
           case 'duration': result = a.totalSeconds - b.totalSeconds; break
           case 'name':
           case 'singer':
@@ -617,7 +615,7 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
           case 'path':
           default: result = a.name.localeCompare(b.name, 'zh-Hans-CN')
         }
-        return tabSort.dir === 'asc' ? result : -result
+        return targetSort.dir === 'asc' ? result : -result
       })
       .map((artist): Row => ({
         type: 'artist',
@@ -626,7 +624,22 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
         count: artist.count,
         cover: coverOf(artist.coverId),
       }))
-  }, [detail, deferredTab, filteredList, list, indexOfId, folderTree, folderPath, searchResults, libraryIndex, tabSort, compareSongs, sortSongs])
+  }, [detail, filteredList, list, indexOfId, folderTree, folderPath, searchResults, libraryIndex, compareSongs, sortSongs])
+
+  /** 五个 tab 的 rows 一次算好，切 tab 不再重建列表数据（根因是同步构建几百行） */
+  const rowsByTab = useMemo(() => {
+    const map = new Map<LocalTab, ReturnType<typeof buildRows>>()
+    for (const tabDef of TABS) {
+      const sort = viewPrefs.sort[tabDef.key] ?? defaultViewPrefs().sort[tabDef.key] ?? { key: 'name' as LocalSortKey, dir: 'asc' as const }
+      map.set(tabDef.key, buildRows(tabDef.key, sort))
+    }
+    return map
+  }, [buildRows, viewPrefs.sort])
+
+  const rows = useMemo(() => {
+    if (searchResults !== null || detail !== null || (folderPath?.length ?? 0) > 0) return buildRows(tab, tabSort)
+    return rowsByTab.get(tab) ?? []
+  }, [rowsByTab, tab, tabSort, buildRows, searchResults, detail, folderPath])
 
   const letterBarVisible = tab === 'song' && !detail && !searchKeyword && !searchOpen
 
