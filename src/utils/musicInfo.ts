@@ -4,6 +4,8 @@ export const normalizeMusicInfo = <T extends LX.Music.MusicInfo>(raw: T): T => {
   if (!item.meta) item.meta = {}
   if (!item.meta.picUrl) item.meta.picUrl = item.pic ?? item.picUrl ?? ''
   if (!item.meta.albumName) item.meta.albumName = item.album ?? item.albumName ?? ''
+  // 酷我播放 URL 读取顶层 songmid；扁平条目可能只剩 kw_151614 这样的 id
+  if (!item.songmid && typeof item.id === 'string' && item.id.startsWith('kw_')) item.songmid = item.id.slice(3)
   if (!item.source && typeof item.id === 'string' && !item.id.startsWith('local_')) {
     const guess = item.id.split('_')[0]
     if (guess && guess !== item.id) item.source = guess
@@ -16,7 +18,7 @@ export const normalizeMusicInfo = <T extends LX.Music.MusicInfo>(raw: T): T => {
       const seconds = Number(last[1]) * 60 + Number(last[2])
       const mm = Math.floor(seconds / 60)
       const ss = seconds % 60
-      item.interval = `${mm}:${ss.toString().padStart(2, '0')}`
+      item.interval = `${mm.toString().padStart(2, '0')}:${ss.toString().padStart(2, '0')}`
     }
   }
   return item as T
