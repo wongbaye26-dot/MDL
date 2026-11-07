@@ -9,6 +9,7 @@ import settingState from '@/store/setting/state'
 import { syncMusicWidget } from '@/utils/widget'
 import themeState from '@/store/theme/state'
 import BackgroundTimer from 'react-native-background-timer'
+import { getCurrentLyricText } from '@/plugins/lyric'
 
 
 export default async(setting: LX.AppSetting) => {
@@ -29,7 +30,7 @@ export default async(setting: LX.AppSetting) => {
     if (!playerState.musicInfo.id || !playerState.musicInfo.name) return
     const duration = playerState.progress.maxPlayTime
     const progress = duration > 0 ? playerState.progress.nowPlayTime / duration : 0
-    syncMusicWidget(playerState.musicInfo.name ?? '', playerState.musicInfo.singer ?? '', playerState.isPlay, playerState.musicInfo.pic ?? '', themeState.theme.isDark, themeState.theme['c-primary'], progress)
+    syncMusicWidget(playerState.musicInfo.name ?? '', playerState.musicInfo.singer ?? '', playerState.isPlay, playerState.musicInfo.pic ?? '', themeState.theme.isDark, themeState.theme['c-primary'], progress, getCurrentLyricText())
   }
 
   const setPlayStatus = () => {

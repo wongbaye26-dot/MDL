@@ -29,7 +29,7 @@ public class WidgetModule extends ReactContextBaseJavaModule {
   }
 
   @ReactMethod
-  public void update(String title, String singer, boolean playing, String pic, boolean dark, String primary, int progress) {
+  public void update(String title, String singer, boolean playing, String pic, boolean dark, String primary, int progress, String lyric) {
     SharedPreferences.Editor editor = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit();
     editor.putString("title", title == null ? "" : title);
     editor.putString("singer", singer == null ? "" : singer);
@@ -38,6 +38,7 @@ public class WidgetModule extends ReactContextBaseJavaModule {
     editor.putBoolean("dark", dark);
     editor.putString("primary", primary == null ? "#6C5CE7" : primary);
     editor.putInt("progress", progress);
+    editor.putString("lyric", lyric == null ? "" : lyric);
     editor.apply();
     push();
   }

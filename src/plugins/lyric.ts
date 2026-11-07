@@ -191,6 +191,8 @@ export const pause = () => {
 }
 
 // on lyric play hook
+export const getCurrentLyricText = (): string => lrcTools.currentLineData.text || ''
+
 export const useLrcPlay = (autoUpdate = true) => {
   const [lrcInfo, setLrcInfo] = useState(lrcTools.currentLineData)
   useEffect(() => {

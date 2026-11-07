@@ -29,6 +29,7 @@ final class WidgetViews {
     boolean playing = prefs.getBoolean("playing", false);
     boolean dark = prefs.getBoolean("dark", true);
     String pic = prefs.getString("pic", "");
+    String lyric = prefs.getString("lyric", "");
     String primaryHex = prefs.getString("primary", "#6C5CE7");
     int primary;
     try { primary = Color.parseColor(primaryHex); } catch (Exception e) { primary = 0xFF6C5CE7; }
@@ -44,11 +45,20 @@ final class WidgetViews {
     views.setImageViewResource(R.id.widget_prev, darkIcons ? R.drawable.widget_prev_dark : R.drawable.widget_prev);
     views.setImageViewResource(R.id.widget_next, darkIcons ? R.drawable.widget_next_dark : R.drawable.widget_next);
 
-    int textColor = wide ? (dark ? 0xFFFFFFFF : 0xFF1A1420) : 0xFF1A1420;
-    int subColor = wide ? (dark ? 0xCCFFFFFF : 0x99000000) : 0xB3000000;
+    int textColor = wide ? (dark ? 0xFFFFFFFF : 0xFF1A1420) : 0xFFFFFFFF;
+    int subColor = wide ? (dark ? 0xCCFFFFFF : 0x99000000) : 0xCCFFFFFF;
     views.setProgressBar(R.id.widget_progress, 1000, progress, false);
     views.setTextColor(R.id.widget_title, textColor);
     views.setTextColor(R.id.widget_singer, subColor);
+    if (wide) {
+      if (lyric == null || lyric.isEmpty()) {
+        views.setViewVisibility(R.id.widget_lyric, android.view.View.GONE);
+      } else {
+        views.setViewVisibility(R.id.widget_lyric, android.view.View.VISIBLE);
+        views.setTextViewText(R.id.widget_lyric, lyric);
+        views.setTextColor(R.id.widget_lyric, primary);
+      }
+    }
 
     if (wide) {
       views.setInt(R.id.widget_root, "setBackgroundResource", dark ? R.drawable.widget_bg_glass_dark : R.drawable.widget_bg_glass_light);
