@@ -174,7 +174,8 @@ const styles = createStyle({
   },
   list: {
     paddingTop: 2,
-    paddingBottom: 0,
+    // 大字号时最后一行要能滚到胶囊导航上方
+    paddingBottom: NAV_BAR_SPACE,
   },
   modal: {
     flex: 1,
