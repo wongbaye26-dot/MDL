@@ -27,3 +27,8 @@
 |---|---|---|
 | arm64-v8a | em-music-v3.10.17-arm64-v8a.apk | `9e36a3b13e52bbdb3706642ad470bdd5cf2de9d5c603f200f29d129e726c13de` |
 | universal | em-music-v3.10.17-universal.apk | `dfedbf62248f076c80dba138b491feaf351784195f48edec21977f67ca2209cc` |
+
+## 真机补充验证（2026-11-07）
+- 收藏 → 歌单：长按歌单 → 删除确认 → 列表移除，toast「歌单已删除」。
+- 2×2：已无播放进度条。
+- 4×1：进度条推进、歌词行随 2s 同步刷新。
