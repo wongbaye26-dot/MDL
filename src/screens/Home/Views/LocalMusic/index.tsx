@@ -638,20 +638,12 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
       }))
   }, [detail, filteredList, list, indexOfId, folderTree, folderPath, searchResults, libraryIndex, sortSongs])
 
-  /** 五个 tab 的 rows 一次算好，切 tab 不再重建列表数据（根因是同步构建几百行） */
-  const rowsByTab = useMemo(() => {
-    const map = new Map<LocalTab, ReturnType<typeof buildRows>>()
-    for (const tabDef of TABS) {
-      const sort = viewPrefs.sort[tabDef.key] ?? defaultViewPrefs().sort[tabDef.key] ?? { key: 'name' as LocalSortKey, dir: 'asc' as const }
-      map.set(tabDef.key, buildRows(tabDef.key, sort))
-    }
-    return map
-  }, [buildRows, viewPrefs.sort])
-
-  const rows = useMemo(() => {
-    if (searchResults !== null || detail !== null || (folderPath?.length ?? 0) > 0) return buildRows(tab, tabSort)
-    return rowsByTab.get(tab) ?? []
-  }, [rowsByTab, tab, tabSort, buildRows, searchResults, detail, folderPath])
+  /**
+   * 只构建当前 tab 的 rows。
+   * 之前一次性预计算 5 个 tab，扫描/补封面每次推送都会同步跑 5 遍排序分组，
+   * 冷启动阶段会把 JS 线程连续堵住十几秒（切页签/底部导航都没反应）。
+   */
+  const rows = useMemo(() => buildRows(tab, tabSort), [buildRows, tab, tabSort])
 
   const letterBarVisible = tab === 'song' && !detail && !searchKeyword && !searchOpen
 
