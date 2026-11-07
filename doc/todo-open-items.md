@@ -15,7 +15,7 @@
   1. 在 apply 路径加诊断：打印/显示 id_map 大小、DB 现有 id 数、map 键样例；
   2. 处理「自动预演 backfill」与「手动 apply」的并发时序；
   3. 逐项 UI 复核收藏/用户歌单/队列引用；
-  4. 验证回滚流程；
+  4. 回滚已运行（DB244/曲库244/218ms），但“回滚后重新应用”为 no-op，需逐项 UI 确认实际 ID 状态；
   5. 更新 A-3 文档与发版。
 - **相关文件**：`src/core/localLibrary/idMigration.ts`、`repository.ts`、`identitySwitch.ts`、`backfill.ts`。
 
