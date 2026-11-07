@@ -449,20 +449,34 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
     })
   }, [list, hidden, hasActiveFilter, tabFilterFormat, tabFilterCover])
 
-  const compareSongs = useCallback((a: LX.Music.MusicInfoLocal, b: LX.Music.MusicInfoLocal, sort: { key: LocalSortKey, dir: 'asc' | 'desc' }) => {
-    let result = 0
-    switch (sort.key) {
-      case 'singer': result = (a.singer ?? '').localeCompare(b.singer ?? '', 'zh-Hans-CN'); break
-      case 'album': result = (a.meta.albumName ?? '').localeCompare(b.meta.albumName ?? '', 'zh-Hans-CN'); break
-      case 'duration': result = secondsOfInterval(a.interval) - secondsOfInterval(b.interval); break
-      case 'added': result = (a.meta.mtime ?? 0) - (b.meta.mtime ?? 0); break
-      case 'path': result = a.meta.filePath.localeCompare(b.meta.filePath, 'zh-Hans-CN'); break
-      case 'name':
-      default: result = cleanSongName(a.name, a.singer).localeCompare(cleanSongName(b.name, b.singer), 'zh-Hans-CN')
+  /**
+   * 排序键只算一次：之前 comparator 里每比较一次就 cleanSongName 一次
+   * （内部会重建多个正则），244 首要 1.2s，4 个 tab 预取直接卡 5s。
+   */
+  const sortSongs = useCallback((songs: LX.Music.MusicInfoLocal[], sort: { key: LocalSortKey, dir: 'asc' | 'desc' }) => {
+    const numeric = sort.key === 'duration' || sort.key === 'added'
+    const keyOf = (item: LX.Music.MusicInfoLocal) => {
+      switch (sort.key) {
+        case 'singer': return item.singer ?? ''
+        case 'album': return item.meta.albumName ?? ''
+        case 'duration': return secondsOfInterval(item.interval)
+        case 'added': return item.meta.mtime ?? 0
+        case 'path': return item.meta.filePath
+        case 'name':
+        default: return cleanSongName(item.name, item.singer)
+      }
     }
-    return sort.dir === 'asc' ? result : -result
+    const decorated = songs.map(item => ({ item, key: keyOf(item) }))
+    decorated.sort((a, b) => {
+      const result = numeric
+        ? (a.key as number) - (b.key as number)
+        : (a.key as string) < (b.key as string) ? -1 : (a.key as string) > (b.key as string) ? 1 : 0
+      return sort.dir === 'asc' ? result : -result
+    })
+    return decorated.map(entry => entry.item)
   }, [])
-  const sortSongs = useCallback((songs: LX.Music.MusicInfoLocal[], sort: { key: LocalSortKey, dir: 'asc' | 'desc' }) => [...songs].sort((a, b) => compareSongs(a, b, sort)), [compareSongs])
+
+
 
   const totalSize = useMemo(() => formatSize(getTotalSize(list)), [list])
   const visibleCount = useMemo(() => list.filter(item => !isHiddenItem(item, hidden)).length, [list, hidden])
