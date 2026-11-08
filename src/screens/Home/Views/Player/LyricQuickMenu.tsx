@@ -126,6 +126,7 @@ export default memo(({
           style={[
             styles.menu,
             landscape ? styles.menuLand : null,
+            showLanguages ? styles.menuLanguage : null,
             {
               backgroundColor: 'rgba(24,20,32,0.94)',
               borderColor: 'rgba(255,255,255,0.12)',
@@ -191,12 +192,14 @@ const styles = createStyle({
   langList: {
     flexDirection: 'column',
     gap: 6,
-    minWidth: 150,
+    width: '100%',
+    alignSelf: 'stretch',
   },
   langItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    alignSelf: 'stretch',
     paddingHorizontal: 12,
     height: 38,
     borderRadius: 12,
@@ -222,6 +225,14 @@ const styles = createStyle({
     borderRadius: 24,
     paddingHorizontal: 6,
     paddingVertical: 6,
+  },
+  menuLanguage: {
+    // 语种列表不是 44×44 图标，固定宽度并让每行拉伸，避免竖屏下被 56 宽容器挤歪
+    width: 208,
+    alignItems: 'stretch',
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    borderRadius: 20,
   },
   iconRowLand: {
     flexDirection: 'row',
