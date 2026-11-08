@@ -52,7 +52,8 @@ import SleepTimerSheet from './SleepTimerSheet'
 import LyricQuickMenu from './LyricQuickMenu'
 import ListMusicAdd, { type MusicAddModalType } from '@/components/MusicAddModal'
 import AddPlaylistIcon from '@/components/common/AddPlaylistIcon'
-import { getLocalMusicListSync } from '@/core/localMusic'
+import { getLocalMusicListSync, updateLocalMusicMeta } from '@/core/localMusic'
+import { getLanguageOverrideSync, setLanguageOverride } from '@/core/music/languageOverride'
 import PlayGlyph from './PlayGlyph'
 import QueueCoverFlow from './QueueCoverFlow'
 import FadeMask from './FadeMask'
@@ -453,15 +454,18 @@ export default () => {
   const statusBarHeight = useStatusbarHeight()
   const navActiveId = useNavActiveId()
   const musicInfo = usePlayerMusicInfo()
+  const [languageVersion, setLanguageVersion] = useState(0)
 
   // 按歌曲语言自动切换：粤语开粤拼、外语开翻译、国语关闭粤拼
   const metaLanguage = String((musicInfo as { language?: string }).language ?? '')
+  const manualLanguage = useMemo(() => getLanguageOverrideSync(musicInfo.id), [musicInfo.id, languageVersion])
   // 在线歌没有 language 字段：歌词加载后用歌词判断语种
-  const lyricLanguage = useMemo(() => detectLanguage(String(musicInfo.rawlrc ?? musicInfo.lrc ?? ''), `${musicInfo.name ?? ''} ${musicInfo.singer ?? ''}`), [musicInfo.id, musicInfo.lrc, musicInfo.rawlrc])
-  // 曲库语言若只有「普通话」而歌词明显是粤语，以歌词为准（修复刮削误判）
-  const musicLanguage = (!metaLanguage || metaLanguage === '普通话') && lyricLanguage
+  const lyricLanguage = useMemo(() => detectLanguage(String(musicInfo.rawlrc ?? musicInfo.lrc ?? ''), `${musicInfo.name ?? ''} ${musicInfo.singer ?? ''}`), [musicInfo.id, musicInfo.lrc, musicInfo.rawlrc, musicInfo.name, musicInfo.singer])
+  // 优先级：用户手动纠正 > 曲库/自动判断；曲库若只有「普通话」而歌词是粤语，以歌词为准
+  const detectedLanguage = (!metaLanguage || metaLanguage === '普通话') && lyricLanguage
     ? lyricLanguage
     : metaLanguage
+  const musicLanguage = manualLanguage || detectedLanguage
   useEffect(() => {
     if (!musicLanguage) return
     const cantonese = isCantonese(musicLanguage)
@@ -528,6 +532,17 @@ export default () => {
    * 只有真的有翻译/拼音的行才变高，相邻行距不会再被固定 +40dp 撑得很空。
    */
   const isCantoneseSong = /粤语|粵語|cantonese/i.test(musicLanguage)
+  const handleSelectLanguage = useCallback(async(language: string) => {
+    const id = musicInfo.id
+    if (!id) return
+    await setLanguageOverride(id, language)
+    const raw = playerState.playMusicInfo.musicInfo
+    if (raw && 'meta' in raw && raw.source === 'local') {
+      await updateLocalMusicMeta(raw as LX.Music.MusicInfoLocal, { language: language || undefined })
+    }
+    setLanguageVersion(v => v + 1)
+  }, [musicInfo.id])
+
   const lyricExtras = useMemo(() => lines.map(line => {
     if (line.extendedLyrics?.length) {
       // 音源 romalrc：粤语歌直接用作粤拼；国语歌只保留翻译（含中文的行），丢弃拼音
@@ -1294,6 +1309,8 @@ export default () => {
     visible={lyricSettingsVisible}
     landscape={isLandscape}
     hasTranslation={lyricExtras.some(extras => extras.length > 0)}
+    language={manualLanguage || ''}
+    onSelectLanguage={language => { void handleSelectLanguage(language) }}
     onClose={() => { setLyricSettingsVisible(false) }}
   />
 

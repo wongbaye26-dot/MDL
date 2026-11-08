@@ -3,6 +3,7 @@
 import { init as musicSdkInit } from '@/utils/musicSdk'
 import { getUserLists, setUserList, getListMusics, overwriteListMusics } from '@/core/list'
 import { getLocalMusicList } from '@/core/localMusic'
+import { initLanguageOverrides } from '@/core/music/languageOverride'
 import { setNavActiveId } from '../common'
 import { getViewPrevState } from '@/utils/data'
 import { bootLog } from '@/utils/bootLog'
@@ -29,6 +30,7 @@ export default async(appSetting: LX.AppSetting) => {
   // ]).catch(err => log.error(err))
   void musicSdkInit() // 初始化音乐sdk
   bootLog('User list init...')
+  void initLanguageOverrides()
   const userLists = await getUserLists()
   setUserList(userLists) // 获取用户列表
   // 修复历史版本可能写入的损坏条目（缺 source/meta 的精简 MusicInfo）：

@@ -1,7 +1,8 @@
-import { memo } from 'react'
+import { memo, useState } from 'react'
 import { Modal, Pressable, TouchableOpacity, View } from 'react-native'
 
 import { Icon } from '@/components/common/Icon'
+import Text from '@/components/common/Text'
 import { useTheme } from '@/store/theme/hook'
 import { useSettingValue } from '@/store/setting/hook'
 import { updateSetting } from '@/core/common'
@@ -27,14 +28,21 @@ export default memo(({
   visible,
   hasTranslation,
   landscape = false,
+  language = '',
+  onSelectLanguage,
   onClose,
 }: {
   visible: boolean
   landscape?: boolean
   /** 当前歌词是否有翻译/注音等扩展行（没有就不显示「歌词翻译」） */
   hasTranslation: boolean
+  /** 当前歌曲语种（'' = 自动判断） */
+  language?: string
+  onSelectLanguage?: (language: string) => void
   onClose: () => void
 }) => {
+  const [showLanguages, setShowLanguages] = useState(false)
+  const languageOptions = ['自动', '粤语', '普通话', '英文', '日文', '韩文']
   const theme = useTheme()
   const sizeIndex = useSettingValue('player.lyricSizeIndex')
   const align = useSettingValue('player.lyricAlign')
@@ -93,11 +101,27 @@ export default memo(({
       active: autoJyutping,
       onPress: () => { updateSetting({ 'player.isAutoJyutping': !autoJyutping }) },
     },
+    {
+      key: 'language',
+      icon: 'earth',
+      label: '歌曲语种',
+      value: language || '自动',
+      active: !!language,
+      onPress: () => { setShowLanguages(true) },
+    },
   ]
+  const languageRows = languageOptions.map(option => ({
+    key: `lang_${option}`,
+    icon: 'translate',
+    label: option === '自动' ? '自动判断' : option,
+    value: (language || '自动') === option ? '当前' : '',
+    active: (language || '自动') === option,
+    onPress: () => { onSelectLanguage?.(option === '自动' ? '' : option); setShowLanguages(false) },
+  }))
 
   return (
     <Modal visible={visible} transparent statusBarTranslucent animationType='fade' onRequestClose={onClose}>
-      <Pressable style={[styles.backdrop, landscape ? styles.backdropLand : null]} onPress={onClose} accessibilityRole='button' accessibilityLabel='关闭歌词快捷菜单'>
+      <Pressable style={[styles.backdrop, landscape ? styles.backdropLand : null]} onPress={() => { setShowLanguages(false); onClose() }} accessibilityRole='button' accessibilityLabel='关闭歌词快捷菜单'>
         <View
           style={[
             styles.menu,
@@ -113,25 +137,50 @@ export default memo(({
             不再跟主题走（白色主题下不会出现一块白卡片）。
             每行只有 44×44 的图标键，靠图标 + 颜色区分状态，状态值通过无障碍标签播报。
           */}
-          <View style={[styles.iconRow, landscape ? styles.iconRowLand : null]}>
-            {
-              rows.map(row => (
-                <TouchableOpacity
-                  key={row.key}
-                  style={[
-                    styles.iconBtn,
-                    { backgroundColor: row.active ? theme['c-primary'] : 'rgba(255,255,255,0.10)' },
-                  ]}
-                  activeOpacity={0.75}
-                  accessibilityRole='button'
-                  accessibilityLabel={`${row.label} 当前${row.value}`}
-                  onPress={row.onPress}
-                >
-                  <Icon name={row.icon} size={20} color={row.active ? '#FFFFFF' : 'rgba(255,255,255,0.9)'} />
-                </TouchableOpacity>
-              ))
-            }
-          </View>
+          {
+            showLanguages
+              ? (
+                <View style={styles.langList}>
+                  {
+                    languageRows.map(row => (
+                      <TouchableOpacity
+                        key={row.key}
+                        style={[
+                          styles.langItem,
+                          { backgroundColor: row.active ? theme['c-primary'] : 'rgba(255,255,255,0.08)' },
+                        ]}
+                        activeOpacity={0.75}
+                        onPress={row.onPress}
+                      >
+                        <Text size={13} color={row.active ? '#FFFFFF' : 'rgba(255,255,255,0.92)'}>{row.label}</Text>
+                        {row.value ? <Text size={11} color='rgba(255,255,255,0.75)'>{row.value}</Text> : null}
+                      </TouchableOpacity>
+                    ))
+                  }
+                </View>
+                )
+              : (
+                <View style={[styles.iconRow, landscape ? styles.iconRowLand : null]}>
+                  {
+                    rows.map(row => (
+                      <TouchableOpacity
+                        key={row.key}
+                        style={[
+                          styles.iconBtn,
+                          { backgroundColor: row.active ? theme['c-primary'] : 'rgba(255,255,255,0.10)' },
+                        ]}
+                        activeOpacity={0.75}
+                        accessibilityRole='button'
+                        accessibilityLabel={`${row.label} 当前${row.value}`}
+                        onPress={row.onPress}
+                      >
+                        <Icon name={row.icon} size={20} color={row.active ? '#FFFFFF' : 'rgba(255,255,255,0.9)'} />
+                      </TouchableOpacity>
+                    ))
+                  }
+                </View>
+                )
+          }
         </View>
       </Pressable>
     </Modal>
@@ -139,6 +188,19 @@ export default memo(({
 })
 
 const styles = createStyle({
+  langList: {
+    flexDirection: 'column',
+    gap: 6,
+    minWidth: 150,
+  },
+  langItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    height: 38,
+    borderRadius: 12,
+  },
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.28)',
