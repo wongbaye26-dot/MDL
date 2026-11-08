@@ -5,10 +5,7 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
-import android.graphics.RecordingCanvas;
-import android.graphics.RenderEffect;
-import android.graphics.RenderNode;
-import android.graphics.Shader;
+import android.graphics.RectF;
 import android.os.Build;
 import android.view.View;
 import android.view.ViewGroup;
@@ -57,9 +54,9 @@ public class GlassBlurView extends View {
   private long lastScrollAt;
   private boolean scrollListenerRegistered;
   private ViewGroup rootView;
-  private RenderNode blurNode;
-  private RenderEffect blurEffect;
-  private float effectRadius = -1f;
+  /** 当前快照的软件模糊结果（每帧只 drawBitmap，不在 RenderThread 里重复跑 RenderEffect） */
+  private Bitmap blurred;
+  private final RectF dstRect = new RectF();
 
   private final ViewTreeObserver.OnScrollChangedListener scrollListener = new ViewTreeObserver.OnScrollChangedListener() {
     @Override
@@ -85,7 +82,8 @@ public class GlassBlurView extends View {
     float next = Math.max(0f, Math.min(25f, radius));
     if (next == blurRadius) return;
     blurRadius = next;
-    effectRadius = -1f;
+    // 半径变了：下一帧先重新抓快照并重算软件模糊
+    lastCaptureAt = 0L;
     invalidate();
   }
 
@@ -161,12 +159,16 @@ public class GlassBlurView extends View {
       snapshot = null;
       snapshotCanvas = null;
     }
+    if (blurred != null) {
+      blurred.recycle();
+      blurred = null;
+    }
   }
 
   private boolean ensureBitmap() {
     int width = getWidth();
     int height = getHeight();
-    if (width <= 0 || height <= 0 || Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return false;
+    if (width <= 0 || height <= 0) return false;
     int bw = Math.max(1, Math.round(width * SNAPSHOT_SCALE));
     int bh = Math.max(1, Math.round(height * SNAPSHOT_SCALE));
     if (snapshot == null || snapshot.getWidth() != bw || snapshot.getHeight() != bh) {
@@ -211,6 +213,8 @@ public class GlassBlurView extends View {
       // 某些系统 View 在软件 Canvas 上可能抛异常，保留上一帧快照即可
     }
     snapshotCanvas.restore();
+
+    applySoftwareBlur();
   }
 
   @Override
@@ -219,38 +223,91 @@ public class GlassBlurView extends View {
     if (canvas instanceof SnapshotCanvas) return;
     if (!blurEnabled || !isShown()) return;
 
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && ensureBitmap()) {
-      drawHardwareBlur(canvas);
-    } else {
-      // API < 31 没有 RenderEffect：退化为半透明深色底，JS 侧也会按平台给 tint
-      canvas.drawColor(overlayColor != Color.TRANSPARENT ? overlayColor : 0x33000000);
+    if (blurred != null) {
+      dstRect.set(0, 0, getWidth(), getHeight());
+      canvas.drawBitmap(blurred, null, dstRect, bitmapPaint);
+    } else if (overlayColor == Color.TRANSPARENT) {
+      canvas.drawColor(0x33000000);
       return;
     }
     if (overlayColor != Color.TRANSPARENT) canvas.drawColor(overlayColor);
   }
 
-  private void drawHardwareBlur(Canvas canvas) {
-    if (blurNode == null) {
-      blurNode = new RenderNode("EmoGlassBlur");
-    }
-    int bw = snapshot.getWidth();
-    int bh = snapshot.getHeight();
-    blurNode.setPosition(0, 0, bw, bh);
-    RecordingCanvas recordingCanvas = blurNode.beginRecording();
-    recordingCanvas.drawBitmap(snapshot, 0f, 0f, bitmapPaint);
-    blurNode.endRecording();
+  /**
+   * 软件 box blur（3 次迭代近似高斯），在快照更新时算一次并把结果缓存成 bitmap。
+   *
+   * 之前用 RenderEffect 在 RenderNode 里每帧模糊，RenderThread 每帧都要跑一次 GPU blur
+   * （实测 RenderThread 占 ~50% CPU）。改成「更新时软件模糊一次 + 每帧只画缓存 bitmap」后，
+   * RenderThread 每帧只剩一次普通贴图，播放/转盘动画时 CPU 明显下降。
+   */
+  private void applySoftwareBlur() {
+    int w = snapshot.getWidth();
+    int h = snapshot.getHeight();
+    int radius = Math.max(1, Math.round(blurRadius * SNAPSHOT_SCALE * 1.6f));
 
-    if (blurEffect == null || effectRadius != blurRadius) {
-      effectRadius = blurRadius;
-      blurEffect = blurRadius > 0
-        ? RenderEffect.createBlurEffect(blurRadius, blurRadius, Shader.TileMode.CLAMP)
-        : null;
+    if (blurred == null || blurred.getWidth() != w || blurred.getHeight() != h) {
+      if (blurred != null) blurred.recycle();
+      blurred = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
     }
-    blurNode.setRenderEffect(blurEffect);
 
-    canvas.save();
-    canvas.scale((float) getWidth() / bw, (float) getHeight() / bh);
-    canvas.drawRenderNode(blurNode);
-    canvas.restore();
+    int[] src = new int[w * h];
+    snapshot.getPixels(src, 0, w, 0, 0, w, h);
+    int[] tmp = new int[w * h];
+    for (int i = 0; i < 3; i++) {
+      boxBlurHorizontal(src, tmp, w, h, radius);
+      boxBlurVertical(tmp, src, w, h, radius);
+    }
+    blurred.setPixels(src, 0, w, 0, 0, w, h);
+  }
+
+  private static void boxBlurHorizontal(int[] src, int[] dst, int w, int h, int radius) {
+    int div = radius * 2 + 1;
+    for (int y = 0; y < h; y++) {
+      int row = y * w;
+      int r = 0, g = 0, b = 0, a = 0;
+      for (int i = -radius; i <= radius; i++) {
+        int px = src[row + Math.max(0, Math.min(w - 1, i))];
+        a += (px >>> 24) & 0xff;
+        r += (px >> 16) & 0xff;
+        g += (px >> 8) & 0xff;
+        b += px & 0xff;
+      }
+      for (int x = 0; x < w; x++) {
+        dst[row + x] = ((a / div) << 24) | ((r / div) << 16) | ((g / div) << 8) | (b / div);
+        int addX = Math.min(w - 1, x + radius + 1);
+        int subX = Math.max(0, x - radius);
+        int addPx = src[row + addX];
+        int subPx = src[row + subX];
+        a += ((addPx >>> 24) & 0xff) - ((subPx >>> 24) & 0xff);
+        r += ((addPx >> 16) & 0xff) - ((subPx >> 16) & 0xff);
+        g += ((addPx >> 8) & 0xff) - ((subPx >> 8) & 0xff);
+        b += (addPx & 0xff) - (subPx & 0xff);
+      }
+    }
+  }
+
+  private static void boxBlurVertical(int[] src, int[] dst, int w, int h, int radius) {
+    int div = radius * 2 + 1;
+    for (int x = 0; x < w; x++) {
+      int r = 0, g = 0, b = 0, a = 0;
+      for (int i = -radius; i <= radius; i++) {
+        int px = src[Math.max(0, Math.min(h - 1, i)) * w + x];
+        a += (px >>> 24) & 0xff;
+        r += (px >> 16) & 0xff;
+        g += (px >> 8) & 0xff;
+        b += px & 0xff;
+      }
+      for (int y = 0; y < h; y++) {
+        dst[y * w + x] = ((a / div) << 24) | ((r / div) << 16) | ((g / div) << 8) | (b / div);
+        int addY = Math.min(h - 1, y + radius + 1);
+        int subY = Math.max(0, y - radius);
+        int addPx = src[addY * w + x];
+        int subPx = src[subY * w + x];
+        a += ((addPx >>> 24) & 0xff) - ((subPx >>> 24) & 0xff);
+        r += ((addPx >> 16) & 0xff) - ((subPx >> 16) & 0xff);
+        g += ((addPx >> 8) & 0xff) - ((subPx >> 8) & 0xff);
+        b += (addPx & 0xff) - (subPx & 0xff);
+      }
+    }
   }
 }
