@@ -294,7 +294,14 @@ export default memo(() => {
                 active={isActive}
                 icon={MENU_ICONS[menu.id] ?? 'home'}
                 iconColor={iconColor}
-                onPress={() => { if (!isActive) setNavActiveId(menu.id) }}
+                onPress={() => {
+                  if (!isActive) {
+                    setNavActiveId(menu.id)
+                  } else if (menu.id === 'nav_mine') {
+                    // 已经在「我的」但可能开着设置子页：再点一次回到设置首页
+                    global.state_event.settingsSubpageCloseRequested()
+                  }
+                }}
               />
             )
           })

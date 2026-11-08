@@ -26,7 +26,6 @@ import { SCREEN_DESC } from '../components/screenMeta'
 import settingState from '@/store/setting/state'
 import type { InitState as CommonState } from '@/store/common/state'
 import useSwipeBack from '../useSwipeBack'
-import { setNavActiveId } from '@/core/common'
 import LiquidGlass from '@/components/common/LiquidGlass'
 import { useSettingValue } from '@/store/setting/hook'
 
@@ -80,24 +79,30 @@ export default () => {
     setActiveId(id)
   }, [setActiveId, swipeBack])
 
-  // 返回键离开「我的」页时把子页一起收掉（否则再回到「我的」会看到子页还开着，且 PagerView 锁没释放）
+  // 子页打开时：胶囊切到哪个 Tab 就去哪个 Tab，只把子页收掉，不再强制弹回「我的」。
+  // （之前这里 setNavActiveId('nav_mine') 会把用户刚点的目标页覆盖掉，表现为
+  //  「先回到设置首页，然后怎么点都切不了页」。）
   useEffect(() => {
     const handleNavActiveIdUpdate = (id: CommonState['navActiveId']) => {
       if (id == 'nav_mine') return
-      // 子页打开时下标变化只可能来自「横滑被原生 PagerView 抢走」：
-      // 关闭子页并回到「我的」，避免出现「设置页消失、人却到了本地音乐」的错位
-      if (activeIdRef.current) {
-        setActiveId(null)
-        setNavActiveId('nav_mine')
-        return
-      }
-      setActiveId(null)
+      if (activeIdRef.current) setActiveId(null)
+    }
+    const handleCloseRequested = () => {
+      if (activeIdRef.current) setActiveId(null)
     }
     global.state_event.on('navActiveIdUpdated', handleNavActiveIdUpdate)
+    global.state_event.on('settingsSubpageCloseRequested', handleCloseRequested)
     return () => {
       global.state_event.off('navActiveIdUpdated', handleNavActiveIdUpdate)
+      global.state_event.off('settingsSubpageCloseRequested', handleCloseRequested)
     }
   }, [setActiveId])
+
+  // 把「设置子页是否打开」广播给胶囊导航：这样在子页里再点一次「我的」可以回到设置首页
+  useEffect(() => {
+    global.state_event.settingsSubpageUpdated(!!activeId)
+    return () => { global.state_event.settingsSubpageUpdated(false) }
+  }, [activeId])
 
   /**
    * 子页打开期间锁住 Home 的 PagerView 横向切页：

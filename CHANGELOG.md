@@ -6,6 +6,10 @@ EmoMusic 是基于 lxmusic 开源项目二次开发的独立项目，直接使�
 
 ## v3.42.x（新架构升级）
 
+### v3.42.1
+- 设置 → 界面与动效 → 界面：把「首页上下滑动」改为「**页面左右滑动**」并补充说明（该开关控制的是竖屏首页左右滑动切页，不是上下滚动）。
+- 说明：迷你播放器 / 底部胶囊的专辑封面自转依赖系统动画缩放与「减少动态效果」；若系统里把动画缩放设为 0（或开启移除动画），RN 会按 reduce-motion 停止自转，属预期行为。已确认正常系统设置下自转恢复。
+
 ### v3.42.0
 - React Native 0.76.9 → **0.80.3**（React 19.1.0），启用 **Fabric / Bridgeless / TurboModule 新架构**；旧架构 `newArchEnabled=false` 不再使用。
 - react-native-navigation 8.0.0 → **8.6.2**（新架构版；改为 CLI 约定式 autolink，不再需要 `npx rnn-link` 的 Android 步骤）。

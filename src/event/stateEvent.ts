@@ -119,6 +119,16 @@ export class StateEvent extends Event {
     this.emit('navActiveIdUpdated', id)
   }
 
+  /** 设置子页打开/关闭（胶囊导航需要知道当前是否在设置子页里） */
+  settingsSubpageUpdated(open: boolean) {
+    this.emit('settingsSubpageUpdated', open)
+  }
+
+  /** 请求关闭设置子页（回到设置首页），用于已经在「我的」时再点一次设置图标 */
+  settingsSubpageCloseRequested() {
+    this.emit('settingsSubpageCloseRequested')
+  }
+
   sourceNamesUpdated(names: CommonState['sourceNames']) {
     this.emit('sourceNamesUpdated', names)
   }

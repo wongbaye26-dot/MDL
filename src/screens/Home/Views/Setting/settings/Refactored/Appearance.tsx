@@ -70,7 +70,7 @@ export default () => {
         <MaterialYouColors />
       </Group>
       <Group title='界面' icon='cellphone' color='#3B82F6'>
-        <ToggleRow settingKey='common.homePageScroll' title='首页上下滑动' />
+        <ToggleRow settingKey='common.homePageScroll' title='页面左右滑动' desc='开启后在首页左右滑动切换页面；关闭后只能用底部标签切换' />
         <ToggleRow settingKey='common.reduceMotion' title='减少动态效果' desc='关闭大部分过渡与循环动画' />
         <ToggleRow settingKey='common.homeCardMotion' title='首页卡片动效' />
         <ToggleRow settingKey='common.coverRotation' title='专辑封面自转' />

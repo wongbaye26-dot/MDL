@@ -44,14 +44,30 @@ public class GlassBlurView extends View {
   private boolean blurEnabled = true;
 
   /** 快照缩放：0.55 在视觉与开销之间取平衡（RenderEffect 会再降采样） */
-  private static final float SNAPSHOT_SCALE = 0.55f;
+  private static final float SNAPSHOT_SCALE = 0.30f;
+
+  /** 静止时低帧率更新；滚动/动画刚发生时临时提高更新频率（避免 UI 线程被快照打满） */
+  private static final long IDLE_INTERVAL_MS = 260L;
+  private static final long ACTIVE_INTERVAL_MS = 50L;
+  private static final long ACTIVE_WINDOW_MS = 420L;
 
   private Bitmap snapshot;
   private Canvas snapshotCanvas;
+  private long lastCaptureAt;
+  private long lastScrollAt;
+  private boolean scrollListenerRegistered;
   private ViewGroup rootView;
   private RenderNode blurNode;
   private RenderEffect blurEffect;
   private float effectRadius = -1f;
+
+  private final ViewTreeObserver.OnScrollChangedListener scrollListener = new ViewTreeObserver.OnScrollChangedListener() {
+    @Override
+    public void onScrollChanged() {
+      // 滚动中的内容变化最需要及时模糊；其它时间（转盘呼吸/自转等）降低刷新频率省电
+      lastScrollAt = System.currentTimeMillis();
+    }
+  };
 
   private final ViewTreeObserver.OnPreDrawListener preDrawListener = new ViewTreeObserver.OnPreDrawListener() {
     @Override
@@ -116,7 +132,12 @@ public class GlassBlurView extends View {
 
   private void register() {
     if (rootView != null && blurEnabled) {
-      rootView.getViewTreeObserver().addOnPreDrawListener(preDrawListener);
+      ViewTreeObserver observer = rootView.getViewTreeObserver();
+      observer.addOnPreDrawListener(preDrawListener);
+      if (!scrollListenerRegistered) {
+        observer.addOnScrollChangedListener(scrollListener);
+        scrollListenerRegistered = true;
+      }
       postInvalidateOnAnimation();
     }
   }
@@ -124,7 +145,13 @@ public class GlassBlurView extends View {
   private void unregister() {
     if (rootView != null) {
       ViewTreeObserver observer = rootView.getViewTreeObserver();
-      if (observer.isAlive()) observer.removeOnPreDrawListener(preDrawListener);
+      if (observer.isAlive()) {
+        observer.removeOnPreDrawListener(preDrawListener);
+        if (scrollListenerRegistered) {
+          observer.removeOnScrollChangedListener(scrollListener);
+          scrollListenerRegistered = false;
+        }
+      }
     }
   }
 
@@ -156,7 +183,12 @@ public class GlassBlurView extends View {
   }
 
   private void updateSnapshot() {
-    if (!blurEnabled || !isShown() || rootView == null || !ensureBitmap()) return;
+    if (!blurEnabled || !isShown() || rootView == null) return;
+    long now = System.currentTimeMillis();
+    long interval = now - lastScrollAt < ACTIVE_WINDOW_MS ? ACTIVE_INTERVAL_MS : IDLE_INTERVAL_MS;
+    if (now - lastCaptureAt < interval) return;
+    if (!ensureBitmap()) return;
+    lastCaptureAt = now;
 
     int width = getWidth();
     int height = getHeight();
@@ -179,7 +211,6 @@ public class GlassBlurView extends View {
       // 某些系统 View 在软件 Canvas 上可能抛异常，保留上一帧快照即可
     }
     snapshotCanvas.restore();
-    invalidate();
   }
 
   @Override
