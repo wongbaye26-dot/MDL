@@ -244,14 +244,14 @@ const buildMusicInfo = async(file: DirEntry, previous?: LX.Music.MusicInfoLocal 
   }
 
   // 原生标签读取器不返回语言/年份/风格；FLAC 用自研头部解析补上（只读 512KB）
-  if (ext === 'flac' && (!metadata?.language || !metadata?.year || !metadata?.genre)) {
+  if (ext === 'flac' && !previous?.meta.language && (!metadata?.language || !metadata?.year || !metadata?.genre)) {
     try {
       const tags = await readFlacTags(filePath)
       if (tags) {
         metadata = metadata ?? {}
-        metadata.language = metadata.language || tags.LANGUAGE || ''
-        metadata.year = metadata.year || tags.DATE || ''
-        metadata.genre = metadata.genre || tags.GENRE || ''
+        metadata.language = [metadata.language, tags.LANGUAGE].find(Boolean) ?? ''
+        metadata.year = [metadata.year, tags.DATE].find(Boolean) ?? ''
+        metadata.genre = [metadata.genre, tags.GENRE].find(Boolean) ?? ''
       }
     } catch {}
   }

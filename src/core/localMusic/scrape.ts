@@ -133,7 +133,7 @@ const detectLanguage = (lyric: string, fallbackText: string): string => {
   const cjk = (text.match(/[\u4e00-\u9fff]/g) ?? []).length
   const latin = (text.match(/[a-zA-Z]/g) ?? []).length
   if (latin > cjk * 3 && latin > 20) return '英文'
-  if (cjk > 0) return '中文'
+  if (cjk > 0) return '普通话'
   return ''
 }
 
@@ -145,7 +145,7 @@ const getResultLyric = async(source: ScrapeSource, result: SearchSong): Promise<
   if (source === 'tx' && !result.songmid) return ''
   if (source === 'wy' && !result.songmid) return ''
   try {
-    const res = await withTimeout(Promise.resolve(api.getLyric(result)), 8000)
+    const res = await withTimeout(Promise.resolve(api.getLyric(result)), 4000)
     if (!res) return ''
     if (typeof res === 'string') return res
     return typeof res.lyric === 'string' ? res.lyric : ''

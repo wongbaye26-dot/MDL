@@ -1,8 +1,7 @@
-import { downloadFile, extname, stat, temporaryDirectoryPath, unlink } from '@/utils/fs'
+import { downloadFile, existsFile, extname, stat, temporaryDirectoryPath, unlink } from '@/utils/fs'
 import { findAudioByPath } from '@/utils/directoryPicker'
 import { writeMetadata, writePic, type MusicMetadata } from '@/utils/localMediaMetadata'
 import { writeFlacTags } from '@/utils/flacTag'
-import { existsFile } from '@/utils/fs'
 import { scanFile } from '@/utils/nativeModules/download'
 
 /**

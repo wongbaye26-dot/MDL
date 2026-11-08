@@ -1,6 +1,7 @@
 import { updateLocalMusicMeta, updateLocalMusicPic } from '@/core/localMusic'
 import { isCoverUsable, readEmbeddedCover } from '@/core/localMusic/cover'
 import { scrapeLocalMusic } from '@/core/localMusic/scrape'
+import { splitNameAndSinger } from '@/utils/songName'
 import type { TagIncompleteItem } from '@/core/localMusic/scrape'
 import { resolveWriteTargets, writeTagsToFile } from './fileWrite'
 
@@ -42,6 +43,15 @@ export interface TagScrapeCallbacks {
   onItemResult?: (item: LX.Music.MusicInfoLocal, status: TagScrapeItemStatus) => void
 }
 
+/** 去掉扩展名，并把「歌名 - 歌手」拆成纯歌名，避免把文件名写进 TITLE */
+const cleanTitle = (name: string, singer: string) => {
+  const noExt = (name ?? '').replace(/\.[a-z0-9]{2,5}$/i, '').trim()
+  return splitNameAndSinger(noExt, singer).name.trim() || noExt
+}
+
+/** 看起来像文件名（带扩展名或「歌名 - 歌手」）才顺手修正曲库歌名 */
+const looksLikeFileName = (name: string) => /\.[a-z0-9]{2,5}$/i.test(name) || /\s[-–—]\s/.test(name)
+
 /** 文件里或其他地方已经有能显示的封面？有就不用再下载 */
 const hasUsableCover = async(item: LX.Music.MusicInfoLocal): Promise<boolean> => {
   const embedded = await readEmbeddedCover(item).catch(() => '')
@@ -69,7 +79,7 @@ const scrapeOne = async(
   const nextGenre = [match.genre, item.meta.genre].find(Boolean) ?? ''
   const nextLanguage = [match.language, item.meta.language].find(Boolean) ?? ''
   const result = await writeTagsToFile(targets, {
-    name: match.name,
+    name: cleanTitle(item.name, item.singer) || match.name,
     singer: match.singer,
     albumName: match.albumName,
     year: nextYear,
@@ -78,8 +88,9 @@ const scrapeOne = async(
   })
 
   // 标签一定要同步进曲库（文件写失败也要更新，否则列表看起来「没反应」）
+  const fixedName = cleanTitle(item.name, item.singer)
   await updateLocalMusicMeta(item, {
-    name: match.name,
+    name: looksLikeFileName(item.name) ? fixedName : match.name,
     singer: match.singer,
     albumName: match.albumName,
     year: nextYear || undefined,
@@ -110,12 +121,16 @@ export const runMetaScrape = async(
   let file = 0
   let libraryOnly = 0
   let notFound = 0
+  let stopped = false
   callbacks.onProgress({ done: 0, total })
-  for (let i = 0; i < total; i++) {
-    if (callbacks.shouldStop() || !callbacks.isAlive()) return { done, notFound, file, libraryOnly, stopped: true }
-    const item = items[i]
+
+  // 4 路并发：每首都要联网搜索+拉歌词，串行 240 首太慢
+  let cursor = 0
+  const runOne = async(item: LX.Music.MusicInfoLocal) => {
     try {
-      const match = await scrapeLocalMusic(item)
+      const fixedName = cleanTitle(item.name, item.singer)
+      const cleanedItem = looksLikeFileName(item.name) ? { ...item, name: fixedName } : item
+      const match = await scrapeLocalMusic(cleanedItem)
       if (!match) {
         notFound++
         callbacks.onItemResult?.(item, 'notFound')
@@ -125,7 +140,8 @@ export const runMetaScrape = async(
         const language = match.language ?? item.meta.language ?? ''
         const targets = await resolveWriteTargets(item)
         const wrote = await writeTagsToFile(targets, {
-          name: item.name,
+          // 曲库歌名如果已经是文件名，顺手写回干净歌名
+          name: looksLikeFileName(item.name) ? fixedName : item.name,
           singer: item.singer,
           albumName: item.meta.albumName ?? '',
           year,
@@ -135,21 +151,32 @@ export const runMetaScrape = async(
         if (wrote.target) file++
         else libraryOnly++
         await updateLocalMusicMeta(item, {
+          ...(looksLikeFileName(item.name) ? { name: fixedName } : null),
           year: year || undefined,
           genre: genre || undefined,
           language: language || undefined,
           contentUri: wrote.contentUri || undefined,
         })
         done++
-        callbacks.onItemResult?.(item, 'file')
+        callbacks.onItemResult?.(item, wrote.target ? 'file' : 'libraryOnly')
       }
     } catch {
       notFound++
       callbacks.onItemResult?.(item, 'notFound')
     }
-    callbacks.onProgress({ done: i + 1, total })
+    callbacks.onProgress({ done: done + notFound, total })
   }
-  return { done, notFound, file, libraryOnly, stopped: false }
+
+  const worker = async() => {
+    while (true) {
+      if (callbacks.shouldStop() || !callbacks.isAlive()) { stopped = true; return }
+      const index = cursor++
+      if (index >= total) return
+      await runOne(items[index])
+    }
+  }
+  await Promise.all([worker(), worker(), worker(), worker()])
+  return { done, notFound, file, libraryOnly, stopped }
 }
 
 /** 批量刮削：可中途停止，已完成的结果保留，返回分项统计 */
