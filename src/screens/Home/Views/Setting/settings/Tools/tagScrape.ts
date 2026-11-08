@@ -6,6 +6,7 @@ import { isMusicBrainzCandidate, searchMusicBrainz } from '@/core/localMusic/mus
 import type { TagIncompleteItem } from '@/core/localMusic/scrape'
 import { resolveWriteTargets, writeTagsToFile } from './fileWrite'
 import { readFlacTags } from '@/utils/flacTag'
+import { log } from '@/utils/log'
 
 /**
  * 音乐工具 - 批量刮削标签。
@@ -53,6 +54,20 @@ const cleanTitle = (name: string, singer: string) => {
 
 /** 看起来像文件名（带扩展名或「歌名 - 歌手」）才顺手修正曲库歌名 */
 const looksLikeFileName = (name: string) => /\.[a-z0-9]{2,5}$/i.test(name) || /\s[-–—]\s/.test(name)
+
+/** 批量写文件限并发：6 路网络并发，但磁盘同时只允许 2 个写入，避免 I/O 抖动 */
+let activeWrites = 0
+const writeWaiters: Array<() => void> = []
+const withWriteSlot = async<T>(task: () => Promise<T>): Promise<T> => {
+  if (activeWrites >= 2) await new Promise<void>(resolve => { writeWaiters.push(resolve) })
+  activeWrites++
+  try {
+    return await task()
+  } finally {
+    activeWrites--
+    writeWaiters.shift()?.()
+  }
+}
 
 const sameText = (a?: string | null, b?: string | null) => (a ?? '').trim() === (b ?? '').trim()
 
@@ -104,14 +119,14 @@ const scrapeOne = async(
   const nextYear = [match.year, item.meta.year].find(Boolean) ?? ''
   const nextGenre = [match.genre, item.meta.genre].find(Boolean) ?? ''
   const nextLanguage = [match.language, item.meta.language].find(Boolean) ?? ''
-  const result = await writeTagsToFile(targets, {
+  const result = await withWriteSlot(async() => writeTagsToFile(targets, {
     name: cleanTitle(item.name, item.singer) || match.name,
     singer: match.singer,
     albumName: match.albumName,
     year: nextYear,
     genre: nextGenre,
     language: nextLanguage,
-  })
+  }))
 
   // 标签一定要同步进曲库（文件写失败也要更新，否则列表看起来「没反应」）
   const fixedName = cleanTitle(item.name, item.singer)
@@ -193,7 +208,7 @@ export const runMetaScrape = async(
           return
         }
         const targets = await resolveWriteTargets(item)
-        const wrote = await writeTagsToFile(targets, {
+        const wrote = await withWriteSlot(async() => writeTagsToFile(targets, {
           // 曲库歌名如果已经是文件名，顺手写回干净歌名
           name: wanted.title,
           singer: wanted.artist,
@@ -201,7 +216,7 @@ export const runMetaScrape = async(
           year: wanted.year,
           genre: wanted.genre,
           language: wanted.language,
-        })
+        }))
         if (!item.meta.picUrl && mb?.coverUrl) {
           await updateLocalMusicPic(item.meta.filePath, mb.coverUrl).catch(() => {})
         }
@@ -217,7 +232,8 @@ export const runMetaScrape = async(
         done++
         callbacks.onItemResult?.(item, wrote.target ? 'file' : 'libraryOnly')
       }
-    } catch {
+    } catch (error) {
+      log.warn(`[tagScrape] ${item.name}: ${(error as Error)?.message ?? String(error)}`)
       notFound++
       callbacks.onItemResult?.(item, 'notFound')
     }

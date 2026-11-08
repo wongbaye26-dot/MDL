@@ -3,6 +3,7 @@ import { findAudioByPath } from '@/utils/directoryPicker'
 import { writeMetadata, writePic, type MusicMetadata } from '@/utils/localMediaMetadata'
 import { writeFlacTags } from '@/utils/flacTag'
 import { scanFile } from '@/utils/nativeModules/download'
+import { log } from '@/utils/log'
 
 /**
  * 写回音频文件的公共逻辑（补封面 / 刮削标签共用）。
@@ -140,7 +141,9 @@ export const writeTagsToFile = async(
           await writeFlacTags(plainRealPath, flacTags)
           const contentUri = await refreshMediaUri(plainRealPath)
           return { target, contentUri }
-        } catch {}
+        } catch (error) {
+          log.warn(`[writeTags] FLAC 扩展标签失败 ${plainRealPath}: ${(error as Error)?.message ?? String(error)}`)
+        }
       }
       return { target }
     } catch {}
