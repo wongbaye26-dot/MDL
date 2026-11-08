@@ -332,3 +332,13 @@ shasum -a 256 dist/.../*.apk
 | P2-5 列/值漂移 | 已从结构上收敛：唯一 `TRACK_COLUMNS/buildTrackValues` 来源 + 断言 |
 | P1-5 依赖漏洞 | 仍未修：vendor `bob build` 阻塞，需单独窗口 |
 | P1-4 明文流量 | 仍未修：需按域名灰度 |
+
+---
+
+## 12. 修复进展（v3.33.0 第六批）
+
+| 发现 | 状态 |
+|---|---|
+| 发布门禁缺少签名校验 | 已修：新增 `npm run verify:release`，自动校验 CN=Emo Music + SHA256 |
+| 新机器 vendor 安装失败 | 部分修复：setup-vendor 移除两个包的 bob prepare |
+| P1-5 依赖升级 | 仍阻塞：track-player 的 prepare 依赖 rimraf/tsc PATH，需单独设计 vendor 构建缓存 |

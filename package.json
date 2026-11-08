@@ -1,7 +1,7 @@
 {
   "name": "em-music",
-  "version": "3.32.0",
-  "versionCode": 322,
+  "version": "3.33.0",
+  "versionCode": 323,
   "private": true,
   "scripts": {
     "dev": "react-native run-android --active-arch-only",
@@ -27,6 +27,7 @@
     "setup:vendor": "node scripts/setup-vendor.js",
     "vendor:check": "node scripts/check-vendor.js",
     "release": "node scripts/release.js",
+    "verify:release": "node scripts/verify-release.js",
     "release:patch": "node scripts/release.js --bump patch",
     "keystore:info": "node scripts/keystore-info.js",
     "test:unit": "node --require ./tests/register.js --test tests/*.test.js"

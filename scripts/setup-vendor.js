@@ -82,6 +82,16 @@ const main = () => {
     sh('git init -q', VENDOR_DIR)
     sh(`git clone --quiet ${pkg.url} ${JSON.stringify(pkg.name)}`, VENDOR_DIR)
     sh(`git checkout --quiet ${pkg.commit}`, dir)
+    // 这两个包的 Metro 入口是 src（已由 dependencies-patch.js 改 types），
+    // 不需要 bob 产物；删掉 prepare，避免 npm i 时因缺少 bob 直接失败。
+    if (pkg.name === 'react-native-file-system' || pkg.name === 'react-native-local-media-metadata') {
+      const pkgFile = path.join(dir, 'package.json')
+      const json = JSON.parse(fs.readFileSync(pkgFile, 'utf8'))
+      if (json.scripts?.prepare) {
+        delete json.scripts.prepare
+        fs.writeFileSync(pkgFile, JSON.stringify(json, null, 2) + '\n')
+      }
+    }
     cloned += 1
     console.log(`✅ ${pkg.name} @ ${pkg.commit.slice(0, 8)}`)
   }
