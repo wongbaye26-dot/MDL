@@ -6,7 +6,7 @@ buildscript {
         // 真正决定 compileSdk 36 资源编译的是 AGP 自带 aapt2。本机另有 36.1.0/37.0.0，
         // 若后续 AGP 升级需要可再切到 36.1.0。
         buildToolsVersion = "35.0.0"
-        minSdkVersion = 21
+        minSdkVersion = 24
         compileSdkVersion = 36
         // Android 16（API 36）为目标版本：强制 edge-to-edge，见 doc/android-16-compat.md
         targetSdkVersion = 36
@@ -24,9 +24,10 @@ buildscript {
     }
     dependencies {
         classpath('com.android.tools.build:gradle:8.6.1')
-        classpath("com.facebook.react:react-native-gradle-plugin")
         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion")
     }
 }
 
-apply plugin: "com.facebook.react.rootproject"
+plugins {
+    id("com.facebook.react.rootproject")
+}

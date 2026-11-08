@@ -1,4 +1,4 @@
-import { memo, useRef } from 'react'
+import { memo, useRef, type ComponentRef } from 'react'
 import { View, TouchableOpacity, type GestureResponderEvent } from 'react-native'
 // import Button from '@/components/common/Button'
 import Text from '@/components/common/Text'
@@ -76,7 +76,7 @@ export default memo(({ item, index, showSource, picUrl, onPress, onLongPress, on
 
   const isSelected = selectedList.includes(item)
 
-  const moreButtonRef = useRef<TouchableOpacity>(null)
+  const moreButtonRef = useRef<ComponentRef<typeof TouchableOpacity>>(null)
   const handleShowMenu = () => {
     if (moreButtonRef.current?.measure) {
       moreButtonRef.current.measure((fx, fy, width, height, px, py) => {
