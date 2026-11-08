@@ -552,7 +552,7 @@ export const playListById = async(listId: string, id: string) => {
  */
 export const playMusicInfo = async(listId: string, musicInfo: LX.Music.MusicInfo, isRestore = false) => {
   // 歌单里的历史条目可能缺 source/meta：按本地文件路径/id 找回完整条目再播
-  let info: any = normalizeMusicInfo(musicInfo as LX.Music.MusicInfo)
+  let info: LX.Music.MusicInfo = normalizeMusicInfo(musicInfo)
   if (!info.source || !info.meta) {
     const local = getLocalMusicListSync()
     const legacyPath = info.id?.startsWith('local_') ? info.id.slice(6) : ''

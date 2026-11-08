@@ -454,7 +454,7 @@ export default () => {
   const musicInfo = usePlayerMusicInfo()
 
   // 按歌曲语言自动切换：粤语开粤拼、外语开翻译、国语关闭粤拼
-  const musicLanguage = (musicInfo as any).language ?? ''
+  const musicLanguage = String((musicInfo as { language?: string }).language ?? '')
   useEffect(() => {
     if (!musicLanguage) return
     const isCantonese = /粤语|cantonese/i.test(musicLanguage)

@@ -38,6 +38,8 @@ export interface LibraryHealth {
   /** 文件里有内嵌封面，只是曲库记的地址失效：修复时写回即可，不用联网 */
   healableCovers: LX.Music.MusicInfoLocal[]
   tagIncomplete: TagIncompleteItem[]
+  /** 缺语言/年份/风格的歌曲（联网补全用） */
+  metaIncomplete: LX.Music.MusicInfoLocal[]
   missingLyrics: LX.Music.MusicInfoLocal[]
   invalid: LX.Music.MusicInfoLocal[]
   /** content:// 条目没法判断同目录有没有 .lrc，跳过的数量（用于界面说明） */
@@ -63,6 +65,7 @@ export const createEmptyHealth = (): LibraryHealth => ({
   missingCovers: [],
   healableCovers: [],
   tagIncomplete: [],
+  metaIncomplete: [],
   missingLyrics: [],
   invalid: [],
   lyricsUnknown: 0,
@@ -193,6 +196,7 @@ export const scanLibraryHealth = async(callbacks: HealthScanCallbacks): Promise<
       // 标签：纯字段判断，不用读文件
       const issues = getTagIssues(item)
       if (issues.length) result.tagIncomplete.push({ item, issues })
+      if (!item.meta.language || !item.meta.year || !item.meta.genre) result.metaIncomplete.push(item)
 
       // 歌词：只检测真实路径旁边有没有 .lrc；content:// 没法和目录做比较
       const lyricState = await checkLyricFile(item.meta.filePath)

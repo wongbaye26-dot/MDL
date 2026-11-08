@@ -3,7 +3,7 @@ import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from '@/utils/tools'
 import { cleanSongName } from '@/utils/songName'
 import type { LibraryHealth } from './health'
-import { runTagScrape, type TagScrapeSummary } from './tagScrape'
+import { runMetaScrape, runTagScrape, type TagScrapeSummary } from './tagScrape'
 import { acquireToolsBusy, releaseToolsBusy } from './taskLock'
 import {
   ButtonRow,
@@ -45,6 +45,11 @@ export default memo(({ health, scanning, onChanged }: Props) => {
   }, [])
 
   const items = health.tagIncomplete
+  const metaItems = health.metaIncomplete
+  const [metaRunning, setMetaRunning] = useState(false)
+  const [metaProgress, setMetaProgress] = useState({ done: 0, total: 0 })
+  const [metaSummary, setMetaSummary] = useState<{ done: number, notFound: number, stopped: boolean } | null>(null)
+  const metaRunningRef = useRef(false)
 
   const handleStart = useCallback(async() => {
     if (runningRef.current || !items.length) return
@@ -114,6 +119,33 @@ export default memo(({ health, scanning, onChanged }: Props) => {
       ]
     : []
 
+  const handleMetaStart = useCallback(async() => {
+    if (metaRunningRef.current || !metaItems.length) return
+    if (!acquireToolsBusy()) {
+      toast('另一个批量任务正在运行，请稍候')
+      return
+    }
+    metaRunningRef.current = true
+    stopRef.current = false
+    setMetaRunning(true)
+    setMetaSummary(null)
+    try {
+      const result = await runMetaScrape(metaItems, {
+        onProgress: setMetaProgress,
+        shouldStop: () => stopRef.current,
+        isAlive: () => aliveRef.current,
+      })
+      if (!aliveRef.current) return
+      setMetaSummary(result)
+      toast(`补全完成：成功 ${result.done} 首${result.notFound ? `，未找到 ${result.notFound} 首` : ''}`)
+      onChanged()
+    } finally {
+      metaRunningRef.current = false
+      setMetaRunning(false)
+      releaseToolsBusy()
+    }
+  }, [metaItems, onChanged])
+
   return (
     <Card title='标签刮削' desc='联网核对歌名 / 歌手后写入歌名、歌手、专辑，尽量写进音频文件'>
       <InfoLine
@@ -162,6 +194,25 @@ export default memo(({ health, scanning, onChanged }: Props) => {
                 onPress={() => { void handleStart() }}
               />
               )
+        }
+      </ButtonRow>
+
+      <InfoLine
+        label='语言 / 年份 / 风格可补全'
+        desc='联网匹配歌曲：从搜索结果取年份/风格，拉歌词判断语言；写文件并回写曲库'
+        value={scanning ? '—' : metaItems.length}
+        tone={metaItems.length ? 'warning' : undefined}
+      />
+      {metaRunning ? <ProgressLine label='正在补全语言/年份/风格' done={metaProgress.done} total={metaProgress.total} /> : null}
+      {metaSummary ? <SummaryChips chips={[
+        { key: 'metaDone', label: '已补全', value: metaSummary.done, tone: 'primary' as const },
+        { key: 'metaNotFound', label: '未找到', value: metaSummary.notFound, tone: metaSummary.notFound ? 'warning' as const : 'muted' as const },
+      ]} /> : null}
+      <ButtonRow>
+        {
+          metaRunning
+            ? <SecondaryButton label={stopping ? '正在停止…' : '停止'} icon='stop' disabled={stopping} onPress={handleStop} />
+            : <SecondaryButton label='补全语言/年份/风格' icon='tag-outline' disabled={scanning || !metaItems.length} onPress={() => { void handleMetaStart() }} />
         }
       </ButtonRow>
     </Card>

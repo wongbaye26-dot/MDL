@@ -96,11 +96,15 @@ export interface TagWriteResult {
  */
 export const writeTagsToFile = async(
   targets: WriteTargets,
-  tags: MusicMetadata,
+  tags: MusicMetadata & { year?: string, genre?: string, language?: string },
 ): Promise<TagWriteResult> => {
   for (const target of targets.list) {
     try {
-      await writeMetadata(target, tags)
+      await writeMetadata(target, {
+        name: tags.name,
+        singer: tags.singer,
+        albumName: tags.albumName,
+      })
       return { target }
     } catch {}
   }
@@ -111,6 +115,9 @@ export const writeTagsToFile = async(
         TITLE: tags.name,
         ARTIST: tags.singer,
         ALBUM: tags.albumName,
+        DATE: tags.year ?? '',
+        GENRE: tags.genre ?? '',
+        LANGUAGE: tags.language ?? '',
       })
       return { target: targets.realPath }
     } catch {}

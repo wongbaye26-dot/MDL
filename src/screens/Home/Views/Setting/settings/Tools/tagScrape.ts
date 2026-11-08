@@ -65,10 +65,16 @@ const scrapeOne = async(
   const needCover = !!match.picUrl && !await hasUsableCover(item)
 
   const targets = await resolveWriteTargets(item)
+  const nextYear = [match.year, item.meta.year].find(Boolean) ?? ''
+  const nextGenre = [match.genre, item.meta.genre].find(Boolean) ?? ''
+  const nextLanguage = [match.language, item.meta.language].find(Boolean) ?? ''
   const result = await writeTagsToFile(targets, {
     name: match.name,
     singer: match.singer,
     albumName: match.albumName,
+    year: nextYear,
+    genre: nextGenre,
+    language: nextLanguage,
   })
 
   // 标签一定要同步进曲库（文件写失败也要更新，否则列表看起来「没反应」）
@@ -76,9 +82,9 @@ const scrapeOne = async(
     name: match.name,
     singer: match.singer,
     albumName: match.albumName,
-    year: item.meta.year,
-    genre: item.meta.genre,
-    language: item.meta.language,
+    year: nextYear || undefined,
+    genre: nextGenre || undefined,
+    language: nextLanguage || undefined,
   })
   if (result.target) summary.file++
   else summary.libraryOnly++
@@ -88,6 +94,56 @@ const scrapeOne = async(
     summary.cover++
   }
   return result.target ? 'file' : 'libraryOnly'
+}
+
+/**
+ * 批量补全「语言 / 年份 / 风格」：联网匹配后只写这三类标签，
+ * 不覆盖歌名/歌手/专辑；文件写失败也写回曲库。
+ */
+export const runMetaScrape = async(
+  items: LX.Music.MusicInfoLocal[],
+  callbacks: TagScrapeCallbacks,
+): Promise<{ done: number, notFound: number, stopped: boolean }> => {
+  const total = items.length
+  let done = 0
+  let notFound = 0
+  callbacks.onProgress({ done: 0, total })
+  for (let i = 0; i < total; i++) {
+    if (callbacks.shouldStop() || !callbacks.isAlive()) return { done, notFound, stopped: true }
+    const item = items[i]
+    try {
+      const match = await scrapeLocalMusic(item)
+      if (!match) {
+        notFound++
+        callbacks.onItemResult?.(item, 'notFound')
+      } else {
+        const year = match.year ?? item.meta.year ?? ''
+        const genre = match.genre ?? item.meta.genre ?? ''
+        const language = match.language ?? item.meta.language ?? ''
+        const targets = await resolveWriteTargets(item)
+        await writeTagsToFile(targets, {
+          name: item.name,
+          singer: item.singer,
+          albumName: item.meta.albumName ?? '',
+          year,
+          genre,
+          language,
+        })
+        await updateLocalMusicMeta(item, {
+          year: year || undefined,
+          genre: genre || undefined,
+          language: language || undefined,
+        })
+        done++
+        callbacks.onItemResult?.(item, 'file')
+      }
+    } catch {
+      notFound++
+      callbacks.onItemResult?.(item, 'notFound')
+    }
+    callbacks.onProgress({ done: i + 1, total })
+  }
+  return { done, notFound, stopped: false }
 }
 
 /** 批量刮削：可中途停止，已完成的结果保留，返回分项统计 */

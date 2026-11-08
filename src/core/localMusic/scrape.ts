@@ -29,6 +29,10 @@ interface SearchSong {
   img?: string | null
   /** 部分音源（或搜索结果已被处理过时）把封面放在 meta.picUrl */
   meta?: { picUrl?: string | null }
+  /** 部分音源会带发行年份 / 风格 */
+  year?: string | number | null
+  releaseDate?: string | null
+  genre?: string | null
 }
 
 interface MusicSdkSourceLike {
@@ -36,6 +40,7 @@ interface MusicSdkSourceLike {
     search: (keyword: string, page: number, limit: number) => Promise<{ list?: SearchSong[] } | null>
   }
   getPic?: (musicInfo: SearchSong) => Promise<string | null | undefined> | string | null | undefined
+  getLyric?: (musicInfo: SearchSong) => Promise<{ lyric?: string | null } | string | null | undefined>
 }
 
 /** 刮削结果：只带写标签 / 找封面需要的字段 */
@@ -49,6 +54,12 @@ export interface ScrapeMatch {
   songmid: string
   /** 0-100 的匹配度，UI 上用来展示「有多确定」 */
   score: number
+  /** 发行年份（'' 表示音源没给） */
+  year: string
+  /** 风格（'' 表示音源没给） */
+  genre: string
+  /** 语言（从歌词/文字判断，'' 表示判断不出） */
+  language: string
 }
 
 /** 一首「标签可补全」的歌：item + 缺什么 */
@@ -99,6 +110,48 @@ const parseInterval = (value?: string | null) => {
   let seconds = 0
   for (const part of parts) seconds = seconds * 60 + part
   return seconds
+}
+
+/** 从搜索结果取年份 */
+const getResultYear = (result: SearchSong): string => {
+  const raw = String(result.year ?? result.releaseDate ?? '').trim()
+  const match = /(19|20)\d{2}/.exec(raw)
+  return match ? match[0] : ''
+}
+
+/** 从搜索结果取风格（部分音源没有该字段） */
+const getResultGenre = (result: SearchSong): string => (result.genre ?? '').trim().slice(0, 60)
+
+/** 语言判断：优先看歌词，其次看歌名/歌手文字 */
+const detectLanguage = (lyric: string, fallbackText: string): string => {
+  const text = lyric || fallbackText
+  if (!text) return ''
+  if (/[\u3040-\u30ff]/.test(text)) return '日文'
+  if (/[\uac00-\ud7af]/.test(text)) return '韩文'
+  // 粤语歌词常见字（冇/嘅/咗/唔/係/佢/哋/睇/咁/嚟/呢/嗰/乜/嘢）
+  if (/[冇嘅咗唔係佢哋睇咁嚟呢嗰乜嘢俾揾瞓諗]/.test(text)) return '粤语'
+  const cjk = (text.match(/[\u4e00-\u9fff]/g) ?? []).length
+  const latin = (text.match(/[a-zA-Z]/g) ?? []).length
+  if (latin > cjk * 3 && latin > 20) return '英文'
+  if (cjk > 0) return '中文'
+  return ''
+}
+
+/** 拉取匹配结果的歌词文本，用于判断语言 */
+const getResultLyric = async(source: ScrapeSource, result: SearchSong): Promise<string> => {
+  const api = (musicSdk as unknown as Record<string, MusicSdkSourceLike | undefined>)[source]
+  if (!api?.getLyric) return ''
+  if (source === 'kw' && !result.songmid) return ''
+  if (source === 'tx' && !result.songmid) return ''
+  if (source === 'wy' && !result.songmid) return ''
+  try {
+    const res = await withTimeout(Promise.resolve(api.getLyric(result)), 8000)
+    if (!res) return ''
+    if (typeof res === 'string') return res
+    return typeof res.lyric === 'string' ? res.lyric : ''
+  } catch {
+    return ''
+  }
 }
 
 /** 一次搜索最多等 8 秒：音源接口偶尔挂住，不能让批量刮削卡死 */
@@ -253,6 +306,7 @@ export const scrapeLocalMusic = async(item: LX.Music.MusicInfoLocal): Promise<Sc
 
   // 音源没给封面时，退回 cover.ts 的「联网找封面」（它内部还会再搜一次，但命中率更稳）
   const picUrl = await getResultPic(best.source, best.result) || await fetchNetworkCover(item)
+  const lyric = await getResultLyric(best.source, best.result)
 
   const matchedSinger = (best.result.singer ?? '').trim()
   const matchedAlbum = (best.result.albumName ?? '').trim()
@@ -265,6 +319,9 @@ export const scrapeLocalMusic = async(item: LX.Music.MusicInfoLocal): Promise<Sc
     source: best.source,
     songmid: String(best.result.songmid ?? ''),
     score: Math.min(100, best.score),
+    year: getResultYear(best.result),
+    genre: getResultGenre(best.result),
+    language: detectLanguage(lyric, `${best.result.name ?? ''} ${best.result.singer ?? ''}`),
   }
 }
 

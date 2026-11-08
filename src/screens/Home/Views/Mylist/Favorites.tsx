@@ -396,7 +396,7 @@ export default ({ tab, onCreate, onTabChange, onRename }: {
             // 播放/显示时会按扁平结构做归一化。
             return [item]
           })
-          if (changed) await overwriteListMusics(playlist.id, next as LX.Music.MusicInfo[])
+          if (changed) await overwriteListMusics(playlist.id, next)
         } catch {}
       })()
     }
