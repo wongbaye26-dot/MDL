@@ -251,17 +251,23 @@ class LocalLibraryRepository {
     const now = Date.now()
     await this.transaction(db, tx => {
       for (const track of tracks) {
+        // 参数顺序必须和 TRACK_COLUMNS 完全一致；加列时漏改 values 会让整批双写静默失败
+        const params = [
+          track.id, track.legacyId ?? null, track.fingerprint ?? null, track.mediaId ?? null,
+          track.path, track.contentUri ?? null, track.title, track.albumName ?? null,
+          track.albumArtist ?? null, track.durationMs ?? 0, track.format ?? null,
+          track.bitrate ?? null, track.sampleRate ?? null, track.channels ?? null,
+          track.size ?? null, track.mtime ?? null, track.addedAt ?? now, track.updatedAt ?? now,
+          track.coverKey ?? null, track.source ?? 'local',
+          track.isHidden ? 1 : 0, track.isMissing ? 1 : 0, track.cuePath ?? null, track.cueTrack ?? null,
+          track.language ?? null, track.year ?? null, track.genre ?? null,
+        ]
+        if (params.length !== TRACK_COLUMNS.length) {
+          throw new Error(`tracks 列/值数量不一致: columns=${TRACK_COLUMNS.length}, values=${params.length}`)
+        }
         exec(tx,
           `INSERT OR REPLACE INTO tracks (${TRACK_COLUMNS.join(',')}) VALUES (${TRACK_COLUMNS.map(() => '?').join(',')})`,
-          [
-            track.id, track.legacyId ?? null, track.fingerprint ?? null, track.mediaId ?? null,
-            track.path, track.contentUri ?? null, track.title, track.albumName ?? null,
-            track.albumArtist ?? null, track.durationMs ?? 0, track.format ?? null,
-            track.bitrate ?? null, track.sampleRate ?? null, track.channels ?? null,
-            track.size ?? null, track.mtime ?? null, track.addedAt ?? now, track.updatedAt ?? now,
-            track.coverKey ?? null, track.source ?? 'local',
-            track.isHidden ? 1 : 0, track.isMissing ? 1 : 0, track.cuePath ?? null, track.cueTrack ?? null,
-          ],
+          params,
         )
       }
     })
