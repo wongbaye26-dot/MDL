@@ -1,6 +1,7 @@
 import musicSdk from '@/utils/musicSdk'
 import { splitNameAndSinger } from '@/utils/songName'
 import { fetchNetworkCover } from './cover'
+import { httpFetch } from '@/utils/request'
 
 /**
  * 本地音乐标签刮削：拿「歌名 + 歌手」去各音源搜一遍，给每首歌挑一个真正对得上的结果。
@@ -110,6 +111,33 @@ const parseInterval = (value?: string | null) => {
   let seconds = 0
   for (const part of parts) seconds = seconds * 60 + part
   return seconds
+}
+
+/** QQ 专辑详情里的发行日期/风格/语言（Lyrico QQ 插件同源字段） */
+const getTxAlbumMeta = async(albumId: string): Promise<{ year: string, genre: string, language: string } | null> => {
+  if (!albumId) return null
+  try {
+    const req = httpFetch(`https://c.y.qq.com/v8/fcg-bin/fcg_v8_album_info_cp.fcg?albummid=${albumId}&format=json`, {
+      headers: { Referer: 'https://y.qq.com/' },
+    })
+    const res = await withTimeout(req.promise, 4000)
+    if (!res) return null
+    const data = (res.body as any)?.data
+    const album = Array.isArray(data) ? data[0] : data
+    if (!album) return null
+    const rawYear = String(album.aDate ?? album.publishDate ?? '')
+    const year = /(19|20)\d{2}/.exec(rawYear)?.[0] ?? ''
+    const genre = String(album.genre ?? '').trim()
+    const lan = String(album.lan ?? '').trim()
+    const language = /粤语|粵語/.test(lan) ? '粤语'
+      : /国语|國語/.test(lan) ? '普通话'
+        : /英语|英語/i.test(lan) ? '英文'
+          : /日语|日語/.test(lan) ? '日文'
+            : /韩语|韓語/.test(lan) ? '韩文' : ''
+    return { year, genre, language }
+  } catch {
+    return null
+  }
 }
 
 /** 从搜索结果取年份 */
@@ -313,6 +341,9 @@ export const scrapeLocalMusic = async(item: LX.Music.MusicInfoLocal): Promise<Sc
   // 音源没给封面时，退回 cover.ts 的「联网找封面」（它内部还会再搜一次，但命中率更稳）
   const picUrl = await getResultPic(best.source, best.result) || await fetchNetworkCover(item)
   const lyric = await getResultLyric(best.source, best.result)
+  const albumMeta = best.source === 'tx' && best.result.albumId
+    ? await getTxAlbumMeta(String(best.result.albumId))
+    : null
 
   const matchedSinger = (best.result.singer ?? '').trim()
   const matchedAlbum = (best.result.albumName ?? '').trim()
@@ -325,9 +356,9 @@ export const scrapeLocalMusic = async(item: LX.Music.MusicInfoLocal): Promise<Sc
     source: best.source,
     songmid: String(best.result.songmid ?? ''),
     score: Math.min(100, best.score),
-    year: getResultYear(best.result),
-    genre: getResultGenre(best.result),
-    language: detectLanguage(lyric, `${best.result.name ?? ''} ${best.result.singer ?? ''}`),
+    year: getResultYear(best.result) || albumMeta?.year || '',
+    genre: getResultGenre(best.result) || albumMeta?.genre || '',
+    language: albumMeta?.language || detectLanguage(lyric, `${best.result.name ?? ''} ${best.result.singer ?? ''}`),
   }
 }
 
