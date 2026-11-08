@@ -320,6 +320,9 @@ adb shell wm density reset
      在 16KB page size 的设备（部分 Android 16 新机）上启动会 `dlopen` 失败。
    - 根治需要升级 RN 到 0.79+ / 使用 16KB 对齐的 so，或自行用 `-Wl,-z,max-page-size=16384` 重编所有 native 库。
      **本次不做**（工程量与风险都超出兼容升级范围），需在发版说明里注明支持设备范围。
+   - **RN 0.76.9 复核（v3.41.0，2026-11-08）**：`libjsi.so` / `libreactnative.so` / `libquickbase64.so` /
+     `libquickmd5.so`（arm64）仍全部 `p_align=0x1000`（4KB）。RN 0.77 才引入 16KB 支持；
+     本项目走站内/侧载分发，暂不受 Google Play 的 16KB 要求阻断，待新架构升级（RN 0.77+）一起解决。
 2. **预测性返回**
    - 本次用 `enableOnBackInvokedCallback=false` 保守关闭，未接入 predictive back 动画；
      后续迁移路线见 §2.2。

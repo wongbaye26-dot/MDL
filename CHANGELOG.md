@@ -2,6 +2,29 @@
 
 EmoMusic 是基于 lxmusic 开源项目二次开发的独立项目，直接使用的 lxmusic 项目为 **lx-music-mobile**（基线 `v1.9.2`）。上游 lx-music-mobile 的历史更新记录存档在 [doc/upstream-changelog.md](doc/upstream-changelog.md)，仅用于追溯，不代表 EmoMusic 的版本。
 
+> v3.13–v3.37 的逐版说明见 `doc/release-notes-*.md`；这里只补最近几个里程碑，保证 App 内更新弹窗的历史连贯。
+
+## v3.41.x（RN 0.76 升级）
+
+### v3.41.0
+- React Native 0.73.11 → 0.76.9（React 18.3.1，旧架构 + Hermes 不变）。
+- react-native-navigation 7.39.2 → 8.0.0；react-native-svg 14.2.0 → 15.12.1；其余原生库保持版本并通过兼容矩阵核对。
+- Android 构建链对齐 RN 0.76：Gradle 8.10.2、RNGP 提供 AGP/Kotlin 版本、autolink 换 RNGP、minSdk 24、移除 Flipper。
+- 升级细节、依赖矩阵、已知限制见 `doc/rn-0.76-upgrade.md`。
+
+## v3.40.x
+
+### v3.40.0
+- 竖版歌词设置的语种菜单改为仅图标样式（自 / 粤 / 普 / EN / 日 / 韩），横竖屏不再错位。
+- RN 升级 / 原生 HTTP 采集单独立项，未混入功能版本。
+
+### v3.39.0
+- 竖版语种菜单宽度与对齐修复。
+
+### v3.38.0
+- 依赖升级回滚（嵌套 RN 0.86 / @types 19 冲突），保留全部功能修复。
+- vendor 安装可复现：`setup-vendor` 链接根 node_modules，`npm install --install-links` 物化 `file:` 依赖。
+
 ## v3.9.x（本地音乐管理与播放 2.0 + 阶段 U UI/动效）
 
 ### v3.10.15
