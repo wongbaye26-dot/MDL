@@ -103,13 +103,15 @@ const scrapeOne = async(
 export const runMetaScrape = async(
   items: LX.Music.MusicInfoLocal[],
   callbacks: TagScrapeCallbacks,
-): Promise<{ done: number, notFound: number, stopped: boolean }> => {
+): Promise<{ done: number, notFound: number, file: number, libraryOnly: number, stopped: boolean }> => {
   const total = items.length
   let done = 0
+  let file = 0
+  let libraryOnly = 0
   let notFound = 0
   callbacks.onProgress({ done: 0, total })
   for (let i = 0; i < total; i++) {
-    if (callbacks.shouldStop() || !callbacks.isAlive()) return { done, notFound, stopped: true }
+    if (callbacks.shouldStop() || !callbacks.isAlive()) return { done, notFound, file, libraryOnly, stopped: true }
     const item = items[i]
     try {
       const match = await scrapeLocalMusic(item)
@@ -121,7 +123,7 @@ export const runMetaScrape = async(
         const genre = match.genre ?? item.meta.genre ?? ''
         const language = match.language ?? item.meta.language ?? ''
         const targets = await resolveWriteTargets(item)
-        await writeTagsToFile(targets, {
+        const wrote = await writeTagsToFile(targets, {
           name: item.name,
           singer: item.singer,
           albumName: item.meta.albumName ?? '',
@@ -129,6 +131,8 @@ export const runMetaScrape = async(
           genre,
           language,
         })
+        if (wrote.target) file++
+        else libraryOnly++
         await updateLocalMusicMeta(item, {
           year: year || undefined,
           genre: genre || undefined,
@@ -143,7 +147,7 @@ export const runMetaScrape = async(
     }
     callbacks.onProgress({ done: i + 1, total })
   }
-  return { done, notFound, stopped: false }
+  return { done, notFound, file, libraryOnly, stopped: false }
 }
 
 /** 批量刮削：可中途停止，已完成的结果保留，返回分项统计 */

@@ -98,6 +98,16 @@ export const writeTagsToFile = async(
   targets: WriteTargets,
   tags: MusicMetadata & { year?: string, genre?: string, language?: string },
 ): Promise<TagWriteResult> => {
+  // 原生库只支持歌名/歌手/专辑；写成功后若还有年份/风格/语言，FLAC 再补一次扩展标签
+  const flacTags = {
+    TITLE: tags.name,
+    ARTIST: tags.singer,
+    ALBUM: tags.albumName,
+    DATE: tags.year ?? '',
+    GENRE: tags.genre ?? '',
+    LANGUAGE: tags.language ?? '',
+  }
+  const hasExtra = !!(tags.year || tags.genre || tags.language)
   for (const target of targets.list) {
     try {
       await writeMetadata(target, {
@@ -105,20 +115,18 @@ export const writeTagsToFile = async(
         singer: tags.singer,
         albumName: tags.albumName,
       })
+      if (hasExtra && targets.ext === 'flac' && targets.realPath) {
+        try {
+          await writeFlacTags(targets.realPath, flacTags)
+        } catch {}
+      }
       return { target }
     } catch {}
   }
 
   if (targets.realPath && targets.ext === 'flac') {
     try {
-      await writeFlacTags(targets.realPath, {
-        TITLE: tags.name,
-        ARTIST: tags.singer,
-        ALBUM: tags.albumName,
-        DATE: tags.year ?? '',
-        GENRE: tags.genre ?? '',
-        LANGUAGE: tags.language ?? '',
-      })
+      await writeFlacTags(targets.realPath, flacTags)
       return { target: targets.realPath }
     } catch {}
   }

@@ -48,7 +48,7 @@ export default memo(({ health, scanning, onChanged }: Props) => {
   const metaItems = health.metaIncomplete
   const [metaRunning, setMetaRunning] = useState(false)
   const [metaProgress, setMetaProgress] = useState({ done: 0, total: 0 })
-  const [metaSummary, setMetaSummary] = useState<{ done: number, notFound: number, stopped: boolean } | null>(null)
+  const [metaSummary, setMetaSummary] = useState<{ done: number, notFound: number, file: number, libraryOnly: number, stopped: boolean } | null>(null)
   const metaRunningRef = useRef(false)
 
   const handleStart = useCallback(async() => {
@@ -137,7 +137,7 @@ export default memo(({ health, scanning, onChanged }: Props) => {
       })
       if (!aliveRef.current) return
       setMetaSummary(result)
-      toast(`补全完成：成功 ${result.done} 首${result.notFound ? `，未找到 ${result.notFound} 首` : ''}`)
+      toast(`补全完成：写入文件 ${result.file} 首，仅曲库 ${result.libraryOnly} 首${result.notFound ? `，未找到 ${result.notFound} 首` : ''}`)
       onChanged()
     } finally {
       metaRunningRef.current = false
@@ -205,7 +205,9 @@ export default memo(({ health, scanning, onChanged }: Props) => {
       />
       {metaRunning ? <ProgressLine label='正在补全语言/年份/风格' done={metaProgress.done} total={metaProgress.total} /> : null}
       {metaSummary ? <SummaryChips chips={[
-        { key: 'metaDone', label: '已补全', value: metaSummary.done, tone: 'primary' as const },
+        { key: 'metaFile', label: '写入文件', value: metaSummary.file, tone: 'primary' as const },
+        { key: 'metaDone', label: '已补全', value: metaSummary.done },
+        { key: 'metaLibrary', label: '仅曲库', value: metaSummary.libraryOnly },
         { key: 'metaNotFound', label: '未找到', value: metaSummary.notFound, tone: metaSummary.notFound ? 'warning' as const : 'muted' as const },
       ]} /> : null}
       <ButtonRow>
