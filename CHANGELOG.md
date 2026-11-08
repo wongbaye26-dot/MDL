@@ -4,6 +4,20 @@ EmoMusic 是基于 lxmusic 开源项目二次开发的独立项目，直接使�
 
 > v3.13–v3.37 的逐版说明见 `doc/release-notes-*.md`；这里只补最近几个里程碑，保证 App 内更新弹窗的历史连贯。
 
+## v3.50.x（新架构正式版）
+
+### v3.50.0
+- **新架构正式版**：React Native 0.76.9 → **0.80.3**（React 19.1.0），Fabric / Bridgeless / TurboModule 全量启用；
+  react-native-navigation 8.0.0 → **8.6.2**（新架构版，CLI 约定式 autolink）。
+- 构建链：Gradle 8.14.1、Kotlin 2.1.20、NDK 27.1、compileSdk/targetSdk 36；**全部 arm64 so 16KB 对齐**（quickjs 3.2.3）。
+- **自研 `GlassBlurView`** 替代 `@react-native-community/blur`：真高斯模糊回归、零页面布局改动；
+  v3.42.2 起软件模糊缓存 + 自适应限帧（RenderThread 50% → 28.5%），低版本 Android 也有模糊。
+- 修复：设置子页胶囊导航（可正常切任意页/再点设置回首页）、「首页上下滑动」改为「页面左右滑动」、
+  本地曲库物理文件丢失后无法删除记录、MediaSession/headless、通知栏收藏/循环按钮、React 19 类型/JSX/FontSize 等。
+- 性能：v3.42.3 空闲动画节能——暂停 + 首页空闲时 RenderThread **45% → 0%**，进程 CPU ~66% → ~0–4%；
+  播放中空闲仅保留胶囊圆盘自转（~25%）。
+- 汇总包含 v3.42.0–v3.42.3 的全部改动与修复。
+
 ## v3.42.x（新架构升级）
 
 ### v3.42.3

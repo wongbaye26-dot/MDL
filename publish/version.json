@@ -1,7 +1,11 @@
 {
-  "version": "3.42.3",
-  "desc": "空闲动画节能：首页大卡片上的常驻装饰动效（跳动柱状/黑胶自转/爱心/波纹/统计呼吸）只在\n实测：暂停播放、首页空闲时 RenderThread 45% → 0%，进程 CPU ~66% → 3.7%；\n播放中空闲时卡片动效也停，仅保留胶囊圆盘自转（约 25% RenderThread，属可见播放动画本身）。\n胶囊进度环呼吸：只在播放中运行，暂停后不再 60fps 空转。",
+  "version": "3.50.0",
+  "desc": "新架构正式版：React Native 0.76.9 → 0.80.3（React 19.1.0），Fabric / Bridgeless / TurboModule 全量启用；\n构建链：Gradle 8.14.1、Kotlin 2.1.20、NDK 27.1、compileSdk/targetSdk 36；全部 arm64 so 16KB 对齐（quickjs 3.2.3）。\n自研 GlassBlurView 替代 @react-native-community/blur：真高斯模糊回归、零页面布局改动；\n修复：设置子页胶囊导航（可正常切任意页/再点设置回首页）、「首页上下滑动」改为「页面左右滑动」、",
   "history": [
+    {
+      "version": "3.42.3",
+      "desc": "空闲动画节能：首页大卡片上的常驻装饰动效（跳动柱状/黑胶自转/爱心/波纹/统计呼吸）只在\n实测：暂停播放、首页空闲时 RenderThread 45% → 0%，进程 CPU ~66% → 3.7%；\n播放中空闲时卡片动效也停，仅保留胶囊圆盘自转（约 25% RenderThread，属可见播放动画本身）。\n胶囊进度环呼吸：只在播放中运行，暂停后不再 60fps 空转。"
+    },
     {
       "version": "3.42.2",
       "desc": "玻璃模糊性能优化（自研 GlassBlurView）：把每帧在 RenderNode 里跑 RenderEffect 改为「快照更新时软件 box blur 一次 + 缓存 bitmap，每帧只贴图」，并缓存 RenderNode/快照流程。\n同一场景实测 RenderThread 50% → 28.5%，进程 CPU ~65% → ~46%，janky frames 0.28%；\n模糊效果保持（底部胶囊/搜索胶囊/页头玻璃），且不再依赖 API 31+（低版本设备也能有模糊）。\n自适应刷新：滚动/动画刚发生时 50ms 更新一次，静止 260ms 一次；快照 0.3 比例。"
@@ -17,10 +21,6 @@
     {
       "version": "3.41.0",
       "desc": "React Native 0.73.11 → 0.76.9（React 18.3.1，旧架构 + Hermes 不变）。\nreact-native-navigation 7.39.2 → 8.0.0；react-native-svg 14.2.0 → 15.12.1；其余原生库保持版本并通过兼容矩阵核对。\nAndroid 构建链对齐 RN 0.76：Gradle 8.10.2、RNGP 提供 AGP/Kotlin 版本、autolink 换 RNGP、minSdk 24、移除 Flipper。\n升级细节、依赖矩阵、已知限制见 doc/rn-0.76-upgrade.md。"
-    },
-    {
-      "version": "3.40.0",
-      "desc": "竖版歌词设置的语种菜单改为仅图标样式（自 / 粤 / 普 / EN / 日 / 韩），横竖屏不再错位。\nRN 升级 / 原生 HTTP 采集单独立项，未混入功能版本。"
     }
   ]
 }
