@@ -110,6 +110,12 @@ export default {
         name: item.title,
         albumName,
         albumId,
+        // Lyrico QQ 插件用 time_public 作为发行日期
+        year: (() => {
+          const raw = item.time_public ?? item.publish_time ?? item.publishTime
+          const m = raw ? /(19|20)\d{2}/.exec(String(raw)) : null
+          return m ? m[0] : ''
+        })(),
         source: 'tx',
         interval: item.interval ? formatPlayTime(item.interval) : null,
         songId: item.id,

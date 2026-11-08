@@ -81,6 +81,13 @@ export default {
         name: item.name,
         albumName: item.al.name,
         albumId: item.al.id,
+        // 网易云 album/publishTime（毫秒时间戳）
+        year: (() => {
+          const raw = item.album?.publishTime ?? item.al?.publishTime ?? item.publishTime
+          if (!raw) return ''
+          const d = new Date(Number(raw))
+          return Number.isNaN(d.getTime()) ? '' : String(d.getFullYear())
+        })(),
         source: 'wy',
         interval: formatPlayTime(item.dt / 1000),
         songmid: item.id,
