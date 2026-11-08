@@ -198,6 +198,11 @@ export default memo(({ health, scanning, onChanged }: Props) => {
       </ButtonRow>
 
       <InfoLine
+        label='曲库字段诊断'
+        desc={`有语言 ${health.metaStats.language} / 有年份 ${health.metaStats.year} / 有风格 ${health.metaStats.genre}（共 ${health.metaStats.total} 首）`}
+        value={health.metaStats.total}
+      />
+      <InfoLine
         label='语言 / 年份 / 风格可补全'
         desc='联网匹配歌曲：从搜索结果取年份/风格，拉歌词判断语言；写文件并回写曲库'
         value={scanning ? '—' : metaItems.length}

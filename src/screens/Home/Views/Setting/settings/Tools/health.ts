@@ -40,6 +40,8 @@ export interface LibraryHealth {
   tagIncomplete: TagIncompleteItem[]
   /** 缺语言/年份/风格的歌曲（联网补全用） */
   metaIncomplete: LX.Music.MusicInfoLocal[]
+  /** 字段诊断：有语言/年份/风格的歌曲数 */
+  metaStats: { total: number, language: number, year: number, genre: number }
   missingLyrics: LX.Music.MusicInfoLocal[]
   invalid: LX.Music.MusicInfoLocal[]
   /** content:// 条目没法判断同目录有没有 .lrc，跳过的数量（用于界面说明） */
@@ -66,6 +68,7 @@ export const createEmptyHealth = (): LibraryHealth => ({
   healableCovers: [],
   tagIncomplete: [],
   metaIncomplete: [],
+  metaStats: { total: 0, language: 0, year: 0, genre: 0 },
   missingLyrics: [],
   invalid: [],
   lyricsUnknown: 0,
@@ -181,6 +184,10 @@ export const scanLibraryHealth = async(callbacks: HealthScanCallbacks): Promise<
     if (!callbacks.isAlive()) return null
     const item = list[i]
     result.totalSize += item.meta.size ?? 0
+    result.metaStats.total++
+    if (item.meta.language) result.metaStats.language++
+    if (item.meta.year) result.metaStats.year++
+    if (item.meta.genre) result.metaStats.genre++
 
     if (await isInvalidEntry(item)) {
       // 文件都没了，封面/标签/歌词这些检查没有意义，单独归到「无效条目」

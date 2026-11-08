@@ -370,6 +370,14 @@ export default ({ item, onClose }: Props) => {
                   )
                 : null
             }
+            {/* 字段诊断：直接显示内存里的 meta，避免猜 */}
+            <View style={styles.diagBox}>
+              <Text size={13} style={{ marginBottom: 6 }}>曲库字段诊断</Text>
+              <Text size={10.5} selectable color={palette.textSecondary} style={styles.diagText}>
+                {JSON.stringify({ id: item.id, name: item.name, singer: item.singer, interval: item.interval, meta: item.meta }, null, 2)}
+              </Text>
+            </View>
+
             {
               // FLAC 但拿不到真实路径（只存在于 SAF 文档 uri 里）时说明为什么没有扩展字段
               isFlac && !canEditFlacTags
@@ -451,6 +459,8 @@ const Field = ({ label, value, placeholder, keyboardType, onChangeText }: {
 }
 
 const styles = createStyle({
+  diagBox: { marginTop: 20, padding: 12, borderRadius: 12, backgroundColor: 'rgba(127,127,127,0.08)' },
+  diagText: { fontFamily: 'monospace' },
   header: {
     height: 48,
     flexDirection: 'row',
