@@ -256,3 +256,40 @@ track-player fork、file-system fork、local-media-metadata fork、background-ti
 - 全量 so 编译（含 RNN 8.6.2 codegen/Fabric 部分、quick JSI 库）；
 - 安装到真机后的 interop 行为：8 个旧桥模块、5 路事件、track-player 通知/后台、SAF、下载；
 - APK 体积/启动对比；16KB 对齐复查。
+
+### P0 PoC 最终结果（release 包，2026-11-09 01:00）
+
+**结论：Go。B 组合（RN 0.80.3 + RNN 8.6.2）在构建与运行层面均已跑通，剩余问题集中在第三方库的新架构适配质量，不是架构性阻断。**
+
+- ✅ `assembleDebug`、`assembleRelease`（含 R8）均成功；release arm64 包 32.2 MB（旧架构 28.1 MB，+4 MB，合并 so/新架构预期内）。
+- ✅ release 包（Hermes + R8）真机启动：日志 `Running "lxm.HomeScreen" ... "fabric":true`，
+  RNN `NavigationTurboModule.setRoot` 正常，首页数据/封面/SVG 图标/Fabric 布局全部渲染；
+  播放页（封面/歌词/进度/控制）正常，本地 FLAC 可播（音频进度从 00:00 前进到 01:11）。
+- ✅ 8 个旧桥原生模块在 bridgeless 下可用（启动链已实际调用 UserApi/Lyric/TrackPlayer/Utils 等）；
+  `NativeEventEmitter` 事件链（TrackPlayer → JS）工作。
+
+**PoC 中发现并已修的问题**
+
+| # | 问题 | 修复 |
+|---|---|---|
+| 1 | RNN `Navigation.setDefaultOptions` 在 activity 就绪前调用 → `NavigationTurboModule: current activity is null!` | 移到 `appLaunched` 回调内（`src/navigation/index.ts`） |
+| 2 | track-player 2.1.2 `lib` 里 `require("react-native/Libraries/Image/resolveAssetSource")`，RN 0.80 下不是函数 → 启动 TypeError | 改为 `require("react-native").Image.resolveAssetSource`；已加入 `dependencies-patch.js` + vendor src |
+| 3 | React 19：全局 `JSX` 命名空间移除、`useRef()` 必须初值 | 4 文件 `import type { JSX }`；`useRef<T \| undefined>(undefined)` |
+| 4 | React 19：SVG `Path/Circle` 把 `key` 混在 spread props 里报警 | `TabIcon.tsx` 改为显式 `key={index}` |
+| 5 | Fabric 对 `fontSize<=0` 严格校验（启动早期 fontScale=0 抛 `FontSize should be a positive value`） | `Text.tsx` 对 fontScale 做 `>0` 兜底 |
+| 6 | async-storage 的 KSP 映射不认 Kotlin 2.1.20 | `AsyncStorage_next_kspVersion=2.1.20-1.0.32` |
+| 7 | RN 0.80 的 `@react-native/typescript-config` 会把库的 `exports.react-native` 当类型源 | tsconfig 覆盖 `customConditions: []` |
+
+**PoC 发现但仍未解决（P1 必须处理）**
+
+| # | 问题 | 影响 |
+|---|---|---|
+| A | `@react-native-community/blur@4.4.1` 的 Fabric 实现与打包的 BlurView 版本 API 不匹配（`NoSuchMethodError: setupWith`）→ 已在 Fabric 下把 Glass 降级为纯色 | 磨砂玻璃视觉降级；需升级/替换 blur 库 |
+| B | **MediaSession 状态停在 CONNECTING**（音频实际在播、歌词/进度前进），通知栏媒体卡/锁屏控制可能不更新 | 影响通知栏控制/媒体元数据；需修 track-player fork 的 MediaSession 更新路径 |
+| C | 冷启动报 `No task registered for key TrackPlayer`（headless playback service 注册时机） | 可能与 B 同源；需调整注册时序/兼容 bridgeless |
+| D | 本地曲库 shadow sync 报 `duplicate column name: language`（疑似初始化被调用两次） | 脏数据/迁移幂等性隐患，需查重入 |
+| E | **16KB**：release APK 中除 `libquickjs-android-wrapper.so`（0x1000）外，其余 so 均已是 0x4000（16KB）对齐（含 RN 预编译、quick-base64/quick-md5、sqlite） | 仅剩 quickjs（`wang.harlon.quickjs:wrapper-android:2.4.0`，UserApi 脚本引擎）需换库/重编；换掉即满足 16KB |
+| F | 调试包在 Android 17 上弹「16KB 对齐」开发者提示（release 包实际已对齐，属 debug 包/系统提示差异） | 发布前用 release 包 `readelf` 复核即可 |
+
+**修订后的工作量**：P0（已完成）≈ 0.5 人日；剩余 P1（A–D 修复 + RNN/JS 收尾）约 **4–6 人日**；
+P2 全量回归（17 项真机 + 新架构专项）约 **4–6 人日**；合计 **8–12 人日**（不含可选的 8 模块 TurboModule codegen 化）。

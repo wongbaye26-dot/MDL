@@ -179,7 +179,8 @@ android {
     }
     buildTypes {
         debug {
-            signingConfig signingConfigs.debug
+            // PoC：让 debug 包也用 release 签名，便于覆盖安装现有 release 包而不丢数据
+            signingConfig signingConfigs.release
         }
         release {
             // 发布包必须使用 release keystore；不要再保留 signingConfigs.debug 的赋值

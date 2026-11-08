@@ -407,6 +407,22 @@ import android.util.Log;`,
             service.stopForeground(true);
         }`,
   ],
+  // ---- react-native-track-player：RN 0.77+ 移除深路径导出 ----
+  // 2.1.2 的 lib 是 tsc 产物，里面用 `require("react-native/Libraries/Image/resolveAssetSource")`，
+  // RN 0.80 新架构下该模块已不是可调用函数（新架构/Fabric bridge 下报
+  // "… is not a function (it is Object)"），改用公开的 Image.resolveAssetSource。
+  [
+    path.join(rootPath, 'node_modules/react-native-track-player/lib/trackPlayer.js'),
+    'var resolveAssetSource = require("react-native/Libraries/Image/resolveAssetSource");',
+    'var resolveAssetSource = require("react-native").Image.resolveAssetSource;',
+  ],
+  // 源码版本（postinstall 若重建 lib 会从 src 生成，需保证 src 也是新写法）
+  [
+    path.join(rootPath, 'node_modules/react-native-track-player/src/trackPlayer.ts'),
+    "import * as resolveAssetSource from 'react-native/Libraries/Image/resolveAssetSource'",
+    "import { Image } from 'react-native'\nconst resolveAssetSource = Image.resolveAssetSource",
+  ],
+
   // ---- react-native-linear-gradient 2.8.3：AGP8 namespace ----
   // 上游 2.8.3 没有 namespace（AGP 8 会报错），本地手工补过但没进这个脚本；
   // 全新 npm install 时如果不补，构建会失败。RNGP 0.76 对「manifest 有 package」的库

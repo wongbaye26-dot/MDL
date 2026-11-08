@@ -32,6 +32,7 @@ void Promise.all([getFontSize(), windowSizeTools.init()]).then(async([fontSize])
     try {
       handlePushedHomeScreen = await init()
     } catch (err: any) {
+      console.error('INIT_FAILED', err?.stack ?? err?.message ?? String(err))
       void tipDialog({
         title: '初始化失败 (Init Failed)',
         message: `Boot Log:\n${tryGetBootLog()}\n\n${(err.stack ?? err.message) as string}`,

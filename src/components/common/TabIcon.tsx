@@ -90,8 +90,8 @@ let gradientSeed = 0
 const renderShapes = (shapes: Shape[], color: string, gradientId: string, outline: boolean) => (
   shapes.map((shape, index) => {
     const fill = shape.fill === 'gradient' ? `url(#${gradientId})` : (shape.fill ?? 'none')
+    // React 19 禁止把 key 混在 spread props 里，key 单独传
     const common = {
-      key: index,
       fill,
       fillOpacity: shape.fillOpacity,
       ...(outline
@@ -104,8 +104,8 @@ const renderShapes = (shapes: Shape[], color: string, gradientId: string, outlin
         : null),
     }
     return 'd' in shape
-      ? <Path d={shape.d} {...common} />
-      : <Circle cx={shape.cx} cy={shape.cy} r={shape.r} {...common} />
+      ? <Path key={index} d={shape.d} {...common} />
+      : <Circle key={index} cx={shape.cx} cy={shape.cy} r={shape.r} {...common} />
   })
 )
 
