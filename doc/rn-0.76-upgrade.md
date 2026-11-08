@@ -74,6 +74,9 @@
   因此 `quick-md5` / `fs` / `exception-handler` 不需要再手补 `namespace`（构建 warning 可忽略）。
 - `react-native-linear-gradient 2.8.3` 仍缺 `namespace`，已把它从「手工改 node_modules」补进
   `dependencies-patch.js`，全新安装也会自动打上。
+- `signingConfigs.release` 支持三级回退：`-P MYAPP_UPLOAD_*`（CI Secrets）→ `android/keystore.properties`
+  （本地）→ `debug.keystore`（无签名材料时仅用于编译校验并打警告）。修复了「缺 keystore.properties
+  时 Gradle 在配置阶段直接抛 FileNotFoundException」——这是 CI 与全新 clone 无法构建的根因。
 
 ### 2.3 依赖安装方式（重要，影响可复现性）
 
@@ -143,6 +146,8 @@ SVG 15.13+（要求 RN≥0.78）、async-storage 3.x（RN 0.79）、slider 5.x�
 | `:app:assembleDebug -PreactNativeArchitectures=arm64-v8a` | BUILD SUCCESSFUL |
 | `:app:assembleRelease` | BUILD SUCCESSFUL（R8/minify 通过） |
 | APK | arm64-v8a / armeabi-v7a / universal 三包正常产出并签名 |
+| GitHub Actions `Check`（vendor/typecheck/lint/unit） | ✅ 通过（commit `5d45edb6`） |
+| GitHub Actions `Build`（无签名 Secrets，降级 debug 签名跑 `assembleRelease`） | ✅ 通过（该工作流历史上 31 次全红，本轮首次绿） |
 
 ### 4.3 真机冒烟（SM-S938B，Android 17 / API 37，release 包）
 
