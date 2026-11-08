@@ -2,6 +2,7 @@ import { updateLocalMusicMeta, updateLocalMusicPic } from '@/core/localMusic'
 import { isCoverUsable, readEmbeddedCover } from '@/core/localMusic/cover'
 import { scrapeLocalMusic } from '@/core/localMusic/scrape'
 import { splitNameAndSinger } from '@/utils/songName'
+import { isMusicBrainzCandidate, searchMusicBrainz } from '@/core/localMusic/musicbrainz'
 import type { TagIncompleteItem } from '@/core/localMusic/scrape'
 import { resolveWriteTargets, writeTagsToFile } from './fileWrite'
 
@@ -131,12 +132,16 @@ export const runMetaScrape = async(
       const fixedName = cleanTitle(item.name, item.singer)
       const cleanedItem = looksLikeFileName(item.name) ? { ...item, name: fixedName } : item
       const match = await scrapeLocalMusic(cleanedItem)
+      // 非中文歌用 MusicBrainz（Lyrico musicbrainz 插件同源）补风格/年份/封面
+      const mb = match && !match.genre && isMusicBrainzCandidate(`${match.name} ${match.singer}`)
+        ? await searchMusicBrainz(match.name, match.singer)
+        : null
       if (!match) {
         notFound++
         callbacks.onItemResult?.(item, 'notFound')
       } else {
-        const year = match.year ?? item.meta.year ?? ''
-        const genre = match.genre ?? item.meta.genre ?? ''
+        const year = [match.year, mb?.year, item.meta.year].find(Boolean) ?? ''
+        const genre = [match.genre, mb?.genre, item.meta.genre].find(Boolean) ?? ''
         const language = match.language ?? item.meta.language ?? ''
         const targets = await resolveWriteTargets(item)
         const wrote = await writeTagsToFile(targets, {
@@ -148,6 +153,9 @@ export const runMetaScrape = async(
           genre,
           language,
         })
+        if (!item.meta.picUrl && mb?.coverUrl) {
+          await updateLocalMusicPic(item.meta.filePath, mb.coverUrl).catch(() => {})
+        }
         if (wrote.target) file++
         else libraryOnly++
         await updateLocalMusicMeta(item, {
