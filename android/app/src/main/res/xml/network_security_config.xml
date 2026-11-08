@@ -1,14 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
     <!--
-      音乐源（酷我/QQ/酷狗/网易/咪咕）大量接口和 CDN 仍在使用 http://，
-      全局禁止明文会直接导致搜索、封面和播放失败，所以 base 暂时保持允许。
-
-      但更新、MusicBrainz、封面归档这些敏感/可控域名必须强制 HTTPS，
-      防止被降级到明文后篡改 APK 或元数据。
+      默认禁止明文。只对实际用到的音乐源/CDN 域名放开 http（酷我/QQ/酷狗/网易/咪咕/百度等），
+      更新、MusicBrainz、封面归档等敏感域名仍强制 HTTPS。
+      收紧依据：运行时「请求域名」诊断页采集到的 http 域名 + 各源已知 CDN 后缀。
     -->
-    <base-config cleartextTrafficPermitted="true" />
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
 
+    <!-- 音乐源接口/CDN：这些源大量接口仍是 http:// -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">kuwo.cn</domain>
+        <domain includeSubdomains="true">kwcdn.kuwo.cn</domain>
+        <domain includeSubdomains="true">kugou.com</domain>
+        <domain includeSubdomains="true">kgcdn.com</domain>
+        <domain includeSubdomains="true">qq.com</domain>
+        <domain includeSubdomains="true">gtimg.cn</domain>
+        <domain includeSubdomains="true">163.com</domain>
+        <domain includeSubdomains="true">126.net</domain>
+        <domain includeSubdomains="true">127.net</domain>
+        <domain includeSubdomains="true">migu.cn</domain>
+        <domain includeSubdomains="true">qianqian.com</domain>
+        <domain includeSubdomains="true">taihe.com</domain>
+        <domain includeSubdomains="true">baidu.com</domain>
+        <domain includeSubdomains="true">bdstatic.com</domain>
+        <domain includeSubdomains="true">xiami.com</domain>
+    </domain-config>
+
+    <!-- 敏感域名永不接受明文 -->
     <domain-config cleartextTrafficPermitted="false">
         <domain includeSubdomains="true">github.com</domain>
         <domain includeSubdomains="true">githubusercontent.com</domain>
