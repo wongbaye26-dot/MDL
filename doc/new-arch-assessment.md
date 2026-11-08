@@ -293,3 +293,32 @@ track-player fork、file-system fork、local-media-metadata fork、background-ti
 
 **修订后的工作量**：P0（已完成）≈ 0.5 人日；剩余 P1（A–D 修复 + RNN/JS 收尾）约 **4–6 人日**；
 P2 全量回归（17 项真机 + 新架构专项）约 **4–6 人日**；合计 **8–12 人日**（不含可选的 8 模块 TurboModule codegen 化）。
+
+---
+
+## 9. P1 修复结果（2026-11-09，`upgrade/rn-0.80-newarch`）
+
+### 已修复并实测
+
+| # | 问题 | 修复 | 验证 |
+|---|---|---|---|
+| 1 | MediaSession 停在 CONNECTING、通知栏不更新 | track-player fork 的 `updatePlayback()` 只重建通知按钮，没同步 `PlaybackStateCompat`；补 `updatePlaybackState(manager.getPlayback())` | 播放中 `dumpsys media_session` 为 `PLAYING(3)`，通知栏媒体卡（标题/封面/进度/5 个 action）正常；本地 FLAC 进度正常前进 |
+| 2 | 冷启动 `No task registered for key TrackPlayer`（headless service 在 bridgeless 下找不到任务） | fork 的 `HeadlessJsTaskService`/`MusicService` 改为优先走 `ReactHost.getCurrentReactContext()`（legacy `ReactInstanceManager` 会创建另一个 ReactContext）；无 ReactHost 时才回退 | 冷启动警告 0 次；通知栏收藏/循环按钮（`am startservice -a ...NOTIFY_FAVORITE/NOTIFY_LOOP`）实测生效，无崩溃 |
+| 3 | quickjs 的 `libquickjs-android-wrapper.so` 只有 4KB 对齐（唯一一个拖 16KB 后腿的库） | `wang.harlon.quickjs:wrapper-android` 2.4.0 → **3.2.3**（API 兼容：QuickJSContext/Console/QuickJSLoader 不变） | 解析 release APK 全部 **16 个 arm64 so 均为 p_align=0x4000**；UserApi 在线上源/歌词脚本仍正常（首页在线数据可加载） |
+| 4 | 本地库迁移在 SQLiteLog 打 `E duplicate column name: language` 噪音 | 迁移前先查 `pragma_table_info('tracks')`，只 ALTER 缺失列 | 日志中 duplicate column 计数 0 |
+| 5 | 通知栏收藏/循环触发列表/设置更新时，Fabric 抛 `FontSize should be a positive value: 0` 崩溃 | 字号计算统一兜底：`getTextSize`/`setSpText` 最小 1；`Text` 组件对最终 style 的 fontSize 再兜底；`Icon` size 最小 1 | 连续 5 轮收藏/循环 + 通知栏展开/收起，崩溃 0、JS error 0；收藏态（红心）与播放模式按钮都实时更新 |
+| 6 | lint/引擎洁癖 | 合并 React 的重复 import（`type JSX`）、加 `.eslintignore` 排除 `android/` 等生成目录 | `npm run lint` 只剩 3 个与本次无关的历史错误（Modal/Main 的 promise-function-async） |
+
+### 仍保留的已知限制
+
+- **blur 磨砂效果降级**：RNN 8.6.2 依赖 `com.github.Dimezis:BlurView:3.0.0`，而 `@react-native-community/blur@4.4.1` 的 Fabric 实现是按 BlurView **2.0.4** API 编译的（`setupWith(ViewGroup)` vs v3 的 `setupWith(BlurTarget)`），必然 `NoSuchMethodError`。
+  当前新架构下 `Glass` 检测到 Fabric 就降级为纯色玻璃（无崩溃、视觉略降级）。
+  后续可选：①等 blur 库支持 BlurView 3；②自研 `BlurTarget` 包装 + Fabric view manager；③长期保持纯色玻璃（设计可接受）。
+- **通知栏/锁屏文案**：媒体卡标题/歌手/进度正常；展开视图自定义按钮已验证可点；未覆盖完整锁屏（Android 17 锁屏全屏媒体卡属于系统 UI，如需可再补一轮）。
+
+### P1 剩余工作（进入 P2 回归前）
+
+1. 全量 17 项真机回归（参照 `doc/qa-3.41.0-rn076.md`）：下载/SAF、通知栏自定义按钮、横屏播放器、队列恢复、M3U/歌词偏移、弱网、分屏/折叠屏等；
+2. 新架构专项：主题切换（RNN `mergeOptions`）、启动耗时/内存/APK 体积对比、16KB 设备实测、低端机（armeabi-v7a）实机；
+3. blur 方案决策（见上）；
+4. 8 个自研模块是否需要 TurboModule codegen 化（可选，当前 interop 全可用）。
