@@ -144,15 +144,19 @@ export default memo(({
   }, [isPlay, spin, reduced, coverRotation])
 
   useEffect(() => {
-    // 进度样式设为「关闭」时不画圆环，这圈呼吸也没意义，别让动画空转
-    if (!showRing || reduced) return
+    // 进度样式设为「关闭」时不画圆环，这圈呼吸也没意义，别让动画空转；
+    // 暂停时也停掉呼吸（之前即使暂停也在 60fps 空转）
+    if (!showRing || reduced || !isPlay) {
+      breathe.setValue(BREATHE_MIN)
+      return
+    }
     const anim = Animated.loop(Animated.sequence([
       Animated.timing(breathe, { toValue: BREATHE_MAX, duration: BREATHE_DURATION, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
       Animated.timing(breathe, { toValue: BREATHE_MIN, duration: BREATHE_DURATION, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
     ]))
     anim.start()
     return () => { anim.stop() }
-  }, [breathe, showRing, reduced])
+  }, [breathe, showRing, reduced, isPlay])
 
   const radius = discSize / 2
   const ratio = Math.max(0, Math.min(1, progress))

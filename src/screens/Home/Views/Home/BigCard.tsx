@@ -5,7 +5,8 @@ import LinearGradient from 'react-native-linear-gradient'
 import Text from '@/components/common/Text'
 import { Icon } from '@/components/common/Icon'
 import { createStyle } from '@/utils/tools'
-import { useHorizontalMode, useReducedMotion } from '@/utils/hooks'
+import { useHorizontalMode, useReducedMotion, useAppActive, useIdleMotion } from '@/utils/hooks'
+import { useNavActiveId } from '@/store/common/hook'
 import { useSettingValue } from '@/store/setting/hook'
 import { useListeningStats } from '@/core/player/listenStats'
 import { scaleSizeH, scaleSizeW } from '@/utils/pixelRatio'
@@ -517,6 +518,11 @@ const RippleArt = ({ compact, phase, enabled }: { compact: boolean, phase: numbe
 export default ({ title, subtitle, icon, variant = 'bars', index = 0, progress, width, height, onPress }: BigCardProps) => {
   const compact = useHorizontalMode() || (width != null && width < 140)
   const cardMotion = useSettingValue('common.homeCardMotion')
+  const navActive = useNavActiveId() === 'nav_home'
+  const appActive = useAppActive()
+  const idleActive = useIdleMotion(8000)
+  // 装饰动效只在「首页在前台 + App 在前台 + 最近有交互」时跑；空闲/其它页/后台一律停掉
+  const motionEnabled = cardMotion && navActive && appActive && idleActive
   const pressScale = useRef(new Animated.Value(1)).current
   const palette = CARD_THEMES[variant]
 
@@ -596,11 +602,11 @@ export default ({ title, subtitle, icon, variant = 'bars', index = 0, progress, 
           />
 
           {/* 每张卡自己的持续动效 */}
-          {variant === 'bars' ? <BarsArt compact={compact} phase={index} enabled={cardMotion} /> : null}
-          {variant === 'vinyl' ? <VinylArt compact={compact} label={palette.label} enabled={cardMotion} /> : null}
-          {variant === 'hearts' ? <HeartsArt compact={compact} phase={index} enabled={cardMotion} /> : null}
-          {variant === 'ripple' ? <RippleArt compact={compact} phase={index} enabled={cardMotion} /> : null}
-          {variant === 'stats' ? <StatsArt compact={compact} enabled={cardMotion} /> : null}
+          {variant === 'bars' ? <BarsArt compact={compact} phase={index} enabled={motionEnabled} /> : null}
+          {variant === 'vinyl' ? <VinylArt compact={compact} label={palette.label} enabled={motionEnabled} /> : null}
+          {variant === 'hearts' ? <HeartsArt compact={compact} phase={index} enabled={motionEnabled} /> : null}
+          {variant === 'ripple' ? <RippleArt compact={compact} phase={index} enabled={motionEnabled} /> : null}
+          {variant === 'stats' ? <StatsArt compact={compact} enabled={motionEnabled} /> : null}
 
           {/* 柔光斑点：两个大圆把渐变「打亮」，避免整块平涂 */}
           <View pointerEvents='none' style={styles.glowBig} />

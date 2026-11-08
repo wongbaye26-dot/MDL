@@ -36,6 +36,7 @@ global.lx = {
   // listSort: {},
 
   isScreenKeepAwake: false,
+  lastUserActivityAt: 0,
 
   // 是否播放完后退出应用
   isPlayedStop: false,

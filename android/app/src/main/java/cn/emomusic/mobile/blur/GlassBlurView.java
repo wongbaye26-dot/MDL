@@ -45,6 +45,8 @@ public class GlassBlurView extends View {
 
   /** 静止时低帧率更新；滚动/动画刚发生时临时提高更新频率（避免 UI 线程被快照打满） */
   private static final long IDLE_INTERVAL_MS = 260L;
+  private static final long LONG_IDLE_INTERVAL_MS = 2000L;
+  private static final long LONG_IDLE_AFTER_MS = 2500L;
   private static final long ACTIVE_INTERVAL_MS = 50L;
   private static final long ACTIVE_WINDOW_MS = 420L;
 
@@ -84,6 +86,7 @@ public class GlassBlurView extends View {
     blurRadius = next;
     // 半径变了：下一帧先重新抓快照并重算软件模糊
     lastCaptureAt = 0L;
+    lastScrollAt = System.currentTimeMillis();
     invalidate();
   }
 
@@ -187,7 +190,16 @@ public class GlassBlurView extends View {
   private void updateSnapshot() {
     if (!blurEnabled || !isShown() || rootView == null) return;
     long now = System.currentTimeMillis();
-    long interval = now - lastScrollAt < ACTIVE_WINDOW_MS ? ACTIVE_INTERVAL_MS : IDLE_INTERVAL_MS;
+    long sinceScroll = now - lastScrollAt;
+    long interval;
+    if (sinceScroll < ACTIVE_WINDOW_MS) {
+      interval = ACTIVE_INTERVAL_MS;
+    } else if (sinceScroll > LONG_IDLE_AFTER_MS) {
+      // 长时间没有滚动/交互：每秒最多 0.5 次，基本等于零开销；滚动立即恢复高频
+      interval = LONG_IDLE_INTERVAL_MS;
+    } else {
+      interval = IDLE_INTERVAL_MS;
+    }
     if (now - lastCaptureAt < interval) return;
     if (!ensureBitmap()) return;
     lastCaptureAt = now;

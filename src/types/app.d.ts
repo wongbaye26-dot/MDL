@@ -29,6 +29,8 @@ interface GlobalData {
   }
   restorePlayInfo: LX.Player.SavedPlayInfo | null
   isScreenKeepAwake: boolean
+  /** 最近一次用户触摸/滚动时间戳（毫秒），首页装饰动效空闲暂停用 */
+  lastUserActivityAt?: number
   isPlayedStop: boolean
   isEnableSyncLog: boolean
   isEnableUserApiLog: boolean

@@ -1,4 +1,5 @@
-import { useEffect } from 'react'
+import { useCallback, useEffect } from 'react'
+import { AppState, View } from 'react-native'
 import { useHorizontalMode } from '@/utils/hooks'
 import { useNavActiveId } from '@/store/common/hook'
 import { rememberActiveTab } from '@/utils/playerTransition'
@@ -22,6 +23,18 @@ export default ({ componentId }: Props) => {
   const isHorizontalMode = useHorizontalMode()
   const navActiveId = useNavActiveId()
 
+  /** 用户交互时间戳：首页装饰动效空闲时暂停，触摸立刻恢复 */
+  const notifyActivity = useCallback(() => {
+    global.lx.lastUserActivityAt = Date.now()
+  }, [])
+  useEffect(() => {
+    notifyActivity()
+    const subscription = AppState.addEventListener('change', state => {
+      if (state === 'active') notifyActivity()
+    })
+    return () => { subscription.remove() }
+  }, [navActiveId, notifyActivity])
+
   // 记住进入播放器前停在哪个 Tab：横屏导航等直接切 nav_player 的入口关闭时要回到它
   useEffect(() => {
     rememberActiveTab(navActiveId)
@@ -40,6 +53,7 @@ export default ({ componentId }: Props) => {
   return (
     <CutoutCompensator>
       <PageContent>
+        <View style={{ flex: 1 }} onTouchStart={notifyActivity}>
         {
           isHorizontalMode
             ? <Horizontal />
@@ -54,6 +68,7 @@ export default ({ componentId }: Props) => {
         <PlayerTransition />
         {/* 全局 Material You 弹窗宿主：Home 常驻，一个实例覆盖所有页面（RN Modal 是 Activity 级 Dialog） */}
         <AppDialogHost />
+        </View>
       </PageContent>
     </CutoutCompensator>
   )
