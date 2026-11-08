@@ -463,9 +463,10 @@ export default () => {
     if (!isChinese) {
       updateSetting({ 'player.isShowLyricTranslation': true })
       void toggleTranslation(true)
-    } else if (!isCantonese) {
+    } else {
+      // 中文/粤语只需关掉翻译设置；不要调 toggleTranslation(false)：
+      // 它内部会等远程翻译请求并 seek，切歌时会拖慢起播
       updateSetting({ 'player.isShowLyricTranslation': false })
-      void toggleTranslation(false)
     }
   }, [musicInfo.id, musicLanguage])
   /** 歌名只显示歌名（下载文件的标签常常是「歌手 - 歌名」） */

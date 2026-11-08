@@ -194,7 +194,7 @@ const walk = async(dir: string, depth: number, out: DirEntry[]) => {
   }
 }
 
-const buildMusicInfo = async(file: DirEntry): Promise<LX.Music.MusicInfoLocal> => {
+const buildMusicInfo = async(file: DirEntry, previous?: LX.Music.MusicInfoLocal | null): Promise<LX.Music.MusicInfoLocal> => {
   const filePath = file.path
   const ext = extname(file.name).toLowerCase()
   const baseName = file.name.replace(/\.[^.]+$/, '')
@@ -265,9 +265,10 @@ const buildMusicInfo = async(file: DirEntry): Promise<LX.Music.MusicInfoLocal> =
       size: file.size,
       bitrate: metadata?.bitrate,
       sampleRate: metadata?.sampleRate,
-      year: metadata?.year,
-      genre: metadata?.genre,
-      language: metadata?.language,
+      // 文件标签读取器不返回这三项时，继承旧条目（刮削写入曲库的值不能被扫描覆盖）
+      year: metadata?.year ?? previous?.meta.year,
+      genre: metadata?.genre ?? previous?.meta.genre,
+      language: metadata?.language ?? previous?.meta.language,
     },
   }
 }
@@ -540,7 +541,7 @@ const enrichMissingMeta = async(
       applyAudioMeta(file, audioMeta)
       const index = indexByPath.get(file.path)
       // 替换成新对象而不是原地改字段：页面 / 行组件靠对象引用判断要不要重渲染
-      if (index != null) list[index] = await buildMusicInfo(file)
+      if (index != null) list[index] = await buildMusicInfo(file, list[index])
     }
     onProgress?.(list.length)
     const now = Date.now()
@@ -613,7 +614,7 @@ export const scanLocalMusic = async(
       unchanged += 1
     } else {
       try {
-        list.push(await buildMusicInfo(file))
+        list.push(await buildMusicInfo(file, prev))
         if (prev) updated += 1
         else added += 1
       } catch (err) {
