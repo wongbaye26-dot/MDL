@@ -1,5 +1,4 @@
-import { useImperativeHandle, forwardRef, useMemo, useRef, useState, type Ref } from 'react'
-import type { JSX } from 'react'
+import { useImperativeHandle, forwardRef, useMemo, useRef, useState, type Ref, type JSX } from 'react'
 import { View, Animated, TouchableHighlight } from 'react-native'
 import { useWindowSize } from '@/utils/hooks'
 

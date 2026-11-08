@@ -7,6 +7,19 @@ import { useAnimateColor } from '@/utils/hooks/useAnimateColor'
 import { DEFAULT_DURATION, useAnimateNumber } from '@/utils/hooks/useAnimateNumber'
 // import { AppColors } from '@/theme'
 
+/**
+ * Fabric 对 fontSize 做严格校验（<=0 直接抛 IllegalArgumentException）。
+ * 除了本组件计算的 fontSize，调用方传进来的 style 也可能覆盖成 0（隐藏占位文本等），
+ * 这里统一兜底为 1，避免一个 0 字号把整个渲染线程打崩。
+ */
+const clampTextStyle = (style: any) => {
+  try {
+    const flat = StyleSheet.flatten(style) as TextStyle | undefined
+    if (flat && typeof flat.fontSize === 'number' && flat.fontSize <= 0) return [flat, { fontSize: 1 }]
+  } catch {}
+  return style
+}
+
 export interface TextProps extends _TextProps {
   /**
    * 字体大小
@@ -52,7 +65,7 @@ export default memo(({ style, size = 15, color, children, ...props }: TextProps)
 
   return (
     <Text
-      style={style}
+      style={clampTextStyle(style)}
       {...props}
     >{children}</Text>
   )
@@ -88,7 +101,7 @@ export const AnimatedText = ({ style, size = 15, color, children, ...props }: An
     color: color ?? theme['c-font'],
   }, style as TextStyle)
 
-  return <Animated.Text style={style} {...props}>{children}</Animated.Text>
+  return <Animated.Text style={clampTextStyle(style)} {...props}>{children}</Animated.Text>
 }
 
 
@@ -133,5 +146,5 @@ export const AnimatedColorText = ({ style, size = 15, opacity: _opacity, color: 
     opacity,
   }, style as TextStyle)
 
-  return <Animated.Text style={style} {...props}>{children}</Animated.Text>
+  return <Animated.Text style={clampTextStyle(style)} {...props}>{children}</Animated.Text>
 }

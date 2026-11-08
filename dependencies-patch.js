@@ -131,6 +131,8 @@ const patchs = [
     `    @SuppressLint("RestrictedApi")
     public void updatePlayback(boolean playing) {
         this.playing = playing;
+        // 同步 MediaSession 的播放状态（否则新架构下通知栏/锁屏一直显示 CONNECTING）
+        updatePlaybackState(manager.getPlayback());
         List<Integer> compact = new ArrayList<>();
         builder.mActions.clear();`,
   ],
@@ -416,13 +418,96 @@ import android.util.Log;`,
     'var resolveAssetSource = require("react-native/Libraries/Image/resolveAssetSource");',
     'var resolveAssetSource = require("react-native").Image.resolveAssetSource;',
   ],
-  // 源码版本（postinstall 若重建 lib 会从 src 生成，需保证 src 也是新写法）
-  [
-    path.join(rootPath, 'node_modules/react-native-track-player/src/trackPlayer.ts'),
-    "import * as resolveAssetSource from 'react-native/Libraries/Image/resolveAssetSource'",
-    "import { Image } from 'react-native'\nconst resolveAssetSource = Image.resolveAssetSource",
-  ],
+  // 注：npm 物化后的 track-player 只保留 files 白名单（lib/ios/android/src 等）。
+  // 若某个环境缺 src，则 postinstall 不会重建 lib，直接用 lib 补丁即可。
 
+  // ---- track-player：RN 0.80 bridgeless 下 headless task 必须走 ReactHost ----
+  // 2.1.2 的 HeadlessJsTaskService 用 legacy ReactInstanceManager 启动 headless task，
+  // 新架构下 JS 跑在 bridgeless ReactHost 上，两者不是同一个 ReactContext →
+  // 报 "No task registered for key TrackPlayer"；音乐服务/通知栏控制因此不稳定。
+  [
+    path.join(rootPath, 'node_modules/react-native-track-player/android/src/main/java/com/guichaguri/trackplayer/service/HeadlessJsTaskService.java'),
+    'import com.facebook.react.ReactApplication;',
+    'import com.facebook.react.ReactApplication;\nimport com.facebook.react.ReactHost;',
+    'import com.facebook.react.ReactHost;',
+  ],
+  [
+    path.join(rootPath, 'node_modules/react-native-track-player/android/src/main/java/com/guichaguri/trackplayer/service/HeadlessJsTaskService.java'),
+    `  protected void startTask(final HeadlessJsTaskConfig taskConfig) {
+    UiThreadUtil.assertOnUiThread();
+    // acquireWakeLockNow(this);
+    final ReactInstanceManager reactInstanceManager =
+      getReactNativeHost().getReactInstanceManager();`,
+    `  protected void startTask(final HeadlessJsTaskConfig taskConfig) {
+    UiThreadUtil.assertOnUiThread();
+    // acquireWakeLockNow(this);
+    // RN 0.80 新架构（bridgeless）下走 ReactHost；legacy ReactInstanceManager 会创建另一个
+    // ReactContext，headless task 注册在 bridgeless 上下文里，找不到任务。
+    ReactApplication application = (ReactApplication) getApplication();
+    ReactHost reactHost = application.getReactHost();
+    if (reactHost != null) {
+      ReactContext existingContext = reactHost.getCurrentReactContext();
+      if (existingContext == null) {
+        ReactInstanceEventListener listener = new ReactInstanceEventListener() {
+          @Override
+          public void onReactContextInitialized(ReactContext reactContext) {
+            invokeStartTask(reactContext, taskConfig);
+            reactHost.removeReactInstanceEventListener(this);
+          }
+        };
+        reactHost.addReactInstanceEventListener(listener);
+        reactHost.start();
+      } else {
+        invokeStartTask(existingContext, taskConfig);
+      }
+      return;
+    }
+    final ReactInstanceManager reactInstanceManager =
+      getReactNativeHost().getReactInstanceManager();`,
+    'reactHost.getCurrentReactContext();',
+  ],
+  [
+    path.join(rootPath, 'node_modules/react-native-track-player/android/src/main/java/com/guichaguri/trackplayer/service/HeadlessJsTaskService.java'),
+    `  @Override
+  public void onDestroy() {
+    super.onDestroy();
+
+    if (getReactNativeHost().hasInstance()) {
+      ReactInstanceManager reactInstanceManager = getReactNativeHost().getReactInstanceManager();
+      ReactContext reactContext = reactInstanceManager.getCurrentReactContext();`,
+    `  @Override
+  public void onDestroy() {
+    super.onDestroy();
+
+    // 新架构用 ReactHost 的当前 context；旧架构才回退到 ReactInstanceManager
+    ReactApplication reactApplication = (ReactApplication) getApplication();
+    ReactHost appReactHost = reactApplication.getReactHost();
+    ReactContext reactContext = appReactHost != null
+      ? appReactHost.getCurrentReactContext()
+      : (getReactNativeHost().hasInstance()
+          ? getReactNativeHost().getReactInstanceManager().getCurrentReactContext()
+          : null);
+    if (true) {`,
+    'appReactHost.getCurrentReactContext()',
+  ],
+  // MusicService.onStartForeground 同样不能走 legacy ReactInstanceManager
+  [
+    path.join(rootPath, 'node_modules/react-native-track-player/android/src/main/java/com/guichaguri/trackplayer/service/MusicService.java'),
+    'import com.facebook.react.ReactInstanceManager;',
+    'import com.facebook.react.ReactApplication;\nimport com.facebook.react.ReactHost;\nimport com.facebook.react.ReactInstanceManager;',
+    'import com.facebook.react.ReactHost;',
+  ],
+  [
+    path.join(rootPath, 'node_modules/react-native-track-player/android/src/main/java/com/guichaguri/trackplayer/service/MusicService.java'),
+    `            ReactInstanceManager reactInstanceManager = getReactNativeHost().getReactInstanceManager();
+            ReactContext reactContext = reactInstanceManager.getCurrentReactContext();`,
+    `            ReactApplication reactApplication = (ReactApplication) getApplication();
+            ReactHost serviceReactHost = reactApplication.getReactHost();
+            ReactContext reactContext = serviceReactHost != null
+              ? serviceReactHost.getCurrentReactContext()
+              : getReactNativeHost().getReactInstanceManager().getCurrentReactContext();`,
+    'serviceReactHost.getCurrentReactContext()',
+  ],
   // ---- react-native-linear-gradient 2.8.3：AGP8 namespace ----
   // 上游 2.8.3 没有 namespace（AGP 8 会报错），本地手工补过但没进这个脚本；
   // 全新 npm install 时如果不补，构建会失败。RNGP 0.76 对「manifest 有 package」的库
@@ -440,7 +525,9 @@ import android.util.Log;`,
   // 默认（postinstall）只警告——npm install 阶段因为一个锚点失配就中断太激进。
   const strict = process.argv.includes('--strict')
   const failures = []
+  let patchIndex = -1
   for (const [filePath, fromStr, toStr, skipIf] of patchs) {
+    patchIndex += 1
     const label = filePath.replace(rootPath, '')
     try {
       const file = (await fs.promises.readFile(filePath)).toString()
@@ -451,7 +538,7 @@ import android.util.Log;`,
         continue
       }
       if (!file.includes(fromStr)) {
-        failures.push(`${label}：没找到锚点（上游可能改了）`)
+        failures.push(`${label}：没找到锚点（上游可能改了；patch #${patchIndex}）`)
         continue
       }
       await fs.promises.writeFile(filePath, file.replace(fromStr, toStr))

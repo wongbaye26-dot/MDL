@@ -18,10 +18,10 @@ import { BlurView } from '@react-native-community/blur'
 const blurAvailable = (() => {
   if (Platform.OS !== 'android') return true
   try {
-    // PoC：新架构下 @react-native-community/blur@4.4.1 的 Fabric 实现与打包的
-  // Dimezis BlurView 版本 API 不匹配（NoSuchMethodError: setupWith），
-  // 先用纯色降级；待升级 blur 库后再启用。
-  if ((global as any).nativeFabricUIManager != null) return false
+    // 新架构下 @react-native-community/blur@4.4.1 的 Fabric 实现与 RNN 8.6.2 带的
+    // Dimezis BlurView 3.0.0 API 不匹配（NoSuchMethodError: setupWith），
+    // 先用纯色降级；待 blur 库支持 BlurView 3 或自研 BlurTarget 方案后再启用。
+    if ((global as any).nativeFabricUIManager != null) return false
   return !!UIManager.getViewManagerConfig?.('AndroidBlurView')
   } catch {
     return false
