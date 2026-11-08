@@ -82,6 +82,11 @@ const main = () => {
     sh('git init -q', VENDOR_DIR)
     sh(`git clone --quiet ${pkg.url} ${JSON.stringify(pkg.name)}`, VENDOR_DIR)
     sh(`git checkout --quiet ${pkg.commit}`, dir)
+    // 让 vendor 包的 prepare（bob/tsc）能解析到根项目的 react-native 类型和 rimraf/tsc
+    const moduleLink = path.join(dir, 'node_modules')
+    try {
+      if (!fs.existsSync(moduleLink)) fs.symlinkSync(path.join(__dirname, '../node_modules'), moduleLink, 'dir')
+    } catch {}
     // 这两个包的 Metro 入口是 src（已由 dependencies-patch.js 改 types），
     // 不需要 bob 产物；删掉 prepare，避免 npm i 时因缺少 bob 直接失败。
     if (pkg.name === 'react-native-file-system' || pkg.name === 'react-native-local-media-metadata') {
