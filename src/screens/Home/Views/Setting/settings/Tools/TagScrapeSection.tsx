@@ -1,4 +1,6 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
+import { Modal, ScrollView, Text as RNText, TouchableOpacity, View } from 'react-native'
+import { getScrapeDebug, type ScrapeDebugEntry } from '@/core/localMusic/scrapeDebug'
 
 import { toast } from '@/utils/tools'
 import { cleanSongName } from '@/utils/songName'
@@ -49,6 +51,8 @@ export default memo(({ health, scanning, onChanged }: Props) => {
   const [metaRunning, setMetaRunning] = useState(false)
   const [metaProgress, setMetaProgress] = useState({ done: 0, total: 0 })
   const [metaSummary, setMetaSummary] = useState<{ done: number, notFound: number, file: number, libraryOnly: number, stopped: boolean } | null>(null)
+  const [debugVisible, setDebugVisible] = useState(false)
+  const [debugEntries, setDebugEntries] = useState<ScrapeDebugEntry[]>([])
   const metaRunningRef = useRef(false)
 
   const handleStart = useCallback(async() => {
@@ -222,6 +226,36 @@ export default memo(({ health, scanning, onChanged }: Props) => {
             : <SecondaryButton label='补全语言/年份/风格' icon='tag-outline' disabled={scanning || !metaItems.length} onPress={() => { void handleMetaStart() }} />
         }
       </ButtonRow>
+      <ButtonRow>
+        <SecondaryButton label='查看刮削请求' icon='tag-outline' onPress={() => { setDebugEntries(getScrapeDebug().reverse()); setDebugVisible(true) }} />
+      </ButtonRow>
+
+      <Modal visible={debugVisible} transparent animationType='slide' onRequestClose={() => { setDebugVisible(false) }}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' }}>
+          <View style={{ maxHeight: '80%', backgroundColor: '#1b1b1f', borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <RNText style={{ color: '#fff', fontSize: 15, fontWeight: '600' }}>刮削请求诊断（{debugEntries.length}）</RNText>
+              <TouchableOpacity onPress={() => { setDebugVisible(false) }}><RNText style={{ color: '#ff8a80', fontSize: 14 }}>关闭</RNText></TouchableOpacity>
+            </View>
+            <ScrollView>
+              {debugEntries.map((entry, index) => (
+                <View key={`${entry.at}_${index}`} style={{ borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)', paddingVertical: 8 }}>
+                  <RNText style={{ color: '#fff', fontSize: 13 }}>{entry.name}{entry.singer ? ` - ${entry.singer}` : ''}</RNText>
+                  <RNText style={{ color: '#9e9e9e', fontSize: 11, marginTop: 2 }}>{entry.note}</RNText>
+                  <RNText style={{ color: '#b0bec5', fontSize: 10, marginTop: 2 }}>
+                    {`源: ${entry.source || '-'} | 返回: ${entry.matchTitle || '-'} / ${entry.matchSinger || '-'} / ${entry.matchAlbum || '-'}`}
+                    {`
+albumId: ${entry.albumId || '-'} | songmid: ${entry.songmid || '-'}`}
+                    {`
+年份: ${entry.year || '-'} | 风格: ${entry.genre || '-'} | 语言: ${entry.language || '-'}`}
+                  </RNText>
+                  {entry.raw ? <RNText style={{ color: '#78909c', fontSize: 9, marginTop: 2 }} selectable>{entry.raw}</RNText> : null}
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </Card>
   )
 })
