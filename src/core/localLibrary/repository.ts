@@ -1,5 +1,6 @@
 import SQLite from 'react-native-sqlite-2'
 import type { SQLResultSet, SQLTransaction, WebsqlDatabase } from 'react-native-sqlite-2'
+import { TRACK_COLUMNS, buildTrackValues } from './trackColumns'
 
 /**
  * 本地曲库关系型仓库（A-2 / A2-03）。
@@ -52,13 +53,7 @@ export interface BenchmarkResult {
   rows: number
 }
 
-const TRACK_COLUMNS = [
-  'id', 'legacy_id', 'fingerprint', 'media_id', 'path', 'content_uri', 'title',
-  'album_name', 'album_artist', 'duration_ms', 'format', 'bitrate', 'sample_rate',
-  'channels', 'size', 'mtime', 'added_at', 'updated_at', 'cover_key', 'source',
-  'is_hidden', 'is_missing', 'cue_path', 'cue_track',
-  'language', 'year', 'genre',
-] as const
+
 
 /** 把查询结果转成普通对象数组（WebSQL 的 rows 是 native 有序字典） */
 const readRows = (result: SQLResultSet): Array<Record<string, unknown>> => {
@@ -251,17 +246,7 @@ class LocalLibraryRepository {
     const now = Date.now()
     await this.transaction(db, tx => {
       for (const track of tracks) {
-        // 参数顺序必须和 TRACK_COLUMNS 完全一致；加列时漏改 values 会让整批双写静默失败
-        const params = [
-          track.id, track.legacyId ?? null, track.fingerprint ?? null, track.mediaId ?? null,
-          track.path, track.contentUri ?? null, track.title, track.albumName ?? null,
-          track.albumArtist ?? null, track.durationMs ?? 0, track.format ?? null,
-          track.bitrate ?? null, track.sampleRate ?? null, track.channels ?? null,
-          track.size ?? null, track.mtime ?? null, track.addedAt ?? now, track.updatedAt ?? now,
-          track.coverKey ?? null, track.source ?? 'local',
-          track.isHidden ? 1 : 0, track.isMissing ? 1 : 0, track.cuePath ?? null, track.cueTrack ?? null,
-          track.language ?? null, track.year ?? null, track.genre ?? null,
-        ]
+        const params = buildTrackValues(track, now)
         if (params.length !== TRACK_COLUMNS.length) {
           throw new Error(`tracks 列/值数量不一致: columns=${TRACK_COLUMNS.length}, values=${params.length}`)
         }

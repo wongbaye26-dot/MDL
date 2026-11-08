@@ -7,6 +7,7 @@ import type { TagIncompleteItem } from '@/core/localMusic/scrape'
 import { resolveWriteTargets, writeTagsToFile } from './fileWrite'
 import { readFlacTags } from '@/utils/flacTag'
 import { log } from '@/utils/log'
+import { sameText, tagsMatch } from '@/core/localMusic/tagCompare'
 
 /**
  * 音乐工具 - 批量刮削标签。
@@ -69,8 +70,6 @@ const withWriteSlot = async<T>(task: () => Promise<T>): Promise<T> => {
   }
 }
 
-const sameText = (a?: string | null, b?: string | null) => (a ?? '').trim() === (b ?? '').trim()
-
 /** 读文件现有标签（仅真实路径 FLAC）；读不到返回 null，表示无法判断 */
 const readExistingTags = async(item: LX.Music.MusicInfoLocal): Promise<Record<string, string> | null> => {
   if ((item.meta.ext ?? '').toLowerCase() !== 'flac') return null
@@ -83,15 +82,6 @@ const readExistingTags = async(item: LX.Music.MusicInfoLocal): Promise<Record<st
   }
 }
 
-const tagsMatch = (tags: Record<string, string> | null, wanted: { title: string, artist: string, album: string, year: string, genre: string, language: string }) => {
-  if (!tags) return false
-  return sameText(tags.TITLE, wanted.title) &&
-    sameText(tags.ARTIST, wanted.artist) &&
-    sameText(tags.ALBUM, wanted.album) &&
-    sameText(tags.DATE, wanted.year) &&
-    sameText(tags.GENRE, wanted.genre) &&
-    sameText(tags.LANGUAGE, wanted.language)
-}
 
 /** 文件里或其他地方已经有能显示的封面？有就不用再下载 */
 const hasUsableCover = async(item: LX.Music.MusicInfoLocal): Promise<boolean> => {
