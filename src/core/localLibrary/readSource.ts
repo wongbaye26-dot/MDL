@@ -15,8 +15,11 @@ const KEY = 'local_library_read_source_v1'
 export type ReadSource = 'json' | 'repository'
 
 export const getReadSource = async(): Promise<ReadSource> => {
+  // 刮削写入 language/year/genre 后，SQLite 影子双写并不保证这三列成功；
+  // 为保证「写完立刻能读到」，读源暂时固定 JSON（JSON 是写入权威源）。
   const value = await getData<ReadSource>(KEY).catch(() => null)
-  return value === 'json' ? 'json' : 'repository'
+  if (value === 'json') return 'json'
+  return 'json'
 }
 
 export const setReadSource = async(source: ReadSource): Promise<void> => {

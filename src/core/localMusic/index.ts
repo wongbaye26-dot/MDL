@@ -162,6 +162,7 @@ export const getLocalMusicList = async(): Promise<LX.Music.MusicInfoLocal[]> => 
     })
     if (changed) void saveLocalMusicList(cachedList)
   }
+  void backfillMetaFromFlac(cachedList)
   return [...cachedList]
 }
 
@@ -793,6 +794,26 @@ export const deleteLocalMusic = async(item: LX.Music.MusicInfoLocal, deleteFile:
  * 更新本地音乐的元信息（名称、歌手、专辑）
  * 仅更新缓存和持久化，不写入物理文件标签
  */
+let metaBackfillStarted = false
+/** 从 FLAC 文件头回填 language/year/genre：修复历史版本只写文件、曲库未保存的问题 */
+const backfillMetaFromFlac = async(list: LX.Music.MusicInfoLocal[]) => {
+  if (metaBackfillStarted) return
+  metaBackfillStarted = true
+  let changed = false
+  for (const item of list) {
+    if ((item.meta.ext ?? '').toLowerCase() !== 'flac') continue
+    if (item.meta.language && item.meta.year && item.meta.genre) continue
+    try {
+      const tags = await readFlacTags(item.meta.filePath)
+      if (!tags) continue
+      if (!item.meta.language && tags.LANGUAGE) { item.meta.language = tags.LANGUAGE; changed = true }
+      if (!item.meta.year && tags.DATE) { item.meta.year = tags.DATE; changed = true }
+      if (!item.meta.genre && tags.GENRE) { item.meta.genre = tags.GENRE; changed = true }
+    } catch {}
+  }
+  if (changed) await saveLocalMusicList(cachedList ?? list)
+}
+
 export const updateLocalMusicMeta = async(item: LX.Music.MusicInfoLocal, updates: {
   name?: string
   singer?: string
