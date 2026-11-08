@@ -2,6 +2,7 @@ import { downloadFile, extname, stat, temporaryDirectoryPath, unlink } from '@/u
 import { findAudioByPath } from '@/utils/directoryPicker'
 import { writeMetadata, writePic, type MusicMetadata } from '@/utils/localMediaMetadata'
 import { writeFlacTags } from '@/utils/flacTag'
+import { existsFile } from '@/utils/fs'
 
 /**
  * 写回音频文件的公共逻辑（补封面 / 刮削标签共用）。
@@ -108,6 +109,8 @@ export const writeTagsToFile = async(
     LANGUAGE: tags.language ?? '',
   }
   const hasExtra = !!(tags.year || tags.genre || tags.language)
+  // 纯 JS 的 FLAC 写入只能操作真实路径；SAF/content:// 条目没有可读真实路径，强行 readFile 会原生崩溃
+  const plainRealPath = targets.list.find(path => !path.startsWith('content://')) ? targets.realPath : ''
   for (const target of targets.list) {
     try {
       await writeMetadata(target, {
@@ -115,9 +118,9 @@ export const writeTagsToFile = async(
         singer: tags.singer,
         albumName: tags.albumName,
       })
-      if (hasExtra && targets.ext === 'flac' && targets.realPath) {
+      if (hasExtra && targets.ext === 'flac' && plainRealPath && await existsFile(plainRealPath)) {
         try {
-          await writeFlacTags(targets.realPath, flacTags)
+          await writeFlacTags(plainRealPath, flacTags)
         } catch {}
       }
       return { target }
