@@ -31,6 +31,7 @@ import { useSettingValue } from '@/store/setting/hook'
 import { toast } from '@/utils/tools'
 import { useLrcSet, useLrcPlay, type Line } from '@/plugins/lyric'
 import * as Jyutping from '@/utils/jyutping/index.js'
+import { detectLanguage, isCantonese, isChineseLanguage } from '@/utils/language'
 import playerState from '@/store/player/state'
 import { collectMusic, playList, playNext, playPrev, togglePlay, uncollectMusic } from '@/core/player/player'
 import { setCurrentTime, getDuration } from '@/plugins/player'
@@ -454,13 +455,20 @@ export default () => {
   const musicInfo = usePlayerMusicInfo()
 
   // 按歌曲语言自动切换：粤语开粤拼、外语开翻译、国语关闭粤拼
-  const musicLanguage = String((musicInfo as { language?: string }).language ?? '')
+  const metaLanguage = String((musicInfo as { language?: string }).language ?? '')
+  // 在线歌没有 language 字段：歌词加载后用歌词判断语种
+  const lyricLanguage = useMemo(() => detectLanguage(String(musicInfo.rawlrc ?? musicInfo.lrc ?? ''), `${musicInfo.name ?? ''} ${musicInfo.singer ?? ''}`), [musicInfo.id, musicInfo.lrc, musicInfo.rawlrc])
+  // 曲库语言若只有「普通话」而歌词明显是粤语，以歌词为准（修复刮削误判）
+  const musicLanguage = (!metaLanguage || metaLanguage === '普通话') && lyricLanguage
+    ? lyricLanguage
+    : metaLanguage
   useEffect(() => {
     if (!musicLanguage) return
-    const isCantonese = /粤语|cantonese/i.test(musicLanguage)
-    const isChinese = /中文|国语|普通话|粤语|chinese/i.test(musicLanguage)
-    updateSetting({ 'player.isAutoJyutping': isCantonese })
-    if (!isChinese) {
+    const cantonese = isCantonese(musicLanguage)
+    const chinese = isChineseLanguage(musicLanguage)
+    updateSetting({ 'player.isAutoJyutping': cantonese })
+    if (!chinese) {
+      // 外语：自动开启中文翻译
       updateSetting({ 'player.isShowLyricTranslation': true })
       void toggleTranslation(true)
     } else {

@@ -3,6 +3,7 @@ import { splitNameAndSinger } from '@/utils/songName'
 import { fetchNetworkCover } from './cover'
 import { httpFetch } from '@/utils/request'
 import { pushScrapeDebug } from './scrapeDebug'
+import { detectLanguage } from '@/utils/language'
 
 /**
  * 本地音乐标签刮削：拿「歌名 + 歌手」去各音源搜一遍，给每首歌挑一个真正对得上的结果。
@@ -173,27 +174,6 @@ const getResultYear = (result: SearchSong): string => {
 
 /** 从搜索结果取风格（部分音源没有该字段） */
 const getResultGenre = (result: SearchSong): string => (result.genre ?? '').trim().slice(0, 60)
-
-/** 语言判断：优先看歌词，其次看歌名/歌手文字 */
-const detectLanguage = (lyric: string, fallbackText: string): string => {
-  const text = lyric || fallbackText
-  if (!text) return ''
-  if (/[\u3040-\u30ff]/.test(text)) return '日文'
-  if (/[\uac00-\ud7af]/.test(text)) return '韩文'
-  // 粤语歌词常见字（冇/嘅/咗/唔/係/佢/哋/睇/咁/嚟/呢/嗰/乜/嘢）
-  // 粤语常用字（含繁体写法）
-  if (/[冇嘅咗唔係佢哋睇咁嚟呢嗰乜嘢俾揾瞓諗啲咩咪喺囉喎啩㗎]/.test(text)) return '粤语'
-  const cjk = (text.match(/[\u4e00-\u9fff]/g) ?? []).length
-  const latin = (text.match(/[a-zA-Z]/g) ?? []).length
-  if (latin > cjk * 3 && latin > 20) return '英文'
-  if (cjk > 0) {
-    // 繁体字比例高 + 粤语歌词常见“系/唔/嘅”类语境，判为粤语；否则普通话
-    const traditional = (text.match(/[聽説說愛這這麼們時間開關學習邊裡為與來對過還讓從會後發現實現點電話車見覺樣願記憶舊夢歲華麗聲響風雲變換傷終於無數擁抱親吻淚流嗎呢吧啊呀]/g) ?? []).length
-    if (traditional / cjk > 0.12) return '粤语'
-    return '普通话'
-  }
-  return ''
-}
 
 /** 拉取匹配结果的歌词文本，用于判断语言 */
 const getResultLyric = async(source: ScrapeSource, result: SearchSong): Promise<string> => {
