@@ -20,6 +20,7 @@ import {
   type AudioFileItem,
 } from '@/utils/directoryPicker'
 import { formatPlayTime } from '@/utils'
+import { readFlacTags } from '@/utils/flacTag'
 import { splitNameAndSinger } from '@/utils/songName'
 import { log } from '@/utils/log'
 import { resolveDownloadedCover } from './cover'
@@ -240,6 +241,19 @@ const buildMusicInfo = async(file: DirEntry, previous?: LX.Music.MusicInfoLocal 
     // 标签里的标题常常是「歌手 - 歌名」（下载器的命名格式），
     // 歌手已知时把歌名里的歌手摘掉，列表上只显示歌名
     name = splitNameAndSinger(name, singer).name
+  }
+
+  // 原生标签读取器不返回语言/年份/风格；FLAC 用自研头部解析补上（只读 512KB）
+  if (ext === 'flac' && (!metadata?.language || !metadata?.year || !metadata?.genre)) {
+    try {
+      const tags = await readFlacTags(filePath)
+      if (tags) {
+        metadata = metadata ?? {}
+        metadata.language = metadata.language || tags.LANGUAGE || ''
+        metadata.year = metadata.year || tags.DATE || ''
+        metadata.genre = metadata.genre || tags.GENRE || ''
+      }
+    } catch {}
   }
 
   return {
@@ -774,6 +788,7 @@ export const updateLocalMusicMeta = async(item: LX.Music.MusicInfoLocal, updates
   year?: string
   genre?: string
   language?: string
+  contentUri?: string
 }): Promise<void> => {
   const list = await getLocalMusicList()
   const index = list.findIndex(m => m.id === item.id)
@@ -785,7 +800,8 @@ export const updateLocalMusicMeta = async(item: LX.Music.MusicInfoLocal, updates
     updates.albumName !== undefined ||
     updates.year !== undefined ||
     updates.genre !== undefined ||
-    updates.language !== undefined
+    updates.language !== undefined ||
+    updates.contentUri !== undefined
   ) {
     updated.meta = {
       ...updated.meta,
@@ -793,6 +809,7 @@ export const updateLocalMusicMeta = async(item: LX.Music.MusicInfoLocal, updates
       ...(updates.year !== undefined ? { year: updates.year } : null),
       ...(updates.genre !== undefined ? { genre: updates.genre } : null),
       ...(updates.language !== undefined ? { language: updates.language } : null),
+      ...(updates.contentUri !== undefined ? { contentUri: updates.contentUri } : null),
     }
   }
   // 整条替换成新对象：页面里行的 memo 靠引用变化决定要不要重渲染

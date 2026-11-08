@@ -78,9 +78,12 @@ export const getMusicUrl = async({ musicInfo, isRefresh, allowToggleSource = tru
     // 公共目录（用户添加的文件夹）里的文件按路径打开会 EACCES，
     // 必须用 MediaStore 的 content:// 地址交给播放器。
     // 老数据没有 contentUri，就按路径反查一次。
-    const contentUri = musicInfo.meta.contentUri ?? (await findAudioByPath(musicInfo.meta.filePath))?.contentUri
+    // 文件被标签工具重写后 MediaStore id 会变，旧 contentUri 会 No item；
+    // 每次播放先按路径反查最新 id，拿不到才退回缓存的 URI。
+    const found = await findAudioByPath(musicInfo.meta.filePath).catch(() => null)
+    const contentUri = found?.contentUri ?? musicInfo.meta.contentUri
     if (contentUri) {
-      if (!musicInfo.meta.contentUri) musicInfo.meta.contentUri = contentUri
+      if (musicInfo.meta.contentUri !== contentUri) musicInfo.meta.contentUri = contentUri
       return contentUri
     }
     const path = await getLocalFilePath(musicInfo)

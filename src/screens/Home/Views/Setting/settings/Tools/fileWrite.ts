@@ -3,6 +3,7 @@ import { findAudioByPath } from '@/utils/directoryPicker'
 import { writeMetadata, writePic, type MusicMetadata } from '@/utils/localMediaMetadata'
 import { writeFlacTags } from '@/utils/flacTag'
 import { existsFile } from '@/utils/fs'
+import { scanFile } from '@/utils/nativeModules/download'
 
 /**
  * 写回音频文件的公共逻辑（补封面 / 刮削标签共用）。
@@ -88,6 +89,23 @@ export const downloadCover = async(url: string): Promise<string> => {
 export interface TagWriteResult {
   /** 标签最终写到了哪个地址（'' = 没写进文件） */
   target: string
+  /** 文件被重写后 MediaStore 可能分配新 id，刷新后的 contentUri（'' = 没变化/拿不到） */
+  contentUri?: string
+}
+
+/**
+ * 文件被「临时文件替换」后，MediaStore 里的旧 id 会失效（content://media/.../6391 No item），
+ * 播放器会一直重试到超时。这里触发系统媒体扫描，并轮询拿到新 contentUri。
+ */
+export const refreshMediaUri = async(filePath: string): Promise<string> => {
+  if (!filePath || filePath.startsWith('content://')) return ''
+  await scanFile(filePath).catch(() => false)
+  for (let i = 0; i < 8; i++) {
+    const found = await findAudioByPath(filePath).catch(() => null)
+    if (found?.contentUri) return found.contentUri
+    await new Promise(resolve => setTimeout(resolve, 250))
+  }
+  return ''
 }
 
 /**
@@ -121,6 +139,8 @@ export const writeTagsToFile = async(
       if (hasExtra && targets.ext === 'flac' && plainRealPath && await existsFile(plainRealPath)) {
         try {
           await writeFlacTags(plainRealPath, flacTags)
+          const contentUri = await refreshMediaUri(plainRealPath)
+          return { target, contentUri }
         } catch {}
       }
       return { target }
@@ -130,7 +150,8 @@ export const writeTagsToFile = async(
   if (targets.realPath && targets.ext === 'flac') {
     try {
       await writeFlacTags(targets.realPath, flacTags)
-      return { target: targets.realPath }
+      const contentUri = await refreshMediaUri(targets.realPath)
+      return { target: targets.realPath, contentUri }
     } catch {}
   }
 

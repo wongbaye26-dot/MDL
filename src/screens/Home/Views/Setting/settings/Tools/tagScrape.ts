@@ -85,6 +85,7 @@ const scrapeOne = async(
     year: nextYear || undefined,
     genre: nextGenre || undefined,
     language: nextLanguage || undefined,
+    contentUri: result.contentUri || undefined,
   })
   if (result.target) summary.file++
   else summary.libraryOnly++
@@ -137,6 +138,7 @@ export const runMetaScrape = async(
           year: year || undefined,
           genre: genre || undefined,
           language: language || undefined,
+          contentUri: wrote.contentUri || undefined,
         })
         done++
         callbacks.onItemResult?.(item, 'file')

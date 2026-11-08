@@ -20,6 +20,7 @@ import { documentUriToRealPath } from '@/utils/directoryPicker'
 import { writeMetadata } from '@/utils/localMediaMetadata'
 import { readFlacTags, writeFlacTags } from '@/utils/flacTag'
 import { updateLocalMusicMeta } from '@/core/localMusic'
+import { refreshMediaUri } from '@/screens/Home/Views/Setting/settings/Tools/fileWrite'
 import { CoverImage } from './cover'
 import { useNeutralPalette } from './palette'
 
@@ -198,6 +199,7 @@ export default ({ item, onClose }: Props) => {
         }
       }
       // ③ 写回曲库：文件标签写成功了才更新列表数据
+      const refreshedUri = canEditFlacTags ? await refreshMediaUri(realPath) : ''
       await updateLocalMusicMeta(item, {
         name: nextName,
         singer: nextSinger,
@@ -205,6 +207,7 @@ export default ({ item, onClose }: Props) => {
         year: values.year.trim() || undefined,
         genre: values.genre.trim() || undefined,
         language: values.language.trim() || undefined,
+        contentUri: refreshedUri || undefined,
       })
       if (flacError) toast(`基础标签已保存；FLAC 扩展标签写入失败：${flacError}`)
       else toast('已保存')
