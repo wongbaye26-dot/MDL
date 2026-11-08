@@ -3,9 +3,8 @@ name: Check
 # 提交/PR 上跑的静态检查。
 #
 # 注意：这个仓库有 4 个原生依赖指向仓库**外面**的 ../vendor，
-# 所以第一步必须先把它们拉下来（scripts/setup-vendor.js），否则 npm ci 直接失败。
-# 这也是为什么这里用 `npm install` 而不是 `npm ci` —— package-lock 里的
-# file:../vendor/* 路径需要按实际位置重新解析。
+# 所以必须先把它们拉下来（scripts/setup-vendor.js），否则 npm 直接失败。
+# 这一步已收敛到 .github/actions/setup，避免各工作流重复/漏配。
 
 on:
   push:
@@ -21,18 +20,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
-      # vendor 是仓库外的 4 个 fork，按 commit 拉取到 ../vendor
-      - name: Fetch vendored native deps
-        run: node scripts/setup-vendor.js
-
-      - name: Install dependencies
-        run: npm install --no-audit --no-fund
+      # Node / Java / npm 缓存 + 拉取 vendor + npm ci（.npmrc 已开启 install-links）
+      - name: Setup Env
+        uses: ./.github/actions/setup
 
       # postinstall 会跑 dependencies-patch.js；再显式校验一遍补丁有没有打上
       - name: Verify vendor patches
@@ -43,3 +33,6 @@ jobs:
 
       - name: Lint
         run: npm run lint
+
+      - name: Unit tests
+        run: npm run test:unit

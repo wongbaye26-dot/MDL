@@ -83,6 +83,13 @@ RN 0.76 的 Metro（0.81）不再跟随 node_modules 里指向仓库外的软链
 - 新增仓库根 `.npmrc`：`install-links=true`，让 `npm install` 把 `file:` 依赖物化为真实目录。
 - `scripts/check-vendor.js` 的 track-player 扩展方法检查改为「源码 `src/trackPlayer.ts` 或
   物化后的 `lib/trackPlayer.d.ts` 二选一」——`--install-links` 装法只保留 `files` 白名单里的 `lib/`。
+- **track-player 的 lib 改为 postinstall 生成**：`setup-vendor` 去掉它的 `prepare`
+  （`rimraf lib && tsc` 在干净环境会因根依赖未就绪而失败，是 CI 一直失败的第二层原因），
+  `dependencies-patch.js` 在依赖装好后用根项目的 `tsc -p` 生成 `lib/`。
+- **CI 工作流修复**：vendor 拉取收敛进 `.github/actions/setup`（release/beta/build-test/check 共用），
+  `build-test` 增加 setup/typecheck/unit，release workflow 删掉永远不存在的 x86 产物引用与无用
+  `DISABLE_SVG`；`.nvmrc` 升到 Node 20。已用「空目录 + 重新 clone vendor + npm ci」演练
+  （vendor:check / typecheck / lint / test:unit / Metro bundle 全过）。
 
 ---
 

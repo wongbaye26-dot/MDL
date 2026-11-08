@@ -57,6 +57,71 @@ const currentCommit = (dir) => {
   }
 }
 
+/**
+ * 每次（无论新拉还是已存在）都要做的一致性处理。
+ *
+ * 为什么不放在 clone 分支里：已存在的 vendor 目录会走 skip 分支，
+ * 之前的写法导致「新增的归一化规则」在旧机器上永远不生效。
+ */
+const normalize = (pkg, dir) => {
+  // 让 vendor 包的 prepare / tsc 能解析到根项目的 react-native 类型和 rimraf/tsc
+  const moduleLink = path.join(dir, 'node_modules')
+  try {
+    if (!fs.existsSync(moduleLink)) fs.symlinkSync(path.join(__dirname, '../node_modules'), moduleLink, 'dir')
+  } catch {}
+
+  // 软链装法（没有 install-links）时 dependencies-patch 会写进 vendor 工作树；
+  // 现在补丁以 node_modules 为准，vendor 应保持干净。只提示，不擅自 reset。
+  try {
+    // package.json 是本脚本自己归一化改的、node_modules 是软链，都不算「补丁残留」。
+    const dirty = execSync('git status --porcelain', { cwd: dir, encoding: 'utf8' })
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line =>
+        line &&
+        !line.includes('package.json') &&
+        !line.includes('node_modules') &&
+        !line.includes('build/'), // Gradle 构建产物，不是补丁残留
+      )
+    if (dirty.length) {
+      console.warn(`⚠ ${pkg.name} 工作树有本地修改（可能是历史补丁残留）：${dirty.join(', ')}`)
+      console.warn('  补丁以 node_modules 为准；需要干净源码可执行：')
+      console.warn(`  git -C ${JSON.stringify(dir)} checkout -- .`)
+    }
+  } catch {}
+
+  const pkgFile = path.join(dir, 'package.json')
+  const json = JSON.parse(fs.readFileSync(pkgFile, 'utf8'))
+  let changed = false
+
+  // 这两个包的 Metro 入口是 src（dependencies-patch.js 会把 types 指到 src），
+  // 不需要 bob 产物；删掉 prepare，避免 npm i 时因缺少 bob 直接失败。
+  if (pkg.name === 'react-native-file-system' || pkg.name === 'react-native-local-media-metadata') {
+    if (json.scripts?.prepare) {
+      delete json.scripts.prepare
+      changed = true
+    }
+  }
+
+  // track-player 的 prepare 是 `rimraf lib && tsc`，需要根 node_modules 里的 rimraf/tsc。
+  // 干净环境 npm ci 时根依赖还没装好，prepare 必失败（CI 2026-11-04 的失败即此链路）。
+  // 处理：去掉 prepare，改由 dependencies-patch.js 在 postinstall 里用根 tsc 生成 lib；
+  // 同时把 src/tsconfig 加进 files 白名单，保证 install-links 物化到 node_modules 后仍能就地构建。
+  if (pkg.name === 'react-native-track-player') {
+    if (json.scripts?.prepare) {
+      delete json.scripts.prepare
+      changed = true
+    }
+    const files = ['lib/**/*', 'ios/**/*', 'android/**/*', 'src/**/*', 'tsconfig.json', '*.podspec']
+    if (JSON.stringify(json.files) !== JSON.stringify(files)) {
+      json.files = files
+      changed = true
+    }
+  }
+
+  if (changed) fs.writeFileSync(pkgFile, JSON.stringify(json, null, 2) + '\n')
+}
+
 const main = () => {
   const force = process.argv.includes('--force')
   if (!fs.existsSync(VENDOR_DIR)) fs.mkdirSync(VENDOR_DIR, { recursive: true })
@@ -70,6 +135,7 @@ const main = () => {
       const cur = currentCommit(dir)
       if (cur === pkg.commit) {
         console.log(`✅ ${pkg.name} 已就位 (${cur.slice(0, 8)})`)
+        normalize(pkg, dir)
         continue
       }
       console.log(`↻ ${pkg.name} commit 不符（当前 ${cur?.slice(0, 8) ?? '?'}，期望 ${pkg.commit.slice(0, 8)}），重新拉取`)
@@ -82,27 +148,13 @@ const main = () => {
     sh('git init -q', VENDOR_DIR)
     sh(`git clone --quiet ${pkg.url} ${JSON.stringify(pkg.name)}`, VENDOR_DIR)
     sh(`git checkout --quiet ${pkg.commit}`, dir)
-    // 让 vendor 包的 prepare（bob/tsc）能解析到根项目的 react-native 类型和 rimraf/tsc
-    const moduleLink = path.join(dir, 'node_modules')
-    try {
-      if (!fs.existsSync(moduleLink)) fs.symlinkSync(path.join(__dirname, '../node_modules'), moduleLink, 'dir')
-    } catch {}
-    // 这两个包的 Metro 入口是 src（已由 dependencies-patch.js 改 types），
-    // 不需要 bob 产物；删掉 prepare，避免 npm i 时因缺少 bob 直接失败。
-    if (pkg.name === 'react-native-file-system' || pkg.name === 'react-native-local-media-metadata') {
-      const pkgFile = path.join(dir, 'package.json')
-      const json = JSON.parse(fs.readFileSync(pkgFile, 'utf8'))
-      if (json.scripts?.prepare) {
-        delete json.scripts.prepare
-        fs.writeFileSync(pkgFile, JSON.stringify(json, null, 2) + '\n')
-      }
-    }
+    normalize(pkg, dir)
     cloned += 1
     console.log(`✅ ${pkg.name} @ ${pkg.commit.slice(0, 8)}`)
   }
 
   console.log(`\n完成：新拉取 ${cloned} 个，其余已就位。`)
-  console.log('接下来跑 `npm i`（会执行 postinstall 里的 dependencies-patch.js）。')
+  console.log('接下来跑 `npm i`（postinstall 会执行 dependencies-patch.js；track-player 的 lib 会在那里用 tsc 生成）。')
 }
 
 main()
