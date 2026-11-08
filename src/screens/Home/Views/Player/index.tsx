@@ -519,8 +519,15 @@ export default () => {
    * 行高不再写死：开翻译/注音后每行高度由「主歌词折行数 + 扩展行实际行数」撑开，
    * 只有真的有翻译/拼音的行才变高，相邻行距不会再被固定 +40dp 撑得很空。
    */
+  const isCantoneseSong = /粤语|粵語|cantonese/i.test(musicLanguage)
   const lyricExtras = useMemo(() => lines.map(line => {
-    if (line.extendedLyrics?.length) return line.extendedLyrics
+    if (line.extendedLyrics?.length) {
+      // 音源 romalrc：粤语歌直接用作粤拼；国语歌只保留翻译（含中文的行），丢弃拼音
+      const extras = isCantoneseSong
+        ? line.extendedLyrics
+        : line.extendedLyrics.filter(text => hasCjk(text))
+      if (extras.length) return extras
+    }
     if (!isAutoJyutping) return []
     const text = line.text?.trim()
     if (!text) return []
@@ -536,7 +543,7 @@ export default () => {
     } catch {
       return []
     }
-  }), [lines, isAutoJyutping])
+  }), [lines, isAutoJyutping, isCantoneseSong])
 
   /*
     播放器页底色永远是深色（封面糊底），所以不能直接用 c-primary：
