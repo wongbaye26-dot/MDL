@@ -4,6 +4,17 @@ EmoMusic 是基于 lxmusic 开源项目二次开发的独立项目，直接使�
 
 > v3.13–v3.37 的逐版说明见 `doc/release-notes-*.md`；这里只补最近几个里程碑，保证 App 内更新弹窗的历史连贯。
 
+## v3.42.x（新架构升级）
+
+### v3.42.0
+- React Native 0.76.9 → **0.80.3**（React 19.1.0），启用 **Fabric / Bridgeless / TurboModule 新架构**；旧架构 `newArchEnabled=false` 不再使用。
+- react-native-navigation 8.0.0 → **8.6.2**（新架构版；改为 CLI 约定式 autolink，不再需要 `npx rnn-link` 的 Android 步骤）。
+- Android 构建链：Gradle 8.14.1、Kotlin 2.1.20、NDK 27.1、compileSdk/targetSdk 36；**全部 arm64 so 16KB 对齐**（含 quickjs 2.4.0 → 3.2.3）。
+- **自研 `GlassBlurView` 替代 `@react-native-community/blur`**：解决 community blur 4.4.1（BlurView 2.0.4 API）与 RNN 8.6.2（BlurView 3.0.0）的 `NoSuchMethodError`；真高斯模糊回归、页面布局零改动；API<31 退化为纯色。
+- 旧桥原生模块 / 第三方库通过 interop 层继续工作；异步存储 KSP、track-player 深路径 import、React 19 类型/JSX、Fabric fontSize 校验等已适配。
+- 修复：本地曲库中「物理文件已被外部删除」的歌曲无法删除记录（真实路径回退 + 文件不存在按已删除处理 + 「仅从列表移除」兜底）。
+- 升级细节、兼容矩阵、已知限制见 `doc/new-arch-assessment.md` 与 `doc/release-notes-3.42.0.md`。
+
 ## v3.41.x（RN 0.76 升级）
 
 ### v3.41.0

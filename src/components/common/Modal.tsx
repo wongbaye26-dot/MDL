@@ -77,6 +77,8 @@ export default forwardRef<ModalType, ModalProps>(({
     },
   }))
 
+  // React 19 的 ReactNode 包含 Promise<ReactNode>，lint 的 promise-function-async 会误判；这里就是同步缓存 children
+  // eslint-disable-next-line @typescript-eslint/promise-function-async
   const memoChildren = useMemo(() => children, [children])
 
   return (

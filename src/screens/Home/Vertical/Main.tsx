@@ -37,7 +37,8 @@ const Page = ({ id, children }: { id: CommonState['navActiveId'], children: Reac
   const theme = useTheme()
   const [visible, setVisible] = useState(commonState.navActiveId == id)
   // children 只在首次挂载时取一次：切 Tab 不应该重建页面（否则滚动位置、播放状态都会丢）
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // React 19 的 ReactNode 包含 Promise<ReactNode>，lint 的 promise-function-async 会误判；这里就是同步缓存 children
+  // eslint-disable-next-line react-hooks/exhaustive-deps, @typescript-eslint/promise-function-async
   const component = useMemo(() => children, [])
   const firstShowRef = useRef(true)
   const opacity = useRef(new Animated.Value(1)).current

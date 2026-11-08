@@ -347,3 +347,17 @@ P2 全量回归（17 项真机 + 新架构专项）约 **4–6 人日**；合计
 - 本地音乐列表滚动时，底部导航玻璃条后可看到被模糊的封面/歌词块（真模糊，不再是纯色）；
 - 首页悬浮搜索胶囊、播放条、榜单页头玻璃均正常；
 - 无崩溃、无 `Unimplemented component`、无 `NoSuchMethodError`；APK 中已无 `BlurView` 相关库。
+
+---
+
+## 11. 发布结果（2026-11-09）
+
+- `upgrade/rn-0.80-newarch` 已合并到 `master`（merge commit `2e3f53d9`），并发布 **v3.42.0**。
+- 新架构版本矩阵：RN 0.80.3 / React 19.1.0 / RNN 8.6.2 / Gradle 8.14.1 / Kotlin 2.1.20 / NDK 27.1 / compileSdk 36。
+- 产物（dist）：
+  - `EmoMusic-v3.42.0-arm64-v8a.apk`（SHA256 `e1b8b9706780bab3e5f96a714ec4ce161768e2439d24ec84a8b503d4f1dc1e5f`）
+  - `EmoMusic-v3.42.0-armeabi-v7a.apk`（SHA256 `fec91bbc60f8c18f435b16a5f6e1cbda6a3e7342d4492b5bdae5a2cd6d251fa3`）
+  - `EmoMusic-v3.42.0-universal.apk`（SHA256 `d6d231bf2f9b4e3b4dfd32b786534dd375cd24f551628a92d94017292b4f8656`）
+- 真机验证（SM-S938B / Android 17）：Fabric/Bridgeless 启动、首页/播放页渲染、本地 FLAC 播放、
+  MediaSession=PLAYING、通知栏媒体卡与自定义按钮、玻璃模糊（底部导航/首页搜索胶囊/页头）、16KB 全对齐。
+- 回滚方式：`git revert` 对应 merge commit 或重新发布 v3.41.0（旧架构包仍在 dist/ 与 dist-archive/）。

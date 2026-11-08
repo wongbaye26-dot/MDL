@@ -1,7 +1,11 @@
 {
-  "version": "3.41.0",
-  "desc": "React Native 0.73.11 → 0.76.9（React 18.3.1，旧架构 + Hermes 不变）。\nreact-native-navigation 7.39.2 → 8.0.0；react-native-svg 14.2.0 → 15.12.1；其余原生库保持版本并通过兼容矩阵核对。\nAndroid 构建链对齐 RN 0.76：Gradle 8.10.2、RNGP 提供 AGP/Kotlin 版本、autolink 换 RNGP、minSdk 24、移除 Flipper。\n升级细节、依赖矩阵、已知限制见 doc/rn-0.76-upgrade.md。",
+  "version": "3.42.0",
+  "desc": "React Native 0.76.9 → 0.80.3（React 19.1.0），启用 Fabric / Bridgeless / TurboModule 新架构；旧架构 newArchEnabled=false 不再使用。\nreact-native-navigation 8.0.0 → 8.6.2（新架构版；改为 CLI 约定式 autolink，不再需要 npx rnn-link 的 Android 步骤）。\nAndroid 构建链：Gradle 8.14.1、Kotlin 2.1.20、NDK 27.1、compileSdk/targetSdk 36；全部 arm64 so 16KB 对齐（含 quickjs 2.4.0 → 3.2.3）。\n自研 GlassBlurView 替代 @react-native-community/blur：解决 community blur 4.4.1（BlurView 2.0.4 API）与 RNN 8.6.2（BlurView 3.0.0）的 NoSuchMethodError；真高斯模糊回归、页面布局零改动；API<31 退化为纯色。",
   "history": [
+    {
+      "version": "3.41.0",
+      "desc": "React Native 0.73.11 → 0.76.9（React 18.3.1，旧架构 + Hermes 不变）。\nreact-native-navigation 7.39.2 → 8.0.0；react-native-svg 14.2.0 → 15.12.1；其余原生库保持版本并通过兼容矩阵核对。\nAndroid 构建链对齐 RN 0.76：Gradle 8.10.2、RNGP 提供 AGP/Kotlin 版本、autolink 换 RNGP、minSdk 24、移除 Flipper。\n升级细节、依赖矩阵、已知限制见 doc/rn-0.76-upgrade.md。"
+    },
     {
       "version": "3.40.0",
       "desc": "竖版歌词设置的语种菜单改为仅图标样式（自 / 粤 / 普 / EN / 日 / 韩），横竖屏不再错位。\nRN 升级 / 原生 HTTP 采集单独立项，未混入功能版本。"
@@ -17,10 +21,6 @@
     {
       "version": "3.10.15",
       "desc": "2×2 三键改为等宽三槽自适应布局，修复下一首显示不全/漂移；按键尺寸 30/36/30，居中不再裁切。"
-    },
-    {
-      "version": "3.10.14",
-      "desc": "2×2 去掉磨砂底板改底部渐变虚化；4×1 新增歌词行。\n小组件补播放进度：2×2/4×1 增加细进度条，JS 每 5 秒同步进度；无封面兜底、明暗/主题色同步保留。"
     }
   ]
 }
