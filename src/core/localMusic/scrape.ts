@@ -145,7 +145,7 @@ const getResultLyric = async(source: ScrapeSource, result: SearchSong): Promise<
   if (source === 'tx' && !result.songmid) return ''
   if (source === 'wy' && !result.songmid) return ''
   try {
-    const res = await withTimeout(Promise.resolve(api.getLyric(result)), 4000)
+    const res = await withTimeout(Promise.resolve(api.getLyric(result)), 2500)
     if (!res) return ''
     if (typeof res === 'string') return res
     return typeof res.lyric === 'string' ? res.lyric : ''

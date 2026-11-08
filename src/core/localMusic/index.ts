@@ -150,6 +150,17 @@ export const getLocalMusicList = async(): Promise<LX.Music.MusicInfoLocal[]> => 
       const data = await getData<LX.Music.MusicInfoLocal[]>(STORAGE_KEY)
       cachedList = data ?? []
     }
+    // 迁移历史刮削坏数据：TITLE 被写成文件名（带扩展名 / 「歌名 - 歌手」）
+    let changed = false
+    cachedList = cachedList.map(item => {
+      const raw = item.name ?? ''
+      let next = raw.replace(/\.[a-z0-9]{2,5}$/i, '').trim()
+      const suffix = item.singer ? ` - ${item.singer}` : ''
+      if (suffix && next.endsWith(suffix)) next = next.slice(0, -suffix.length).trim()
+      if (next && next !== raw) { changed = true; return { ...item, name: next } }
+      return item
+    })
+    if (changed) void saveLocalMusicList(cachedList)
   }
   return [...cachedList]
 }
@@ -238,9 +249,10 @@ const buildMusicInfo = async(file: DirEntry, previous?: LX.Music.MusicInfoLocal 
       name = baseName
     }
   } else {
-    // 标签里的标题常常是「歌手 - 歌名」（下载器的命名格式），
-    // 歌手已知时把歌名里的歌手摘掉，列表上只显示歌名
-    name = splitNameAndSinger(name, singer).name
+    // 标签里的标题可能被刮削工具写成文件名（带扩展名 / 「歌名 - 歌手」），
+    // 这里统一去掉扩展名并拆出纯歌名，避免列表显示成文件名
+    name = name.replace(/\.[a-z0-9]{2,5}$/i, '').trim()
+    name = splitNameAndSinger(name, singer).name.trim() || name
   }
 
   // 原生标签读取器不返回语言/年份/风格；FLAC 用自研头部解析补上（只读 512KB）

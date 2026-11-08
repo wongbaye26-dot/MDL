@@ -175,7 +175,7 @@ export const runMetaScrape = async(
       await runOne(items[index])
     }
   }
-  await Promise.all([worker(), worker(), worker(), worker()])
+  await Promise.all([worker(), worker(), worker(), worker(), worker(), worker()])
   return { done, notFound, file, libraryOnly, stopped }
 }
 
