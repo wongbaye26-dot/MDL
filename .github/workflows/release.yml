@@ -33,11 +33,12 @@ jobs:
           ./gradlew assembleRelease -PMYAPP_UPLOAD_STORE_FILE='${{ secrets.KEYSTORE_STORE_FILE }}' -PMYAPP_UPLOAD_KEY_ALIAS='${{ secrets.KEYSTORE_KEY_ALIAS }}' -PMYAPP_UPLOAD_STORE_PASSWORD='${{ secrets.KEYSTORE_PASSWORD }}' -PMYAPP_UPLOAD_KEY_PASSWORD='${{ secrets.KEYSTORE_KEY_PASSWORD }}'
           rm -f app/${{ secrets.KEYSTORE_STORE_FILE }}
 
-      # 没配签名 Secrets 时退化为 debug 编译：仍然校验 RN 0.76 + 全部原生库能编译通过
-      - name: Build Debug APK (no signing secrets)
+      # 没配签名 Secrets 时仍走 assembleRelease（app/build.gradle 会退回 debug 签名），
+      # 校验完整 release 链路：Metro bundle + 原生库编译 + R8。产物不发布、禁止分发。
+      - name: Build Release APK (no signing secrets, debug-signed)
         if: env.HAS_KEYSTORE != 'true'
         shell: bash
-        run: cd android && ./gradlew assembleDebug --console=plain
+        run: cd android && ./gradlew assembleRelease --console=plain
 
       - name: Get package version
         if: env.HAS_KEYSTORE == 'true'

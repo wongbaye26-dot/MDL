@@ -20,6 +20,20 @@ node scripts/release.js --prune-delete      # 旧版本直接删（默认移到 
 > `package.json` + `publish/version.json` 一起提交**，再推 `master`；CI 会建 tag、GitHub Release 并上传三个 APK。
 > 只推代码不跑 release.js，线上 App 检测不到新版本。
 
+### CI 构建行为（推 master 时）
+
+`.github/workflows/release.yml` 按仓库是否配置签名 Secrets 分成两条路：
+
+| 条件 | 行为 |
+|---|---|
+| 配了 `KEYSTORE_STORE_FILE_BASE64` / `KEYSTORE_STORE_FILE` / `KEYSTORE_KEY_ALIAS` / `KEYSTORE_PASSWORD` / `KEYSTORE_KEY_PASSWORD` | `assembleRelease` → 建 tag → GitHub Release（三个 APK）→ 上传 artifact |
+| 没配（fork / 首次接入） | 仍跑 `assembleRelease`，但 `android/app/build.gradle` 退回 **debug 签名**，只做 Metro bundle + 原生库 + R8 的编译校验；不建 tag、不发 Release、不上传产物 |
+
+另外 `Check` 工作流（vendor 拉取 + vendor:check + typecheck + lint + unit）任何情况都会在 push/PR 上跑。
+
+> 全新 clone 没有 `android/keystore.properties` 时，`assembleDebug` / `assembleRelease` 也能跑通
+> （release 变体用 debug 签名并打印警告）；要出可分发包必须补 `keystore.properties` 或 `-P MYAPP_UPLOAD_*`。
+
 > **装包时注意**：`arm64-v8a` 的 versionCode 带 ABI 后缀（如 `146003`），能覆盖升级；
 > `universal` 的 versionCode 是裸的 `146`，**低于**已装版本会报「降级」，
 > 只能用于全新安装/发给别人。

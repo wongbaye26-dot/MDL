@@ -143,19 +143,31 @@ android {
     signingConfigs {
         release {
             if (project.hasProperty('MYAPP_UPLOAD_STORE_FILE')) {
+                // CI：keystore 通过 -P MYAPP_UPLOAD_* 传入（来自 GitHub Secrets）
                 storeFile file(MYAPP_UPLOAD_STORE_FILE)
                 storePassword MYAPP_UPLOAD_STORE_PASSWORD
                 keyAlias MYAPP_UPLOAD_KEY_ALIAS
                 keyPassword MYAPP_UPLOAD_KEY_PASSWORD
-            } else {
-                def keystorePropertiesFile = rootProject.file("keystore.properties")
+            } else if (rootProject.file('keystore.properties').exists()) {
+                // 本地：android/keystore.properties（gitignore，不入库）
+                def keystorePropertiesFile = rootProject.file('keystore.properties')
                 def keystoreProperties = new Properties()
-                keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+                keystorePropertiesFile.withInputStream { keystoreProperties.load(it) }
 
                 storeFile file(keystoreProperties['storeFile'])
                 storePassword keystoreProperties['storePassword']
                 keyAlias keystoreProperties['keyAlias']
                 keyPassword keystoreProperties['keyPassword']
+            } else {
+                // 既没有 Secrets 也没有 keystore.properties（全新 clone / CI 编译校验）：
+                // release 变体退回 debug 签名，让 assembleRelease 仍可完成编译/R8 校验。
+                // ⚠ 这种包禁止分发；正式发版必须提供 keystore 材料。
+                storeFile file('debug.keystore')
+                storePassword 'android'
+                keyAlias 'androiddebugkey'
+                keyPassword 'android'
+                logger.warn('⚠ 未找到 android/keystore.properties 且未提供 MYAPP_UPLOAD_* 参数：' +
+                        'release 变体将使用 debug 签名（仅用于编译校验，禁止分发）。')
             }
         }
         debug {
