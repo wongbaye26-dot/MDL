@@ -1,4 +1,4 @@
-import { memo, useState } from 'react'
+import { memo, useState, type ComponentProps } from 'react'
 import { Modal, Pressable, TouchableOpacity, View } from 'react-native'
 
 import { Icon } from '@/components/common/Icon'
@@ -42,7 +42,14 @@ export default memo(({
   onClose: () => void
 }) => {
   const [showLanguages, setShowLanguages] = useState(false)
-  const languageOptions = ['自动', '粤语', '普通话', '英文', '日文', '韩文']
+  const languageOptions = [
+    { label: '自动判断', short: '自', value: '' },
+    { label: '粤语', short: '粤', value: '粤语' },
+    { label: '普通话', short: '普', value: '普通话' },
+    { label: '英文', short: 'EN', value: '英文' },
+    { label: '日文', short: '日', value: '日文' },
+    { label: '韩文', short: '韩', value: '韩文' },
+  ]
   const theme = useTheme()
   const sizeIndex = useSettingValue('player.lyricSizeIndex')
   const align = useSettingValue('player.lyricAlign')
@@ -111,12 +118,13 @@ export default memo(({
     },
   ]
   const languageRows = languageOptions.map(option => ({
-    key: `lang_${option}`,
+    key: `lang_${option.label}`,
     icon: 'translate',
-    label: option === '自动' ? '自动判断' : option,
-    value: (language || '自动') === option ? '当前' : '',
-    active: (language || '自动') === option,
-    onPress: () => { onSelectLanguage?.(option === '自动' ? '' : option); setShowLanguages(false) },
+    short: option.short,
+    label: option.label,
+    value: (language || '') === option.value ? '当前' : '',
+    active: (language || '') === option.value,
+    onPress: () => { onSelectLanguage?.(option.value); setShowLanguages(false) },
   }))
 
   return (
@@ -126,7 +134,6 @@ export default memo(({
           style={[
             styles.menu,
             landscape ? styles.menuLand : null,
-            showLanguages ? styles.menuLanguage : null,
             {
               backgroundColor: 'rgba(24,20,32,0.94)',
               borderColor: 'rgba(255,255,255,0.12)',
@@ -138,50 +145,27 @@ export default memo(({
             不再跟主题走（白色主题下不会出现一块白卡片）。
             每行只有 44×44 的图标键，靠图标 + 颜色区分状态，状态值通过无障碍标签播报。
           */}
-          {
-            showLanguages
-              ? (
-                <View style={styles.langList}>
-                  {
-                    languageRows.map(row => (
-                      <TouchableOpacity
-                        key={row.key}
-                        style={[
-                          styles.langItem,
-                          { backgroundColor: row.active ? theme['c-primary'] : 'rgba(255,255,255,0.08)' },
-                        ]}
-                        activeOpacity={0.75}
-                        onPress={row.onPress}
-                      >
-                        <Text size={13} color={row.active ? '#FFFFFF' : 'rgba(255,255,255,0.92)'}>{row.label}</Text>
-                        {row.value ? <Text size={11} color='rgba(255,255,255,0.75)'>{row.value}</Text> : null}
-                      </TouchableOpacity>
-                    ))
-                  }
-                </View>
-                )
-              : (
-                <View style={[styles.iconRow, landscape ? styles.iconRowLand : null]}>
-                  {
-                    rows.map(row => (
-                      <TouchableOpacity
-                        key={row.key}
-                        style={[
-                          styles.iconBtn,
-                          { backgroundColor: row.active ? theme['c-primary'] : 'rgba(255,255,255,0.10)' },
-                        ]}
-                        activeOpacity={0.75}
-                        accessibilityRole='button'
-                        accessibilityLabel={`${row.label} 当前${row.value}`}
-                        onPress={row.onPress}
-                      >
-                        <Icon name={row.icon} size={20} color={row.active ? '#FFFFFF' : 'rgba(255,255,255,0.9)'} />
-                      </TouchableOpacity>
-                    ))
-                  }
-                </View>
-                )
-          }
+          <View style={[styles.iconRow, landscape ? styles.iconRowLand : null]}>
+            {
+              (showLanguages ? languageRows : rows).map(row => (
+                <TouchableOpacity
+                  key={row.key}
+                  style={[
+                    styles.iconBtn,
+                    { backgroundColor: row.active ? theme['c-primary'] : 'rgba(255,255,255,0.10)' },
+                  ]}
+                  activeOpacity={0.75}
+                  accessibilityRole='button'
+                  accessibilityLabel={`${row.label}${row.value ? ` ${row.value}` : ''}`}
+                  onPress={row.onPress}
+                >
+                  {'short' in row && row.short
+                    ? <Text size={14} color={row.active ? '#FFFFFF' : 'rgba(255,255,255,0.9)'}>{String(row.short)}</Text>
+                    : <Icon name={row.icon as ComponentProps<typeof Icon>['name']} size={20} color={row.active ? '#FFFFFF' : 'rgba(255,255,255,0.9)'} />}
+                </TouchableOpacity>
+              ))
+            }
+          </View>
         </View>
       </Pressable>
     </Modal>
@@ -189,21 +173,6 @@ export default memo(({
 })
 
 const styles = createStyle({
-  langList: {
-    flexDirection: 'column',
-    gap: 6,
-    width: '100%',
-    alignSelf: 'stretch',
-  },
-  langItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    alignSelf: 'stretch',
-    paddingHorizontal: 12,
-    height: 38,
-    borderRadius: 12,
-  },
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.28)',
