@@ -4,6 +4,7 @@ import BackgroundTimer from 'react-native-background-timer'
 import { requestMsg } from './message'
 import { bHh } from './musicSdk/options'
 import { deflateRaw } from 'pako'
+import { getHttpHost } from './httpHost'
 
 const defaultHeaders = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/69.0.3497.100 Safari/537.36',
@@ -168,10 +169,19 @@ const blobToBuffer = (blob) => {
 const fetchData = (url, { timeout = 15000, ...options }) => {
   // 明文流量治理：记录实际访问的 http 域名，便于后续按域名白名单收紧
   try {
-    if (/^http:\/\//i.test(url)) {
-      const host = new URL(url).hostname
+    const host = getHttpHost(url)
+    if (host) {
       if (!global.lx.httpHosts) global.lx.httpHosts = new Set()
       global.lx.httpHosts.add(host)
+      if (!global.lx.requestHosts) global.lx.requestHosts = new Set()
+      global.lx.requestHosts.add(`http://${host}`)
+    }
+  } catch {}
+  try {
+    const https = /^https:\/\/([^/:?#]+)/i.exec(url)
+    if (https) {
+      if (!global.lx.requestHosts) global.lx.requestHosts = new Set()
+      global.lx.requestHosts.add(`https://${https[1].toLowerCase()}`)
     }
   } catch {}
 

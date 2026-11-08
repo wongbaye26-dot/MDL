@@ -361,3 +361,12 @@ shasum -a 256 dist/.../*.apk
 |---|---|
 | P1-4 明文域名不可观测 | 已修：新增「HTTP 明文域名」诊断页，可查看/复制实际 http 域名 |
 | P1-5 依赖升级 | 仍阻塞：track-player tsc 缺 react-native 类型；lockfile 未改动 |
+
+---
+
+## 15. 修复进展（v3.36.0）
+
+| 发现 | 状态 |
+|---|---|
+| HTTP 域名采集为空 | 已修：`new URL` 改为正则解析，同时记录 https 域名 |
+| 原生请求未采集 | 未修：图片/音频由原生加载，后续需 Android 侧 NetworkInterceptor |
