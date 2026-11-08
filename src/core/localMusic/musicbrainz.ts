@@ -30,6 +30,7 @@ let lastRequestAt = 0
 const waitRate = async() => {
   const wait = 1100 - (Date.now() - lastRequestAt)
   if (wait > 0) await new Promise(resolve => setTimeout(resolve, wait))
+  // eslint-disable-next-line require-atomic-updates -- 限速队列有意串行更新
   lastRequestAt = Date.now()
 }
 

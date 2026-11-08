@@ -37,6 +37,9 @@ export interface TrackRow {
   isMissing?: boolean
   cuePath?: string | null
   cueTrack?: number | null
+  language?: string | null
+  year?: string | null
+  genre?: string | null
 }
 
 export interface BenchmarkResult {
@@ -54,6 +57,7 @@ const TRACK_COLUMNS = [
   'album_name', 'album_artist', 'duration_ms', 'format', 'bitrate', 'sample_rate',
   'channels', 'size', 'mtime', 'added_at', 'updated_at', 'cover_key', 'source',
   'is_hidden', 'is_missing', 'cue_path', 'cue_track',
+  'language', 'year', 'genre',
 ] as const
 
 /** 把查询结果转成普通对象数组（WebSQL 的 rows 是 native 有序字典） */
@@ -101,6 +105,9 @@ const mapTrackRow = (row: Record<string, unknown>): TrackRow => ({
   isHidden: Number(row.is_hidden ?? 0) === 1,
   isMissing: Number(row.is_missing ?? 0) === 1,
   cuePath: row.cue_path as string | null,
+  language: row.language as string | null,
+  year: row.year as string | null,
+  genre: row.genre as string | null,
   cueTrack: row.cue_track == null ? null : Number(row.cue_track),
 })
 
@@ -170,8 +177,17 @@ class LocalLibraryRepository {
         is_hidden INTEGER NOT NULL DEFAULT 0,
         is_missing INTEGER NOT NULL DEFAULT 0,
         cue_path TEXT,
-        cue_track INTEGER
+        cue_track INTEGER,
+        language TEXT,
+        year TEXT,
+        genre TEXT
       )`)
+      // 老库没有这三列：逐列 ALTER，已存在时忽略错误
+      for (const col of ['language TEXT', 'year TEXT', 'genre TEXT']) {
+        (tx.executeSql as unknown as (sql: string, args?: unknown[], ok?: () => void, err?: () => boolean) => void)(
+          `ALTER TABLE tracks ADD COLUMN ${col}`, [], () => {}, () => true,
+        )
+      }
       exec(tx, 'CREATE INDEX IF NOT EXISTS idx_tracks_path ON tracks(path)')
       exec(tx, 'CREATE INDEX IF NOT EXISTS idx_tracks_fp ON tracks(fingerprint)')
       exec(tx, 'CREATE INDEX IF NOT EXISTS idx_tracks_album ON tracks(album_name, album_artist)')

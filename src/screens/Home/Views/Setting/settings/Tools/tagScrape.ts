@@ -97,7 +97,7 @@ const scrapeOne = async(
     year: nextYear || undefined,
     genre: nextGenre || undefined,
     language: nextLanguage || undefined,
-    contentUri: result.contentUri || undefined,
+    contentUri: result.contentUri ?? undefined,
   })
   if (result.target) summary.file++
   else summary.libraryOnly++
@@ -160,10 +160,10 @@ export const runMetaScrape = async(
         else libraryOnly++
         await updateLocalMusicMeta(item, {
           ...(looksLikeFileName(item.name) ? { name: fixedName } : null),
-          year: year || undefined,
-          genre: genre || undefined,
-          language: language || undefined,
-          contentUri: wrote.contentUri || undefined,
+          year: year.length ? year : undefined,
+          genre: genre.length ? genre : undefined,
+          language: language.length ? language : undefined,
+          contentUri: wrote.contentUri ?? undefined,
         })
         done++
         callbacks.onItemResult?.(item, wrote.target ? 'file' : 'libraryOnly')

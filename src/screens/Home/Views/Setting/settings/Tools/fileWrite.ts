@@ -125,7 +125,7 @@ export const writeTagsToFile = async(
     GENRE: tags.genre ?? '',
     LANGUAGE: tags.language ?? '',
   }
-  const hasExtra = !!(tags.year || tags.genre || tags.language)
+  const hasExtra = [tags.year, tags.genre, tags.language].some(Boolean)
   // 纯 JS 的 FLAC 写入只能操作真实路径；SAF/content:// 条目没有可读真实路径，强行 readFile 会原生崩溃
   const plainRealPath = targets.list.find(path => !path.startsWith('content://')) ? targets.realPath : ''
   for (const target of targets.list) {

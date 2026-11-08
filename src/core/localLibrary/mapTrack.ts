@@ -24,6 +24,9 @@ export const mapLocalTrackToRow = (item: LX.Music.MusicInfoLocal): TrackRow => (
   source: 'local',
   isHidden: false,
   isMissing: false,
+  language: item.meta.language ?? null,
+  year: item.meta.year ?? null,
+  genre: item.meta.genre ?? null,
 })
 
 export const parseInterval = (interval?: string | null): number => {
@@ -58,5 +61,8 @@ export const mapRowToLocalTrack = (row: TrackRow): LX.Music.MusicInfoLocal => ({
     picUrl: row.coverKey ?? undefined,
     contentUri: row.contentUri ?? undefined,
     songId: row.mediaId ?? row.path,
+    language: row.language ?? undefined,
+    year: row.year ?? undefined,
+    genre: row.genre ?? undefined,
   },
 })
