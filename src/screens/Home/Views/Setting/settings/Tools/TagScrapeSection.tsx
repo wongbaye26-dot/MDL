@@ -53,6 +53,8 @@ export default memo(({ health, scanning, onChanged }: Props) => {
   const [metaSummary, setMetaSummary] = useState<{ done: number, notFound: number, file: number, libraryOnly: number, skipped: number, stopped: boolean } | null>(null)
   const [debugVisible, setDebugVisible] = useState(false)
   const [debugEntries, setDebugEntries] = useState<ScrapeDebugEntry[]>([])
+  const [hostVisible, setHostVisible] = useState(false)
+  const [httpHosts, setHttpHosts] = useState<string[]>([])
   const metaRunningRef = useRef(false)
 
   const handleStart = useCallback(async() => {
@@ -229,7 +231,29 @@ export default memo(({ health, scanning, onChanged }: Props) => {
       </ButtonRow>
       <ButtonRow>
         <SecondaryButton label='查看刮削请求' icon='tag-outline' onPress={() => { setDebugEntries(getScrapeDebug().reverse()); setDebugVisible(true) }} />
+        <SecondaryButton label='HTTP 明文域名' icon='web' onPress={() => {
+          const hosts = (global.lx as unknown as { httpHosts?: Set<string> }).httpHosts
+          setHttpHosts(hosts ? [...hosts].sort() : [])
+          setHostVisible(true)
+        }} />
       </ButtonRow>
+
+      <Modal visible={hostVisible} transparent animationType='slide' onRequestClose={() => { setHostVisible(false) }}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' }}>
+          <View style={{ maxHeight: '75%', backgroundColor: '#1b1b1f', borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 12 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+              <RNText style={{ color: '#fff', fontSize: 15, fontWeight: '600' }}>HTTP 明文域名（{httpHosts.length}）</RNText>
+              <TouchableOpacity onPress={() => { setHostVisible(false) }}><RNText style={{ color: '#ff8a80', fontSize: 14 }}>关闭</RNText></TouchableOpacity>
+            </View>
+            <RNText style={{ color: '#9e9e9e', fontSize: 11, marginBottom: 8 }}>运行时实际请求过的 http:// 域名，用于后续做明文白名单</RNText>
+            <ScrollView>
+              {httpHosts.length
+                ? httpHosts.map(host => <RNText key={host} selectable style={{ color: '#b0bec5', fontSize: 11, paddingVertical: 3 }}>{host}</RNText>)
+                : <RNText style={{ color: '#9e9e9e', fontSize: 12 }}>暂无记录（先播放/搜索/刮削几次）</RNText>}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       <Modal visible={debugVisible} transparent animationType='slide' onRequestClose={() => { setDebugVisible(false) }}>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' }}>

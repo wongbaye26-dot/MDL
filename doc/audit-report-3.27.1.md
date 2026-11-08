@@ -352,3 +352,12 @@ shasum -a 256 dist/.../*.apk
 | P1-4 全局明文流量 | 部分修复：更新/MusicBrainz/CoverArt 强制 HTTPS；音乐源暂保留明文 |
 | HTTP 域名清单 | 已加运行时采集（global.lx.httpHosts），待后续做白名单 |
 | 构建回归 | 修复 `??=` 语法导致的 release bundle 失败 |
+
+---
+
+## 14. 修复进展（v3.35.0 第八批）
+
+| 发现 | 状态 |
+|---|---|
+| P1-4 明文域名不可观测 | 已修：新增「HTTP 明文域名」诊断页，可查看/复制实际 http 域名 |
+| P1-5 依赖升级 | 仍阻塞：track-player tsc 缺 react-native 类型；lockfile 未改动 |
