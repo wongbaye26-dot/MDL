@@ -122,7 +122,7 @@ const getTxAlbumMeta = async(albumId: string): Promise<{ year: string, genre: st
     const req = httpFetch(`https://c.y.qq.com/v8/fcg-bin/fcg_v8_album_info_cp.fcg?albummid=${albumId}&format=json`, {
       headers: { Referer: 'https://y.qq.com/' },
     })
-    const res = await withTimeout(req.promise, 4000)
+    const res = await withTimeout(req.promise, 4000, () => { req.cancelHttp() })
     if (!res) return null
     const data = (res.body as any)?.data
     const album = Array.isArray(data) ? data[0] : data
@@ -154,7 +154,7 @@ const getTxAlbumMetaByName = async(albumName: string, singer: string) => {
     const req = httpFetch(`https://c.y.qq.com/soso/fcgi-bin/client_search_cp?w=${q}&format=json&n=1`, {
       headers: { Referer: 'https://y.qq.com/' },
     })
-    const res = await withTimeout(req.promise, 4000)
+    const res = await withTimeout(req.promise, 4000, () => { req.cancelHttp() })
     const albummid = (res?.body as any)?.data?.song?.list?.[0]?.albummid
     if (!albummid) return null
     const meta = await getTxAlbumMeta(String(albummid))
@@ -193,11 +193,22 @@ const getResultLyric = async(source: ScrapeSource, result: SearchSong): Promise<
 }
 
 /** 一次搜索最多等 8 秒：音源接口偶尔挂住，不能让批量刮削卡死 */
-const withTimeout = async<T,>(promise: Promise<T>, ms: number): Promise<T | null> => {
-  return Promise.race([
-    promise,
-    new Promise<null>(resolve => { setTimeout(() => { resolve(null) }, ms) }),
-  ])
+const withTimeout = async<T,>(promise: Promise<T>, ms: number, cancel?: () => void): Promise<T | null> => {
+  let timer: ReturnType<typeof setTimeout> | null = null
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<null>(resolve => {
+        timer = setTimeout(() => {
+          // 真正取消底层请求，避免停止任务后仍在消耗流量/占连接
+          try { cancel?.() } catch {}
+          resolve(null)
+        }, ms)
+      }),
+    ])
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
 }
 
 interface ScoredCandidate {

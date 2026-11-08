@@ -5,6 +5,7 @@ import { splitNameAndSinger } from '@/utils/songName'
 import { isMusicBrainzCandidate, searchMusicBrainz } from '@/core/localMusic/musicbrainz'
 import type { TagIncompleteItem } from '@/core/localMusic/scrape'
 import { resolveWriteTargets, writeTagsToFile } from './fileWrite'
+import { readFlacTags } from '@/utils/flacTag'
 
 /**
  * 音乐工具 - 批量刮削标签。
@@ -52,6 +53,30 @@ const cleanTitle = (name: string, singer: string) => {
 
 /** 看起来像文件名（带扩展名或「歌名 - 歌手」）才顺手修正曲库歌名 */
 const looksLikeFileName = (name: string) => /\.[a-z0-9]{2,5}$/i.test(name) || /\s[-–—]\s/.test(name)
+
+const sameText = (a?: string | null, b?: string | null) => (a ?? '').trim() === (b ?? '').trim()
+
+/** 读文件现有标签（仅真实路径 FLAC）；读不到返回 null，表示无法判断 */
+const readExistingTags = async(item: LX.Music.MusicInfoLocal): Promise<Record<string, string> | null> => {
+  if ((item.meta.ext ?? '').toLowerCase() !== 'flac') return null
+  const path = item.meta.filePath
+  if (!path || path.startsWith('content://')) return null
+  try {
+    return await readFlacTags(path)
+  } catch {
+    return null
+  }
+}
+
+const tagsMatch = (tags: Record<string, string> | null, wanted: { title: string, artist: string, album: string, year: string, genre: string, language: string }) => {
+  if (!tags) return false
+  return sameText(tags.TITLE, wanted.title) &&
+    sameText(tags.ARTIST, wanted.artist) &&
+    sameText(tags.ALBUM, wanted.album) &&
+    sameText(tags.DATE, wanted.year) &&
+    sameText(tags.GENRE, wanted.genre) &&
+    sameText(tags.LANGUAGE, wanted.language)
+}
 
 /** 文件里或其他地方已经有能显示的封面？有就不用再下载 */
 const hasUsableCover = async(item: LX.Music.MusicInfoLocal): Promise<boolean> => {
@@ -116,12 +141,13 @@ const scrapeOne = async(
 export const runMetaScrape = async(
   items: LX.Music.MusicInfoLocal[],
   callbacks: TagScrapeCallbacks,
-): Promise<{ done: number, notFound: number, file: number, libraryOnly: number, stopped: boolean }> => {
+): Promise<{ done: number, notFound: number, file: number, libraryOnly: number, skipped: number, stopped: boolean }> => {
   const total = items.length
   let done = 0
   let file = 0
   let libraryOnly = 0
   let notFound = 0
+  let skipped = 0
   let stopped = false
   callbacks.onProgress({ done: 0, total })
 
@@ -143,15 +169,38 @@ export const runMetaScrape = async(
         const year = [match.year, mb?.year, item.meta.year].find(Boolean) ?? ''
         const genre = [match.genre, mb?.genre, item.meta.genre].find(Boolean) ?? ''
         const language = match.language ?? item.meta.language ?? ''
-        const targets = await resolveWriteTargets(item)
-        const wrote = await writeTagsToFile(targets, {
-          // 曲库歌名如果已经是文件名，顺手写回干净歌名
-          name: looksLikeFileName(item.name) ? fixedName : item.name,
-          singer: item.singer,
-          albumName: item.meta.albumName ?? '',
+        const fixedName = cleanTitle(item.name, item.singer)
+        const wanted = {
+          title: looksLikeFileName(item.name) ? fixedName : item.name,
+          artist: item.singer,
+          album: item.meta.albumName ?? '',
           year,
           genre,
           language,
+        }
+        // 文件 + 曲库都已经是目标值 → 不再整文件重写（避免 mtime/MediaStore 抖动）
+        const existingTags = await readExistingTags(item)
+        const libUpToDate = sameText(item.name, wanted.title) &&
+          sameText(item.singer, wanted.artist) &&
+          sameText(item.meta.albumName, wanted.album) &&
+          sameText(item.meta.year, wanted.year) &&
+          sameText(item.meta.genre, wanted.genre) &&
+          sameText(item.meta.language, wanted.language)
+        if (libUpToDate && tagsMatch(existingTags, wanted)) {
+          skipped++
+          callbacks.onItemResult?.(item, 'file')
+          callbacks.onProgress({ done: done + notFound, total })
+          return
+        }
+        const targets = await resolveWriteTargets(item)
+        const wrote = await writeTagsToFile(targets, {
+          // 曲库歌名如果已经是文件名，顺手写回干净歌名
+          name: wanted.title,
+          singer: wanted.artist,
+          albumName: wanted.album,
+          year: wanted.year,
+          genre: wanted.genre,
+          language: wanted.language,
         })
         if (!item.meta.picUrl && mb?.coverUrl) {
           await updateLocalMusicPic(item.meta.filePath, mb.coverUrl).catch(() => {})
@@ -184,7 +233,7 @@ export const runMetaScrape = async(
     }
   }
   await Promise.all([worker(), worker(), worker(), worker(), worker(), worker()])
-  return { done, notFound, file, libraryOnly, stopped }
+  return { done, notFound, file, libraryOnly, skipped, stopped }
 }
 
 /** 批量刮削：可中途停止，已完成的结果保留，返回分项统计 */

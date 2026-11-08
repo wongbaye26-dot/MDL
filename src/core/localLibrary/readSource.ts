@@ -15,11 +15,10 @@ const KEY = 'local_library_read_source_v1'
 export type ReadSource = 'json' | 'repository'
 
 export const getReadSource = async(): Promise<ReadSource> => {
-  // 刮削写入 language/year/genre 后，SQLite 影子双写并不保证这三列成功；
-  // 为保证「写完立刻能读到」，读源暂时固定 JSON（JSON 是写入权威源）。
+  // 曲库写入权威源是 JSON；SQLite 仅作影子/自检，必须显式 setReadSource('repository')
+  // 才会切过去。避免默认读到缺列/滞后的 DB，导致刮削字段“写完消失”。
   const value = await getData<ReadSource>(KEY).catch(() => null)
-  if (value === 'json') return 'json'
-  return 'json'
+  return value === 'repository' ? 'repository' : 'json'
 }
 
 export const setReadSource = async(source: ReadSource): Promise<void> => {

@@ -50,7 +50,7 @@ export default memo(({ health, scanning, onChanged }: Props) => {
   const metaItems = health.metaIncomplete
   const [metaRunning, setMetaRunning] = useState(false)
   const [metaProgress, setMetaProgress] = useState({ done: 0, total: 0 })
-  const [metaSummary, setMetaSummary] = useState<{ done: number, notFound: number, file: number, libraryOnly: number, stopped: boolean } | null>(null)
+  const [metaSummary, setMetaSummary] = useState<{ done: number, notFound: number, file: number, libraryOnly: number, skipped: number, stopped: boolean } | null>(null)
   const [debugVisible, setDebugVisible] = useState(false)
   const [debugEntries, setDebugEntries] = useState<ScrapeDebugEntry[]>([])
   const metaRunningRef = useRef(false)
@@ -141,7 +141,7 @@ export default memo(({ health, scanning, onChanged }: Props) => {
       })
       if (!aliveRef.current) return
       setMetaSummary(result)
-      toast(`补全完成：写入文件 ${result.file} 首，仅曲库 ${result.libraryOnly} 首${result.notFound ? `，未找到 ${result.notFound} 首` : ''}`)
+      toast(`补全完成：写入文件 ${result.file} 首，仅曲库 ${result.libraryOnly} 首，跳过 ${result.skipped} 首${result.notFound ? `，未找到 ${result.notFound} 首` : ''}`)
       onChanged()
     } finally {
       metaRunningRef.current = false
@@ -217,6 +217,7 @@ export default memo(({ health, scanning, onChanged }: Props) => {
         { key: 'metaFile', label: '写入文件', value: metaSummary.file, tone: 'primary' as const },
         { key: 'metaDone', label: '已补全', value: metaSummary.done },
         { key: 'metaLibrary', label: '仅曲库', value: metaSummary.libraryOnly },
+        { key: 'metaSkipped', label: '跳过(无变化)', value: metaSummary.skipped },
         { key: 'metaNotFound', label: '未找到', value: metaSummary.notFound, tone: metaSummary.notFound ? 'warning' as const : 'muted' as const },
       ]} /> : null}
       <ButtonRow>
