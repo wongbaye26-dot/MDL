@@ -140,6 +140,29 @@ const getTxAlbumMeta = async(albumId: string): Promise<{ year: string, genre: st
   }
 }
 
+/** QQ 专辑搜索：按「专辑名 + 歌手」拿到 albummid，再取 aDate/genre/lan */
+const txAlbumCache = new Map<string, { year: string, genre: string, language: string } | null>()
+const getTxAlbumMetaByName = async(albumName: string, singer: string) => {
+  const key = `${albumName}\u0000${singer}`
+  if (txAlbumCache.has(key)) return txAlbumCache.get(key) ?? null
+  txAlbumCache.set(key, null)
+  if (!albumName) return null
+  try {
+    const q = encodeURIComponent(`${albumName} ${singer}`.trim())
+    const req = httpFetch(`https://c.y.qq.com/soso/fcgi-bin/client_search_cp?w=${q}&format=json&n=1`, {
+      headers: { Referer: 'https://y.qq.com/' },
+    })
+    const res = await withTimeout(req.promise, 4000)
+    const albummid = (res?.body as any)?.data?.song?.list?.[0]?.albummid
+    if (!albummid) return null
+    const meta = await getTxAlbumMeta(albummid)
+    if (meta) txAlbumCache.set(key, meta)
+    return meta
+  } catch {
+    return null
+  }
+}
+
 /** 从搜索结果取年份 */
 const getResultYear = (result: SearchSong): string => {
   const raw = String(result.year ?? result.releaseDate ?? '').trim()
@@ -341,9 +364,13 @@ export const scrapeLocalMusic = async(item: LX.Music.MusicInfoLocal): Promise<Sc
   // 音源没给封面时，退回 cover.ts 的「联网找封面」（它内部还会再搜一次，但命中率更稳）
   const picUrl = await getResultPic(best.source, best.result) || await fetchNetworkCover(item)
   const lyric = await getResultLyric(best.source, best.result)
-  const albumMeta = best.source === 'tx' && best.result.albumId
+  // QQ 结果直接用 albumId；kw/wy 匹配时按专辑名反查 QQ 专辑，补年份/风格/lan
+  let albumMeta = best.source === 'tx' && best.result.albumId
     ? await getTxAlbumMeta(String(best.result.albumId))
     : null
+  if (!albumMeta && (best.result.albumName || '')) {
+    albumMeta = await getTxAlbumMetaByName(String(best.result.albumName), String(best.result.singer ?? ''))
+  }
 
   const matchedSinger = (best.result.singer ?? '').trim()
   const matchedAlbum = (best.result.albumName ?? '').trim()
