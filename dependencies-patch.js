@@ -1,5 +1,6 @@
 // 修补依赖源码以使构建的依赖恢复正常工作
 
+const { execFileSync } = require('node:child_process')
 const fs = require('node:fs')
 const path = require('node:path')
 
@@ -406,6 +407,16 @@ import android.util.Log;`,
             service.stopForeground(true);
         }`,
   ],
+  // ---- react-native-linear-gradient 2.8.3：AGP8 namespace ----
+  // 上游 2.8.3 没有 namespace（AGP 8 会报错），本地手工补过但没进这个脚本；
+  // 全新 npm install 时如果不补，构建会失败。RNGP 0.76 对「manifest 有 package」的库
+  // 会自动注入 namespace，但这里显式补更稳（也避免依赖 RNGP 的实现细节）。
+  [
+    path.join(rootPath, 'node_modules/react-native-linear-gradient/android/build.gradle'),
+    'android {',
+    "android {\n    // AGP 8 起必须显式声明 namespace（上游 2.8.3 还没加）\n    namespace 'com.BV.LinearGradient'",
+    "namespace 'com.BV.LinearGradient'",
+  ],
 ]
 
 ;(async() => {
@@ -443,6 +454,30 @@ import android.util.Log;`,
     console.error('\n（非严格模式，继续；发版请用 node dependencies-patch.js --strict）\n')
     return
   }
+  // track-player 的 lib/ 是 Git 忽略的构建产物（main 指向 lib/index.js）。
+  // setup-vendor 去掉了它的 prepare（`rimraf lib && tsc` 在干净环境会因根依赖未就绪而失败），
+  // 这里在依赖装完后用根项目的 tsc 补生成，保证 Metro 打包与 tsc 类型检查都能解析到。
+  const trackPlayerDir = path.join(rootPath, 'node_modules/react-native-track-player')
+  const trackPlayerLib = path.join(trackPlayerDir, 'lib', 'index.js')
+  const trackPlayerTsconfig = path.join(trackPlayerDir, 'tsconfig.json')
+  const localTsc = path.join(rootPath, 'node_modules', 'typescript', 'bin', 'tsc')
+  if (
+    fs.existsSync(trackPlayerLib) ||
+    !fs.existsSync(trackPlayerTsconfig) ||
+    !fs.existsSync(localTsc)
+  ) {
+    // 已构建 / 不是 file: 装法（没有 tsconfig）/ 还没装 typescript → 跳过
+  } else {
+    console.log('Building react-native-track-player lib (tsc) …')
+    try {
+      execFileSync(process.execPath, [localTsc, '-p', trackPlayerDir], { stdio: 'inherit' })
+      console.log('  ✓ lib/ 已生成')
+    } catch (err) {
+      console.error(`  ✗ track-player lib 构建失败：${err.message}`)
+      if (strict) process.exit(1)
+    }
+  }
+
   console.log('\nDependencies patch finished.\n')
 })()
 

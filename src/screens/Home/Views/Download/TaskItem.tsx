@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef } from 'react'
+import { memo, useEffect, useRef, type ComponentRef } from 'react'
 import { Animated, Easing, View, TouchableOpacity, StyleSheet } from 'react-native'
 import Text from '@/components/common/Text'
 import PicImage from '@/components/common/PicImage'
@@ -79,7 +79,7 @@ export default memo(({
   onOpen: (task: LX.Download.ListItem) => void
 }) => {
   const theme = useTheme()
-  const moreButtonRef = useRef<TouchableOpacity>(null)
+  const moreButtonRef = useRef<ComponentRef<typeof TouchableOpacity>>(null)
 
   const handleShowMenu = () => {
     moreButtonRef.current?.measure((fx, fy, width, height, px, py) => {

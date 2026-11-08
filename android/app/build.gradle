@@ -53,6 +53,11 @@ react {
     //
     //   The list of flags to pass to the Hermes compiler. By default is "-O", "-output-source-map"
     // hermesFlags = ["-O", "-output-source-map"]
+
+    /* Autolinking */
+    // RN 0.76 起由 React Native Gradle Plugin 接管 Android 依赖，替代旧的
+    // `native_modules.gradle` 脚本；没有这一行，RNN 等原生库的 gradle project 不会进入构建。
+    autolinkLibrariesWithApp()
 }
 
 /**
@@ -208,7 +213,6 @@ android {
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
-    implementation("com.facebook.react:flipper-integration")
     // implementation "androidx.javascriptengine:javascriptengine:1.0.0-alpha07"
     // implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
     implementation 'wang.harlon.quickjs:wrapper-android:2.4.0'
@@ -219,8 +223,6 @@ dependencies {
         implementation jscFlavor
     }
 }
-
-apply from: file("../../node_modules/@react-native-community/cli-platform-android/native_modules.gradle"); applyNativeModulesAppBuildGradle(project)
 
 // 打包矢量图标字体
 apply from: file("../../node_modules/react-native-vector-icons/fonts.gradle")

@@ -31,6 +31,15 @@ runs:
         restore-keys: |
           ${{ runner.os }}-npm-cache-
 
+    # 4 个原生依赖是 file:../vendor/*（仓库外的 fork），必须在 npm 安装之前拉下来，
+    # 否则 npm 直接报 ENOENT。以前这一步只在 check.yml 里，导致 Build/Beta 工作流
+    # 在干净 runner 上必挂在 Setup Env（2026-11-04 的 CI 失败即此原因）。
+    - name: Fetch vendored native deps
+      shell: bash
+      run: node scripts/setup-vendor.js
+
+    # 仓库根 .npmrc 有 install-links=true：RN 0.76 的 Metro 不跟随指向仓库外的软链，
+    # file: 依赖必须物化成真实目录，否则 release 打 JS bundle 时解析不到。
     - name: Install dependencies
       shell: bash
-      run: npm ci
+      run: npm ci --no-audit --no-fund

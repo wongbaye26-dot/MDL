@@ -1,4 +1,18 @@
+pluginManagement {
+    includeBuild("../node_modules/@react-native/gradle-plugin")
+}
+
+plugins {
+    id("com.facebook.react.settings")
+}
+
+extensions.configure(com.facebook.react.ReactSettingsExtension) { ex ->
+    ex.autolinkLibrariesFromCommand()
+}
+
 rootProject.name = 'EmMusic'
-apply from: file("../node_modules/@react-native-community/cli-platform-android/native_modules.gradle"); applyNativeModulesSettingsGradle(settings)
 include ':app'
+// 必须保留：pluginManagement.includeBuild 只让 settings 能解析 RNGP 插件；
+// 这一行才把 @react-native/gradle-plugin 注册为 composite build，从而把
+// buildscript 里无版本号的 classpath 依赖（AGP/Kotlin/RN Gradle Plugin）替换成本地工程。
 includeBuild('../node_modules/@react-native/gradle-plugin')

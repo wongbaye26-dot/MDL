@@ -22,7 +22,20 @@ npm i                  # 装依赖，postinstall 会自动跑 dependencies-patch
 npm run vendor:check   # 校验：目录在、commit 对、补丁都打上了
 ```
 
-`setup:vendor` 是幂等的：已存在且 commit 正确就跳过，不一致会重新拉。
+> **RN 0.76 起注意**：仓库根有 `.npmrc`（`install-links=true`），`npm i` 会把 `file:../vendor/*`
+> 物化成 `node_modules` 下的真实目录。**不要**手动改成软链装法（`npm i --ignore-scripts` 后手建
+> 软链之类）：RN 0.76 的 Metro 不跟随指向仓库外的软链，release 打包会报
+> `Unable to resolve module react-native-*`。
+
+`setup:vendor` 是幂等的：已存在且 commit 正确就跳过，不一致会重新拉。每次运行都会做一遍
+「归一化」（对已有目录也生效）：
+
+- 给 fork 加 `node_modules` 软链（让 fork 的 prepare/tsc 能解析到根项目依赖）；
+- 删掉 `file-system` / `local-media-metadata` 的 `prepare`（Metro 直接用 src，不需要 bob 产物）；
+- 删掉 `track-player` 的 `prepare`（`rimraf lib && tsc` 在干净环境会因根依赖未就绪而失败），
+  并把 `src/`、`tsconfig.json` 加进 `files` 白名单——`dependencies-patch.js` 会在 postinstall
+  里用根项目的 `tsc` 重新生成 `lib/`，保证 Metro（`main: lib/index.js`）和类型检查都能用；
+- 如果 vendor 工作树有历史补丁残留会打印提示（补丁以 `node_modules` 为准，可 `git checkout -- .` 清理）。
 
 ## 必须在装完之后打的补丁
 
@@ -48,7 +61,21 @@ npm run vendor:check   # 校验：目录在、commit 对、补丁都打上了
 > 注意：`check-vendor.js` 里还校验了 track-player 的 4 个扩展方法。
 > 升级到官方版本会直接报错 —— 那是提醒你「这个 fork 的能力丢了」。
 
+## CI
+
+4 个 fork 在仓库外，所以 **任何在干净 runner 上执行的 npm 安装都必须先跑 `setup:vendor`**。
+这一步已收敛到 `.github/actions/setup`（composite action），`build.yml`(release) / `beta-pack` /
+`build-test` / `check` 全部复用；`.nvmrc` 同步为 Node 20。
+
+> 2026-11 修复：此前 `release.yml` / `build-test.yml` / composite setup 都没有拉 vendor，CI 在
+> `Setup Env` 的 `npm ci` 就失败；另外 track-player 的 prepare 在没有根依赖时会以
+> `rimraf: command not found` 失败。两处均已修复并做了「干净目录 + 空 vendor」的安装演练。
+
 ## 已知风险
 
 - 4 个 fork 都停在 2021~2022 年的版本，没有上游安全更新。
-- `react-native-track-player` 是 2.1.2，与 RN 0.73 的兼容性靠 fork 维持，升级 RN 要重点回归播放。
+- `react-native-track-player` 是 2.1.2，与 RN 的兼容性靠 fork 维持。RN 0.73 → 0.76 升级时已逐项
+  对照 RN 0.76.9 的 Java API 审计（无删除/签名变更），并在真机回归播放/进度/歌词/通知/MediaSession，
+  结果正常（见 `doc/rn-0.76-upgrade.md` §3）。
+- `scripts/check-vendor.js` 对 track-player 扩展方法的检查同时支持源码（软链装法）与
+  `lib/trackPlayer.d.ts`（`install-links` 物化装法）。

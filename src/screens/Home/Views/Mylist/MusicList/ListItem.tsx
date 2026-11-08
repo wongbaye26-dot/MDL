@@ -1,4 +1,4 @@
-import { memo, useRef } from 'react'
+import { memo, useRef, type ComponentRef } from 'react'
 import { View, TouchableOpacity } from 'react-native'
 import { LIST_ITEM_HEIGHT } from '@/config/constant'
 // import { BorderWidths } from '@/theme'
@@ -39,7 +39,7 @@ export default memo(({ item, index, activeIndex, onPress, onShowMenu, onLongPres
 
   const isSelected = selectedList.includes(item)
   // console.log(item.name, selectedList, selectedList.includes(item))
-  const moreButtonRef = useRef<TouchableOpacity>(null)
+  const moreButtonRef = useRef<ComponentRef<typeof TouchableOpacity>>(null)
   const handleShowMenu = () => {
     if (moreButtonRef.current?.measure) {
       moreButtonRef.current.measure((fx, fy, width, height, px, py) => {

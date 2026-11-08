@@ -19,8 +19,6 @@ jobs:
         uses: ./.github/actions/setup
 
       - name: Build Packages
-        env:
-          DISABLE_SVG: 1
         shell: bash
         run: |
           cd android
@@ -198,8 +196,6 @@ jobs:
           files: |
             artifacts/em-music-v${{ env.PACKAGE_VERSION }}-arm64-v8a.apk
             artifacts/em-music-v${{ env.PACKAGE_VERSION }}-armeabi-v7a.apk
-            artifacts/em-music-v${{ env.PACKAGE_VERSION }}-x86_64.apk
-            artifacts/em-music-v${{ env.PACKAGE_VERSION }}-x86.apk
             artifacts/em-music-v${{ env.PACKAGE_VERSION }}-universal.apk
 
           # artifacts/em-music-v${{ env.PACKAGE_VERSION }}-sl-arm64-v8a.apk

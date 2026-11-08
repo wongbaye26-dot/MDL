@@ -4,6 +4,8 @@ on:
   pull_request:
     branches:
       - dev
+      - master
+  workflow_dispatch:
 
 jobs:
   test:
@@ -13,16 +15,18 @@ jobs:
       - name: Check out git repository
         uses: actions/checkout@v4
 
-      - name: Install Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Install Dependencies
-        run: npm ci
+      # vendor fork 在仓库外，必须先在 npm 安装前拉取；同时统一 Node/Java/缓存配置
+      - name: Setup Env
+        uses: ./.github/actions/setup
 
       - name: Eslint check
         run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm run test:unit
 
       - name: Test Build
         run: npm run build-test

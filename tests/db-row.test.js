@@ -4,10 +4,20 @@ const { TRACK_COLUMNS, buildTrackValues } = require('../src/core/localLibrary/tr
 const { mapLocalTrackToRow } = require('../src/core/localLibrary/mapTrack')
 
 const item = {
-  id: 'local_/a.flac', name: '夜曲', singer: '周杰伦', source: 'local', interval: '03:45',
+  id: 'local_/a.flac',
+  name: '夜曲',
+  singer: '周杰伦',
+  source: 'local',
+  interval: '03:45',
   meta: {
-    filePath: '/a.flac', ext: 'flac', size: 100, mtime: 1, albumName: '十一月的萧邦',
-    language: '普通话', year: '2005', genre: 'Pop',
+    filePath: '/a.flac',
+    ext: 'flac',
+    size: 100,
+    mtime: 1,
+    albumName: '十一月的萧邦',
+    language: '普通话',
+    year: '2005',
+    genre: 'Pop',
   },
 }
 

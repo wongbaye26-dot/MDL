@@ -6,8 +6,8 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/platform-Android-3DDC84" alt="Platform">
-  <img src="https://img.shields.io/badge/react--native-0.73-61DAFB" alt="React Native">
-  <img src="https://img.shields.io/badge/version-3.8.8-FF6B9D" alt="Version">
+  <img src="https://img.shields.io/badge/react--native-0.76-61DAFB" alt="React Native">
+  <img src="https://img.shields.io/badge/version-3.41.0-FF6B9D" alt="Version">
 </p>
 
 ---
@@ -95,13 +95,16 @@ Emo音乐是一个 Android 音乐播放器，支持**本地曲库**和**在线�
 
 - Node.js 18+
 - JDK 17
-- Android SDK 34
-- React Native 0.73
+- Android SDK 36（compileSdk / targetSdk）
+- React Native 0.76.9（旧架构 + Hermes）
 
 ### 步骤
 
 ```bash
-# 安装依赖
+# 首次：拉取仓库外的 4 个原生 fork 到 ../vendor
+npm run setup:vendor
+
+# 安装依赖（.npmrc 已开启 install-links，file: 依赖会物化成真实目录）
 npm install
 
 # 构建 release APK
