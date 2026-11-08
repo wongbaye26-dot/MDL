@@ -99,6 +99,9 @@ interface AudioMetadata {
   interval?: number
   bitrate?: string
   sampleRate?: string
+  year?: string
+  genre?: string
+  language?: string
 }
 
 let cachedList: LX.Music.MusicInfoLocal[] | null = null
@@ -212,6 +215,9 @@ const buildMusicInfo = async(file: DirEntry): Promise<LX.Music.MusicInfoLocal> =
       interval: interval ? interval / 1000 : undefined,
       bitrate: am?.bitrate ? String(Math.round(am.bitrate / 1000)) : undefined,
       sampleRate: am?.sampleRate ? String(am.sampleRate) : undefined,
+      year: (m as any)?.year ?? (am as any)?.year,
+      genre: (m as any)?.genre ?? (am as any)?.genre,
+      language: (m as any)?.language ?? (am as any)?.language,
     }
   } else {
     try {
@@ -259,6 +265,9 @@ const buildMusicInfo = async(file: DirEntry): Promise<LX.Music.MusicInfoLocal> =
       size: file.size,
       bitrate: metadata?.bitrate,
       sampleRate: metadata?.sampleRate,
+      year: metadata?.year,
+      genre: metadata?.genre,
+      language: metadata?.language,
     },
   }
 }
@@ -761,6 +770,9 @@ export const updateLocalMusicMeta = async(item: LX.Music.MusicInfoLocal, updates
   name?: string
   singer?: string
   albumName?: string
+  year?: string
+  genre?: string
+  language?: string
 }): Promise<void> => {
   const list = await getLocalMusicList()
   const index = list.findIndex(m => m.id === item.id)
@@ -768,7 +780,20 @@ export const updateLocalMusicMeta = async(item: LX.Music.MusicInfoLocal, updates
   const updated = { ...list[index] }
   if (updates.name !== undefined) updated.name = updates.name
   if (updates.singer !== undefined) updated.singer = updates.singer
-  if (updates.albumName !== undefined) updated.meta = { ...updated.meta, albumName: updates.albumName }
+  if (
+    updates.albumName !== undefined ||
+    updates.year !== undefined ||
+    updates.genre !== undefined ||
+    updates.language !== undefined
+  ) {
+    updated.meta = {
+      ...updated.meta,
+      ...(updates.albumName !== undefined ? { albumName: updates.albumName } : null),
+      ...(updates.year !== undefined ? { year: updates.year } : null),
+      ...(updates.genre !== undefined ? { genre: updates.genre } : null),
+      ...(updates.language !== undefined ? { language: updates.language } : null),
+    }
+  }
   // 整条替换成新对象：页面里行的 memo 靠引用变化决定要不要重渲染
   list[index] = updated
   cachedList = list

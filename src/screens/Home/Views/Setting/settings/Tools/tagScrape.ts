@@ -76,6 +76,9 @@ const scrapeOne = async(
     name: match.name,
     singer: match.singer,
     albumName: match.albumName,
+    year: item.meta.year,
+    genre: item.meta.genre,
+    language: item.meta.language,
   })
   if (result.target) summary.file++
   else summary.libraryOnly++

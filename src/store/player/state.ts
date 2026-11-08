@@ -63,6 +63,7 @@ const state: InitState = {
     name: '',
     singer: '',
     album: '',
+    language: '',
   },
 
   isPlay: false,

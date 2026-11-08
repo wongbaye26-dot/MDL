@@ -39,6 +39,7 @@ import { setNowPlayTime, setMaxplayTime } from '@/core/player/progress'
 import { getListMusicSync } from '@/utils/listManage'
 import { LIST_IDS } from '@/config/constant'
 import { setNavActiveId, updateSetting } from '@/core/common'
+import { toggleTranslation } from '@/core/lyric'
 import { formatSize, formatSampleRate, QUALITY_LABEL, QUALITY_DESC } from '@/core/download/utils'
 import DownloadQualityModal, { type DownloadQualityModalType } from '@/components/DownloadQualityModal'
 import PlayerDetailSheet from '@/components/player/PlayerDetailSheet'
@@ -451,6 +452,22 @@ export default () => {
   const statusBarHeight = useStatusbarHeight()
   const navActiveId = useNavActiveId()
   const musicInfo = usePlayerMusicInfo()
+
+  // 按歌曲语言自动切换：粤语开粤拼、外语开翻译、国语关闭粤拼
+  const musicLanguage = (musicInfo as any).language ?? ''
+  useEffect(() => {
+    if (!musicLanguage) return
+    const isCantonese = /粤语|cantonese/i.test(musicLanguage)
+    const isChinese = /中文|国语|普通话|粤语|chinese/i.test(musicLanguage)
+    updateSetting({ 'player.isAutoJyutping': isCantonese })
+    if (!isChinese) {
+      updateSetting({ 'player.isShowLyricTranslation': true })
+      void toggleTranslation(true)
+    } else if (!isCantonese) {
+      updateSetting({ 'player.isShowLyricTranslation': false })
+      void toggleTranslation(false)
+    }
+  }, [musicInfo.id, musicLanguage])
   /** 歌名只显示歌名（下载文件的标签常常是「歌手 - 歌名」） */
   const songName = useMemo(() => cleanSongName(musicInfo.name, musicInfo.singer), [musicInfo.name, musicInfo.singer])
   const isPlay = useIsPlay()

@@ -15,6 +15,8 @@ declare global {
         name: string
         singer: string
         album: string
+        /** 歌曲语言（中文/英文/粤语…），用于自动粤拼/翻译 */
+        language: string
       }
 
       interface LyricInfo extends LX.Music.LyricInfo {

@@ -61,6 +61,7 @@ interface FieldValues {
   trackNumber: string
   discNumber: string
   genre: string
+  language: string
 }
 
 const EMPTY_VALUES: FieldValues = {
@@ -71,6 +72,7 @@ const EMPTY_VALUES: FieldValues = {
   trackNumber: '',
   discNumber: '',
   genre: '',
+  language: '',
 }
 
 export default ({ item, onClose }: Props) => {
@@ -115,10 +117,11 @@ export default ({ item, onClose }: Props) => {
       name: item.name ?? '',
       singer: item.singer ?? '',
       albumName: item.meta.albumName ?? '',
-      year: '',
+      year: item.meta.year ?? '',
       trackNumber: '',
       discNumber: '',
-      genre: '',
+      genre: item.meta.genre ?? '',
+      language: item.meta.language ?? '',
     }
     applyValues(next, { ...next })
     // 扩展标签异步读（只读文件头，几十毫秒），回来时如果用户没动过输入框就补上
@@ -131,7 +134,8 @@ export default ({ item, onClose }: Props) => {
         year: tags.DATE ?? tags.YEAR ?? '',
         trackNumber: tags.TRACKNUMBER ?? '',
         discNumber: tags.DISCNUMBER ?? '',
-        genre: tags.GENRE ?? '',
+        genre: tags.GENRE ?? next.genre,
+        language: tags.LANGUAGE ?? next.language,
       }
       applyValues(withTags, { ...withTags })
     }).catch(() => {})
@@ -187,6 +191,7 @@ export default ({ item, onClose }: Props) => {
             TRACKNUMBER: values.trackNumber.trim(),
             DISCNUMBER: values.discNumber.trim(),
             GENRE: values.genre.trim(),
+            LANGUAGE: values.language.trim(),
           })
         } catch (err) {
           flacError = (err as Error)?.message ?? '未知错误'
@@ -197,6 +202,9 @@ export default ({ item, onClose }: Props) => {
         name: nextName,
         singer: nextSinger,
         albumName: nextAlbum,
+        year: values.year.trim() || undefined,
+        genre: values.genre.trim() || undefined,
+        language: values.language.trim() || undefined,
       })
       if (flacError) toast(`基础标签已保存；FLAC 扩展标签写入失败：${flacError}`)
       else toast('已保存')
@@ -317,17 +325,30 @@ export default ({ item, onClose }: Props) => {
               onChangeText={text => { setField('albumName', text) }}
             />
 
+            <Field
+              label='语言'
+              value={values.language}
+              placeholder='中文 / 英文 / 粤语 / 日文 / 韩文'
+              onChangeText={text => { setField('language', text) }}
+            />
+            <Field
+              label='年份'
+              value={values.year}
+              placeholder='发行年份'
+              keyboardType='number-pad'
+              onChangeText={text => { setField('year', text) }}
+            />
+            <Field
+              label='风格'
+              value={values.genre}
+              placeholder='如 Pop / Rock / 粤语流行'
+              onChangeText={text => { setField('genre', text) }}
+            />
+
             {
               canEditFlacTags
                 ? (
                   <>
-                    <Field
-                      label='年份'
-                      value={values.year}
-                      placeholder='请输入发布年份'
-                      keyboardType='number-pad'
-                      onChangeText={text => { setField('year', text) }}
-                    />
                     <Field
                       label='曲目序号'
                       value={values.trackNumber}
@@ -341,12 +362,6 @@ export default ({ item, onClose }: Props) => {
                       placeholder='请输入光盘序号'
                       keyboardType='number-pad'
                       onChangeText={text => { setField('discNumber', text) }}
-                    />
-                    <Field
-                      label='风格'
-                      value={values.genre}
-                      placeholder='请输入风格（如 Pop）'
-                      onChangeText={text => { setField('genre', text) }}
                     />
                   </>
                   )

@@ -46,6 +46,12 @@ declare namespace LX {
       cueStartMs?: number
       /** CUE 分段：段末毫秒（到点切下一段） */
       cueEndMs?: number
+      /** 歌曲语言（中文 / 英文 / 粤语 / 日文 / 韩文…），标签刮削/手动编辑写入 */
+      language?: string
+      /** 发行年份 */
+      year?: string
+      /** 音乐风格 */
+      genre?: string
     }
 
 

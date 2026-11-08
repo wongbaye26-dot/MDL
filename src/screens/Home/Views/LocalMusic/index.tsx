@@ -86,6 +86,7 @@ const TABS = [
   { key: 'folder', label: '文件夹', icon: 'folder' },
   { key: 'album', label: '专辑', icon: 'album' },
   { key: 'artist', label: '艺人', icon: 'account' },
+  { key: 'genre', label: '风格', icon: 'tag-outline' },
   { key: 'recent', label: '最近添加', icon: 'clock-outline' },
 ] as const
 
@@ -144,10 +145,10 @@ const TabButton = memo(({ label, active, onPress }: {
       onPress={onPress}
     >
       <Text
-        size={11}
+        size={10.5}
         color={active ? contrastOn(theme['c-primary']) : theme['c-450']}
         numberOfLines={1}
-        style={[styles.tabText, chipText(11)]}
+        style={[styles.tabText, chipText(10.5)]}
       >{label}</Text>
     </TouchableOpacity>
   )
@@ -174,7 +175,7 @@ const secondsOfInterval = (interval?: string | null) => {
   return seconds
 }
 
-export type LocalTab = 'recent' | 'album' | 'artist' | 'folder' | 'song'
+export type LocalTab = 'recent' | 'album' | 'artist' | 'genre' | 'folder' | 'song'
 
 export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClose?: () => void, /** 打开时直接落到哪个页签（首页「最近添加歌曲」进来用） */ initialTab?: LocalTab, /** 直接打开某张专辑的歌曲列表（首页最近添加专辑） */ initialAlbum?: string | null, /** 标题后的收藏入口（打开我的收藏） */ onOpenFavorites?: () => void }) => {
   const theme = useTheme()
@@ -206,7 +207,7 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
     setDetail({ type: 'album', title: initialAlbum })
   }, [initialAlbum])
   /** 专辑 / 艺人的二级页 */
-  const [detail, setDetail] = useState<{ type: 'album' | 'artist', title: string } | null>(null)
+  const [detail, setDetail] = useState<{ type: 'album' | 'artist' | 'genre', title: string } | null>(null)
   /** 文件夹树当前目录（null = 根） */
   const [folderPath, setFolderPath] = useState<string | null>(null)
   /** 授权失效、需要用户重新选一次的目录 */
@@ -582,6 +583,7 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
       | { type: 'album', key: string, title: string, count: number, cover?: LX.Music.MusicInfoLocal }
       | { type: 'artist', key: string, title: string, count: number, cover?: LX.Music.MusicInfoLocal }
       | { type: 'folder', key: string, title: string, count: number, path: string }
+      | { type: 'genre', key: string, title: string, count: number }
 
     const toSongRow = (item: LX.Music.MusicInfoLocal, position?: number): Row => ({
       type: 'song',
@@ -596,6 +598,11 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
 
     // 二级页：某张专辑 / 某个艺人的歌（用索引的 songIds，兼容大小写/空格差异与多歌手拆分）
     if (detail) {
+      if (detail.type === 'genre') {
+        return filteredList
+          .filter(it => (it.meta.genre ?? '未分类') === detail.title)
+          .map(item => toSongRow(item))
+      }
       const group = detail.type === 'album'
         ? libraryIndex.albums[normalizeGroupKey(detail.title)]
         : libraryIndex.artists[normalizeGroupKey(detail.title)]
@@ -611,6 +618,17 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
           ? (it.meta.albumName || '未知专辑')
           : (it.singer || '未知歌手')) === detail.title)
         .map(item => toSongRow(item))
+    }
+
+    if (targetTab === 'genre') {
+      const map = new Map<string, number>()
+      for (const item of songSource) {
+        const genre = item.meta.genre ?? '未分类'
+        map.set(genre, (map.get(genre) ?? 0) + 1)
+      }
+      return [...map.entries()]
+        .sort((a, b) => a[0].localeCompare(b[0], 'zh-Hans-CN'))
+        .map(([title, count]): Row => ({ type: 'genre', key: `genre_${title}`, title, count }))
     }
 
     // 最近添加：按文件修改时间倒序
@@ -1235,7 +1253,25 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
   | { type: 'song', key: string, item: LX.Music.MusicInfoLocal, index: number }
   | { type: 'album', key: string, title: string, count: number, cover?: LX.Music.MusicInfoLocal }
   | { type: 'artist', key: string, title: string, count: number, cover?: LX.Music.MusicInfoLocal }
-  | { type: 'folder', key: string, title: string, count: number, path: string } }) => {
+  | { type: 'folder', key: string, title: string, count: number, path: string }
+  | { type: 'genre', key: string, title: string, count: number } }) => {
+    if (row.type === 'genre') {
+      return (
+        <TouchableOpacity
+          style={styles.groupRowItem}
+          activeOpacity={0.7}
+          onPress={() => { setDetail({ type: 'genre', title: row.title }) }}
+        >
+          <View style={styles.groupIcon}><Icon name='tag-outline' size={20} color={theme['c-primary']} /></View>
+          <View style={styles.groupInfo}>
+            <Text size={14} numberOfLines={1}>{row.title}</Text>
+            <Text size={10} color={theme['c-450']} numberOfLines={1} style={styles.groupMeta}>{row.count} 首</Text>
+          </View>
+          <Icon name='chevron-right' size={18} color={theme['c-350']} />
+        </TouchableOpacity>
+      )
+    }
+
     if (row.type === 'album' || row.type === 'artist') {
       const openGroup = () => { setDetail({ type: row.type, title: row.title }) }
       if (isGrid) {
@@ -1336,6 +1372,7 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
       )
     }
 
+    if (row.type !== 'song') return null
     const { item, index } = row
     return (
       <LocalRow
@@ -1761,7 +1798,7 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
                 <View style={styles.detailInfo}>
                   <Text size={15} numberOfLines={1} style={styles.detailTitle}>{detail.title}</Text>
                   <Text size={10} color={theme['c-450']} numberOfLines={1} style={styles.groupMeta}>
-                    {detail.type === 'album' ? '专辑' : '艺人'} · {rows.length} 首
+                    {detail.type === 'album' ? '专辑' : detail.type === 'genre' ? '风格' : '艺人'} · {rows.length} 首
                   </Text>
                 </View>
                 <TouchableOpacity
@@ -2493,9 +2530,9 @@ const styles = createStyle({
   },
   tabItem: {
     flex: 1,
-    height: 28,
-    marginHorizontal: 2,
-    borderRadius: 14,
+    height: 26,
+    marginHorizontal: 1,
+    borderRadius: 13,
     borderWidth: 0.5,
     justifyContent: 'center',
     alignItems: 'center',
