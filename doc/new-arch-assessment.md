@@ -311,9 +311,7 @@ P2 全量回归（17 项真机 + 新架构专项）约 **4–6 人日**；合计
 
 ### 仍保留的已知限制
 
-- **blur 磨砂效果降级**：RNN 8.6.2 依赖 `com.github.Dimezis:BlurView:3.0.0`，而 `@react-native-community/blur@4.4.1` 的 Fabric 实现是按 BlurView **2.0.4** API 编译的（`setupWith(ViewGroup)` vs v3 的 `setupWith(BlurTarget)`），必然 `NoSuchMethodError`。
-  当前新架构下 `Glass` 检测到 Fabric 就降级为纯色玻璃（无崩溃、视觉略降级）。
-  后续可选：①等 blur 库支持 BlurView 3；②自研 `BlurTarget` 包装 + Fabric view manager；③长期保持纯色玻璃（设计可接受）。
+- ~~blur 磨砂效果降级~~ → **已修复（自研方案，见 §10）**：RNN 8.6.2 依赖 `com.github.Dimezis:BlurView:3.0.0`，而 `@react-native-community/blur@4.4.1` 的 Fabric 实现是按 BlurView **2.0.4** API 编译的（`setupWith(ViewGroup)` vs v3 的 `setupWith(BlurTarget)`），必然 `NoSuchMethodError`。已用自研 `GlassBlurView` 替代，并从依赖中移除 `@react-native-community/blur`。
 - **通知栏/锁屏文案**：媒体卡标题/歌手/进度正常；展开视图自定义按钮已验证可点；未覆盖完整锁屏（Android 17 锁屏全屏媒体卡属于系统 UI，如需可再补一轮）。
 
 ### P1 剩余工作（进入 P2 回归前）
@@ -322,3 +320,30 @@ P2 全量回归（17 项真机 + 新架构专项）约 **4–6 人日**；合计
 2. 新架构专项：主题切换（RNN `mergeOptions`）、启动耗时/内存/APK 体积对比、16KB 设备实测、低端机（armeabi-v7a）实机；
 3. blur 方案决策（见上）；
 4. 8 个自研模块是否需要 TurboModule codegen 化（可选，当前 interop 全可用）。
+
+---
+
+## 10. blur 自研方案（已实现，2026-11-09）
+
+**结论：不再依赖 `@react-native-community/blur`，改为自研原生玻璃层，真模糊回归，页面布局零改动。**
+
+选型对比：
+| 方案 | 结论 |
+|---|---|
+| 等 blur 库支持 BlurView 3 | 不可控，且与 RNN 8.6.2 的 BlurView 3.0.0 绑死，短期无解 |
+| 用 BlurView 3 的 `BlurTarget` | **要求「被模糊内容」和「BlurView」是兄弟节点**，每个用到玻璃的页面（首页/本地/搜索/我的/设置/榜单/收藏/横屏侧栏）都要拆布局，改动大且容易回归 |
+| **自研 `GlassBlurView`（采用）** | 对 JS 完全透明（仍是绝对定位玻璃层），零页面改动；只写一份原生代码 |
+
+实现要点（`android/app/src/main/java/cn/emomusic/mobile/blur/`）：
+- `GlassBlurView extends View`：在窗口 `OnPreDrawListener` 里把「窗口内容」按自身位置/尺寸画进小快照 Bitmap（`SNAPSHOT_SCALE=0.55`），
+  用 `SnapshotCanvas` 标记跳过所有 `GlassBlurView`，避免自模糊/递归；
+- API 31+：`RenderNode` + `RenderEffect.createBlurEffect(radius)` 做硬件高斯模糊，再叠加 tint；
+- API < 31：无 RenderEffect，退化为 tint 纯色（与旧兜底一致，不崩）；
+- 支持 `blurRadius`（0~25 夹紧）/`overlayColor`（JS `processColor`）/`enabled`；
+- legacy `ViewManager` + `ReactPackage` 注册，RN 0.80 Fabric 通过 interop 层使用（已实测，含 `ViewManagerPropertyUpdater` 反射回退告警，功能正常）；
+- JS `Glass.tsx` 改为 `requireNativeComponent('GlassBlurView')`，iOS/原生缺失时回退纯色；`package.json` 移除 `@react-native-community/blur`。
+
+实测（release 包，真机）：
+- 本地音乐列表滚动时，底部导航玻璃条后可看到被模糊的封面/歌词块（真模糊，不再是纯色）；
+- 首页悬浮搜索胶囊、播放条、榜单页头玻璃均正常；
+- 无崩溃、无 `Unimplemented component`、无 `NoSuchMethodError`；APK 中已无 `BlurView` 相关库。
