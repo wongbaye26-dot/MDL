@@ -33,6 +33,7 @@ import LiquidGlass from '@/components/common/LiquidGlass'
 import { useSettingValue } from '@/store/setting/hook'
 import { confirmDialog, createStyle, tipDialog, toast } from '@/utils/tools'
 import { formatSize, formatSampleRate } from '@/core/download/utils'
+import { showAppDialog } from '@/components/common/AppDialog/service'
 import { getLocalMusicList, getLocalMusicListCacheOnly, getLocalMusicListSync, getScanPartialList, subscribeScanPartialList, scanLocalMusicInBackground, isScanning, useScanState, getTotalSize, deleteLocalMusic, getScanDirs, getExtraDirs, setExtraDirs, getLastScanReport, type ScanDir, type ScanReport } from '@/core/localMusic'
 import { pickDirectory, isDirectoryPickerSupported } from '@/utils/directoryPicker'
 import { cleanSongName } from '@/utils/songName'
@@ -1125,8 +1126,29 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
       setList(newList)
       toast(deleteFile ? '已删除文件和记录' : '已从列表移除')
     } catch (err) {
-      // 文件删不掉时不要把记录也删了，否则列表和磁盘对不上
-      toast(`删除失败：${(err as Error)?.message ?? '文件被占用或无权限'}`)
+      // 文件删不掉时不要把记录也删了，否则列表和磁盘对不上。
+      // 但「文件已经不在 / 系统确实不给权限」时也不能让用户永远删不掉这条记录，
+      // 所以给一个「仅从列表移除」的兜底入口。
+      const message = (err as Error)?.message ?? '文件被占用或无权限'
+      if (!deleteFile || !showAppDialog({
+        title: '删除文件失败',
+        message: `${message}\n\n可以仅从曲库移除这条记录（磁盘文件不动）。`,
+        actions: [
+          { text: '取消', style: 'cancel' },
+          {
+            text: '仅从列表移除',
+            style: 'danger',
+            onPress: () => {
+              void deleteLocalMusic(item, false).then(async() => {
+                setList(await getLocalMusicList())
+                toast('已从列表移除')
+              }).catch((e: Error) => {
+                toast(`移除失败：${e?.message ?? '未知错误'}`)
+              })
+            },
+          },
+        ],
+      })) toast(`删除失败：${message}`)
     }
   }, [])
 

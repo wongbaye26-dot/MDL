@@ -16,6 +16,7 @@ import {
   treeUriToDisplayPath,
   findAudioByPath,
   deleteDocument,
+  documentUriToRealPath,
   type AudioMeta,
   type AudioFileItem,
 } from '@/utils/directoryPicker'
@@ -755,6 +756,17 @@ const removeLocalFile = async(item: LX.Music.MusicInfoLocal) => {
   // 直接就是 content:// 文档 uri（SAF 目录下载的文件）
   if (filePath.startsWith('content://')) {
     if (await deleteDocument(filePath)) return
+
+    // SAF 授权可能已经丢了（恢复默认目录后不再需要该授权、清数据/重装、用户在系统里撤销），
+    // 但文件通常还在公共存储里：能还原真实路径时优先用 File API 删（有「所有文件访问」即可），
+    // 不再单纯依赖 DocumentsContract 的授权。
+    const realPath = documentUriToRealPath(filePath)
+    if (realPath) {
+      if (await deleteDocument(realPath)) return
+      // 文件已经被外部删掉（文件管理器/清理软件/换机迁移）：按「已删除」处理，
+      // 否则曲库记录会永远卡住、用户怎么点删除都提示「系统不允许删除该文件」。
+      if (!await existsFile(realPath).catch(() => true)) return
+    }
     throw new Error('系统不允许删除该文件')
   }
 
