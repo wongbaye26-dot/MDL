@@ -217,29 +217,39 @@ export const readFlacTags = async(filePath: string): Promise<Record<string, stri
  * 旧的 VORBIS_COMMENT(4) / PICTURE(6) 只有在这次要覆盖时才丢掉
  * （VORBIS_COMMENT 必须唯一，PICTURE 重复会显示错图）。
  */
+/** 流式读取 FLAC 头部：按 4MB 递增，直到 metadata blocks 完整（避免整文件读入内存 OOM） */
+const readFlacHeader = async(filePath: string, size: number): Promise<ParsedFlac> => {
+  let length = Math.min(4 * 1024 * 1024, size)
+  while (true) {
+    const bytes = toByteArray(await RNFS.read(filePath, length, 0, 'base64'))
+    const parsed = parseFlac(bytes)
+    if (parsed) return parsed
+    if (length >= size) throw new Error('不是有效的 FLAC 文件')
+    length = Math.min(length * 2, size)
+  }
+}
+
 export const writeFlacTags = async(
   filePath: string,
   tags: Record<string, string>,
   picPath?: string | null,
 ): Promise<void> => {
   if (filePath.startsWith('content://')) throw new Error('SAF 文档 uri 不支持纯 JS 写入')
-  const b64 = await RNFS.readFile(filePath, 'base64')
-  const bytes = toByteArray(b64)
-  const parsed = parseFlac(bytes)
-  if (!parsed) throw new Error('不是有效的 FLAC 文件')
+  const info = await RNFS.stat(filePath)
+  const fileSize = Number(info.size) || 0
+  if (fileSize < 8) throw new Error('文件为空')
+  const parsed = await readFlacHeader(filePath, fileSize)
 
   let pic: Uint8Array | null = null
   let mime = 'image/jpeg'
   if (picPath) {
     const picB64 = await RNFS.readFile(picPath, 'base64')
     pic = toByteArray(picB64)
-    // 按文件头判断格式，别硬编码 jpeg
     if (pic[0] === 0x89 && pic[1] === 0x50) mime = 'image/png'
   }
 
   const replaceTags = Object.values(tags).some(value => !!value)
   const replacePic = !!picPath
-  // 组装新的 block 列表：要覆盖的 4/6 丢掉，再补上新的；不覆盖的原样保留
   const kept = parsed.blocks.filter(block => {
     if (block.type === 4) return !replaceTags
     if (block.type === 6) return !replacePic
@@ -249,31 +259,33 @@ export const writeFlacTags = async(
   if (replaceTags) nextBlocks.push({ type: 4, body: buildVorbisComment(tags) })
   if (pic) nextBlocks.push({ type: 6, body: buildPicture(pic, mime) })
 
-  // 计算新文件大小
-  let size = 4 // 'fLaC'
-  for (const b of nextBlocks) size += 4 + b.body.length
-  size += bytes.length - parsed.audioStart
-
-  const out = new Uint8Array(size)
-  out[0] = 0x66; out[1] = 0x4c; out[2] = 0x61; out[3] = 0x43 // 'fLaC'
+  // 只组装新的 metadata 区（不含音频帧）
+  let headerSize = 4
+  for (const b of nextBlocks) headerSize += 4 + b.body.length
+  const headOut = new Uint8Array(headerSize)
+  headOut[0] = 0x66; headOut[1] = 0x4c; headOut[2] = 0x61; headOut[3] = 0x43
   let pos = 4
   nextBlocks.forEach((b, i) => {
     const isLast = i === nextBlocks.length - 1
-    out[pos] = (isLast ? 0x80 : 0x00) | (b.type & 0x7f)
-    out[pos + 1] = (b.body.length >> 16) & 0xff
-    out[pos + 2] = (b.body.length >> 8) & 0xff
-    out[pos + 3] = b.body.length & 0xff
-    out.set(b.body, pos + 4)
+    headOut[pos] = (isLast ? 0x80 : 0x00) | (b.type & 0x7f)
+    headOut[pos + 1] = (b.body.length >> 16) & 0xff
+    headOut[pos + 2] = (b.body.length >> 8) & 0xff
+    headOut[pos + 3] = b.body.length & 0xff
+    headOut.set(b.body, pos + 4)
     pos += 4 + b.body.length
   })
-  // 音频帧原样搬过去
-  out.set(bytes.subarray(parsed.audioStart), pos)
 
-  // 先写临时文件，再把原文件挪成备份、临时文件补位，最后删备份：
-  // 中途失败（存储满 / 被占用）还能把原文件还原，不会留下一个半截文件。
   const tmp = `${filePath}.emo-tmp`
   const bak = `${filePath}.emo-bak`
-  await RNFS.writeFile(tmp, fromByteArray(out), 'base64')
+  // 先写头部，再把音频帧按 4MB 分块追加：内存占用恒定，不会 OOM
+  await RNFS.writeFile(tmp, fromByteArray(headOut), 'base64')
+  const CHUNK = 4 * 1024 * 1024
+  for (let offset = parsed.audioStart; offset < fileSize; offset += CHUNK) {
+    const length = Math.min(CHUNK, fileSize - offset)
+    const b64 = await RNFS.read(filePath, length, offset, 'base64')
+    await RNFS.appendFile(tmp, b64, 'base64')
+  }
+
   await RNFS.unlink(bak).catch(() => {})
   await RNFS.moveFile(filePath, bak)
   try {
