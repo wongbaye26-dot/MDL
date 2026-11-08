@@ -11,8 +11,8 @@ buildscript {
         // Android 16（API 36）为目标版本：强制 edge-to-edge，见 doc/android-16-compat.md
         targetSdkVersion = 36
 
-        ndkVersion = "26.1.10909125"
-        kotlinVersion = "1.9.25" // RN 0.76.9 官方模板版本（RNGP 提供）
+        ndkVersion = "27.1.12297006"
+        kotlinVersion = "2.1.20" // RN 0.76.9 官方模板版本（RNGP 提供）
         RNNKotlinVersion = kotlinVersion
 
         // https://github.com/dream-horizon-org/react-native-fast-image/blob/main/docs/app-glide-module.md

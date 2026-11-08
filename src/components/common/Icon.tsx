@@ -81,7 +81,8 @@ const Icon = memo(({ name, size = 15, rawSize, color, style }: IconProps) => {
   return (
     <MaterialCommunityIcons
       name={iconName as any}
-      size={rawSize ?? scaleSizeW(size)}
+      // Fabric 下 fontSize<=0 会崩，图标尺寸也兜底
+      size={Math.max(1, rawSize ?? scaleSizeW(size))}
       color={color ?? theme['c-font']}
       style={finalStyle as unknown as ComponentProps<typeof MaterialCommunityIcons>['style']}
     />

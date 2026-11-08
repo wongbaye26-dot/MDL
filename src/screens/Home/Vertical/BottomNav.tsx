@@ -205,9 +205,8 @@ export default memo(() => {
         }}
       >
         {/*
-          磨砂玻璃：抓胶囊背后的内容做真高斯模糊。
-          Android 侧 @react-native-community/blur 的 blurRadius 硬上限是 25（超过直接抛错，
-          Glass 内部已夹紧到 25），所以这里传 38 只是表达「要更厚的磨砂」的设计意图；
+          磨砂玻璃：自研 GlassBlurView 抓胶囊背后的内容做真高斯模糊。
+          blurRadius 原生侧夹紧到 25，这里传 38 只是表达「要更厚的磨砂」的设计意图；
           实际的厚度感靠下面更实的 tint + 更亮的顶部高光 + 更深的内阴影叠出来。
         */}
         <LiquidGlass

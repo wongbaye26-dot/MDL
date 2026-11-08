@@ -53,8 +53,6 @@ export interface BenchmarkResult {
   rows: number
 }
 
-
-
 /** 把查询结果转成普通对象数组（WebSQL 的 rows 是 native 有序字典） */
 const readRows = (result: SQLResultSet): Array<Record<string, unknown>> => {
   const rows: Array<Record<string, unknown>> = []
@@ -177,12 +175,18 @@ class LocalLibraryRepository {
         year TEXT,
         genre TEXT
       )`)
-      // 老库没有这三列：逐列 ALTER，已存在时忽略错误
-      for (const col of ['language TEXT', 'year TEXT', 'genre TEXT']) {
-        (tx.executeSql as unknown as (sql: string, args?: unknown[], ok?: () => void, err?: () => boolean) => void)(
-          `ALTER TABLE tracks ADD COLUMN ${col}`, [], () => {}, () => true,
-        )
-      }
+      // 老库没有这三列：先查 pragma_table_info，只给缺失列做 ALTER。
+      // 之前是无条件 ALTER + 吞错，SQLiteLog 会打 E 级 "duplicate column name"，
+      // 排查真实 SQL 错误时噪音很大。
+      exec(tx, "SELECT name FROM pragma_table_info('tracks')", [], (_, result) => {
+        const existing = new Set(readRows(result).map(row => String(row.name)))
+        for (const col of ['language TEXT', 'year TEXT', 'genre TEXT']) {
+          if (existing.has(col.split(' ')[0])) continue
+          (tx.executeSql as unknown as (sql: string, args?: unknown[], ok?: () => void, err?: () => boolean) => void)(
+            `ALTER TABLE tracks ADD COLUMN ${col}`, [], () => {}, () => true,
+          )
+        }
+      })
       exec(tx, 'CREATE INDEX IF NOT EXISTS idx_tracks_path ON tracks(path)')
       exec(tx, 'CREATE INDEX IF NOT EXISTS idx_tracks_fp ON tracks(fingerprint)')
       exec(tx, 'CREATE INDEX IF NOT EXISTS idx_tracks_album ON tracks(album_name, album_artist)')

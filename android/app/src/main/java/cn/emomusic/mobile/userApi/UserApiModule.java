@@ -67,15 +67,16 @@ public class UserApiModule extends ReactContextBaseJavaModule {
   }
 
   @ReactMethod
-  public boolean sendAction(String action, String info) {
+  public void sendAction(String action, String info) {
+    // 新架构 TurboModule interop 要求：异步 @ReactMethod 必须是 void（Promise 也是 void+Promise 参数）；
+    // 旧架构允许返回 boolean 但返回值 JS 从未使用，这里改成 void。
     JavaScriptThread javaScriptThread = this.javaScriptThread;
-    if (javaScriptThread == null) return false;
+    if (javaScriptThread == null) return;
     Handler jsHandler = javaScriptThread.getHandler();
     Message message = jsHandler.obtainMessage();
     message.what = HandlerWhat.ACTION;
     message.obj = new Object[]{action, info};
     jsHandler.sendMessage(message);
-    return true;
   }
 
   @ReactMethod

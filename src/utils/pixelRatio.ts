@@ -48,10 +48,12 @@ export function getTextSize(size: number) {
   let scale = Math.min(scaleWidth, scaleHeight, 1.3)
   size = Math.floor(size * scale / fontScale)
   // console.log(size)
-  return size
+  // Fabric 对 fontSize<=0 会直接抛异常，字号计算统一兜底（含 size=0 的占位场景）
+  return size > 0 ? size : 1
 }
 export function setSpText(size: number) {
-  return getTextSize(size) * global.lx.fontSize
+  const v = getTextSize(size) * global.lx.fontSize
+  return v > 0 ? v : 1
 }
 
 /**

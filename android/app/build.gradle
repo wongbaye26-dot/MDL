@@ -179,7 +179,8 @@ android {
     }
     buildTypes {
         debug {
-            signingConfig signingConfigs.debug
+            // PoC：让 debug 包也用 release 签名，便于覆盖安装现有 release 包而不丢数据
+            signingConfig signingConfigs.release
         }
         release {
             // 发布包必须使用 release keystore；不要再保留 signingConfigs.debug 的赋值
@@ -227,7 +228,8 @@ dependencies {
     implementation("com.facebook.react:react-android")
     // implementation "androidx.javascriptengine:javascriptengine:1.0.0-alpha07"
     // implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
-    implementation 'wang.harlon.quickjs:wrapper-android:2.4.0'
+    // 3.2.3 起 arm64 的 libquickjs-android-wrapper.so 已是 16KB(p_align=0x4000) 对齐（2.4.x 还是 4KB）
+    implementation 'wang.harlon.quickjs:wrapper-android:3.2.3'
 
   if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")
