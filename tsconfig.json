@@ -4,6 +4,11 @@
     /* Visit https://aka.ms/tsconfig.json to read more about this file */
 
     "module": "ESNext",
+    // RN 0.80 的 base config 打开 customConditions: ["react-native"]，会让 tsc 直接解析
+    // 第三方库 package.json exports 里的 react-native 条件（= 源码 TS）。RNN 8.6 的 src
+    // 依赖 lodash/prop-types 的类型且不是为外部类型检查准备的，所以这里关掉，
+    // 让 tsc 走各库的 types 字段（d.ts）。
+    "customConditions": [],
     "types": ["react-native", "node"],
     /* Completeness */
     "skipLibCheck": true,                                 /* Skip type checking all .d.ts files. */

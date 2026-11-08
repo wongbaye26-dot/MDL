@@ -2,7 +2,7 @@
 
 - 评估日期：2026-11-09
 - 评估对象：`EmoMusic` master（当前 RN 0.76.9 旧架构 + RNN 8.0.0，v3.41.0）
-- 评估结论：**Go（技术上可行，但没有捷径）**。推荐目标组合 **RN 0.80.2 + RNN 8.6.2**（选项 B）；
+- 评估结论：**Go（技术上可行，但没有捷径）**。推荐目标组合 **RN 0.80.3 + RNN 8.6.2**（选项 B；0.80 线最新 patch）；
   若必须拿到 Android 16 官方支持则用 **RN 0.82.1 + RNN 8.6.3**（选项 B+）；
   不建议为省事停在 0.77（EOL + 无 Android 16 支持）。
 - 结论先行：本项目**没有自定义 Fabric 组件 / 自定义 ViewManager**，8 个自研原生模块全是
@@ -48,12 +48,12 @@ RNN 的版本 ↔ RN 基线（`npm view react-native-navigation@<v> devDependenc
 | 选项 | RN + RNN | 工具链 | 16KB | Android 16 | 升级跨度 | 评价 |
 |---|---|---|---|---|---|---|
 | A 最小跳 | 0.77.2 + 8.1.2 | Gradle 8.10.2 / Kotlin 2.0.21 / NDK 27.1 / React 18.3 | ✅ | ❌（0.81 才官方支持） | 1 个 minor | 风险在 RN 0.77 已 EOL、RNN 8.1 早期、没有 Android 16 修复 |
-| **B 推荐** | **0.80.2 + 8.6.2** | Gradle 8.14.1 / Kotlin 2.1.20 / NDK 27.1 / React 19.1 | ✅ | ⚠️ 非官方（本项目已有 targetSdk 36 兼容层） | 4 个 minor | RNN 8.6 线成熟、旧架构仍可临时回退做对照 |
+| **B 推荐** | **0.80.3 + 8.6.2** | Gradle 8.14.1 / Kotlin 2.1.20 / NDK 27.1 / React 19.1 | ✅ | ⚠️ 非官方（本项目已有 targetSdk 36 兼容层） | 4 个 minor | RNN 8.6 线成熟、旧架构仍可临时回退做对照 |
 | B+ | 0.82.1 + 8.6.3 | Gradle 9.0 / Kotlin 2.1+ / React 19.1.1 | ✅ | ✅（0.81+ 官方） | 6 个 minor | 新架构 only；Gradle 9 是额外变量；RNN 8.6.3 基线刚好是 0.82.1 |
 | C 最新 | 0.85.2 + 8.9.0/8.8.11 | 最新工具链 | ✅ | ✅ | 9 个 minor | 维护性最好但一次性吸收 React 19.1.1 + Gradle 9 + 多轮 breaking change，不建议作为第一跳 |
 
 **推荐 B**，理由：
-- RNN 8.6.2 的 devDependencies 就是 RN 0.80.2，属“官方验证过的组合”；
+- RNN 8.6.2 的 devDependencies 就是 RN 0.80.2（0.80.3 同 patch 线），属“官方验证过的组合”；
 - 16KB 已满足（0.77+），不依赖最新的 0.85；
 - 相比 0.82+，少掉“Gradle 9 / 新架构 only / 更多 breaking change”三个变量；
 - 0.80 仍保留旧架构 opt-out，PoC 阶段可以 `newArchEnabled=false` 先升 RN 再翻新架构，便于二分定位。
@@ -218,3 +218,41 @@ track-player fork、file-system fork、local-media-metadata fork、background-ti
 2. 自研 8 模块：先 interop（推荐，PoC 不改代码）还是一并做 TurboModule codegen（+5–8 人日）？
 3. vendor 4 fork：继续自己维护，还是借新架构迁移换成官方/活跃库（track-player 官方 4.x 已支持新架构，但 fork 的自定义能力要重做）？
 4. iOS：本轮继续不做（当前项目无 iOS 构建），还是同步升级（+3–5 人日，无法在本机验证）？
+
+---
+
+## 8. P0 PoC 进度记录（2026-11-09，分支 `upgrade/rn-0.80-newarch`）
+
+已按选项 B 起 PoC 分支并完成第一轮：
+
+**已完成**
+1. 版本矩阵落地：`react-native@0.80.3`、`react@19.1.0`、`react-native-navigation@8.6.2`、
+   `@react-native/*@0.80.3`、CLI `19.0.0`；`npm install` 成功。
+2. Android 工具链：Gradle `8.14.1`、Kotlin `2.1.20`、NDK `27.1.12297006`、`newArchEnabled=true`。
+3. **RNN 8.6.2 autolink 验证通过**：`npx react-native config` 输出
+   `import com.reactnativenavigation.NavigationPackage;` + `new NavigationPackage()`（无参、免
+   react-native.config.js），说明 RNN 8.5+ 已改为 CLI 约定式 autolink，不需要 `npx rnn-link` 的 Android 部分。
+4. `MainApplication.java` 新架构改造可行（不需要整文件 Kotlin 化）：
+   增加 `getReactHost()` → `DefaultReactHost.getDefaultReactHost(context, reactNativeHost)`；
+   删除应用自己的 `DefaultNewArchitectureEntryPoint.load()`（RNN 的 NavigationApplication 内部已调用）。
+5. **typecheck 迁移项**（RN 0.80/React 19 类型）：
+   - `@react-native/typescript-config@0.80` 默认 `customConditions:["react-native"]`，会把 RNN 等库的
+     `exports.react-native` 指到 **TS 源码**（RNN 的 src 缺 lodash/prop-types 类型，产生 49 个错误）。
+     解决：本项目 tsconfig 覆盖 `"customConditions": []`，让 tsc 走各库 `types`/d.ts；
+   - `BackHandler.removeEventListener` 在 RN 0.77 已移除 → 改 `subscription.remove()`（`useBackHandler.ts`）；
+   - React 19 移除全局 `JSX` 命名空间 → 4 个文件 `import type { JSX } from 'react'`；
+   - React 19 `useRef()` 必须带初值 → `useRef<SelectInfo | undefined>(undefined)`。
+   **以上修完后 `npm run typecheck` 0 error。**
+6. **KSP/Kotlin 2.1.20**：async-storage 的 KSP 版本映射表不认 2.1.20，默认落到 1.9.24-1.0.20，
+   构建报 `Type org.jetbrains.kotlin.incremental.ChangedFiles not present`。
+   已加 `AsyncStorage_next_kspVersion=2.1.20-1.0.32`（gradle.properties）。
+7. 构建过程已顺利通过 RNGP、AgpConfigurator、RNN 8.6.2、quick-base64/quick-md5 的配置阶段，
+   自动安装 NDK 27.1 与 quick 库要求的 NDK 27.0（注意：会同时装两个 NDK，约 4GB）。
+
+**进行中**
+- `:app:assembleDebug` 第二轮（修 KSP 后）。第一轮失败点仅为上述 KSP 任务，不是架构级阻断。
+
+**待验证（第二轮之后）**
+- 全量 so 编译（含 RNN 8.6.2 codegen/Fabric 部分、quick JSI 库）；
+- 安装到真机后的 interop 行为：8 个旧桥模块、5 路事件、track-player 通知/后台、SAF、下载；
+- APK 体积/启动对比；16KB 对齐复查。
