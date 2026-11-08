@@ -406,6 +406,16 @@ import android.util.Log;`,
             service.stopForeground(true);
         }`,
   ],
+  // ---- react-native-linear-gradient 2.8.3：AGP8 namespace ----
+  // 上游 2.8.3 没有 namespace（AGP 8 会报错），本地手工补过但没进这个脚本；
+  // 全新 npm install 时如果不补，构建会失败。RNGP 0.76 对「manifest 有 package」的库
+  // 会自动注入 namespace，但这里显式补更稳（也避免依赖 RNGP 的实现细节）。
+  [
+    path.join(rootPath, 'node_modules/react-native-linear-gradient/android/build.gradle'),
+    'android {',
+    "android {\n    // AGP 8 起必须显式声明 namespace（上游 2.8.3 还没加）\n    namespace 'com.BV.LinearGradient'",
+    "namespace 'com.BV.LinearGradient'",
+  ],
 ]
 
 ;(async() => {

@@ -1,7 +1,7 @@
 {
   "name": "em-music",
-  "version": "3.40.0",
-  "versionCode": 330,
+  "version": "3.41.0",
+  "versionCode": 331,
   "private": true,
   "scripts": {
     "dev": "react-native run-android --active-arch-only",
@@ -72,11 +72,11 @@
     "react-native-fs": "^2.20.0",
     "react-native-linear-gradient": "^2.8.3",
     "react-native-local-media-metadata": "file:../vendor/react-native-local-media-metadata",
-    "react-native-navigation": "7.51.2",
+    "react-native-navigation": "8.0.0",
     "react-native-pager-view": "6.7.1",
     "react-native-quick-base64": "^2.2.2",
     "react-native-quick-md5": "^3.0.9",
-    "react-native-svg": "^14.1.0",
+    "react-native-svg": "15.12.1",
     "react-native-track-player": "file:../vendor/react-native-track-player",
     "react-native-vector-icons": "10.2.0",
     "react-native-sqlite-2": "3.6.3",

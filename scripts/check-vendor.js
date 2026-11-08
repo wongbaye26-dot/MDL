@@ -80,10 +80,24 @@ check('local-media-metadata 已补 sampleRate', () => {
   return 'ok'
 })
 
-/** 5. 自定义能力：track-player 的扩展方法还在 */
+/** 5. 自定义能力：track-player 的扩展方法还在
+ *
+ * 安装方式不同，产物位置也不同：
+ * - `npm i`（file: 依赖落成软链）→ node_modules 指向 vendor，能读到 src/*.ts；
+ * - `npm i --install-links`（file: 依赖物化成真实目录，RN 0.76 起 Metro 不再跟随
+ *   仓库外软链，必须用这种装法）→ 只保留 package.json `files` 里的 lib/ 产物。
+ * 两种都查，优先源码。
+ */
 check('track-player 扩展方法还在', () => {
-  const ts = readFile(path.join(NM, 'react-native-track-player/src/trackPlayer.ts'))
-  const missing = ['updateNowPlayingTitles', 'isCached', 'getCacheSize', 'clearCache'].filter(fn => !ts.includes(fn))
+  const candidates = [
+    path.join(NM, 'react-native-track-player/src/trackPlayer.ts'),
+    path.join(NM, 'react-native-track-player/lib/trackPlayer.d.ts'),
+    path.join(NM, 'react-native-track-player/lib/trackPlayer.js'),
+  ]
+  const file = candidates.find(p => fs.existsSync(p))
+  if (!file) throw new Error(`找不到 track-player 入口（找过：${candidates.map(p => path.relative(ROOT, p)).join(', ')}）`)
+  const src = readFile(file)
+  const missing = ['updateNowPlayingTitles', 'isCached', 'getCacheSize', 'clearCache'].filter(fn => !src.includes(fn))
   if (missing.length) throw new Error(`缺少：${missing.join(', ')}（vendor commit 可能不对）`)
   return 'ok'
 })
