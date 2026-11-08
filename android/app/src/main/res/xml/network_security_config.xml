@@ -1,4 +1,19 @@
-<?xml version="1.0" encoding="utf-8"?> 
-<network-security-config> 
-    <base-config cleartextTrafficPermitted="true" /> 
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!--
+      音乐源（酷我/QQ/酷狗/网易/咪咕）大量接口和 CDN 仍在使用 http://，
+      全局禁止明文会直接导致搜索、封面和播放失败，所以 base 暂时保持允许。
+
+      但更新、MusicBrainz、封面归档这些敏感/可控域名必须强制 HTTPS，
+      防止被降级到明文后篡改 APK 或元数据。
+    -->
+    <base-config cleartextTrafficPermitted="true" />
+
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">github.com</domain>
+        <domain includeSubdomains="true">githubusercontent.com</domain>
+        <domain includeSubdomains="true">githubassets.com</domain>
+        <domain includeSubdomains="true">musicbrainz.org</domain>
+        <domain includeSubdomains="true">coverartarchive.org</domain>
+    </domain-config>
 </network-security-config>

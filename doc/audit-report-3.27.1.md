@@ -342,3 +342,13 @@ shasum -a 256 dist/.../*.apk
 | 发布门禁缺少签名校验 | 已修：新增 `npm run verify:release`，自动校验 CN=Emo Music + SHA256 |
 | 新机器 vendor 安装失败 | 部分修复：setup-vendor 移除两个包的 bob prepare |
 | P1-5 依赖升级 | 仍阻塞：track-player 的 prepare 依赖 rimraf/tsc PATH，需单独设计 vendor 构建缓存 |
+
+---
+
+## 13. 修复进展（v3.34.0 第七批）
+
+| 发现 | 状态 |
+|---|---|
+| P1-4 全局明文流量 | 部分修复：更新/MusicBrainz/CoverArt 强制 HTTPS；音乐源暂保留明文 |
+| HTTP 域名清单 | 已加运行时采集（global.lx.httpHosts），待后续做白名单 |
+| 构建回归 | 修复 `??=` 语法导致的 release bundle 失败 |

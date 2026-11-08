@@ -166,6 +166,15 @@ const blobToBuffer = (blob) => {
 }
 
 const fetchData = (url, { timeout = 15000, ...options }) => {
+  // 明文流量治理：记录实际访问的 http 域名，便于后续按域名白名单收紧
+  try {
+    if (/^http:\/\//i.test(url)) {
+      const host = new URL(url).hostname
+      if (!global.lx.httpHosts) global.lx.httpHosts = new Set()
+      global.lx.httpHosts.add(host)
+    }
+  } catch {}
+
   const controller = new global.AbortController()
   let id = BackgroundTimer.setTimeout(() => {
     id = null
