@@ -538,7 +538,7 @@ export default () => {
     await setLanguageOverride(id, language)
     const raw = playerState.playMusicInfo.musicInfo
     if (raw && 'meta' in raw && raw.source === 'local') {
-      await updateLocalMusicMeta(raw as LX.Music.MusicInfoLocal, { language: language || undefined })
+      await updateLocalMusicMeta(raw, { language: language || undefined })
     }
     setLanguageVersion(v => v + 1)
   }, [musicInfo.id])

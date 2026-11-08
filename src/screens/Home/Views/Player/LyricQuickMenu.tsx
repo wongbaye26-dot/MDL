@@ -1,4 +1,4 @@
-import { memo, useState, type ComponentProps } from 'react'
+import { memo, useState } from 'react'
 import { Modal, Pressable, TouchableOpacity, View } from 'react-native'
 
 import { Icon } from '@/components/common/Icon'
@@ -161,7 +161,7 @@ export default memo(({
                 >
                   {'short' in row && row.short
                     ? <Text size={14} color={row.active ? '#FFFFFF' : 'rgba(255,255,255,0.9)'}>{String(row.short)}</Text>
-                    : <Icon name={row.icon as ComponentProps<typeof Icon>['name']} size={20} color={row.active ? '#FFFFFF' : 'rgba(255,255,255,0.9)'} />}
+                    : <Icon name={row.icon} size={20} color={row.active ? '#FFFFFF' : 'rgba(255,255,255,0.9)'} />}
                 </TouchableOpacity>
               ))
             }
