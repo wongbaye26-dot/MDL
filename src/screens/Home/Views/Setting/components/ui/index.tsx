@@ -137,18 +137,29 @@ export const CustomToggleRow = ({ title, desc, value, onChange }: {
   </Row>
 )
 
+/** 按字符估算文本宽度（拉丁 8.5dp / CJK 14dp，12sp 字号） */
+const getLabelWidth = (label: string): number => {
+  let width = 0
+  for (const ch of label) {
+    width += /[\u2e80-\u9fff\uff00-\uffef]/.test(ch) ? 14 : 8.5
+  }
+  return Math.ceil(width) + 6
+}
+
 export interface ChoiceOption<T = string | number> {
   value: T
   label: string
 }
 
 /** 短选项用分段控件；长选项/多项走「值 + 箭头 → BottomSheet 单选」 */
-export const ChoiceRow = <T extends string | number>({ settingKey, title, desc, options, onChange }: {
+export const ChoiceRow = <T extends string | number>({ settingKey, title, desc, options, onChange, inline }: {
   settingKey: keyof LX.AppSetting
   title: string
   desc?: string
   options: Array<ChoiceOption<T>>
   onChange?: (value: T) => void
+  /** 选项全部铺开显示（用于下载音质这类需要一眼看全的短列表） */
+  inline?: boolean
 }) => {
   const theme = useTheme()
   const value = useSettingValue(settingKey) as T
@@ -161,6 +172,32 @@ export const ChoiceRow = <T extends string | number>({ settingKey, title, desc, 
     updateSetting({ [settingKey]: next } as Partial<LX.AppSetting>)
     onChange?.(next)
     setSheetVisible(false)
+  }
+
+  if (inline) {
+    return (
+      <View style={styles.choiceRow}>
+        <Text size={Type.rowTitle.fontSize} style={styles.rowTitle}>{title}</Text>
+        {desc ? <Text size={Type.rowDesc.fontSize} color={theme['c-450']} style={styles.rowDesc}>{desc}</Text> : null}
+        <View style={styles.chipsWrap}>
+          {options.map(option => {
+            const selected = option.value === value
+            // Android 上 RN 文本测量比实际渲染窄，只有给 Text 显式宽度才能避免「320k」被裁成「320」
+            const textWidth = getLabelWidth(option.label)
+            return (
+              <TouchableOpacity
+                key={String(option.value)}
+                style={[styles.chip, { width: textWidth + Space.xxl, backgroundColor: selected ? theme['c-primary'] : theme['c-primary-alpha-900'] }]}
+                activeOpacity={0.75}
+                onPress={() => { select(option.value) }}
+              >
+                <Text size={Type.button.fontSize} color={selected ? getOnPrimary(theme) : theme['c-450']} numberOfLines={1} style={{ width: textWidth, textAlign: 'center' }}>{option.label}</Text>
+              </TouchableOpacity>
+            )
+          })}
+        </View>
+      </View>
+    )
   }
 
   if (useSegmented) {
@@ -349,6 +386,20 @@ const styles = createStyle({
     paddingRight: Space.lg,
     paddingTop: Space.md,
     paddingBottom: Space.md,
+  },
+  chipsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Space.sm,
+    marginTop: Space.sm,
+  },
+  chip: {
+    minHeight: 30,
+    paddingLeft: Space.md,
+    paddingRight: Space.md,
+    borderRadius: Radius.full,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   segment: {
     flexDirection: 'row',

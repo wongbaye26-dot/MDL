@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AppState, Linking, TouchableOpacity, View } from 'react-native'
-import { Group, ToggleRow, ChoiceRow, ActionRow, ValueRow } from '../../components/ui'
+import { Group, ToggleRow, ChoiceRow, ActionRow } from '../../components/ui'
 import Text from '@/components/common/Text'
 import { useTheme } from '@/store/theme/hook'
 import { useSettingValue } from '@/store/setting/hook'
@@ -11,6 +11,7 @@ import { QUALITYS, QUALITY_LABEL, getDefaultSavePath, getFallbackSavePath, isSaf
 import { clearSavePathCache, ensureDir, migrateFallbackDownloads } from '@/core/download'
 import { pickDirectory, canWriteTree, treeUriToDisplayPath } from '@/utils/directoryPicker'
 import { isExternalStorageManager, openAllFilesAccessSettings } from '@/utils/nativeModules/utils'
+import { useQualityList } from '../Source/state'
 import { Radius, Space, Type } from '@/theme/designTokens'
 
 /** 下载管理（IA 第 6 组）；所有文件访问权限只在设置里出现一次 */
@@ -18,6 +19,7 @@ export default () => {
   const t = useI18n()
   const theme = useTheme()
   const savePath = useSettingValue('download.savePath')
+  const qualityList = useQualityList()
   const [allFilesAccess, setAllFilesAccess] = useState(false)
 
   const checkAllFilesAccess = useCallback(async() => {
@@ -36,13 +38,12 @@ export default () => {
 
   const qualityOptions = useMemo(() => {
     const supported = new Set<LX.Quality>()
-    const qualityList = global.lx.qualityList ?? {}
     for (const source of Object.keys(qualityList) as LX.Source[]) {
       for (const item of qualityList[source] ?? []) supported.add(item)
     }
     const list = QUALITYS.filter(item => supported.has(item))
     return (list.length ? list : (['320k', '128k'] as LX.Quality[])).map(item => ({ value: item, label: QUALITY_LABEL[item] ?? item }))
-  }, [])
+  }, [qualityList])
 
   const selectPath = async() => {
     try {
@@ -71,26 +72,29 @@ export default () => {
   return (
     <View>
       <Group title='下载管理'>
-        <ValueRow title={t('setting_download_save_path')} desc={pathLabel} />
-        <View style={styles.pathActions}>
-          <TouchableOpacity style={[styles.pathBtn, { backgroundColor: theme['c-primary-alpha-900'] }]} onPress={() => { void selectPath() }}>
-            <Text size={Type.button.fontSize} color={theme['c-primary']}>选择目录</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.pathBtn, { backgroundColor: theme['c-primary-alpha-900'] }]} onPress={() => { void useAppDir('external') }}>
-            <Text size={Type.button.fontSize} color={theme['c-primary']}>应用专属目录</Text>
-          </TouchableOpacity>
-          {savePath ? (
-            <TouchableOpacity style={[styles.pathBtn, { backgroundColor: theme['c-primary-alpha-900'] }]} onPress={() => { updateSetting({ 'download.savePath': '' }); clearSavePathCache() }}>
-              <Text size={Type.button.fontSize} color={theme['c-450']}>恢复默认</Text>
+        <View style={styles.pathBlock}>
+          <Text size={Type.rowTitle.fontSize} style={styles.pathTitle}>{t('setting_download_save_path')}</Text>
+          <Text size={Type.rowDesc.fontSize} color={theme['c-450']} style={styles.pathDesc}>{pathLabel}</Text>
+          <View style={styles.pathActions}>
+            <TouchableOpacity style={[styles.pathBtn, { backgroundColor: theme['c-primary-alpha-900'] }]} onPress={() => { void selectPath() }}>
+              <Text size={Type.button.fontSize} color={theme['c-primary']}>选择目录</Text>
             </TouchableOpacity>
-          ) : null}
+            <TouchableOpacity style={[styles.pathBtn, { backgroundColor: theme['c-primary-alpha-900'] }]} onPress={() => { void useAppDir('external') }}>
+              <Text size={Type.button.fontSize} color={theme['c-primary']}>应用专属目录</Text>
+            </TouchableOpacity>
+            {savePath ? (
+              <TouchableOpacity style={[styles.pathBtn, { backgroundColor: theme['c-primary-alpha-900'] }]} onPress={() => { updateSetting({ 'download.savePath': '' }); clearSavePathCache() }}>
+                <Text size={Type.button.fontSize} color={theme['c-450']}>恢复默认</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
         </View>
         <ChoiceRow settingKey='download.fileName' title='文件名格式' options={[
           { value: '歌名 - 歌手', label: '歌名 - 歌手' },
           { value: '歌手 - 歌名', label: '歌手 - 歌名' },
           { value: '歌名', label: '歌名' },
         ]} />
-        <ChoiceRow settingKey='download.quality' title='下载音质' options={qualityOptions} />
+        <ChoiceRow settingKey='download.quality' title='下载音质' options={qualityOptions} inline />
         <ChoiceRow settingKey='download.maxDownloadNum' title='同时下载数量' options={[1, 2, 3, 5].map(value => ({ value, label: `${value} 个` }))} />
         <ToggleRow settingKey='download.isUseOtherSource' title='使用其他音源' desc='当前音源没有该歌曲时自动换源' />
         <ToggleRow settingKey='download.autoSaveWhilePlaying' title='播放时自动保存' desc='边听边存' />
@@ -109,14 +113,25 @@ export default () => {
 }
 
 const styles = createStyle({
+  pathBlock: {
+    paddingLeft: Space.lg,
+    paddingRight: Space.lg,
+    paddingTop: Space.md,
+    paddingBottom: Space.md,
+  },
+  pathTitle: {
+    ...Type.rowTitle,
+  },
+  pathDesc: {
+    ...Type.rowDesc,
+    marginTop: 2,
+    lineHeight: 16,
+  },
   pathActions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: Space.sm,
-    paddingLeft: Space.lg,
-    paddingRight: Space.lg,
-    paddingBottom: Space.md,
-    marginTop: -Space.xs,
+    marginTop: Space.sm,
   },
   pathBtn: {
     minHeight: 32,

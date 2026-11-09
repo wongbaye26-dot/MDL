@@ -128,3 +128,21 @@
 - `npm run lint` → exit 0（2 条既有 warning）
 - `npm run test:unit` → `tests 32 / pass 32 / fail 0`
 - `assembleRelease`/`assembleDebug` arm64 → BUILD SUCCESSFUL（P2 改动后已重新打包安装）
+
+---
+
+## 7. 用户反馈修复（设置页细节）
+
+1. **下载管理「保存目录」错位**：去掉 `ValueRow + 负 margin` 的组合，改为独立 `pathBlock`（标题 14、路径 12、按钮行 8dp 间距），
+   不再出现分割线压住路径/按钮错位；路径可完整换行显示。
+2. **下载音质显示不全**：
+   - 根因 1：`qualityOptions` 用 `useMemo([])`，首次渲染时 `global.lx.qualityList` 还没初始化，永远停在 fallback 的两档；
+     改为 `useQualityList()` + 依赖更新；
+   - 根因 2：分段控件只适合 ≤3 项；音质改为 `ChoiceRow inline`，把 Hi-Res / FLAC 无损 / 320k / 128k 全部铺开显示；
+   - 圆角 chip 的文字按字符宽度显式给宽，修掉 Android 上「320k」被裁成「320」的问题。
+3. **设置标题右侧加两个图标**：`设置` 右侧新增 38dp 圆形图标按钮（音源管理 / 曲库工具），
+   样式对齐本地音乐页头的圆形图标按钮（`c-primary-alpha-900` 底 + 20dp 图标 + 按压反馈）；
+   点击通过 `settingsDeepScreenRequested` 事件打开对应深页（新增事件与 Main 监听）。
+
+验证：`npm run typecheck`/`lint` 0 error，`npm run test:unit` 32/32；release arm64 重新打包安装，
+截图见 `after/after-header-icons.jpg`、`after/after-download-manager.jpg`、`after/after-tools-page.jpg`。

@@ -79,11 +79,16 @@ export default () => {
     const handleCloseRequested = () => {
       if (activeIdRef.current) setActiveId(null)
     }
+    const handleDeepRequested = (id: 'sourcesearch' | 'library') => {
+      setActiveId(id)
+    }
     global.state_event.on('navActiveIdUpdated', handleNavActiveIdUpdate)
     global.state_event.on('settingsSubpageCloseRequested', handleCloseRequested)
+    global.state_event.on('settingsDeepScreenRequested', handleDeepRequested)
     return () => {
       global.state_event.off('navActiveIdUpdated', handleNavActiveIdUpdate)
       global.state_event.off('settingsSubpageCloseRequested', handleCloseRequested)
+      global.state_event.off('settingsDeepScreenRequested', handleDeepRequested)
     }
   }, [setActiveId])
 
