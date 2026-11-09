@@ -24,15 +24,15 @@ export default memo(({ value, label, onOnlineMatch, onChanged, style, ...props }
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.label} size={14}>{label}</Text>
+        <Text style={styles.label} size={12} color={theme['c-450']}>{label}</Text>
         {
           onChanged ? (
             <View style={styles.btns}>
               <TouchableOpacity onPress={handleRemove}>
-                <Text size={13} color={theme['c-button-font']}>{global.i18n.t('metadata_edit_modal_form_remove_lyric')}</Text>
+                <Text size={12} color={theme['c-primary']}>{global.i18n.t('metadata_edit_modal_form_remove_lyric')}</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={onOnlineMatch}>
-                <Text size={13} color={theme['c-button-font']}>{global.i18n.t('metadata_edit_modal_form_match_lyric')}</Text>
+                <Text size={12} color={theme['c-primary']}>{global.i18n.t('metadata_edit_modal_form_match_lyric')}</Text>
               </TouchableOpacity>
             </View>
           ) : null
@@ -44,7 +44,7 @@ export default memo(({ value, label, onOnlineMatch, onChanged, style, ...props }
         scrollEnabled={false}
         textAlignVertical='top'
         multiline
-        style={StyleSheet.compose({ ...styles.textarea, backgroundColor: theme['c-primary-input-background'] }, style)}
+        style={StyleSheet.compose({ ...styles.textarea, backgroundColor: theme['c-primary-alpha-900'], borderColor: theme['c-primary-alpha-700'] }, style)}
         {...props}
        />
     </View>
@@ -53,8 +53,7 @@ export default memo(({ value, label, onOnlineMatch, onChanged, style, ...props }
 
 const styles = createStyle({
   container: {
-    // paddingLeft: 25,
-    marginBottom: 15,
+    marginBottom: 14,
   },
   header: {
     flexDirection: 'row',
@@ -72,8 +71,14 @@ const styles = createStyle({
   textarea: {
     flexGrow: 1,
     flexShrink: 1,
-    paddingTop: 3,
-    paddingBottom: 3,
+    marginTop: 4,
+    paddingTop: 10,
+    paddingBottom: 10,
+    paddingLeft: 12,
+    paddingRight: 12,
+    borderRadius: 14,
+    borderWidth: 0.5,
+    minHeight: 96,
     height: 'auto',
     // height: 300,
     // maxWidth: 300,

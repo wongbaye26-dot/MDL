@@ -1,16 +1,15 @@
 import { memo, useCallback, useEffect, useRef } from 'react'
-import { View, TouchableOpacity } from 'react-native'
+import { View } from 'react-native'
+
 import Text from '@/components/common/Text'
-import { Icon } from '@/components/common/Icon'
+import CapsuleIconButton from '@/components/common/CapsuleIconButton'
 import { createStyle } from '@/utils/tools'
 import { getExternalStoragePaths, stat } from '@/utils/fs'
 import { useTheme } from '@/store/theme/hook'
-import { scaleSizeH } from '@/utils/pixelRatio'
 import { useStatusbarHeight } from '@/store/common/hook'
 import NewFolderModal, { type NewFolderType } from './NewFolderModal'
 import OpenStorageModal, { type OpenDirModalType } from './OpenStorageModal'
 import type { PathItem } from './ListItem'
-
 
 export default memo(({
   title,
@@ -40,45 +39,25 @@ export default memo(({
       }
     })
   }, [])
-  useEffect(() => {
-    checkExternalStoragePath()
-  }, [checkExternalStoragePath])
-
-  const refresh = () => {
-    void onRefreshDir(path)
-    checkExternalStoragePath()
-  }
-
-  const openStorage = () => {
-    openDirModalTypeRef.current?.show(storagePathsRef.current)
-  }
-
-  const handleShowNewFolderModal = () => {
-    newFolderTypeRef.current?.show(path)
-  }
+  useEffect(() => { checkExternalStoragePath() }, [checkExternalStoragePath])
 
   return (
     <>
       <View style={{
         ...styles.header,
-        height: scaleSizeH(50) + statusBarHeight,
+        height: 56 + statusBarHeight,
         paddingTop: statusBarHeight,
         backgroundColor: theme['c-content-background'],
+        borderBottomColor: theme['c-primary-alpha-700'],
       }} onStartShouldSetResponder={() => true}>
         <View style={styles.titleContent}>
-          <Text color={theme['c-primary-font']} numberOfLines={1}>{title}</Text>
-          <Text style={styles.subTitle} color={theme['c-primary-font']} size={13} numberOfLines={1}>{path}</Text>
+          <Text size={20} color={theme['c-font']} numberOfLines={1} style={styles.title}>{title}</Text>
+          <Text style={styles.subTitle} color={theme['c-450']} size={11} numberOfLines={1}>{path}</Text>
         </View>
         <View style={styles.actions}>
-          <TouchableOpacity style={styles.actionBtn} onPress={openStorage}>
-            <Icon name="sd-card" color={theme['c-primary-font']} size={22} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionBtn} onPress={handleShowNewFolderModal}>
-            <Icon name="add_folder" color={theme['c-primary-font']} size={22} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionBtn} onPress={refresh}>
-            <Icon name="available_updates" color={theme['c-primary-font']} size={22} />
-          </TouchableOpacity>
+          <CapsuleIconButton icon='sd-card' label='存储位置' onPress={() => { openDirModalTypeRef.current?.show(storagePathsRef.current) }} />
+          <CapsuleIconButton icon='folder-plus' label='新建文件夹' onPress={() => { newFolderTypeRef.current?.show(path) }} />
+          <CapsuleIconButton icon='refresh' label='刷新' onPress={() => { void onRefreshDir(path); checkExternalStoragePath() }} />
         </View>
       </View>
       <OpenStorageModal ref={openDirModalTypeRef} onOpenDir={onOpenDir} />
@@ -92,51 +71,14 @@ const styles = createStyle({
     flexGrow: 0,
     flexShrink: 0,
     flexDirection: 'row',
-    paddingLeft: 15,
-    paddingRight: 15,
+    paddingLeft: 16,
+    paddingRight: 12,
     alignItems: 'center',
-    elevation: 2,
+    borderBottomWidth: 0.5,
     zIndex: 2,
-    // borderBottomWidth: BorderWidths.normal,
   },
-  titleContent: {
-    flexGrow: 1,
-    flexShrink: 1,
-    // height: 57,
-    // paddingRight: 5,
-    // paddingBottom: 10,
-  },
-  // title: {
-  //   paddingTop: 10,
-  // },
-  subTitle: {
-    paddingTop: 1,
-  },
-  actions: {
-    flexDirection: 'row',
-    // backgroundColor: 'rgba(0,0,0,0.2)',
-  },
-  actionBtn: {
-    paddingTop: 8,
-    paddingBottom: 8,
-    paddingLeft: 6,
-    paddingRight: 6,
-    marginLeft: 10,
-  },
-  newFolderContent: {
-    flexShrink: 1,
-    flexDirection: 'column',
-  },
-  newFolderTitle: {
-    marginBottom: 5,
-  },
-  input: {
-    flexGrow: 1,
-    flexShrink: 1,
-    minWidth: 240,
-    borderRadius: 4,
-    paddingTop: 2,
-    paddingBottom: 2,
-  },
+  titleContent: { flexGrow: 1, flexShrink: 1, minWidth: 0 },
+  title: { fontWeight: '700' },
+  subTitle: { marginTop: 1 },
+  actions: { flexDirection: 'row', alignItems: 'center' },
 })
-

@@ -3,7 +3,7 @@ import { memo } from 'react'
 import { StyleSheet, View } from 'react-native'
 import { useTheme } from '@/store/theme/hook'
 import Text from '@/components/common/Text'
-import ButtonPrimary from '@/components/common/ButtonPrimary'
+import CapsuleButton from '@/components/common/CapsuleButton'
 import { useI18n } from '@/lang'
 
 
@@ -32,14 +32,11 @@ export default memo(({ fileName, onNameChanged, onSingerChanged }: ParseNameProp
   }
   return (
     <View style={styles.container}>
-      <Text style={styles.label} size={14}>{t('metadata_edit_modal_form_parse_name')}</Text>
+      <Text style={styles.label} size={12} color={theme['c-450']}>{t('metadata_edit_modal_form_parse_name')}</Text>
       <View style={styles.btns}>
-        <ButtonPrimary style={{ backgroundColor: theme['c-button-background'] }} onPress={handleParseNameSinger}>
-          <Text color={theme['c-button-font']} size={13}>{t('metadata_edit_modal_form_parse_name_singer')}</Text>
-        </ButtonPrimary>
-        <ButtonPrimary style={{ backgroundColor: theme['c-button-background'] }} onPress={handleParseSingerName}>
-          <Text color={theme['c-button-font']} size={13}>{t('metadata_edit_modal_form_parse_singer_name')}</Text>
-        </ButtonPrimary>
+        <CapsuleButton icon='music-note' label={t('metadata_edit_modal_form_parse_name_singer')} primary={false} onPress={handleParseNameSinger} />
+        <View style={{ width: 8 }} />
+        <CapsuleButton icon='account-music' label={t('metadata_edit_modal_form_parse_singer_name')} primary={false} onPress={handleParseSingerName} />
       </View>
     </View>
   )

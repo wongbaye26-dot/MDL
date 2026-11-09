@@ -34,16 +34,16 @@ export default memo(({ value, label, onOnlineMatch, onChanged }: PicItemProps) =
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.label} size={14}>{label}</Text>
+        <Text style={styles.label} size={12} color={theme['c-450']}>{label}</Text>
         <View style={styles.btns}>
           <TouchableOpacity onPress={handleRemoveFile}>
-            <Text size={13} color={theme['c-button-font']}>{global.i18n.t('metadata_edit_modal_form_remove_pic')}</Text>
+            <Text size={12} color={theme['c-primary']}>{global.i18n.t('metadata_edit_modal_form_remove_pic')}</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={onOnlineMatch}>
-            <Text size={13} color={theme['c-button-font']}>{global.i18n.t('metadata_edit_modal_form_match_pic')}</Text>
+            <Text size={12} color={theme['c-primary']}>{global.i18n.t('metadata_edit_modal_form_match_pic')}</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={handleShowSelectFile}>
-            <Text size={13} color={theme['c-button-font']}>{global.i18n.t('metadata_edit_modal_form_select_pic')}</Text>
+            <Text size={12} color={theme['c-primary']}>{global.i18n.t('metadata_edit_modal_form_select_pic')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -61,8 +61,7 @@ export default memo(({ value, label, onOnlineMatch, onChanged }: PicItemProps) =
 
 const styles = createStyle({
   container: {
-    // paddingLeft: 25,
-    marginBottom: 15,
+    marginBottom: 14,
   },
   header: {
     flexDirection: 'row',
@@ -83,8 +82,9 @@ const styles = createStyle({
     position: 'relative',
   },
   pic: {
-    width: 180,
-    height: 180,
+    width: 160,
+    height: 160,
+    borderRadius: 16,
     borderWidth: BorderWidths.normal,
     borderStyle: 'dashed',
   },

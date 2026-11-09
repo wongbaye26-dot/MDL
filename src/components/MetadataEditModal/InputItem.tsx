@@ -17,11 +17,11 @@ export default memo(({ value, label, onChanged, ...props }: InputItemProps) => {
   const theme = useTheme()
   return (
     <View style={styles.container}>
-      <Text style={styles.label} size={14}>{label}</Text>
+      <Text style={styles.label} size={12} color={theme['c-450']}>{label}</Text>
       <Input
         value={value}
         onChangeText={onChanged}
-        style={{ ...styles.input, backgroundColor: theme['c-primary-input-background'] }}
+        style={{ ...styles.input, backgroundColor: theme['c-primary-alpha-900'], borderColor: theme['c-primary-alpha-700'] }}
         {...props}
        />
     </View>
@@ -30,15 +30,19 @@ export default memo(({ value, label, onChanged, ...props }: InputItemProps) => {
 
 const styles = StyleSheet.create({
   container: {
-    // paddingLeft: 25,
-    marginBottom: 15,
+    marginBottom: 14,
   },
   label: {
-    marginBottom: 2,
+    marginBottom: 4,
   },
   input: {
     flexGrow: 1,
     flexShrink: 1,
+    height: 44,
+    borderRadius: 14,
+    borderWidth: 0.5,
+    paddingLeft: 12,
+    paddingRight: 12,
     // borderRadius: 4,
     // paddingTop: 3,
     // paddingBottom: 3,

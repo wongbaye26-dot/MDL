@@ -1,9 +1,10 @@
 import { memo } from 'react'
-import { View, StyleSheet } from 'react-native'
-import Button from '@/components/common/Button'
-import Text from '@/components/common/Text'
+import { View } from 'react-native'
+
+import CapsuleButton from '@/components/common/CapsuleButton'
 import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
+import { createStyle } from '@/utils/tools'
 
 export default memo(({ onConfirm, onHide, dirOnly }: {
   onConfirm: () => void
@@ -12,34 +13,32 @@ export default memo(({ onConfirm, onHide, dirOnly }: {
 }) => {
   const t = useI18n()
   const theme = useTheme()
-
   return (
-    <View style={{ ...styles.footer, backgroundColor: theme['c-content-background'] }}>
-      <Button style={{ ...styles.footerBtn, width: dirOnly ? '50%' : '100%' }} onPress={onHide}>
-        <Text color={theme['c-button-font']}>{t('cancel')}</Text>
-      </Button>
+    <View style={{ ...styles.footer, backgroundColor: theme['c-content-background'], borderTopColor: theme['c-primary-alpha-700'] }}>
+      <CapsuleButton icon='close' label={t('cancel')} primary={false} onPress={onHide} />
       {dirOnly
-        ? <Button style={styles.footerBtn} onPress={onConfirm}>
-            <Text color={theme['c-button-font']}>{t('confirm')}</Text>
-          </Button>
-        : null
-      }
+        ? (
+          <>
+            <View style={{ width: 10 }} />
+            <CapsuleButton icon='check' label={t('confirm')} onPress={onConfirm} />
+          </>
+          )
+        : null}
     </View>
   )
 })
 
-const styles = StyleSheet.create({
+const styles = createStyle({
   footer: {
     flexGrow: 0,
     flexShrink: 0,
     flexDirection: 'row',
-    // borderTopWidth: BorderWidths.normal,
+    justifyContent: 'flex-end',
+    paddingLeft: 16,
+    paddingRight: 16,
+    paddingTop: 10,
+    paddingBottom: 10,
+    borderTopWidth: 0.5,
     elevation: 8,
-  },
-  footerBtn: {
-    width: '50%',
-    paddingTop: 16,
-    paddingBottom: 16,
-    alignItems: 'center',
   },
 })

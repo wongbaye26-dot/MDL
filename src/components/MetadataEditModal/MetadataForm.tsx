@@ -224,14 +224,10 @@ export default forwardRef<MetadataFormType, {}>((props, ref) => {
 
 const styles = createStyle({
   container: {
-    flexGrow: 1,
-    flexShrink: 1,
-    flexDirection: 'column',
-    width: 360,
-    maxWidth: '100%',
+    width: '100%',
   },
   pathText: {
-    height: 60,
+    minHeight: 48,
   },
 })
 

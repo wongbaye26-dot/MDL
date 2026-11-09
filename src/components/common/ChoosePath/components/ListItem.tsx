@@ -1,9 +1,10 @@
 import { memo } from 'react'
-import { View, TouchableOpacity } from 'react-native'
+import { TouchableOpacity, View } from 'react-native'
+
 import { Icon } from '@/components/common/Icon'
 import { useTheme } from '@/store/theme/hook'
 import Text from '@/components/common/Text'
-import { type RowInfo, createStyle } from '@/utils/tools'
+import { createStyle } from '@/utils/tools'
 
 export interface PathItem {
   name: string
@@ -16,84 +17,43 @@ export interface PathItem {
   disabled?: boolean
 }
 
-export default memo(({ item, onPress, rowInfo }: {
+export default memo(({ item, onPress }: {
   item: PathItem
   onPress: (item: PathItem) => void
-  rowInfo: RowInfo
+  rowInfo?: unknown
 }) => {
   const theme = useTheme()
 
-  // const moreButtonRef = useRef()
-  // const handleShowMenu = useCallback(() => {
-  //   if (moreButtonRef.current && moreButtonRef.current.measure) {
-  //     moreButtonRef.current.measure((fx, fy, width, height, px, py) => {
-  //       // console.log(fx, fy, width, height, px, py)
-  //       showMenu(item, index, { x: Math.ceil(px), y: Math.ceil(py), w: Math.ceil(width), h: Math.ceil(height) })
-  //     })
-  //   }
-  // }, [item, index, showMenu])
-
   return (
-    <View style={{ ...styles.listItem, width: rowInfo.rowWidth }} onStartShouldSetResponder={() => true}>
-      {
-        item.disabled ? (
-          <View style={{ ...styles.listItem, opacity: 0.3 }}>
-            <View style={styles.itemInfo}>
-              <Text style={styles.listItemTitleText}>{item.name}</Text>
-              <Text style={styles.listItemDesc} size={12} color={theme['c-font-label']} numberOfLines={1}>{item.mtime ? new Date(item.mtime).toLocaleString() : item.desc}</Text>
-            </View>
-            {
-              item.isDir ? null
-                : <Text style={styles.size} size={12} color={theme['c-font-label']}>{item.sizeText}</Text>
-            }
-          </View>
-        ) : (
-          <TouchableOpacity style={styles.listItem} onPress={ () => { onPress(item) } }>
-            <View style={styles.itemInfo}>
-              <Text style={styles.listItemTitleText}>{item.name}</Text>
-              <Text style={styles.listItemDesc} size={12} color={theme['c-font-label']} numberOfLines={1}>{item.mtime ? new Date(item.mtime).toLocaleString() : item.desc}</Text>
-            </View>
-            {
-              item.isDir
-                ? <Icon name="chevron-right" color={theme['c-primary-light-100-alpha-600']} size={18} />
-                : <Text style={styles.size} size={12} color={theme['c-font-label']}>{item.sizeText}</Text>
-            }
-          </TouchableOpacity>
-        )
-      }
+    <View style={[styles.row, { borderBottomColor: theme['c-primary-alpha-700'] }]}>
+      <TouchableOpacity
+        style={[styles.inner, item.disabled ? { opacity: 0.35 } : null]}
+        activeOpacity={0.7}
+        disabled={item.disabled}
+        onPress={() => { onPress(item) }}
+      >
+        <View style={[styles.iconWrap, { backgroundColor: theme['c-primary-alpha-900'] }]}>
+          <Icon name={item.isDir ? 'folder' : 'file-music-outline'} size={18} color={theme['c-primary']} />
+        </View>
+        <View style={styles.info}>
+          <Text size={14} numberOfLines={1} style={styles.title}>{item.name}</Text>
+          <Text size={11} color={theme['c-450']} numberOfLines={1} style={styles.desc}>
+            {item.mtime ? new Date(item.mtime).toLocaleString() : item.desc}
+          </Text>
+        </View>
+        {item.isDir
+          ? <Icon name='chevron-right' size={18} color={theme['c-450']} />
+          : <Text size={11} color={theme['c-450']}>{item.sizeText}</Text>}
+      </TouchableOpacity>
     </View>
   )
 })
 
 const styles = createStyle({
-  listItem: {
-    width: '100%',
-    flexDirection: 'row',
-    flexWrap: 'nowrap',
-    paddingLeft: 10,
-    paddingRight: 10,
-    alignItems: 'center',
-    // backgroundColor: 'rgba(0,0,0,0.1)',
-  },
-  itemInfo: {
-    flexGrow: 1,
-    flexShrink: 1,
-    paddingTop: 10,
-    paddingBottom: 10,
-  },
-  listItemTitleText: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    // backgroundColor: 'rgba(0,0,0,0.2)',
-    flexGrow: 0,
-    flexShrink: 1,
-  },
-  listItemDesc: {
-    paddingTop: 2,
-  },
-  size: {
-    alignSelf: 'flex-end',
-    marginBottom: 10,
-  },
+  row: { borderBottomWidth: 0.5, paddingLeft: 16, paddingRight: 16 },
+  inner: { flexDirection: 'row', alignItems: 'center', height: 58 },
+  iconWrap: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  info: { flex: 1, minWidth: 0 },
+  title: { fontWeight: '500' },
+  desc: { marginTop: 2 },
 })
-
