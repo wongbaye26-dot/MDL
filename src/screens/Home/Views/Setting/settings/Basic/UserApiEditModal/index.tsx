@@ -58,14 +58,15 @@ export default forwardRef<UserApiEditModalType, {}>((props, ref) => {
           onPress={handleCancel}
         />
         <View style={styles.maskCenter} pointerEvents='box-none'>
-          <View style={{ ...styles.card, maxHeight: Math.min(windowHeight * 0.84, 680), backgroundColor: palette.bg }}>
+          <View style={{ ...styles.card, maxHeight: Math.min(windowHeight * 0.9, 760), backgroundColor: palette.bg, borderColor: palette.border }}>
+            <View style={[styles.grabber, { backgroundColor: palette.border }]} />
             {/* 头部：图标 + 标题 + 说明 + 关闭 */}
             <View style={styles.head}>
               <View style={{ ...styles.headIcon, backgroundColor: palette.card, borderColor: palette.border }}>
                 <Icon name='script-text-outline' size={20} color={palette.primary} />
               </View>
               <View style={styles.headInfo}>
-                <Text size={16} color={palette.text} numberOfLines={1} style={styles.title}>{t('user_api_title')}</Text>
+                <Text size={17} color={palette.text} numberOfLines={1} style={styles.title}>{t('user_api_title')}</Text>
                 <Text size={11} color={palette.textSecondary} numberOfLines={2} style={styles.subtitle}>导入自定义源脚本</Text>
               </View>
               <TouchableOpacity
@@ -137,24 +138,30 @@ const styles = createStyle({
   },
   maskCenter: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingLeft: 20,
-    paddingRight: 20,
+    justifyContent: 'flex-end',
+    alignItems: 'stretch',
   },
   card: {
     width: '100%',
-    maxWidth: 440,
-    borderRadius: 24,
-    paddingLeft: 16,
-    paddingRight: 16,
-    paddingTop: 16,
-    paddingBottom: 14,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingLeft: 20,
+    paddingRight: 20,
+    paddingTop: 8,
+    paddingBottom: 24,
+    borderWidth: 0.5,
     elevation: 18,
     shadowColor: '#000000',
     shadowOpacity: 0.25,
     shadowRadius: 24,
     shadowOffset: { width: 0, height: 10 },
+  },
+  grabber: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 12,
   },
   head: {
     flexDirection: 'row',

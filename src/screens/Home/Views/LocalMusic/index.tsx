@@ -18,6 +18,7 @@ import {
 import Text from '@/components/common/Text'
 import { Icon } from '@/components/common/Icon'
 import CapsuleIconButton from '@/components/common/CapsuleIconButton'
+import CapsuleButton from '@/components/common/CapsuleButton'
 import Input from '@/components/common/Input'
 import Clipboard from '@react-native-clipboard/clipboard'
 import PageHeader from '@/components/common/PageHeader'
@@ -2111,10 +2112,14 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
             style={{ ...editStyles.sheet, backgroundColor: theme['c-content-background'] }}
             onStartShouldSetResponder={() => true}
           >
-            <Text size={15} style={editStyles.title}>扫描文件夹</Text>
+            <View style={{ width: 36, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 10, backgroundColor: theme['c-primary-alpha-700'] }} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+              <Text size={17} style={{ flex: 1, fontWeight: '700' }}>扫描文件夹</Text>
+              <CapsuleIconButton icon='close' label='关闭' onPress={() => { setDirModal(false) }} />
+            </View>
             {lastReport
               ? (
-                <Text size={10} color={theme['c-450']} style={{ marginTop: 2, marginBottom: 6 }}>
+                <Text size={11} color={theme['c-450']} style={{ marginTop: 2, marginBottom: 8 }}>
                   {`上次扫描：新增 ${lastReport.added} · 更新 ${lastReport.updated} · 未变化 ${lastReport.unchanged} · 移除 ${lastReport.removed} · 失败 ${lastReport.failed}（${(lastReport.durationMs / 1000).toFixed(1)}s）`}
                 </Text>
                 )
@@ -2218,14 +2223,9 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
             {
               isDirectoryPickerSupported
                 ? (
-                  <TouchableOpacity
-                    style={{ ...styles.addDirBtn, backgroundColor: theme['c-primary'] }}
-                    activeOpacity={0.85}
-                    onPress={() => { void handleAddDir() }}
-                  >
-                    <Icon name='folder-plus' size={14} color={contrastOn(theme['c-primary'])} />
-                    <Text size={13} color={contrastOn(theme['c-primary'])} style={[styles.addDirText, chipText(13)]}>添加文件夹</Text>
-                  </TouchableOpacity>
+                  <View style={{ alignItems: 'center', marginTop: 14 }}>
+                    <CapsuleButton icon='folder-plus' label='添加文件夹' onPress={() => { void handleAddDir() }} />
+                  </View>
                   )
                 : <Text size={11} color={theme['c-450']} style={styles.dirTip}>当前版本不支持选择目录</Text>
             }
@@ -2677,8 +2677,17 @@ const styles = createStyle({
   dirRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: 10,
-    paddingBottom: 10,
+    paddingTop: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 0.5,
+    borderBottomColor: 'rgba(128,128,128,0.16)',
+  },
+  grabber: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 10,
   },
   dirInfo: {
     flexGrow: 1,

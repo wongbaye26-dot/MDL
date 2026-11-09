@@ -98,6 +98,7 @@ export default forwardRef<ModalType, ModalProps>(({ onOpenId }, ref) => {
           backgroundColor: palette.bg,
           borderColor: palette.border,
         }}>
+          <View style={[styles.grabber, { backgroundColor: palette.border }]} />
           {/* 头部：图标 + 标题 + 说明 */}
           <View style={styles.head}>
             <View style={{ ...styles.iconWrap, backgroundColor: palette.card, borderColor: palette.border }}>
@@ -184,25 +185,31 @@ export default forwardRef<ModalType, ModalProps>(({ onOpenId }, ref) => {
 const styles = createStyle({
   maskCenter: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingLeft: 24,
-    paddingRight: 24,
+    justifyContent: 'flex-end',
+    alignItems: 'stretch',
   },
   card: {
     width: '100%',
-    maxWidth: 420,
-    borderRadius: 24,
+    borderRadius: 0,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     borderWidth: 0.5,
     paddingLeft: 20,
     paddingRight: 20,
-    paddingTop: 20,
-    paddingBottom: 20,
+    paddingTop: 8,
+    paddingBottom: 24,
     elevation: 18,
     shadowColor: '#000000',
     shadowOpacity: 0.25,
     shadowRadius: 24,
     shadowOffset: { width: 0, height: 10 },
+  },
+  grabber: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 12,
   },
   head: {
     flexDirection: 'row',

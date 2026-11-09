@@ -1,7 +1,9 @@
 import { forwardRef, useImperativeHandle, useRef, useState } from 'react'
 import Dialog, { type DialogType } from '@/components/common/Dialog'
 import { toast } from '@/utils/tools'
-import Title from './Title'
+import Text from '@/components/common/Text'
+import { useTheme } from '@/store/theme/hook'
+import { View } from 'react-native'
 import List from './List'
 import { useI18n } from '@/lang'
 import { addListMusics, moveListMusics } from '@/core/list'
@@ -29,6 +31,7 @@ export interface MusicAddModalType {
 
 export default forwardRef<MusicAddModalType, MusicAddModalProps>(({ onAdded }, ref) => {
   const t = useI18n()
+  const theme = useTheme()
   const dialogRef = useRef<DialogType>(null)
   const [selectInfo, setSelectInfo] = useState<SelectInfo>(initSelectInfo as SelectInfo)
 
@@ -77,10 +80,16 @@ export default forwardRef<MusicAddModalType, MusicAddModalProps>(({ onAdded }, r
     <Dialog ref={dialogRef} onHide={handleHide}>
       {
         selectInfo.musicInfo
-          ? (<>
-              <Title musicInfo={selectInfo.musicInfo} isMove={selectInfo.isMove} />
-              <List musicInfo={selectInfo.musicInfo} onPress={handleSelect} />
-            </>)
+          ? (
+              <View>
+                <View style={{ paddingLeft: 20, paddingRight: 20, paddingTop: 4, paddingBottom: 12 }}>
+                  <Text size={12} color={theme['c-450']} numberOfLines={1}>
+                    {selectInfo.isMove ? '移动' : '添加'}《{selectInfo.musicInfo.name}》到歌单
+                  </Text>
+                </View>
+                <List musicInfo={selectInfo.musicInfo} onPress={handleSelect} />
+              </View>
+            )
           : null
       }
     </Dialog>

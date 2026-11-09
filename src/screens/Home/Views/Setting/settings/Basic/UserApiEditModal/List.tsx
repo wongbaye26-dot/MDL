@@ -179,11 +179,12 @@ export default () => {
 
 const styles = createStyle({
   card: {
-    marginTop: 10,
-    paddingLeft: 12,
-    paddingRight: 12,
-    paddingTop: 12,
-    borderRadius: 16,
+    paddingLeft: 4,
+    paddingRight: 4,
+    paddingTop: 14,
+    paddingBottom: 14,
+    borderBottomWidth: 0.5,
+    borderRadius: 0,
     overflow: 'hidden',
   },
   main: {
