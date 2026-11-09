@@ -72,11 +72,20 @@ export default memo(({
   onShowMenu,
   onToggle,
   onOpen,
+  batchMode = false,
+  selected = false,
+  onToggleSelect,
+  onEnterBatch,
 }: {
   task: LX.Download.ListItem
   onShowMenu: (task: LX.Download.ListItem, position: { x: number, y: number, w: number, h: number }) => void
   onToggle: (task: LX.Download.ListItem) => void
   onOpen: (task: LX.Download.ListItem) => void
+  /** 多选管理 */
+  batchMode?: boolean
+  selected?: boolean
+  onToggleSelect?: (task: LX.Download.ListItem) => void
+  onEnterBatch?: (task: LX.Download.ListItem) => void
 }) => {
   const theme = useTheme()
   const moreButtonRef = useRef<ComponentRef<typeof TouchableOpacity>>(null)
@@ -118,14 +127,25 @@ export default memo(({
 
   return (
     <View style={[styles.row, {
-      backgroundColor: theme.isDark ? 'rgba(255,255,255,0.055)' : 'rgba(255,255,255,0.72)',
-      borderColor: theme['c-primary-alpha-700'],
+      backgroundColor: selected ? theme['c-primary-alpha-900'] : theme.isDark ? 'rgba(255,255,255,0.055)' : 'rgba(255,255,255,0.72)',
+      borderColor: selected ? theme['c-primary'] : theme['c-primary-alpha-700'],
     }]}>
+      {
+        batchMode
+          ? (
+            <TouchableOpacity style={styles.selector} activeOpacity={0.7} onPress={() => { onToggleSelect?.(task) }} accessibilityRole='checkbox' accessibilityState={{ checked: selected }}>
+              <View style={{ ...styles.checkbox, borderColor: selected ? theme['c-primary'] : theme['c-350'], backgroundColor: selected ? theme['c-primary'] : 'transparent' }}>
+                {selected ? <Icon name='check' size={13} color='#FFFFFF' /> : null}
+              </View>
+            </TouchableOpacity>
+            )
+          : null
+      }
       <TouchableOpacity
         style={styles.coverWrap}
         activeOpacity={0.8}
-        onPress={() => { onOpen(task) }}
-        onLongPress={handleShowMenu}
+        onPress={() => { batchMode ? onToggleSelect?.(task) : onOpen(task) }}
+        onLongPress={() => { batchMode ? onToggleSelect?.(task) : onEnterBatch ? onEnterBatch(task) : handleShowMenu() }}
       >
         <PicImage musicInfo={task} style={styles.cover} />
         {isCompleted ? (
@@ -139,7 +159,7 @@ export default memo(({
               <TouchableOpacity
                 style={{ ...styles.coverMask, backgroundColor: 'rgba(0,0,0,0.42)' }}
                 activeOpacity={0.7}
-                onPress={() => { onToggle(task) }}
+                onPress={() => { batchMode ? onToggleSelect?.(task) : onToggle(task) }}
               >
                 <Icon
                   name={isError ? 'close' : isRunning ? 'pause' : 'play'}
@@ -157,8 +177,8 @@ export default memo(({
         style={styles.info}
         accessibilityRole='button'
         accessibilityLabel={`${musicInfo.name}${musicInfo.singer ? ` ${musicInfo.singer}` : ''}，${statusText}`}
-        onPress={() => { onOpen(task) }}
-        onLongPress={handleShowMenu}
+        onPress={() => { batchMode ? onToggleSelect?.(task) : onOpen(task) }}
+        onLongPress={() => { batchMode ? onToggleSelect?.(task) : onEnterBatch ? onEnterBatch(task) : handleShowMenu() }}
         delayLongPress={320}
       >
         <View style={styles.titleRow}>
@@ -191,20 +211,28 @@ export default memo(({
         </Text>
       </TouchableOpacity>
 
-      <TouchableOpacity
-        onPress={handleShowMenu}
-        ref={moreButtonRef}
-        style={styles.moreButton}
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        accessibilityRole='button'
-        accessibilityLabel='任务更多操作'
-      >
-        <Icon name='dots-vertical' size={15} color={theme['c-350']} />
-      </TouchableOpacity>
+      {
+        batchMode
+          ? <View style={styles.moreButton} />
+          : (
+            <TouchableOpacity
+              onPress={handleShowMenu}
+              ref={moreButtonRef}
+              style={styles.moreButton}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole='button'
+              accessibilityLabel='任务更多操作'
+            >
+              <Icon name='dots-vertical' size={15} color={theme['c-350']} />
+            </TouchableOpacity>
+            )
+      }
     </View>
   )
 }, (prevProps, nextProps) => {
-  return prevProps.task === nextProps.task
+  return prevProps.task === nextProps.task &&
+    prevProps.batchMode === nextProps.batchMode &&
+    prevProps.selected === nextProps.selected
 })
 
 const styles = createStyle({
@@ -221,6 +249,19 @@ const styles = createStyle({
     paddingBottom: 10,
     borderRadius: 20,
     borderWidth: 0.5,
+  },
+  selector: {
+    width: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1.5,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   coverWrap: {
     width: 52,

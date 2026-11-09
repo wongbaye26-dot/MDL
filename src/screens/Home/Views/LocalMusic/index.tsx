@@ -1869,30 +1869,37 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
       }
 
       {
-        // 排序 / 筛选工具行（D-05 / D-06）；搜索和二级页不显示，避免抢层级
-        !searching && !detail && !isLandscape
+        // 排序 / 筛选工具行（D-05 / D-06）；搜索和二级页不显示排序筛选，避免抢层级；
+        // 但「批量选择」在二级列表（专辑/艺人/风格详情）里也保留，否则用户无法多选管理这些列表
+        !searching && !isLandscape
           ? (
             <View style={styles.viewTools}>
-              <TouchableOpacity
-                style={styles.viewToolBtn}
-                activeOpacity={0.75}
-                onPress={() => { setSortSheet(true) }}
-                accessibilityRole='button'
-                accessibilityLabel={`排序方式：${tabSortLabel}`}
-              >
-                <Icon name='sort' size={14} color={theme['c-primary']} />
-                <Text size={11} color={theme['c-font']} style={styles.viewToolText}>{`${tabSortLabel} ${tabSort.dir === 'asc' ? '↑' : '↓'}`}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.viewToolBtn}
-                activeOpacity={0.75}
-                onPress={() => { setFilterSheet(true) }}
-                accessibilityRole='button'
-                accessibilityLabel={`筛选：${filterLabel}`}
-              >
-                <Icon name={hasActiveFilter ? 'filter-variant' : 'filter-variant'} size={14} color={hasActiveFilter ? theme['c-primary'] : theme['c-font']} />
-                <Text size={11} color={hasActiveFilter ? theme['c-primary'] : theme['c-font']} style={styles.viewToolText}>{filterLabel}</Text>
-              </TouchableOpacity>
+              {detail
+                ? null
+                : (
+                  <>
+                    <TouchableOpacity
+                      style={styles.viewToolBtn}
+                      activeOpacity={0.75}
+                      onPress={() => { setSortSheet(true) }}
+                      accessibilityRole='button'
+                      accessibilityLabel={`排序方式：${tabSortLabel}`}
+                    >
+                      <Icon name='sort' size={14} color={theme['c-primary']} />
+                      <Text size={11} color={theme['c-font']} style={styles.viewToolText}>{`${tabSortLabel} ${tabSort.dir === 'asc' ? '↑' : '↓'}`}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.viewToolBtn}
+                      activeOpacity={0.75}
+                      onPress={() => { setFilterSheet(true) }}
+                      accessibilityRole='button'
+                      accessibilityLabel={`筛选：${filterLabel}`}
+                    >
+                      <Icon name={hasActiveFilter ? 'filter-variant' : 'filter-variant'} size={14} color={hasActiveFilter ? theme['c-primary'] : theme['c-font']} />
+                      <Text size={11} color={hasActiveFilter ? theme['c-primary'] : theme['c-font']} style={styles.viewToolText}>{filterLabel}</Text>
+                    </TouchableOpacity>
+                  </>
+                  )}
               <TouchableOpacity
                 style={[styles.viewToolBtn, batchMode ? { backgroundColor: theme['c-primary-alpha-800'] } : null]}
                 activeOpacity={0.75}

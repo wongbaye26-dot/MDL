@@ -1,7 +1,11 @@
 {
-  "version": "3.50.0",
-  "desc": "新架构正式版：React Native 0.76.9 → 0.80.3（React 19.1.0），Fabric / Bridgeless / TurboModule 全量启用；\n构建链：Gradle 8.14.1、Kotlin 2.1.20、NDK 27.1、compileSdk/targetSdk 36；全部 arm64 so 16KB 对齐（quickjs 3.2.3）。\n自研 GlassBlurView 替代 @react-native-community/blur：真高斯模糊回归、零页面布局改动；\n修复：设置子页胶囊导航（可正常切任意页/再点设置回首页）、「首页上下滑动」改为「页面左右滑动」、",
+  "version": "3.51.0",
+  "desc": "下载中心支持多选管理：顶部「选择」或长按任务进入批量模式；支持全选、批量暂停/继续、\n本地音乐二级列表也支持批量选择：专辑 / 艺人 / 风格详情页此前没有「选择」入口，\n下载中心顶部新增「选择」入口（图标态），操作成功后自动退出批量模式并保留原有单任务菜单。",
   "history": [
+    {
+      "version": "3.50.0",
+      "desc": "新架构正式版：React Native 0.76.9 → 0.80.3（React 19.1.0），Fabric / Bridgeless / TurboModule 全量启用；\n构建链：Gradle 8.14.1、Kotlin 2.1.20、NDK 27.1、compileSdk/targetSdk 36；全部 arm64 so 16KB 对齐（quickjs 3.2.3）。\n自研 GlassBlurView 替代 @react-native-community/blur：真高斯模糊回归、零页面布局改动；\n修复：设置子页胶囊导航（可正常切任意页/再点设置回首页）、「首页上下滑动」改为「页面左右滑动」、"
+    },
     {
       "version": "3.42.3",
       "desc": "空闲动画节能：首页大卡片上的常驻装饰动效（跳动柱状/黑胶自转/爱心/波纹/统计呼吸）只在\n实测：暂停播放、首页空闲时 RenderThread 45% → 0%，进程 CPU ~66% → 3.7%；\n播放中空闲时卡片动效也停，仅保留胶囊圆盘自转（约 25% RenderThread，属可见播放动画本身）。\n胶囊进度环呼吸：只在播放中运行，暂停后不再 60fps 空转。"
@@ -17,10 +21,6 @@
     {
       "version": "3.42.0",
       "desc": "React Native 0.76.9 → 0.80.3（React 19.1.0），启用 Fabric / Bridgeless / TurboModule 新架构；旧架构 newArchEnabled=false 不再使用。\nreact-native-navigation 8.0.0 → 8.6.2（新架构版；改为 CLI 约定式 autolink，不再需要 npx rnn-link 的 Android 步骤）。\nAndroid 构建链：Gradle 8.14.1、Kotlin 2.1.20、NDK 27.1、compileSdk/targetSdk 36；全部 arm64 so 16KB 对齐（含 quickjs 2.4.0 → 3.2.3）。\n自研 GlassBlurView 替代 @react-native-community/blur：解决 community blur 4.4.1（BlurView 2.0.4 API）与 RNN 8.6.2（BlurView 3.0.0）的 NoSuchMethodError；真高斯模糊回归、页面布局零改动；API<31 退化为纯色。"
-    },
-    {
-      "version": "3.41.0",
-      "desc": "React Native 0.73.11 → 0.76.9（React 18.3.1，旧架构 + Hermes 不变）。\nreact-native-navigation 7.39.2 → 8.0.0；react-native-svg 14.2.0 → 15.12.1；其余原生库保持版本并通过兼容矩阵核对。\nAndroid 构建链对齐 RN 0.76：Gradle 8.10.2、RNGP 提供 AGP/Kotlin 版本、autolink 换 RNGP、minSdk 24、移除 Flipper。\n升级细节、依赖矩阵、已知限制见 doc/rn-0.76-upgrade.md。"
     }
   ]
 }
