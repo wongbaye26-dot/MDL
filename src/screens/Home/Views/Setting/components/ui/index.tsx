@@ -8,6 +8,7 @@ import { useTheme } from '@/store/theme/hook'
 import { useSettingValue } from '@/store/setting/hook'
 import { updateSetting } from '@/core/common'
 import { createStyle } from '@/utils/tools'
+import { useHorizontalMode } from '@/utils/hooks'
 import {
   IconSize,
   LineHeight,
@@ -40,9 +41,10 @@ export const Group = ({ title, desc, children, footer }: {
   footer?: ReactNode
 }) => {
   const theme = useTheme()
+  const compact = useHorizontalMode()
   const items = Array.isArray(children) ? children.filter(Boolean) : [children]
   return (
-    <View style={styles.group}>
+    <View style={[styles.group, compact ? styles.groupCompact : null]}>
       <Text size={Type.sectionLabel.fontSize} color={theme['c-450']} style={styles.groupTitle}>{title}</Text>
       {desc ? <Text size={Type.caption.fontSize} color={theme['c-350']} style={styles.groupDesc}>{desc}</Text> : null}
       <View>
@@ -301,6 +303,9 @@ const styles = createStyle({
   group: {
     marginBottom: Space.xxl,
   },
+  groupCompact: {
+    marginBottom: Space.lg,
+  },
   groupTitle: {
     ...Type.sectionLabel,
     paddingLeft: Space.lg,
@@ -322,6 +327,11 @@ const styles = createStyle({
     paddingRight: Space.lg,
     paddingTop: Space.md,
     paddingBottom: Space.md,
+  },
+  rowCompact: {
+    minHeight: 48,
+    paddingTop: Space.sm,
+    paddingBottom: Space.sm,
   },
   rowInfo: {
     flexGrow: 1,

@@ -173,3 +173,23 @@
 - `npm run test:unit` → 32/32
 - `assembleRelease` arm64 → BUILD SUCCESSFUL
 - **真机验证未完成**：本轮最后构建后设备 ADB 掉线（`adb devices` 为空），下载音质改为「值+Sheet」后的真机截图待设备恢复后补。
+
+---
+
+## 9. 横屏设置页专项优化
+
+横屏（`useHorizontalMode`）从「单列拉伸」改为**两列瀑布布局**：
+
+- `Vertical/Grid.tsx`：横屏时左右两列，每列宽度均分、列间距 20dp：
+  - 左列：播放设置 / 音质与音效 / 音源与搜索 / 歌词设置 / 本地音乐（5 组）
+  - 右列：下载管理 / 主题与外观 / 播放器与交互 / 通知与系统 / 数据与存储 / 关于与版本（6 组）
+  - 整页仍共用一个 ScrollView，避免两列各自滚动导致阅读顺序混乱；竖屏顺序不变。
+- `components/ui/index.tsx`：横屏时分组间距 24→16dp、行高 56→48dp，减少纵向占用。
+- 页头：沿用 `SETTINGS_HEADER_COMPACT_H=56` 与 19sp「设置」标题；右侧音源管理/曲库工具图标保持 38dp。
+- 深页（音源管理/曲库工具）在横屏仍走原来的整屏 overlay（含左导航偏移），返回手势一致。
+
+### 验证
+- `npm run typecheck` / `npm run lint` → exit 0（2 条既有 warning）
+- `assembleRelease` arm64 → BUILD SUCCESSFUL
+- **未验证**：设备 ADB 仍处于断开状态（`adb devices` 为空），横屏两列布局尚未做真机截图与回归；
+  设备恢复后需补：横屏设置页两列截图、横屏深页、大字号、减少动态效果。

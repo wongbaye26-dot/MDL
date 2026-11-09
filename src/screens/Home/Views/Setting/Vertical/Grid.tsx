@@ -1,5 +1,7 @@
 import { View } from 'react-native'
 
+import { useHorizontalMode } from '@/utils/hooks'
+
 import Playback from '../settings/Refactored/Playback'
 import Lyric from '../settings/Refactored/Lyric'
 import Appearance from '../settings/Refactored/Appearance'
@@ -20,23 +22,56 @@ import { type SettingScreenIds } from '../Main'
  * 分组顺序即渲染顺序；每个分组是 Group 平铺列表，不再是一张 24dp 大卡。
  * 音源管理 / 曲库工具是深页入口，其余设置直接内联。
  */
-export default ({ onPress }: { onPress: (id: SettingScreenIds) => void }) => (
-  <View style={styles.container}>
-    <Playback />
-    <SourceSearch onOpenSource={() => { onPress('sourcesearch') }} />
-    <Lyric />
-    <Library onOpenTools={() => { onPress('library') }} />
-    <DownloadStorage />
-    <Appearance />
-    <System />
-    <Misc />
-  </View>
-)
+export default ({ onPress }: { onPress: (id: SettingScreenIds) => void }) => {
+  const horizontal = useHorizontalMode()
+  const left = (
+    <>
+      <Playback />
+      <SourceSearch onOpenSource={() => { onPress('sourcesearch') }} />
+      <Lyric />
+      <Library onOpenTools={() => { onPress('library') }} />
+    </>
+  )
+  const right = (
+    <>
+      <DownloadStorage />
+      <Appearance />
+      <System />
+      <Misc />
+    </>
+  )
+  // 横屏：两列瀑布式排布，避免单列被拉成整屏宽、右侧大片留白
+  if (horizontal) {
+    return (
+      <View style={styles.twoCols}>
+        <View style={styles.col}>{left}</View>
+        <View style={styles.col}>{right}</View>
+      </View>
+    )
+  }
+  return (
+    <View style={styles.container}>
+      {left}
+      {right}
+    </View>
+  )
+}
 
 const styles = createStyle({
   container: {
     paddingLeft: Space.lg,
     paddingRight: Space.lg,
     paddingTop: Space.sm,
+  },
+  twoCols: {
+    flexDirection: 'row',
+    paddingLeft: Space.lg,
+    paddingRight: Space.lg,
+    paddingTop: Space.sm,
+    gap: Space.xl,
+  },
+  col: {
+    flex: 1,
+    minWidth: 0,
   },
 })
