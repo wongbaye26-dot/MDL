@@ -8,6 +8,7 @@ import Glass from '@/components/common/Glass'
 import AlbumDiscSpin, { DISC_SIZE } from '@/components/common/AlbumDiscSpin'
 import PicImage from '@/components/common/PicImage'
 import CapsuleIconButton from '@/components/common/CapsuleIconButton'
+import CapsuleButton from '@/components/common/CapsuleButton'
 import MusicList from './MusicList'
 import ActionSheet from '@/components/common/ActionSheet'
 import { playList, togglePlay } from '@/core/player/player'
@@ -22,7 +23,6 @@ import { useMyList } from '@/store/list/hook'
 import { getListMusicSync } from '@/utils/listManage'
 import { useLrcPlay } from '@/plugins/lyric'
 import { useKeyboard } from '@/utils/hooks'
-import { contrastOn } from '@/theme/solid'
 import { cleanSongName } from '@/utils/songName'
 import { confirmDialog, createStyle, toast } from '@/utils/tools'
 
@@ -429,10 +429,7 @@ export default ({ tab, onCreate, onTabChange, onRename }: {
                   <Text size={17} style={styles.overviewTitle}>我的歌单</Text>
                   <Text size={11} color={theme['c-450']} style={styles.overviewMeta}>{userLists.length ? `${userLists.length} 个自建歌单` : '还没有自建歌单，点右上角「新建歌单」创建'}</Text>
                 </View>
-                <TouchableOpacity style={[styles.playAllBtn, { backgroundColor: theme['c-primary'] }]} activeOpacity={0.85} onPress={onCreate}>
-                  <Icon name='plus' size={12} color={contrastOn(theme['c-primary'])} />
-                  <Text size={11} color={contrastOn(theme['c-primary'])} style={styles.playAllText}>新建</Text>
-                </TouchableOpacity>
+                <CapsuleButton icon='plus' label='新建' onPress={onCreate} />
               </View>
               <View style={styles.waterfall}>
                 {[0, 1].map(col => (
@@ -506,22 +503,7 @@ export default ({ tab, onCreate, onTabChange, onRename }: {
                         : `${playlist?.name ?? ''} · ${playlistCount} 首`}
                   </Text>
                 </View>
-                <TouchableOpacity
-                  style={{
-                    ...styles.playAllBtn,
-                    backgroundColor: count ? theme['c-primary'] : theme['c-primary-alpha-800'],
-                  }}
-                  activeOpacity={0.85}
-                  disabled={!count}
-                  onPress={handlePlayAll}
-                >
-                  <Icon name='play' size={12} color={count ? contrastOn(theme['c-primary']) : theme['c-450']} />
-                  <Text
-                    size={11}
-                    color={count ? contrastOn(theme['c-primary']) : theme['c-450']}
-                    style={styles.playAllText}
-                  >播放全部</Text>
-                </TouchableOpacity>
+                <CapsuleButton icon='play' label='播放全部' onPress={handlePlayAll} disabled={!count} />
               </View>
 
               <View style={styles.list}>
