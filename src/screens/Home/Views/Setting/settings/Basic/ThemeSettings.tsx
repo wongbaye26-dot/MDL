@@ -94,9 +94,9 @@ const ColorSwatch = memo(({ color, name, active, onPress }: {
         borderWidth: active ? 3 : 0,
         borderColor: active ? theme['c-font'] : 'transparent',
       }}>
-        {active ? <Icon name='check' size={18} color='#FFFFFF' /> : null}
+        {active ? <Icon name='check' size={12} color='#FFFFFF' /> : null}
       </View>
-      <Text size={10} color={active ? theme['c-font'] : theme['c-450']} style={styles.swatchLabel}>{name}</Text>
+      <Text size={9} color={active ? theme['c-font'] : theme['c-450']} style={styles.swatchLabel}>{name}</Text>
     </TouchableOpacity>
   )
 })
@@ -142,9 +142,9 @@ const MaterialYouColors = memo(() => {
             borderWidth: seedColor === 'system' ? 3 : 0,
             borderColor: seedColor === 'system' ? theme['c-font'] : 'transparent',
           }}>
-            <Icon name='cellphone-link' size={18} color='#FFFFFF' />
+            <Icon name='cellphone-link' size={12} color='#FFFFFF' />
           </View>
-          <Text size={11} color={seedColor === 'system' ? theme['c-font'] : theme['c-450']} style={styles.swatchLabel}>系统</Text>
+          <Text size={9} color={seedColor === 'system' ? theme['c-font'] : theme['c-450']} style={styles.swatchLabel}>系统</Text>
         </TouchableOpacity>
         {SEED_COLORS.map(c => (
           <ColorSwatch
@@ -211,20 +211,18 @@ const styles = createStyle({
   },
   swatchRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingLeft: 10,
-    paddingRight: 10,
+    paddingLeft: 8,
+    paddingRight: 8,
     paddingBottom: 2,
   },
   swatchWrap: {
-    width: '16.666%',
+    flex: 1,
     alignItems: 'center',
-    marginBottom: 10,
   },
   swatch: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 3,
@@ -234,7 +232,9 @@ const styles = createStyle({
     shadowOffset: { width: 0, height: 2 },
   },
   swatchLabel: {
-    marginTop: 5,
+    marginTop: 3,
+    fontSize: 9,
+    lineHeight: 12,
   },
   hint: {
     paddingLeft: 14,
