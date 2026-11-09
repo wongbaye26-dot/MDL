@@ -7,6 +7,7 @@ import { Icon } from '@/components/common/Icon'
 import Glass from '@/components/common/Glass'
 import AlbumDiscSpin, { DISC_SIZE } from '@/components/common/AlbumDiscSpin'
 import PicImage from '@/components/common/PicImage'
+import CapsuleIconButton from '@/components/common/CapsuleIconButton'
 import MusicList from './MusicList'
 import ActionSheet from '@/components/common/ActionSheet'
 import { playList, togglePlay } from '@/core/player/player'
@@ -272,7 +273,6 @@ export const FavoriteTabs = ({ tab, onChange, onCreate }: {
   onChange: (tab: FavoriteTab) => void
   onCreate: () => void
 }) => {
-  const theme = useTheme()
   const items: Array<{ key: FavoriteTab, label: string, icon: string }> = [
     { key: 'playlist', label: '歌单', icon: 'playlist-music' },
     { key: 'love', label: '收藏', icon: 'heart' },
@@ -281,39 +281,18 @@ export const FavoriteTabs = ({ tab, onChange, onCreate }: {
 
   return (
     <View style={styles.headerTabs}>
-      {
-        items.map(item => {
-          const active = tab === item.key
-          return (
-            <TouchableOpacity
-              key={item.key}
-              style={[
-                styles.iconTab,
-                { backgroundColor: active ? theme['c-primary'] : theme['c-primary-alpha-900'] },
-              ]}
-              activeOpacity={0.8}
-              onPress={() => { if (!active) onChange(item.key) }}
-              accessibilityRole='button'
-              accessibilityLabel={item.label}
-            >
-              <Icon
-                name={item.icon}
-                size={18}
-                color={active ? contrastOn(theme['c-primary']) : theme['c-450']}
-              />
-            </TouchableOpacity>
-          )
-        })
-      }
-      <TouchableOpacity
-        style={[styles.iconTab, { backgroundColor: theme['c-primary-alpha-800'] }]}
-        activeOpacity={0.8}
-        onPress={onCreate}
-        accessibilityRole='button'
-        accessibilityLabel='新建歌单'
-      >
-        <Icon name='plus' size={19} color={theme['c-primary']} />
-      </TouchableOpacity>
+      {items.map(item => (
+        <CapsuleIconButton
+          key={item.key}
+          icon={item.icon}
+          label={item.label}
+          size={34}
+          iconSize={18}
+          active={tab === item.key}
+          onPress={() => { if (tab !== item.key) onChange(item.key) }}
+        />
+      ))}
+      <CapsuleIconButton icon='plus' label='新建歌单' size={34} iconSize={18} onPress={onCreate} />
     </View>
   )
 }
