@@ -4,6 +4,7 @@ import { TouchableOpacity } from 'react-native'
 import { Icon } from './Icon'
 import { useTheme } from '@/store/theme/hook'
 import { Radius } from '@/theme/designTokens'
+import { contrastOn } from '@/theme/solid'
 
 /**
  * 全站统一的「小胶囊图标按钮」：列表页/详情页头部与工具行共用。
@@ -27,7 +28,7 @@ export default memo(({
   color?: string
 }) => {
   const theme = useTheme()
-  const activeColor = active ? theme['c-primary'] : (color ?? theme['c-font'])
+  const activeColor = active ? contrastOn(theme['c-primary']) : (color ?? theme['c-font'])
   return (
     <TouchableOpacity
       activeOpacity={0.78}
@@ -44,7 +45,7 @@ export default memo(({
         backgroundColor: active ? theme['c-primary'] : theme['c-primary-alpha-900'],
       }}
     >
-      <Icon name={icon} size={iconSize} color={active ? theme['c-primary-font'] ?? activeColor : activeColor} />
+      <Icon name={icon} size={iconSize} color={activeColor} />
     </TouchableOpacity>
   )
 })

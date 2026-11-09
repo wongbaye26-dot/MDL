@@ -1,145 +1,170 @@
-import { useRef, useImperativeHandle, forwardRef, useState } from 'react'
-import ConfirmAlert, { type ConfirmAlertType } from '@/components/common/ConfirmAlert'
+import { forwardRef, useImperativeHandle, useRef, useState } from 'react'
+import { KeyboardAvoidingView, Modal, Platform, StyleSheet, TouchableOpacity, View } from 'react-native'
+
 import Text from '@/components/common/Text'
-import { View } from 'react-native'
 import Input, { type InputType } from '@/components/common/Input'
+import CapsuleIconButton from '@/components/common/CapsuleIconButton'
+import CapsuleButton from '@/components/common/CapsuleButton'
+import { Icon } from '@/components/common/Icon'
+import { useSheetPalette } from '@/components/common/ActionSheet/palette'
 import { createUserList, updateUserList } from '@/core/list'
 import { confirmDialog, createStyle } from '@/utils/tools'
-import { useTheme } from '@/store/theme/hook'
+import { useKeyboard, useWindowSize } from '@/utils/hooks'
 import listState from '@/store/list/state'
-
-interface NameInputType {
-  setName: (text: string) => void
-  getText: () => string
-  focus: () => void
-}
-const NameInput = forwardRef<NameInputType, {}>((props, ref) => {
-  const theme = useTheme()
-  const [text, setText] = useState('')
-  const [placeholder, setPlaceholder] = useState('')
-  const inputRef = useRef<InputType>(null)
-
-  useImperativeHandle(ref, () => ({
-    getText() {
-      return text.trim()
-    },
-    setName(text) {
-      setText(text)
-      setPlaceholder(text || global.i18n.t('list_create_input_placeholder'))
-    },
-    focus() {
-      inputRef.current?.focus()
-    },
-  }))
-
-  return (
-    <Input
-      ref={inputRef}
-      placeholder={placeholder}
-      value={text}
-      onChangeText={setText}
-      style={{ ...styles.input, backgroundColor: theme['c-primary-input-background'] }}
-    />
-  )
-})
-
 
 export interface ListNameEditType {
   showCreate: (position: number) => void
   show: (listInfo: LX.List.UserListInfo) => void
 }
-const initSelectInfo = {}
 
-
+/**
+ * 新建/重命名歌单：与「打开歌单」同款底部 Sheet，
+ * 输入框 + 取消/创建按钮，不再使用旧的居中确认弹窗。
+ */
 export default forwardRef<ListNameEditType, {}>((props, ref) => {
-  const alertRef = useRef<ConfirmAlertType>(null)
-  const nameInputRef = useRef<NameInputType>(null)
-  const [position, setPosition] = useState(0)
-  const selectedListInfo = useRef<LX.List.UserListInfo>(initSelectInfo as LX.List.UserListInfo)
+  const palette = useSheetPalette()
+  const { keyboardShown, keyboardHeight } = useKeyboard()
+  const { height: windowHeight } = useWindowSize()
+  const inputRef = useRef<InputType>(null)
   const [visible, setVisible] = useState(false)
+  const [name, setName] = useState('')
+  const [position, setPosition] = useState(0)
+  const selectedListInfo = useRef<LX.List.UserListInfo | null>(null)
+  const isRename = position === -1
 
-  const handleShow = () => {
-    alertRef.current?.setVisible(true)
-    const name = position == -1 ? '' : (selectedListInfo.current.name ?? '')
-    requestAnimationFrame(() => {
-      nameInputRef.current?.setName(name)
-      setTimeout(() => {
-        nameInputRef.current?.focus()
-      }, 300)
-    })
+  const close = () => {
+    setVisible(false)
   }
+
   useImperativeHandle(ref, () => ({
     showCreate(position) {
       setPosition(position)
-      if (visible) handleShow()
-      else {
-        setVisible(true)
-        requestAnimationFrame(() => {
-          handleShow()
-        })
-      }
+      selectedListInfo.current = null
+      setName('')
+      setVisible(true)
+      setTimeout(() => { inputRef.current?.focus() }, 280)
     },
     show(listInfo) {
       setPosition(-1)
       selectedListInfo.current = listInfo
-      if (visible) handleShow()
-      else {
-        setVisible(true)
-        requestAnimationFrame(() => {
-          handleShow()
-        })
-      }
+      setName(listInfo.name ?? '')
+      setVisible(true)
+      setTimeout(() => { inputRef.current?.focus() }, 280)
     },
   }))
 
-  const handleRename = () => {
-    let name = nameInputRef.current?.getText() ?? ''
-    if (!name.length) return
-    if (name.length > 100) name = name.substring(0, 100)
-    if (position == -1) {
-      void updateUserList([{ ...selectedListInfo.current, name }])
-    } else {
-      void (listState.userList.some(l => l.name == name) ? confirmDialog({
-        message: global.i18n.t('list_duplicate_tip'),
-      }) : Promise.resolve(true)).then(confirmed => {
-        if (!confirmed) return
-        const now = Date.now()
-        void createUserList(position, [{ id: `userlist_${now}`, name, locationUpdateTime: now }])
-      })
+  const handleConfirm = () => {
+    let next = name.trim()
+    if (!next.length) return
+    if (next.length > 100) next = next.substring(0, 100)
+    if (isRename) {
+      const item = selectedListInfo.current
+      if (item) void updateUserList([{ ...item, name: next }])
+      close()
+      return
     }
-    alertRef.current?.setVisible(false)
+    if (listState.userList.some(l => l.name === next)) {
+      void confirmDialog({ message: global.i18n.t('list_duplicate_tip') }).then(confirmed => {
+        if (confirmed) create()
+      })
+      return
+    }
+    create()
   }
 
+  const create = () => {
+    const now = Date.now()
+    void createUserList(position, [{ id: `userlist_${now}`, name: name.trim(), locationUpdateTime: now }])
+    close()
+  }
+
+  const keyboardSpace = keyboardShown ? keyboardHeight : 0
+
   return (
-    visible
-      ? <ConfirmAlert
-          ref={alertRef}
-          onConfirm={handleRename}
-        >
-          <View style={styles.renameContent}>
-            <Text style={{ marginBottom: 5 }}>{ position == -1 ? global.i18n.t('list_rename_title') : global.i18n.t('list_create')}</Text>
-            <NameInput ref={nameInputRef} />
+    <Modal visible={visible} transparent statusBarTranslucent animationType='fade' onRequestClose={close}>
+      <KeyboardAvoidingView
+        style={styles.mask}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={close} />
+        <View style={{ ...styles.sheet, marginBottom: keyboardSpace, maxHeight: Math.min(windowHeight * 0.85, 520), backgroundColor: palette.bg }}>
+          <View style={[styles.grabber, { backgroundColor: palette.border }]} />
+          <View style={styles.head}>
+            <View style={[styles.headIcon, { backgroundColor: palette.card, borderColor: palette.border }]}>
+              <Icon name={isRename ? 'pencil-outline' : 'playlist-plus'} size={20} color={palette.primary} />
+            </View>
+            <View style={styles.headInfo}>
+              <Text size={17} color={palette.text} numberOfLines={1} style={styles.title}>{isRename ? '重命名歌单' : '新建歌单'}</Text>
+              <Text size={11} color={palette.textSecondary}>{isRename ? '修改当前歌单名称' : '给新歌单起一个名字'}</Text>
+            </View>
+            <CapsuleIconButton icon='close' label='关闭' onPress={close} />
           </View>
-        </ConfirmAlert>
-      : null
+          <Input
+            ref={inputRef}
+            placeholder='歌单名称'
+            value={name}
+            onChangeText={setName}
+            onSubmitEditing={handleConfirm}
+            style={{ ...styles.input, backgroundColor: palette.card, borderColor: palette.border }}
+          />
+          <View style={styles.btnRow}>
+            <CapsuleButton icon='close' label='取消' primary={false} onPress={close} />
+            <View style={{ width: 10 }} />
+            <CapsuleButton icon={isRename ? 'check' : 'plus'} label={isRename ? '保存' : '创建'} onPress={handleConfirm} disabled={!name.trim().length} />
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
   )
 })
 
-
 const styles = createStyle({
-  renameContent: {
-    flexGrow: 1,
-    flexShrink: 1,
-    flexDirection: 'column',
+  mask: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.5)',
   },
+  sheet: {
+    width: '100%',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingLeft: 20,
+    paddingRight: 20,
+    paddingTop: 8,
+  },
+  grabber: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 12,
+  },
+  head: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 18,
+  },
+  headIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    borderWidth: 0.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  headInfo: { flex: 1, minWidth: 0 },
+  title: { fontWeight: '700' },
   input: {
-    flexGrow: 1,
-    flexShrink: 1,
-    minWidth: 290,
-    borderRadius: 4,
-    // paddingTop: 2,
-    // paddingBottom: 2,
+    height: 48,
+    borderRadius: 14,
+    borderWidth: 0.5,
+    paddingLeft: 14,
+    paddingRight: 14,
+  },
+  btnRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 20,
   },
 })
-
-
