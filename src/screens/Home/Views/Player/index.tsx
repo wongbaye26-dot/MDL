@@ -649,6 +649,8 @@ export default () => {
   const settlingRef = useRef(false)
   /** 本次拖动是否已经开始（用来在每次新手势时重置收尾锁） */
   const draggingRef = useRef(false)
+  /** 本次手势是横向翻页还是纵向收起 */
+  const horizontalRef = useRef(false)
   const landscapeRef = useRef(isLandscape)
   landscapeRef.current = isLandscape
   // 页面被卸载（例如点返回键直接切走）时清掉转场状态，避免飞行封面残留
@@ -740,7 +742,21 @@ export default () => {
      * 快速滑动时系统经常直接 cancel 手势（onPanResponderTerminate），
      * 以前 terminate 只会回弹，表现就是「快速下滑没反应」；现在两种情况统一按位移判断。
      */
-    const settle = (g: { dy: number, vy: number }) => {
+    const settle = (g: { dx: number, dy: number, vx: number, vy: number }) => {
+      // 横向手势：翻到上一页/下一页；不参与下滑收尾
+      if (horizontalRef.current) {
+        horizontalRef.current = false
+        draggingRef.current = false
+        settlingRef.current = false
+        const current = modeRef.current === 'info' ? 0 : modeRef.current === 'cover' ? 1 : 2
+        const delta = g.dx < -60 || g.vx < -0.45 ? 1 : g.dx > 60 || g.vx > 0.45 ? -1 : 0
+        const next = Math.max(0, Math.min(2, current + delta))
+        if (next !== current) {
+          pagerRef.current?.setPage(next)
+          setMode(next === 0 ? 'info' : next === 1 ? 'cover' : 'lyric')
+        }
+        return
+      }
       // release 和 terminate 可能接连触发，收尾只能做一次，否则两个动画互相打断
       if (settlingRef.current) return
       settlingRef.current = true
@@ -795,15 +811,26 @@ export default () => {
           表现就是「快速下滑能关、慢慢滑反而没反应」。
         */
         if (queueOpenRef.current) return false
-        if (g.dy <= 1) return false
-        if (Math.abs(g.dy) <= Math.abs(g.dx) * 1.1) return false
         // 起点在进度条上：交给进度条自己处理（拖动跳转）
         if (g.y0 >= seekZoneRef.current.top && g.y0 <= seekZoneRef.current.bottom) return false
+        const absX = Math.abs(g.dx)
+        const absY = Math.abs(g.dy)
+        // 横向：PagerView 已关闭原生滚动，由这里接管翻页
+        if (absX > absY * 1.1) {
+          if (absX <= 6) return false
+          horizontalRef.current = true
+          return true
+        }
+        horizontalRef.current = false
+        // 信息页让列表自己竖向滚动，不抢下滑关闭
+        if (modeRef.current === 'info') return false
+        if (g.dy <= 1) return false
         // 歌词列表没回到顶部时，下滑交给列表自己滚动
         if (modeRef.current === 'lyric' && lyricScrollY.current > 2) return false
         return true
       },
       onPanResponderMove: (_, g) => {
+        if (horizontalRef.current) return
         if (g.dy <= 0) return
         // 新手势开始：允许下一次收尾
         if (!draggingRef.current) {
@@ -1747,6 +1774,20 @@ export default () => {
           }
         </View>
       </PagerView>
+
+      {/*
+        封面页手势覆盖层：PagerView 的原生 ViewPager 会吃掉页内竖向拖动，
+        导致按住封面下滑关闭没反应。这里在封面页区域盖一层只做手势的透明层：
+        竖向下滑交给关闭逻辑，横向仍由同一套 PanResponder 翻页。
+      */}
+      {mode === 'cover'
+        ? (
+          <View
+            style={{ position: 'absolute', left: 0, right: 0, top: coverTop, height: bottomTop - coverTop, zIndex: 20 }}
+            {...panResponder.panHandlers}
+          />
+          )
+        : null}
 
       {/* 底部整块：信息行/工具行 + 进度 + 五个主控键（尺寸全部按飞牛实测） */}
       <View style={[styles.bottomBlock, { top: bottomTop }]}>
