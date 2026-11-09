@@ -4,6 +4,7 @@ import { Pressable, View, type StyleProp, type ViewStyle } from 'react-native'
 import SourceLogo, { isKnownSource } from '@/components/common/SourceLogo'
 import { useSourceListI18n } from '@/components/SourceSelector'
 import { useTheme } from '@/store/theme/hook'
+import { contrastOn } from '@/theme/solid'
 import { createStyle } from '@/utils/tools'
 
 /**
@@ -42,7 +43,7 @@ export default memo(({ sources, active, onChange, style }: SourceIconRowProps) =
       {
         sourceList.map(({ label, action }) => {
           const isActive = action === active
-          const color = isActive ? theme['c-primary'] : theme['c-450']
+          const color = isActive ? contrastOn(theme['c-primary']) : theme['c-450']
           // 已知品牌用 27（光学约 20dp）；未知自定义音源回退文字时用小一号，避免文字撑爆 30dp 槽位
           const iconSize = isKnownSource(action) ? HEADER_SOURCE_ICON_SIZE : 18
           return (
@@ -61,7 +62,9 @@ export default memo(({ sources, active, onChange, style }: SourceIconRowProps) =
                 paddingRight: isKnownSource(action) ? 0 : 8,
                 alignItems: 'center',
                 justifyContent: 'center',
-                opacity: pressed ? 0.5 : 1,
+                borderRadius: ITEM_SIZE / 2,
+                backgroundColor: isActive ? theme['c-primary'] : theme['c-primary-alpha-900'],
+                opacity: pressed ? 0.7 : 1,
               })}
             >
               <SourceLogo source={action} label={label} size={iconSize} color={color} />

@@ -202,7 +202,7 @@ export default () => {
                 {...swipeBack.panHandlers}
                 style={[
                   StyleSheet.absoluteFill,
-                  { top: overlayTop, left: overlayLeft, bottom: 88, zIndex: 200, elevation: 24 },
+                  { top: overlayTop, left: overlayLeft, bottom: 0, zIndex: 200, elevation: 24 },
                   swipeBack.animatedStyle,
                 ]}
               >
