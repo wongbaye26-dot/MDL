@@ -72,7 +72,7 @@ export default memo(() => {
               {
                 hidden.ids.map(id => (
                   <View key={id} style={styles.row}>
-                    <Icon name='eye-off-outline' size={15} color={theme['c-450']} />
+                    <Icon name='eye-off-outline' size={14} color={theme['c-450']} />
                     <Text size={12} numberOfLines={1} style={styles.label}>{names[id] ?? id}</Text>
                     <TouchableOpacity onPress={() => { restoreSong(id) }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                       <Text size={11} color={theme['c-primary']}>恢复</Text>
@@ -83,7 +83,7 @@ export default memo(() => {
               {
                 hidden.folders.map(folder => (
                   <View key={folder} style={styles.row}>
-                    <Icon name='folder-eye-outline' size={15} color={theme['c-450']} />
+                    <Icon name='folder-eye-outline' size={14} color={theme['c-450']} />
                     <Text size={12} numberOfLines={1} style={styles.label}>{folder}</Text>
                     <TouchableOpacity onPress={() => { restoreFolder(folder) }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                       <Text size={11} color={theme['c-primary']}>恢复</Text>
@@ -97,7 +97,7 @@ export default memo(() => {
                 onPress={restoreAll}
               >
                 <Icon name='eye-outline' size={14} color={theme['c-primary']} />
-                <Text size={11.5} color={theme['c-primary']} style={styles.restoreAllText}>全部恢复</Text>
+                <Text size={12} color={theme['c-primary']} style={styles.restoreAllText}>全部恢复</Text>
               </TouchableOpacity>
             </View>
             )

@@ -19,7 +19,7 @@ export default memo(() => {
     .sort((a, b) => a[0].localeCompare(b[0]))
 
   return (
-    <Group title={t('setting_source_quality')} icon='chart-bar' color='#3B82F6' desc={t('setting_source_quality_tip')}>
+    <Group title={t('setting_source_quality')} icon='chart-bar' desc={t('setting_source_quality_tip')}>
       <View style={styles.content}>
         {entries.length
           ? entries.map(([source, qualities]) => {

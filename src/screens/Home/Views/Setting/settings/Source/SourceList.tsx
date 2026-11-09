@@ -8,6 +8,7 @@ import { Icon } from '@/components/common/Icon'
 import CheckBox from '@/components/common/CheckBox'
 import Chip from '@/components/common/Chip'
 import { useTheme } from '@/store/theme/hook'
+import { getDanger, getSuccess, getOnPrimary } from '@/theme/designTokens'
 import { useI18n } from '@/lang'
 import { useSettingValue } from '@/store/setting/hook'
 import { useUserApiList, state as userApiState } from '@/store/userApi'
@@ -78,8 +79,8 @@ const ListItem = ({
   const updateLabel = getUpdateCheckLabel(updateInfo)
   const lastCheckAt = updateInfo?.checkedAt ?? item.lastCheckAt
   const updateColor = updateLabel?.color === 'error'
-    ? '#EF4444'
-    : updateLabel?.color === 'success' ? '#10B981' : theme['c-450']
+    ? getDanger(theme)
+    : updateLabel?.color === 'success' ? getSuccess(theme) : theme['c-450']
 
   const handleOpenHomepage = () => {
     if (item.homepage) void openUrl(item.homepage)
@@ -95,12 +96,12 @@ const ListItem = ({
         <View style={styles.headInfo}>
           <View style={styles.nameRow}>
             <View style={styles.nameWrap}>
-              <Text size={14.5} numberOfLines={1} style={styles.name}>{item.name}</Text>
+              <Text size={14} numberOfLines={1} style={styles.name}>{item.name}</Text>
             </View>
             {item.version ? <Tag label={formatVersion(item.version)} size='sm' tone='muted' style={styles.version} /> : null}
-            {active ? <Tag label={t('setting_source_current_tag')} size='sm' bg={theme['c-primary']} color='#FFFFFF' style={styles.activeTag} /> : null}
+            {active ? <Tag label={t('setting_source_current_tag')} size='sm' bg={theme['c-primary']} color={getOnPrimary(theme)} style={styles.activeTag} /> : null}
           </View>
-          <Text size={10.5} color={theme['c-450']} numberOfLines={1} style={styles.subLine}>
+          <Text size={11} color={theme['c-450']} numberOfLines={1} style={styles.subLine}>
             {subLine.length ? subLine : item.id}
           </Text>
         </View>
@@ -138,7 +139,7 @@ const ListItem = ({
                   </View>
                 ))
               )
-            : <Text size={10} color={theme['c-400']}>{t('setting_source_quality_pending')}</Text>
+            : <Text size={11} color={theme['c-400']}>{t('setting_source_quality_pending')}</Text>
         }
       </View>
 
@@ -146,7 +147,7 @@ const ListItem = ({
       <View style={styles.actionRow}>
         <TouchableOpacity style={styles.homepage} activeOpacity={0.7} onPress={handleOpenHomepage}>
           <Icon name='link' size={11} color={item.homepage ? theme['c-primary'] : theme['c-400']} />
-          <Text size={10.5} numberOfLines={1} color={item.homepage ? theme['c-primary'] : theme['c-400']} style={styles.homepageText}>
+          <Text size={11} numberOfLines={1} color={item.homepage ? theme['c-primary'] : theme['c-400']} style={styles.homepageText}>
             {item.homepage || t('setting_source_no_homepage')}
           </Text>
         </TouchableOpacity>
@@ -157,7 +158,7 @@ const ListItem = ({
           onPress={() => { onCheckUpdate(item) }}
         >
           <Icon name='refresh' size={11} color={checking ? theme['c-400'] : theme['c-primary']} />
-          <Text size={10.5} color={checking ? theme['c-400'] : theme['c-primary']} style={styles.checkText}>
+          <Text size={11} color={checking ? theme['c-400'] : theme['c-primary']} style={styles.checkText}>
             {checking ? t('setting_source_checking') : t('setting_source_check_update')}
           </Text>
         </TouchableOpacity>
@@ -166,8 +167,8 @@ const ListItem = ({
         (updateLabel != null || lastCheckAt != null)
           ? (
             <View style={styles.updateRow}>
-              {updateLabel ? <Text size={10.5} color={updateColor} numberOfLines={2} style={styles.updateText}>{updateLabel.text}</Text> : null}
-              {lastCheckAt ? <Text size={10} color={theme['c-400']} style={styles.lastCheck}>{t('setting_source_update_last', { time: formatTime(lastCheckAt) })}</Text> : null}
+              {updateLabel ? <Text size={11} color={updateColor} numberOfLines={2} style={styles.updateText}>{updateLabel.text}</Text> : null}
+              {lastCheckAt ? <Text size={11} color={theme['c-400']} style={styles.lastCheck}>{t('setting_source_update_last', { time: formatTime(lastCheckAt) })}</Text> : null}
             </View>
             )
           : null
@@ -246,7 +247,7 @@ export default () => {
   }, [])
 
   return (
-    <Group title={t('setting_source_user_list')} icon='playlist-music' color='#6366F1' desc={t('setting_source_import_tip')}>
+    <Group title={t('setting_source_user_list')} desc={t('setting_source_import_tip')}>
       {/* Section 会在多个顶层子元素之间插分隔线，这里整体包一层、自己控制列表分隔 */}
       <View>
         <View style={{ ...styles.importRow, borderBottomColor: theme['c-primary-alpha-700'] }}>
@@ -278,7 +279,7 @@ export default () => {
               </View>
               )
         }
-        <Text size={10} color={theme['c-400']} style={styles.note}>{t('user_api_note')}</Text>
+        <Text size={11} color={theme['c-400']} style={styles.note}>{t('user_api_note')}</Text>
       </View>
     </Group>
   )

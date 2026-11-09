@@ -4,6 +4,7 @@ import { View } from 'react-native'
 import Text from '@/components/common/Text'
 import { useTheme } from '@/store/theme/hook'
 import { createStyle } from '@/utils/tools'
+import { getWarning } from '@/theme/designTokens'
 import { localLibraryRepository, type BenchmarkResult } from '@/core/localLibrary/repository'
 import { runMigrationDryRun, type MigrationPreview } from '@/core/localLibrary/migrate'
 import { getShadowStatus, syncShadowNow, type ShadowStatus } from '@/core/localLibrary/shadow'
@@ -15,7 +16,6 @@ import { previewReferenceRewrite, type ReferenceRewritePreview } from '@/core/lo
 import { compareReadSources, type ReadSourceCompare } from '@/core/localLibrary/readSource'
 import { ButtonRow, Card, InfoLine, SecondaryButton } from './parts'
 
-const WARN_COLOR = '#E8A33D'
 
 /**
  * A-2 存储自检（临时开发入口）。
@@ -161,7 +161,7 @@ export default memo(() => {
         {
           drill
             ? (
-              <Text size={11} color={drill.ok ? theme['c-450'] : WARN_COLOR} style={styles.lines}>
+              <Text size={11} color={drill.ok ? theme['c-450'] : getWarning(theme)} style={styles.lines}>
                 {`\n回滚演练：DB ${drill.beforeDb} → 清空 → ${drill.afterDb}\n旧 JSON ${drill.listCount} 首 · 缺失 ${drill.missing} / 多余 ${drill.extra} · ${drill.durationMs} ms${drill.error ? `\n失败：${drill.error}` : ''}`}
               </Text>
               )
@@ -170,7 +170,7 @@ export default memo(() => {
         {
           powerLoss
             ? (
-              <Text size={11} color={powerLoss.ok ? theme['c-450'] : WARN_COLOR} style={styles.lines}>
+              <Text size={11} color={powerLoss.ok ? theme['c-450'] : getWarning(theme)} style={styles.lines}>
                 {`\n断电恢复：DB ${powerLoss.beforeDb} → 中断 ${powerLoss.interruptedDb} → 恢复 ${powerLoss.recoveredDb}\n旧 JSON ${powerLoss.listCount} 首 · 缺失 ${powerLoss.missing} / 多余 ${powerLoss.extra} · ${powerLoss.durationMs} ms${powerLoss.error ? `\n失败：${powerLoss.error}` : ''}`}
               </Text>
               )

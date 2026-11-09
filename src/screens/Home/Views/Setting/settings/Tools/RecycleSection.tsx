@@ -118,7 +118,7 @@ export default memo(() => {
                   <View key={`${item.id}_${item.deletedAt}`} style={styles.row}>
                     <View style={styles.info}>
                       <Text size={12} numberOfLines={1}>{cleanSongName(item.name, item.singer)}</Text>
-                      <Text size={9.5} color={theme['c-450']} numberOfLines={1} style={styles.sub}>
+                      <Text size={11} color={theme['c-450']} numberOfLines={1} style={styles.sub}>
                         {`${formatSize(item.size)} · ${new Date(item.deletedAt).toLocaleDateString()}`}
                       </Text>
                     </View>
@@ -128,13 +128,13 @@ export default memo(() => {
                   </View>
                 ))
               }
-              {items.length > 20 ? <Text size={10} color={theme['c-450']} style={styles.more}>{`还有 ${items.length - 20} 个未显示`}</Text> : null}
+              {items.length > 20 ? <Text size={11} color={theme['c-450']} style={styles.more}>{`还有 ${items.length - 20} 个未显示`}</Text> : null}
             </View>
             )
       }
       {
         selfTest
-          ? <Text size={10} color={theme['c-450']} style={styles.selfTest}>{selfTest}</Text>
+          ? <Text size={11} color={theme['c-450']} style={styles.selfTest}>{selfTest}</Text>
           : null
       }
       <ButtonRow>

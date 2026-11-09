@@ -205,7 +205,7 @@ export default memo(({ health, scanning, onChanged }: Props) => {
             borderColor: theme.isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.05)',
           }}
         />
-        <Text size={10.5} color={theme['c-450']} style={styles.hint}>
+        <Text size={11} color={theme['c-450']} style={styles.hint}>
           不改扩展名（由文件自身决定）；非法字符会被自动过滤，过长文件名会裁剪。
         </Text>
       </View>

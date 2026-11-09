@@ -20,7 +20,7 @@ export default memo(() => {
     ? t('setting_basic_source_status_success')
     : apiStatus.message === 'initing' ? t('setting_basic_source_status_initing') : t('setting_basic_source_status_failed')
   return (
-    <Group title={t('setting_source_current')} icon='script-text-outline' color='#6366F1'>
+    <Group title={t('setting_source_current')} icon='script-text-outline'>
       <ValueRow title={name} desc={`${statusText}${activeApi?.author ? ` · ${activeApi.author}` : ''}`} value={activeApi?.version ? formatVersion(activeApi.version) : undefined} />
       {activeId ? <ActionRow title={t('setting_source_reinit')} desc='重新执行音源初始化脚本' action='重新初始化' onPress={() => { setApiSource(activeId) }} /> : null}
       {activeApi?.homepage ? <ActionRow title='音源主页' action='打开' onPress={() => { void openUrl(activeApi.homepage) }} /> : null}

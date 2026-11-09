@@ -30,7 +30,7 @@ export default memo(() => {
     { label: t('setting_source_summary_status'), value: statusText, color: apiStatus.status ? getSuccess(theme) : getWarning(theme) },
   ]
   return (
-    <Group title='音源概览' icon='chart-box-outline' color='#6366F1' desc={t('setting_source_summary_tip')}>
+    <Group title='音源概览' icon='chart-box-outline' desc={t('setting_source_summary_tip')}>
       <View style={styles.grid}>
         {cells.map(cell => (
           <View key={cell.label} style={styles.cell}>

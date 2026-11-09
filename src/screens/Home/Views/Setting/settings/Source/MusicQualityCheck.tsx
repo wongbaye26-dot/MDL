@@ -7,7 +7,7 @@ import Text from '@/components/common/Text'
 import Tag from '@/components/common/Tag'
 import Input from '@/components/common/Input'
 import { useTheme } from '@/store/theme/hook'
-import { getDanger, getSuccess } from '@/theme/designTokens'
+import { getDanger, getSuccess, getWarning } from '@/theme/designTokens'
 import { useI18n } from '@/lang'
 import { useSettingValue } from '@/store/setting/hook'
 import { useUserApiList } from '@/store/userApi'
@@ -25,11 +25,11 @@ import { log } from '@/utils/log'
 import { notifySourcePageState, sourcePageState, useQualityList, useSourcePageState } from './state'
 import { formatSize, qualityLabel } from './helpers'
 
-const getStatusColor = (status: SourceCheckResult['status'], fallback: string) => {
+const getStatusColor = (status: SourceCheckResult['status'], fallback: string, theme: LX.ActiveTheme) => {
   switch (status) {
-    case 'ok': return '#10B981'
-    case 'failed': return '#EF4444'
-    case 'checking': return '#F59E0B'
+    case 'ok': return getSuccess(theme)
+    case 'failed': return getDanger(theme)
+    case 'checking': return getWarning(theme)
     default: return fallback
   }
 }
@@ -37,7 +37,7 @@ const getStatusColor = (status: SourceCheckResult['status'], fallback: string) =
 const ResultItem = ({ result }: { result: SourceCheckResult }) => {
   const t = useI18n()
   const theme = useTheme()
-  const statusColor = getStatusColor(result.status, theme['c-450'])
+  const statusColor = getStatusColor(result.status, theme['c-450'], theme)
   const statusText = result.status === 'ok'
     ? t('setting_source_check_ok')
     : result.status === 'pending'
@@ -215,7 +215,7 @@ export default memo(() => {
     : ''
 
   return (
-    <Group title={t('setting_source_check')} icon='speedometer' color='#10B981'>
+    <Group title={t('setting_source_check')}>
       <View style={styles.content}>
         <Text size={12} color={theme['c-450']} style={styles.tip}>{t('setting_source_check_tip')}</Text>
         <Text size={11} color={theme['c-450']} style={styles.inputLabel}>{t('setting_source_check_probe_song')}</Text>
