@@ -1,6 +1,6 @@
 # EMO Music Design System（v1 提案）
 
-- 状态：**待确认**（确认后才进入代码实施）
+- 状态：**已确认并完成 v1 实施**（2026-11-09；记录见 `doc/design-system-implementation.md`）
 - 适用：React Native 0.80.3 / Android；全项目页面，重点为设置页
 - 基线：Material You + EMO 品牌；动态种子色、`LiquidGlass`、`Text` / `Icon` 保留现有实现
 - 目标：把「每个页面各写一套、每个分类一张彩色卡」收敛为一套可执行、可检查的设计语言

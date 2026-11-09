@@ -1,0 +1,103 @@
+# 设置页重设计 · 实施记录（v1）
+
+- 日期：2026-11-09
+- 状态：**已实施并真机冒烟**，未发版
+- 依据：`design/DESIGN-SYSTEM.md`、`doc/design-audit-settings-ui.md`
+- 决策（用户确认）：扁平分组首页、新增「音源与搜索」组、去掉固定彩虹分类色
+
+## 1. 已完成
+
+### 1.1 设计令牌
+- 新增 `src/theme/designTokens.ts`：
+  - `Type`（7 档字号）、`Space`（4/8/12/16/20/24/32）、`Radius`（4/8/12/16/24/full）、`IconSize`、`LineHeight`
+  - 语义色 `getDanger/getWarning/getSuccess`、`getCardSurface/getDivider/getGlassTint/getOnPrimary`
+- 设置页不再新增 hardcode hex/rgba；删除分类彩虹色（`screenMeta` 不再用于设置首页）。
+
+### 1.2 设置组件（扁平化）
+- 重写 `Setting/components/ui/index.tsx`：
+  - `Group`：分组标题 + 行 + 0.5dp 分割线，**不再使用 24dp 大卡**；组内不再嵌套卡片。
+  - `ToggleRow`：56dp 行、整行可点、Switch 统一 token。
+  - `ChoiceRow`：≤3 个短选项用分段控件；长选项/多项改为「值 + 箭头 → ActionSheet 单选」（音质/倍速/淡入淡出/语言等）。
+  - `ValueRow` / `ActionRow` / `StepperRow` / `CustomToggleRow`：统一字号 14/12、右侧值 12、行内按钮 32dp + 8dp hitSlop。
+  - 所有行有 `accessibilityRole` / `accessibilityLabel` / `accessibilityState`。
+
+### 1.3 设置首页
+- `Mine/index.tsx`：删除品牌 logo / 呼吸光晕 / slogan / 大玻璃页头，改为 64dp 平铺「设置」页头（横屏 56dp）。
+- `Vertical/Grid.tsx`：改为扁平分组首页，11 组，顺序：
+  播放设置 → 音质与音效 → 音源与搜索 → 歌词设置 → 本地音乐 → 下载管理 →
+  主题与外观 → 播放器与交互 → 通知与系统 → 数据与存储 → 关于与版本。
+- 深页保留两个：**音源管理**（`SourceManage`）、**曲库工具**（`ToolsPage`），入口分别为 ValueRow / ActionRow；
+  深页页头统一 40dp 返回 + 22sp 标题，返回后回到设置首页。
+- 「所有文件访问权限」去重：只在「下载管理」出现；系统组移除重复行。
+- 「最大缓存」从播放设置移到「数据与存储」；「通知栏显示封面」移到「通知与系统」。
+- 修复 `download.maxDownloadNum` 选项 value 类型不匹配（之前显示「—」）：改为数字 value，行内显示 `5 个`。
+
+### 1.4 深页与横屏
+- `Vertical/Main.tsx`：只保留两个深页 section；旧 8 个 id 仍可被 `normalizeSettingScreenId` 识别（恢复映射不破坏），
+  但不会再作为主入口。
+- `Horizontal/index.tsx`：去掉左侧宫格导航卡，横屏直接显示扁平设置页，深页仍走整屏 overlay（竖屏/横屏手势一致）。
+- `headerMetrics`：设置页头 84 → 64（横屏 56），深页 overlay 偏移同步。
+
+## 2. 修改文件清单
+
+新增：
+- `src/theme/designTokens.ts`
+- `src/screens/Home/Views/Setting/Vertical/SourceManage.tsx`
+- `src/screens/Home/Views/Setting/Vertical/ToolsPage.tsx`
+- `doc/design-system-implementation.md`（本文件）
+- `doc/images/design-audit/after/*.jpg`（实施后截图）
+
+修改：
+- `src/screens/Home/Views/Mine/index.tsx`
+- `src/screens/Home/Views/Setting/Vertical/Grid.tsx`
+- `src/screens/Home/Views/Setting/Vertical/Main.tsx`
+- `src/screens/Home/Views/Setting/Horizontal/index.tsx`
+- `src/screens/Home/Views/Setting/components/headerMetrics.ts`
+- `src/screens/Home/Views/Setting/components/ui/index.tsx`
+- `src/screens/Home/Views/Setting/settings/Refactored/{Playback,Lyric,Appearance,DownloadStorage,Library,SourceSearch,System,Misc}.tsx`
+
+未删除：`settings/Basic/*`、`settings/Player/*`、`settings/Tools/*`、`settings/Source/*`、旧 `Section/SettingRow/CheckBoxItem` 等仍在仓库中
+（部分被 Tools/Source 引用）；确认无引用后再清理。
+
+## 3. 验收证据
+
+### 3.1 静态检查 / 构建
+| 检查 | 命令 | 结果 |
+|---|---|---|
+| TypeScript | `npm run typecheck` | exit 0 |
+| ESLint | `npm run lint` | exit 0（仅 2 条既有 warning：`Player/index.tsx` exhaustive-deps） |
+| 单元测试 | `npm run test:unit` | `tests 32 / pass 32 / fail 0` |
+| Debug 构建 | `./gradlew :app:assembleDebug -PreactNativeArchitectures=arm64-v8a` | `BUILD SUCCESSFUL in 1m 16s` |
+| Release 构建 | `./gradlew :app:assembleRelease -PreactNativeArchitectures=arm64-v8a` | `BUILD SUCCESSFUL`；APK 已安装到 SM-S938B |
+
+### 3.2 真机冒烟（SM-S938B / Android 17）
+- 设置页打开：简单「设置」页头，11 组扁平列表，无卡片嵌套、无彩虹图标。
+- 开关：点击整行或 Switch 均能切换，返回后状态保持（抽查：启动后自动播放、通知栏显示封面、页面左右滑动）。
+- 选择类：`优先播放音质`/`切歌淡入淡出` 等打开 BottomSheet 单选并立即回写（已切到 Hi-Res / 4 秒）。
+- 深页：`音源管理` 打开正常、返回正常；`曲库工具` 入口存在（深页内容样式待下一轮统一）。
+- 主题：明亮/暗黑切换立即生效，深浅色下分割线/文字/开关对比度正常。
+- 横屏：设置页正常渲染（左导航 + 扁平列表），无截断。
+- 崩溃：`logcat -b crash` 无新增记录。
+
+### 3.3 截图
+- 实施后：`doc/images/design-audit/after/after-light-top.jpg`、`after-light-notifications.jpg`、
+  `after-light-landscape.jpg`、`after-dark-theme.jpg`、`after-dark-source.jpg`、`after-choice-sheet.jpg`
+- 实施前：`doc/images/design-audit/light-*.jpg`、`dark-*.jpg`
+
+## 4. 已知问题 / 未完成
+
+1. **Tools / Source 深页内部样式未统一**：`settings/Tools/parts.tsx`、`settings/Source/*` 仍使用旧卡片
+   （`getCardBackground`、radius 24、旧 CheckBoxItem/Section）。本轮只统一了深页页头与入口，内部需要下一轮 P2。
+2. **主题色 swatches 组件**（`MaterialYouColors`）仍为旧样式，未套用新 token。
+3. **旧组件未删除**：`Section/SettingRow/CheckBoxItem/ChoiceItem/Slider`、`Horizontal/NavList`、
+   `Vertical/Header`、`screenMeta` 等确认无引用后再删，避免误伤 Tools/Source。
+4. **减少动态效果**：设置页无新增动画；深页 SlideInView 沿用旧逻辑，未在本次重新回归（标 `未验证`）。
+5. **未做完整真机 QA**：本轮只做冒烟；弱网、横竖屏播放器等回归项仍按 `doc/qa-3.41.0-rn076.md` 待跑。
+6. **版本未升**：代码在 master 未发版；建议下一轮完成 P2 + 回归后发 `v3.52.0`。
+
+## 5. 下一轮建议
+
+1. P2：统一 Tools / Source / MaterialYouColors 的视觉（卡片 → 分组、旧控件 → 新 ui kit）。
+2. 删除旧组件与死代码（Section/SettingRow/CheckBoxItem/ChoiceItem/Slider/Header/NavList/screenMeta），跑全量引用检查。
+3. 补真机回归：减少动态效果、横屏深页、深色/种子色组合、大字号。
+4. 发版 `v3.52.0`，附前后截图与 release notes。

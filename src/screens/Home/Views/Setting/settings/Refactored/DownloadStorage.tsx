@@ -11,7 +11,9 @@ import { QUALITYS, QUALITY_LABEL, getDefaultSavePath, getFallbackSavePath, isSaf
 import { clearSavePathCache, ensureDir, migrateFallbackDownloads } from '@/core/download'
 import { pickDirectory, canWriteTree, treeUriToDisplayPath } from '@/utils/directoryPicker'
 import { isExternalStorageManager, openAllFilesAccessSettings } from '@/utils/nativeModules/utils'
+import { Radius, Space, Type } from '@/theme/designTokens'
 
+/** 下载管理（IA 第 6 组）；所有文件访问权限只在设置里出现一次 */
 export default () => {
   const t = useI18n()
   const theme = useTheme()
@@ -68,18 +70,18 @@ export default () => {
 
   return (
     <View>
-      <Group title='保存位置' icon='folder-outline' color='#F59E0B'>
+      <Group title='下载管理'>
         <ValueRow title={t('setting_download_save_path')} desc={pathLabel} />
         <View style={styles.pathActions}>
-          <TouchableOpacity style={[styles.pathBtn, { backgroundColor: theme['c-primary'] }]} onPress={() => { void selectPath() }}>
-            <Text size={11.5} color={theme['c-font']}>选择目录</Text>
+          <TouchableOpacity style={[styles.pathBtn, { backgroundColor: theme['c-primary-alpha-900'] }]} onPress={() => { void selectPath() }}>
+            <Text size={Type.button.fontSize} color={theme['c-primary']}>选择目录</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[styles.pathBtn, { backgroundColor: theme['c-primary-alpha-900'] }]} onPress={() => { void useAppDir('external') }}>
-            <Text size={11.5} color={theme['c-primary']}>应用专属目录</Text>
+            <Text size={Type.button.fontSize} color={theme['c-primary']}>应用专属目录</Text>
           </TouchableOpacity>
           {savePath ? (
             <TouchableOpacity style={[styles.pathBtn, { backgroundColor: theme['c-primary-alpha-900'] }]} onPress={() => { updateSetting({ 'download.savePath': '' }); clearSavePathCache() }}>
-              <Text size={11.5} color={theme['c-450']}>恢复默认</Text>
+              <Text size={Type.button.fontSize} color={theme['c-450']}>恢复默认</Text>
             </TouchableOpacity>
           ) : null}
         </View>
@@ -88,26 +90,40 @@ export default () => {
           { value: '歌手 - 歌名', label: '歌手 - 歌名' },
           { value: '歌名', label: '歌名' },
         ]} />
-      </Group>
-      <Group title='下载' icon='download-2' color='#10B981'>
         <ChoiceRow settingKey='download.quality' title='下载音质' options={qualityOptions} />
-        <ChoiceRow settingKey='download.maxDownloadNum' title='同时下载数量' options={[1, 2, 3, 5].map(value => ({ value: String(value), label: `${value} 个` }))} />
+        <ChoiceRow settingKey='download.maxDownloadNum' title='同时下载数量' options={[1, 2, 3, 5].map(value => ({ value, label: `${value} 个` }))} />
         <ToggleRow settingKey='download.isUseOtherSource' title='使用其他音源' desc='当前音源没有该歌曲时自动换源' />
         <ToggleRow settingKey='download.autoSaveWhilePlaying' title='播放时自动保存' desc='边听边存' />
-      </Group>
-      <Group title='附加文件' icon='file-music-outline' color='#8B5CF6'>
         <ToggleRow settingKey='download.isDownloadLyric' title='下载歌词' />
         <ToggleRow settingKey='download.isDownloadPic' title='下载封面' />
         <ToggleRow settingKey='download.isWriteMetadata' title='写入元数据' />
-      </Group>
-      <Group title='存储权限' icon='shield-key-outline' color='#64748B'>
-        <ActionRow title='所有文件访问权限' desc={allFilesAccess ? '已开启，可直接写入公共音乐目录' : '未开启时文件会落到应用私有目录'} action={allFilesAccess ? '已开启' : '去开启'} onPress={() => { void openAllFilesAccessSettings().then(ok => { if (!ok) void Linking.openSettings() }) }} />
+        <ActionRow
+          title='所有文件访问权限'
+          desc={allFilesAccess ? '已开启，可直接写入公共音乐目录' : '未开启时文件会落到应用私有目录'}
+          action={allFilesAccess ? '已开启' : '去开启'}
+          onPress={() => { void openAllFilesAccessSettings().then(ok => { if (!ok) void Linking.openSettings() }) }}
+        />
       </Group>
     </View>
   )
 }
 
 const styles = createStyle({
-  pathActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingLeft: 16, paddingRight: 16, paddingBottom: 12 },
-  pathBtn: { height: 32, paddingLeft: 12, paddingRight: 12, borderRadius: 16, justifyContent: 'center' },
+  pathActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Space.sm,
+    paddingLeft: Space.lg,
+    paddingRight: Space.lg,
+    paddingBottom: Space.md,
+    marginTop: -Space.xs,
+  },
+  pathBtn: {
+    minHeight: 32,
+    paddingLeft: Space.md,
+    paddingRight: Space.md,
+    borderRadius: Radius.full,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
 })

@@ -1,159 +1,42 @@
 import { View } from 'react-native'
 
-import Section from '../components/Section'
-import SettingRow from '../components/SettingRow'
-import { useTheme } from '@/store/theme/hook'
-import { useI18n } from '@/lang'
-import { useSettingValue } from '@/store/setting/hook'
-import { useStatus, useUserApiList } from '@/store/userApi'
+import Playback from '../settings/Refactored/Playback'
+import Lyric from '../settings/Refactored/Lyric'
+import Appearance from '../settings/Refactored/Appearance'
+import Library from '../settings/Refactored/Library'
+import SourceSearch from '../settings/Refactored/SourceSearch'
+import DownloadStorage from '../settings/Refactored/DownloadStorage'
+import System from '../settings/Refactored/System'
+import Misc from '../settings/Refactored/Misc'
 import { createStyle } from '@/utils/tools'
-import { QUALITY_LABEL } from '@/core/download/utils'
+import { Space } from '@/theme/designTokens'
 import { type SettingScreenIds } from '../Main'
-import { SCREEN_META, SCREEN_GROUPS } from '../components/screenMeta'
 
-// 存储里的语言值是 zh_cn 这种下划线写法，映射表用的是连字符，取之前统一一下
-const LANG_LABEL: Record<string, string> = {
-  'zh-cn': '简体中文',
-  'zh-tw': '繁體中文',
-  'en-us': 'English',
-}
-
-const onOff = (value: boolean | undefined) => value ? '开' : '关'
-
-export default ({ onPress }: { onPress: (id: SettingScreenIds) => void }) => {
-  const theme = useTheme()
-  const t = useI18n()
-
-  const langId = useSettingValue('common.langId')
-  const apiSource = useSettingValue('common.apiSource')
-  const userApiList = useUserApiList()
-  const apiStatus = useStatus()
-  const playQuality = useSettingValue('player.playQuality')
-  const showHistory = useSettingValue('search.isShowHistorySearch')
-  const showHot = useSettingValue('search.isShowHotSearch')
-  const downloadQuality = useSettingValue('download.quality')
-  const maxDownloadNum = useSettingValue('download.maxDownloadNum')
-  const autoSave = useSettingValue('download.autoSaveWhilePlaying')
-
-  const activeUserApi = userApiList.find(api => api.id === apiSource)
-  const sourceStatus = apiStatus.status
-    ? t('setting_basic_source_status_success')
-    : apiStatus.message === 'initing'
-      ? t('setting_basic_source_status_initing')
-      : t('setting_basic_source_status_failed')
-  const sourcePreview = activeUserApi
-    ? `${activeUserApi.name} · ${sourceStatus}`
-    : apiSource
-      ? `${apiSource} · ${sourceStatus}`
-      : t('setting_source_summary_none')
-
-  // 列表只给一行摘要，摘要保持实时、尽量精简
-  const previews: Record<SettingScreenIds, string> = {
-    playback: `${QUALITY_LABEL[playQuality] ?? playQuality} · 淡入淡出 · 缓存`,
-    lyric: '逐字 · 翻译 · 蓝牙歌词',
-    appearance: `${theme.name || 'Emo'} · ${LANG_LABEL[(langId ?? 'zh-cn').replace('_', '-')] ?? langId ?? ''} · 动效`,
-    library: '曲库体检 · 封面 · 标签 · 重命名',
-    sourcesearch: `${sourcePreview} · 历史${onOff(showHistory)} · 热搜${onOff(showHot)}`,
-    download: `${QUALITY_LABEL[downloadQuality] ?? downloadQuality} · ${maxDownloadNum ?? 3}并发${autoSave ? ' · 边听边存' : ''}`,
-    system: '权限 · 电池优化 · 自启动',
-    misc: `v${process.versions.app} · 缓存 · 日志 · 关于`,
-  }
-
-  return (
-    <View style={styles.container}>
-      {
-        SCREEN_GROUPS.map(group => (
-          <Section key={group.title} title={group.title} icon={group.icon} color={group.color}>
-            {
-              group.ids.map(id => {
-                const meta = SCREEN_META[id]
-                return (
-                  <SettingRow
-                    key={id}
-                    icon={meta.icon}
-                    color={meta.color}
-                    title={t(`setting_${id}` as 'setting_basic')}
-                    desc={previews[id]}
-                    onPress={() => { onPress(id) }}
-                  />
-                )
-              })
-            }
-          </Section>
-        ))
-      }
-    </View>
-  )
-}
+/**
+ * 设置首页（扁平分组，IA 11 组）：
+ * 播放设置 / 音质与音效 / 音源与搜索 / 歌词设置 / 本地音乐 / 下载管理 /
+ * 主题与外观 / 播放器与交互 / 通知与系统 / 数据与存储 / 关于与版本。
+ *
+ * 分组顺序即渲染顺序；每个分组是 Group 平铺列表，不再是一张 24dp 大卡。
+ * 音源管理 / 曲库工具是深页入口，其余设置直接内联。
+ */
+export default ({ onPress }: { onPress: (id: SettingScreenIds) => void }) => (
+  <View style={styles.container}>
+    <Playback />
+    <SourceSearch onOpenSource={() => { onPress('sourcesearch') }} />
+    <Lyric />
+    <Library onOpenTools={() => { onPress('library') }} />
+    <DownloadStorage />
+    <Appearance />
+    <System />
+    <Misc />
+  </View>
+)
 
 const styles = createStyle({
   container: {
-    paddingLeft: 18,
-    paddingRight: 18,
-    paddingTop: 0,
-  },
-  tileGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  tile: {
-    width: '48.6%',
-    minHeight: 96,
-    borderRadius: 20,
-    borderWidth: 0.5,
-    padding: 12,
-  },
-  tileIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
-  tileTitle: {
-    fontWeight: '600',
-  },
-  tilePreview: {
-    marginTop: 3,
-    lineHeight: 13,
-  },
-  dualRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  navCard: {
-    width: '48.4%',
-    minHeight: 78,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 20,
-    borderWidth: 0.5,
-    paddingLeft: 12,
-    paddingRight: 8,
-    paddingTop: 8,
-    paddingBottom: 8,
-  },
-  navIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 10,
-  },
-  navText: {
-    flexGrow: 1,
-    flexShrink: 1,
-    minWidth: 0,
-  },
-  navTitle: {
-    fontWeight: '700',
-    letterSpacing: 0.1,
-  },
-  navPreview: {
-    marginTop: 4,
-    lineHeight: 15,
+    paddingLeft: Space.lg,
+    paddingRight: Space.lg,
+    paddingTop: Space.sm,
   },
 })

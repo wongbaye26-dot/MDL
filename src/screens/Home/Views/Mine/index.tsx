@@ -1,74 +1,32 @@
-import { Animated, Easing, View, Image } from 'react-native'
-import { useEffect, useRef } from 'react'
+import { View } from 'react-native'
 
 import { createStyle } from '@/utils/tools'
-import { useTheme } from '@/store/theme/hook'
 import { useStatusbarHeight } from '@/store/common/hook'
-import { useHorizontalMode, useReducedMotion } from '@/utils/hooks'
+import { useHorizontalMode } from '@/utils/hooks'
 import Text from '@/components/common/Text'
 import { SETTINGS_HEADER_COMPACT_H, SETTINGS_HEADER_H } from '../Setting/components/headerMetrics'
-import LiquidGlass from '@/components/common/LiquidGlass'
-import { useSettingValue } from '@/store/setting/hook'
 import Setting from '../Setting'
-
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const emoLogo = require('@/resources/images/emo-logo-mono.png')
+import { Space, Type } from '@/theme/designTokens'
 
 /**
- * 「我的」页头：品牌 logo + 大标题 + 副标题。
- * 只改设置入口的页头视觉，和设置页共用同一层渐变背景；不新增登录/账号入口。
+ * 「我的」Tab = 设置页。
+ *
+ * 按 DESIGN-SYSTEM：简洁的 Settings 页头，不放品牌 logo / 呼吸光晕 / slogan / 大玻璃，
+ * 只保留标题与合理的顶部留白；设置列表本身就是页面主体。
  */
 export default () => {
-  const theme = useTheme()
-  // 页头 logo 光晕的呼吸：无动效页面里最轻的一层反馈，reduce-motion 时保持静态
-  const reduced = useReducedMotion()
-  const glow = useRef(new Animated.Value(0)).current
-  useEffect(() => {
-    if (reduced) {
-      glow.setValue(0.5)
-      return
-    }
-    const loop = Animated.loop(Animated.sequence([
-      Animated.timing(glow, { toValue: 1, duration: 2200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      Animated.timing(glow, { toValue: 0, duration: 2200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-    ]))
-    loop.start()
-    return () => { loop.stop() }
-  }, [glow, reduced])
   const statusBarHeight = useStatusbarHeight()
-  const glassStyle = useSettingValue('common.navGlassStyle') ?? 'liquid'
   const compact = useHorizontalMode()
   const headerH = compact ? SETTINGS_HEADER_COMPACT_H : SETTINGS_HEADER_H
-  // 横屏下 statusbarHeight 报 0，但时钟浮在左上角，页头要自己让出一条
-  const topInset = statusBarHeight > 0 ? statusBarHeight : (compact ? 20 : 0)
 
   return (
     <View style={styles.container}>
       <View style={{
         ...styles.header,
-        height: topInset + headerH,
-        paddingTop: topInset + (compact ? 7 : 12),
+        height: statusBarHeight + headerH,
+        paddingTop: statusBarHeight,
       }}>
-        <LiquidGlass mode={glassStyle} blurRadius={24} radius={0} tint={theme.isDark ? 'rgba(20,16,28,0.42)' : 'rgba(255,255,255,0.34)'} isDark={theme.isDark} seamless />
-        <View style={styles.logoWrap}>
-          <Animated.View style={[
-            styles.logoGlow,
-            {
-              backgroundColor: theme['c-primary'],
-              opacity: glow.interpolate({ inputRange: [0, 1], outputRange: [0.14, 0.26] }),
-              transform: [{ scale: glow.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1.06] }) }],
-            },
-          ]} />
-          <View style={[compact ? styles.logoCompact : styles.logo, { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.05)' }]}>
-            <Image source={emoLogo} style={styles.logoMark} tintColor={theme['c-font']} />
-          </View>
-        </View>
-        <View style={styles.titleArea}>
-          <Text size={compact ? 21 : 27} numberOfLines={1} style={styles.title}>我的</Text>
-          <Text size={compact ? 10 : 11.5} color={theme['c-450']} numberOfLines={1} style={styles.subtitle}>
-            EMO Music · 享受音乐，遇见更好的自己
-          </Text>
-        </View>
+        <Text size={compact ? 19 : Type.pageTitle.fontSize} style={styles.title}>设置</Text>
       </View>
       <View style={styles.setting}>
         <Setting />
@@ -82,55 +40,12 @@ const styles = createStyle({
     flex: 1,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingLeft: 20,
-    paddingRight: 20,
-  },
-  logoWrap: {
-    width: 54,
-    height: 54,
-    borderRadius: 17,
-    marginRight: 13,
     justifyContent: 'center',
-    alignItems: 'center',
-  },
-  logoGlow: {
-    position: 'absolute',
-    width: 52,
-    height: 52,
-    borderRadius: 18,
-    transform: [{ scale: 1.16 }],
-    opacity: 0.85,
-  },
-  logo: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logoMark: {
-    width: 40,
-    height: 40,
-  },
-  logoCompact: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-  },
-  titleArea: {
-    flexGrow: 1,
-    flexShrink: 1,
-    minWidth: 0,
+    paddingLeft: Space.lg,
+    paddingRight: Space.lg,
   },
   title: {
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  subtitle: {
-    marginTop: 5,
-    letterSpacing: 0.2,
+    ...Type.pageTitle,
   },
   setting: {
     flex: 1,

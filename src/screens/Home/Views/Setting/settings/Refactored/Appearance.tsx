@@ -12,6 +12,7 @@ import { langList, useI18n } from '@/lang'
 import { useFontSize } from '@/store/common/hook'
 import { MaterialYouColors } from '../Basic/ThemeSettings'
 import { createStyle } from '@/utils/tools'
+import { Radius, Space, Type, getOnPrimary } from '@/theme/designTokens'
 
 const MODES = [
   { value: 'light', label: '明亮' },
@@ -21,6 +22,7 @@ const MODES = [
 
 const FONT_STEPS = [0.8, 0.9, 1, 1.1, 1.2, 1.3]
 
+/** 主题与外观 / 播放器与交互（IA 第 7、8 组） */
 export default () => {
   const theme = useTheme()
   const t = useI18n()
@@ -31,6 +33,7 @@ export default () => {
   const lightId = useSettingValue('theme.lightId')
   const fontSize = useFontSize()
   const mode = isAutoTheme ? 'auto' : (theme.isDark ? 'dark' : 'light')
+  const onPrimary = getOnPrimary(theme)
 
   const selectMode = useCallback(async(value: 'light' | 'dark' | 'auto') => {
     const isDark = value === 'auto' ? Appearance.getColorScheme() === 'dark' : value === 'dark'
@@ -47,30 +50,44 @@ export default () => {
 
   return (
     <View>
-      <Group title='主题模式' icon='palette-outline' color='#8B5CF6'>
-        <View style={styles.modes}>
-          {
-            MODES.map(item => {
+      <Group title='主题与外观'>
+        <View style={styles.modeBlock}>
+          <Text size={Type.rowTitle.fontSize} style={styles.modeTitle}>主题模式</Text>
+          <View style={[styles.segment, { backgroundColor: theme['c-primary-alpha-900'] }]}>
+            {MODES.map(item => {
               const active = mode === item.value
               return (
                 <TouchableOpacity
                   key={item.value}
-                  style={[styles.mode, { backgroundColor: active ? theme['c-primary'] : theme['c-primary-alpha-900'] }]}
+                  style={[styles.segmentItem, active ? { backgroundColor: theme['c-primary'] } : null]}
                   activeOpacity={0.75}
                   onPress={() => { void selectMode(item.value) }}
                 >
-                  <Text size={12} color={active ? theme['c-font'] : theme['c-450']}>{item.label}</Text>
+                  <Text size={Type.button.fontSize} color={active ? onPrimary : theme['c-450']}>{item.label}</Text>
                 </TouchableOpacity>
               )
-            })
-          }
+            })}
+          </View>
         </View>
-      </Group>
-      <Group title='主题色' icon='palette-swatch-outline' color='#EC4899' desc='Material You / 预设色板'>
         <MaterialYouColors />
-      </Group>
-      <Group title='界面' icon='cellphone' color='#3B82F6'>
-        <ToggleRow settingKey='common.homePageScroll' title='页面左右滑动' desc='开启后在首页左右滑动切换页面；关闭后只能用底部标签切换' />
+        <View style={styles.fontBlock}>
+          <Text size={Type.rowTitle.fontSize} style={styles.modeTitle}>字体大小</Text>
+          <View style={[styles.segment, { backgroundColor: theme['c-primary-alpha-900'] }]}>
+            {FONT_STEPS.map(value => {
+              const active = Math.abs(fontSize - value) < 0.01
+              return (
+                <TouchableOpacity
+                  key={value}
+                  style={[styles.segmentItem, active ? { backgroundColor: theme['c-primary'] } : null]}
+                  onPress={() => { setFontSize(value) }}
+                >
+                  <Text size={Type.button.fontSize} color={active ? onPrimary : theme['c-450']}>{Math.round(value * 100)}%</Text>
+                </TouchableOpacity>
+              )
+            })}
+          </View>
+        </View>
+        <ToggleRow settingKey='common.homePageScroll' title='页面左右滑动' desc='开启后在首页左右滑动切换页面' />
         <ToggleRow settingKey='common.reduceMotion' title='减少动态效果' desc='关闭大部分过渡与循环动画' />
         <ToggleRow settingKey='common.homeCardMotion' title='首页卡片动效' />
         <ToggleRow settingKey='common.coverRotation' title='专辑封面自转' />
@@ -79,27 +96,6 @@ export default () => {
           { value: 'real', label: t('setting_basic_sourcename_real') },
           { value: 'alias', label: t('setting_basic_sourcename_alias') },
         ]} />
-        <View style={styles.fontBlock}>
-          <Text size={13.5}>字体大小</Text>
-          <View style={styles.chips}>
-            {
-              FONT_STEPS.map(value => {
-                const active = Math.abs(fontSize - value) < 0.01
-                return (
-                  <TouchableOpacity
-                    key={value}
-                    style={[styles.chip, { backgroundColor: active ? theme['c-primary'] : theme['c-primary-alpha-900'] }]}
-                    onPress={() => { setFontSize(value) }}
-                  >
-                    <Text size={11.5} color={active ? theme['c-font'] : theme['c-450']}>{Math.round(value * 100)}%</Text>
-                  </TouchableOpacity>
-                )
-              })
-            }
-          </View>
-        </View>
-      </Group>
-      <Group title='导航与动效' icon='gesture-swipe-horizontal' color='#10B981'>
         <ChoiceRow settingKey='common.navGlassStyle' title='悬浮栏玻璃效果' options={[
           { value: 'liquid', label: '液态玻璃' },
           { value: 'frosted', label: '毛玻璃' },
@@ -109,22 +105,46 @@ export default () => {
           { value: 'ring', label: '封面圆环' },
           { value: 'none', label: '关闭' },
         ]} />
-        <ToggleRow settingKey='common.navSwipeSwitch' title='底部导航滑动切歌' />
-      </Group>
-      <Group title='分享' icon='share-variant-outline' color='#F59E0B'>
         <ChoiceRow settingKey='common.shareType' title='分享方式' options={[
           { value: 'system', label: '系统分享' },
           { value: 'clipboard', label: '复制到剪贴板' },
         ]} />
+      </Group>
+      <Group title='播放器与交互'>
+        <ToggleRow settingKey='common.navSwipeSwitch' title='底部导航滑动切歌' desc='在胶囊任务栏上左右滑动切换歌曲' />
+        <ToggleRow settingKey='common.allowProgressBarSeek' title='底栏进度条可拖动' desc='关闭后只能从播放器页拖动进度' />
       </Group>
     </View>
   )
 }
 
 const styles = createStyle({
-  modes: { flexDirection: 'row', gap: 8, padding: 14 },
-  mode: { flex: 1, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  fontBlock: { padding: 14 },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 9 },
-  chip: { height: 30, paddingLeft: 12, paddingRight: 12, borderRadius: 15, justifyContent: 'center' },
+  modeBlock: {
+    paddingLeft: Space.lg,
+    paddingRight: Space.lg,
+    paddingTop: Space.md,
+    paddingBottom: Space.md,
+  },
+  modeTitle: {
+    ...Type.rowTitle,
+  },
+  segment: {
+    flexDirection: 'row',
+    borderRadius: Radius.md,
+    padding: 2,
+    marginTop: Space.sm,
+  },
+  segmentItem: {
+    flex: 1,
+    height: 32,
+    borderRadius: Radius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fontBlock: {
+    paddingLeft: Space.lg,
+    paddingRight: Space.lg,
+    paddingTop: Space.md,
+    paddingBottom: Space.md,
+  },
 })

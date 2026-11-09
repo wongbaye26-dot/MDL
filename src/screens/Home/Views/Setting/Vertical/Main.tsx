@@ -1,14 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import { Animated, View, ScrollView, TouchableOpacity, StyleSheet } from 'react-native'
 
-import Playback from '../settings/Refactored/Playback'
-import Lyric from '../settings/Refactored/Lyric'
-import Appearance from '../settings/Refactored/Appearance'
-import Library from '../settings/Refactored/Library'
-import SourceSearch from '../settings/Refactored/SourceSearch'
-import DownloadStorage from '../settings/Refactored/DownloadStorage'
-import System from '../settings/Refactored/System'
-import Misc from '../settings/Refactored/Misc'
+import SourceManage from './SourceManage'
+import ToolsPage from './ToolsPage'
 import { createStyle } from '@/utils/tools'
 import { type SettingScreenIds } from '../Main'
 import { Icon } from '@/components/common/Icon'
@@ -22,36 +16,31 @@ import Grid from './Grid'
 import { NAV_BAR_SPACE, HORIZONTAL_NAV_SPACE } from '@/config/constant'
 import { getSolidBackground } from '@/theme/solid'
 import { SETTINGS_HEADER_H } from '../components/headerMetrics'
-import { SCREEN_DESC } from '../components/screenMeta'
 import settingState from '@/store/setting/state'
 import type { InitState as CommonState } from '@/store/common/state'
 import useSwipeBack from '../useSwipeBack'
-import LiquidGlass from '@/components/common/LiquidGlass'
-import { useSettingValue } from '@/store/setting/hook'
 
 /** 主题切换等导致组件重挂载时，用来恢复当前打开的子页，避免闪回设置主页 */
 let lastActiveId: SettingScreenIds | null = null
 
-const getSection = (id: SettingScreenIds) => {
-  switch (id) {
-    case 'playback': return <Playback />
-    case 'lyric': return <Lyric />
-    case 'appearance': return <Appearance />
-    case 'library': return <Library />
-    case 'sourcesearch': return <SourceSearch />
-    case 'download': return <DownloadStorage />
-    case 'system': return <System />
-    case 'misc':
-    default: return <Misc />
-  }
+/** 只剩两个深页：音源管理 / 曲库工具；其余设置已内联到首页 */
+const DEEP_SECTIONS: Partial<Record<SettingScreenIds, ReactElement>> = {
+  sourcesearch: <SourceManage />,
+  library: <ToolsPage />,
 }
+const DEEP_TITLES: Partial<Record<SettingScreenIds, { title: string, desc: string }>> = {
+  sourcesearch: { title: '音源管理', desc: '当前音源、自定义源、音质矩阵与实测' },
+  library: { title: '曲库工具', desc: '曲库体检、补封面、标签刮削、去重、重命名、隐藏与回收站' },
+}
+const getSection = (id: SettingScreenIds) => DEEP_SECTIONS[id] ?? null
 
 export default () => {
   const theme = useTheme()
   const t = useI18n()
   const statusBarHeight = useStatusbarHeight()
-  const glassStyle = useSettingValue('common.navGlassStyle') ?? 'liquid'
-  const [activeId, setActiveIdState] = useState<SettingScreenIds | null>(lastActiveId)
+  const [activeId, setActiveIdState] = useState<SettingScreenIds | null>(
+    lastActiveId && DEEP_SECTIONS[lastActiveId] ? lastActiveId : null,
+  )
   const activeIdRef = useRef<SettingScreenIds | null>(null)
   activeIdRef.current = activeId
 
@@ -144,17 +133,18 @@ export default () => {
                 ]}
               >
                 <SlideInView style={{ ...styles.modal, backgroundColor: getSolidBackground(theme) }}>
-                  <View style={{ ...styles.modalHeader, height: 58 + statusBarHeight, paddingTop: statusBarHeight }}>
-                    <LiquidGlass mode={glassStyle} blurRadius={24} radius={0} tint={theme.isDark ? 'rgba(20,16,28,0.42)' : 'rgba(255,255,255,0.34)'} isDark={theme.isDark} seamless />
+                  <View style={{ ...styles.modalHeader, height: 58 + statusBarHeight, paddingTop: statusBarHeight, backgroundColor: getSolidBackground(theme) }}>
                     <TouchableOpacity
                       style={{ ...styles.modalBack, backgroundColor: theme['c-primary-alpha-900'], borderColor: theme['c-primary-alpha-700'] }}
                       onPress={handleClose}
+                      accessibilityRole='button'
+                      accessibilityLabel='返回'
                     >
                       <Icon name='chevron-left-2' size={20} color={theme['c-font']} />
                     </TouchableOpacity>
                     <View style={styles.modalTitleWrap}>
-                      <Text size={19} style={styles.modalTitle}>{t(`setting_${activeId}` as 'setting_basic')}</Text>
-                      <Text size={10} color={theme['c-450']} numberOfLines={1} style={styles.modalDesc}>{SCREEN_DESC[activeId]}</Text>
+                      <Text size={22} style={styles.modalTitle}>{DEEP_TITLES[activeId]?.title ?? t(`setting_${activeId}` as 'setting_basic')}</Text>
+                      <Text size={12} color={theme['c-450']} numberOfLines={1} style={styles.modalDesc}>{DEEP_TITLES[activeId]?.desc ?? ''}</Text>
                     </View>
                   </View>
                   <ScrollView
@@ -192,9 +182,9 @@ const styles = createStyle({
     paddingRight: 16,
   },
   modalBack: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     borderWidth: 0.5,
     justifyContent: 'center',
     alignItems: 'center',
@@ -211,8 +201,8 @@ const styles = createStyle({
     marginTop: 2,
   },
   modalContent: {
-    paddingLeft: 20,
-    paddingRight: 20,
+    paddingLeft: 16,
+    paddingRight: 16,
     paddingTop: 6,
     paddingBottom: NAV_BAR_SPACE,
   },

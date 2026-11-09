@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { View } from 'react-native'
-import { Group, CustomToggleRow, ValueRow, ActionRow } from '../../components/ui'
+import { Group, CustomToggleRow, ValueRow, ActionRow, StepperRow } from '../../components/ui'
 import ConfirmAlert, { type ConfirmAlertType } from '@/components/common/ConfirmAlert'
 import Text from '@/components/common/Text'
 import { useTheme } from '@/store/theme/hook'
@@ -12,9 +12,11 @@ import { sizeFormate } from '@/utils'
 import { getLogs, clearLogs } from '@/utils/log'
 import { getMetaCache, clearLyric, clearOtherSource, clearMusicUrl } from '@/utils/data'
 import { checkUpdate } from '@/core/version'
+import { Space, Type } from '@/theme/designTokens'
 
 const currentVer = process.versions.app
 
+/** 数据与存储 / 关于与版本（IA 第 10、11 组） */
 export default () => {
   const theme = useTheme()
   const t = useI18n()
@@ -63,33 +65,34 @@ export default () => {
 
   return (
     <View>
-      <Group title='缓存' icon='database-outline' color='#F59E0B'>
+      <Group title='数据与存储'>
+        <StepperRow settingKey='player.cacheSize' title='播放缓存上限' desc='缓存越大越省流量，重启后生效' min={0} max={4096} step={256} format={value => value ? `${value} MiB` : '禁用'} />
         <ValueRow title='资源缓存' desc='封面、歌词、接口响应等临时文件' value={cacheSize ?? '计算中…'} />
         <ActionRow title='清理资源缓存' action='清理' danger onPress={() => { void cleanResource() }} />
         <ActionRow title='歌曲信息缓存' desc={`换源信息 ${meta.otherSourceKeys?.length ?? '…'} 条 · 歌词 ${meta.lyricKeys?.length ?? '…'} 条`} action='清理' danger onPress={() => { void cleanMeta() }} />
-      </Group>
-      <Group title='日志' icon='text-box-outline' color='#64748B'>
         <CustomToggleRow title={t('setting_other_log_sync_log')} value={logSync} onChange={v => { setLogSync(v); global.lx.isEnableSyncLog = v }} />
         <CustomToggleRow title={t('setting_other_log_user_api_log')} value={logApi} onChange={v => { setLogApi(v); global.lx.isEnableUserApiLog = v }} />
         <ValueRow title='查看错误日志' desc={t('setting_other_log')} value='打开' onPress={openLogs} />
         <ActionRow title='清空日志' action='清空' danger onPress={() => { void clearLogs().then(() => { toast('日志已清空'); setLogText(''); alertRef.current?.setVisible(false) }) }} />
       </Group>
-      <Group title='关于' icon='information-outline' color='#10B981'>
+      <Group
+        title='关于与版本'
+        footer={(
+          <View style={styles.thanks}>
+            <Text size={Type.caption.fontSize} color={theme['c-450']} style={styles.thanksText}>感谢 LX Music、React Native 及所有开源依赖与贡献者。</Text>
+            <Text size={Type.caption.fontSize} color={theme['c-450']} style={styles.thanksText}>本应用仅用于个人音乐管理与播放，所有在线内容版权归各平台所有。</Text>
+          </View>
+        )}
+      >
         <ValueRow title='版本' value={`v${currentVer}`} />
         <ValueRow title='框架' value='React Native' />
         <ValueRow title='设计语言' value='Material You' />
         <ValueRow title='平台' value='Android' />
         <ActionRow title='检查更新' desc='检查 GitHub 是否有新版本' action={checking ? '检查中…' : '检查'} onPress={() => { void check() }} />
       </Group>
-      <Group title='致谢与声明' icon='heart-outline' color='#EC4899'>
-        <View style={styles.texts}>
-          <Text size={11.5} color={theme['c-450']} style={styles.text}>感谢 LX Music、React Native 及所有开源依赖与贡献者。</Text>
-          <Text size={11.5} color={theme['c-450']} style={styles.text}>本应用仅用于个人音乐管理与播放，所有在线内容版权归各平台所有。</Text>
-        </View>
-      </Group>
       <ConfirmAlert ref={alertRef} cancelText='关闭' confirmText='清空' onConfirm={() => { void clearLogs().then(() => { toast('日志已清空'); setLogText('') }) }} showConfirm={!!logText} reverseBtn>
         <View style={styles.logBox}>
-          <Text size={10.5} color={theme['c-450']} style={styles.logText}>{logText || '暂无日志'}</Text>
+          <Text size={Type.caption.fontSize} color={theme['c-450']} style={styles.logText}>{logText || '暂无日志'}</Text>
         </View>
       </ConfirmAlert>
     </View>
@@ -97,8 +100,21 @@ export default () => {
 }
 
 const styles = createStyle({
-  texts: { padding: 16 },
-  text: { lineHeight: 18, marginBottom: 6 },
-  logBox: { maxHeight: 360, padding: 8 },
-  logText: { lineHeight: 15 },
+  thanks: {
+    paddingLeft: Space.lg,
+    paddingRight: Space.lg,
+    paddingTop: Space.sm,
+    paddingBottom: Space.md,
+  },
+  thanksText: {
+    lineHeight: 18,
+    marginBottom: Space.xs,
+  },
+  logBox: {
+    maxHeight: 360,
+    padding: Space.sm,
+  },
+  logText: {
+    lineHeight: 15,
+  },
 })
