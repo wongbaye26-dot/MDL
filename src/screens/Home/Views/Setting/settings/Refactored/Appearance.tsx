@@ -22,8 +22,8 @@ const MODES = [
 
 const FONT_STEPS = [0.8, 0.9, 1, 1.1, 1.2, 1.3]
 
-/** 主题与外观 / 播放器与交互（IA 第 7、8 组） */
-export default () => {
+/** 主题与外观 */
+export const ThemeSection = () => {
   const theme = useTheme()
   const t = useI18n()
   const isAutoTheme = useSettingValue('common.isAutoTheme')
@@ -110,41 +110,31 @@ export default () => {
           { value: 'clipboard', label: '复制到剪贴板' },
         ]} />
       </Group>
-      <Group title='播放器与交互'>
-        <ToggleRow settingKey='common.navSwipeSwitch' title='底部导航滑动切歌' desc='在胶囊任务栏上左右滑动切换歌曲' />
-        <ToggleRow settingKey='common.allowProgressBarSeek' title='底栏进度条可拖动' desc='关闭后只能从播放器页拖动进度' />
-      </Group>
     </View>
   )
 }
 
+/** 播放器与交互 */
+export const PlayerInteractionSection = () => (
+  <View>
+    <Group title='播放器与交互'>
+      <ToggleRow settingKey='common.navSwipeSwitch' title='底部导航滑动切歌' desc='在胶囊任务栏上左右滑动切换歌曲' />
+      <ToggleRow settingKey='common.allowProgressBarSeek' title='底栏进度条可拖动' desc='关闭后只能从播放器页拖动进度' />
+    </Group>
+  </View>
+)
+
+export default () => (
+  <View>
+    <ThemeSection />
+    <PlayerInteractionSection />
+  </View>
+)
+
 const styles = createStyle({
-  modeBlock: {
-    paddingLeft: Space.lg,
-    paddingRight: Space.lg,
-    paddingTop: Space.md,
-    paddingBottom: Space.md,
-  },
-  modeTitle: {
-    ...Type.rowTitle,
-  },
-  segment: {
-    flexDirection: 'row',
-    borderRadius: Radius.md,
-    padding: 2,
-    marginTop: Space.sm,
-  },
-  segmentItem: {
-    flex: 1,
-    height: 32,
-    borderRadius: Radius.sm,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  fontBlock: {
-    paddingLeft: Space.lg,
-    paddingRight: Space.lg,
-    paddingTop: Space.md,
-    paddingBottom: Space.md,
-  },
+  modeBlock: { paddingLeft: Space.lg, paddingRight: Space.lg, paddingTop: Space.md, paddingBottom: Space.md },
+  modeTitle: { ...Type.rowTitle },
+  segment: { flexDirection: 'row', borderRadius: Radius.md, padding: 2, marginTop: Space.sm },
+  segmentItem: { flex: 1, height: 32, borderRadius: Radius.sm, alignItems: 'center', justifyContent: 'center' },
+  fontBlock: { paddingLeft: Space.lg, paddingRight: Space.lg, paddingTop: Space.md, paddingBottom: Space.md },
 })

@@ -49,6 +49,15 @@ export default () => {
           >
             <Icon name='tools' size={19} color={theme['c-font']} />
           </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.headerBtn, { backgroundColor: theme['c-primary-alpha-900'] }]}
+            activeOpacity={0.8}
+            accessibilityRole='button'
+            accessibilityLabel='下载管理'
+            onPress={() => { global.state_event.settingsDeepScreenRequested('download') }}
+          >
+            <Icon name='download-2' size={19} color={theme['c-font']} />
+          </TouchableOpacity>
         </View>
       </View>
       <View style={styles.setting}>

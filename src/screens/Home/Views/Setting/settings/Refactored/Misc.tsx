@@ -16,8 +16,7 @@ import { Space, Type } from '@/theme/designTokens'
 
 const currentVer = process.versions.app
 
-/** 数据与存储 / 关于与版本（IA 第 10、11 组） */
-export default () => {
+export const DataSection = () => {
   const theme = useTheme()
   const t = useI18n()
   const alertRef = useRef<ConfirmAlertType>(null)
@@ -26,13 +25,11 @@ export default () => {
   const [logApi, setLogApi] = useState(global.lx.isEnableUserApiLog)
   const [cacheSize, setCacheSize] = useState<string | null>(null)
   const [meta, setMeta] = useState<{ otherSourceKeys: string[] | null, lyricKeys: string[] | null }>({ otherSourceKeys: null, lyricKeys: null })
-  const [checking, setChecking] = useState(false)
 
   const loadCache = useCallback(() => {
     void Promise.all([getAppCacheSize(), getCacheSize()]).then(([a, b]) => { setCacheSize(sizeFormate(a + b)) })
     void getMetaCache().then(setMeta)
   }, [])
-
   useEffect(() => { loadCache() }, [loadCache])
 
   const cleanResource = async() => {
@@ -41,7 +38,6 @@ export default () => {
     await Promise.all([clearAppCache(), clearCache(), clearMusicUrl()])
     toast('资源缓存已清理'); loadCache()
   }
-
   const cleanMeta = async() => {
     await Promise.all([
       meta.otherSourceKeys?.length ? clearOtherSource(meta.otherSourceKeys) : Promise.resolve(),
@@ -49,18 +45,12 @@ export default () => {
     ])
     toast('歌曲信息缓存已清理'); loadCache()
   }
-
   const openLogs = () => {
     void getLogs().then(log => {
       const lines = log.split(/^----lx log----\n|\n----lx log----\n|\n----lx log----$/).reverse()
       setLogText(lines.join('\n\n').replace(/^\n+|\n+$/, ''))
       alertRef.current?.setVisible(true)
     })
-  }
-
-  const check = async() => {
-    setChecking(true)
-    try { await checkUpdate(true) } finally { setChecking(false) }
   }
 
   return (
@@ -75,6 +65,24 @@ export default () => {
         <ValueRow title='查看错误日志' desc={t('setting_other_log')} value='打开' onPress={openLogs} />
         <ActionRow title='清空日志' action='清空' danger onPress={() => { void clearLogs().then(() => { toast('日志已清空'); setLogText(''); alertRef.current?.setVisible(false) }) }} />
       </Group>
+      <ConfirmAlert ref={alertRef} cancelText='关闭' confirmText='清空' onConfirm={() => { void clearLogs().then(() => { toast('日志已清空'); setLogText('') }) }} showConfirm={!!logText} reverseBtn>
+        <View style={styles.logBox}>
+          <Text size={Type.caption.fontSize} color={theme['c-450']} style={styles.logText}>{logText || '暂无日志'}</Text>
+        </View>
+      </ConfirmAlert>
+    </View>
+  )
+}
+
+export const AboutSection = () => {
+  const theme = useTheme()
+  const [checking, setChecking] = useState(false)
+  const check = async() => {
+    setChecking(true)
+    try { await checkUpdate(true) } finally { setChecking(false) }
+  }
+  return (
+    <View>
       <Group
         title='关于与版本'
         footer={(
@@ -90,31 +98,20 @@ export default () => {
         <ValueRow title='平台' value='Android' />
         <ActionRow title='检查更新' desc='检查 GitHub 是否有新版本' action={checking ? '检查中…' : '检查'} onPress={() => { void check() }} />
       </Group>
-      <ConfirmAlert ref={alertRef} cancelText='关闭' confirmText='清空' onConfirm={() => { void clearLogs().then(() => { toast('日志已清空'); setLogText('') }) }} showConfirm={!!logText} reverseBtn>
-        <View style={styles.logBox}>
-          <Text size={Type.caption.fontSize} color={theme['c-450']} style={styles.logText}>{logText || '暂无日志'}</Text>
-        </View>
-      </ConfirmAlert>
     </View>
   )
 }
 
+export default () => (
+  <View>
+    <DataSection />
+    <AboutSection />
+  </View>
+)
+
 const styles = createStyle({
-  thanks: {
-    paddingLeft: Space.lg,
-    paddingRight: Space.lg,
-    paddingTop: Space.sm,
-    paddingBottom: Space.md,
-  },
-  thanksText: {
-    lineHeight: 18,
-    marginBottom: Space.xs,
-  },
-  logBox: {
-    maxHeight: 360,
-    padding: Space.sm,
-  },
-  logText: {
-    lineHeight: 15,
-  },
+  thanks: { paddingLeft: Space.lg, paddingRight: Space.lg, paddingTop: Space.sm, paddingBottom: Space.md },
+  thanksText: { lineHeight: 18, marginBottom: Space.xs },
+  logBox: { maxHeight: 360, padding: Space.sm },
+  logText: { lineHeight: 15 },
 })

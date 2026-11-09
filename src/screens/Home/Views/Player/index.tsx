@@ -1052,12 +1052,6 @@ export default () => {
     rows.push({ label: '歌名', value: songName || '-' })
     rows.push({ label: '歌手', value: musicInfo.singer || '-' })
     if (musicInfo.album) rows.push({ label: '专辑', value: musicInfo.album })
-    rows.push({
-      label: '文件来源',
-      value: raw
-        ? (('progress' in raw || raw.source === 'local') ? '本地文件' : `在线 · ${raw.source}`)
-        : '未知',
-    })
     if (raw) {
       if ('progress' in raw) {
         rows.push({ label: '来源', value: '下载文件' })

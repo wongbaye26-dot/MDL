@@ -130,7 +130,7 @@ export class StateEvent extends Event {
   }
 
   /** 从设置页头图标直接打开深页（音源管理 / 曲库工具） */
-  settingsDeepScreenRequested(id: 'sourcesearch' | 'library') {
+  settingsDeepScreenRequested(id: 'sourcesearch' | 'library' | 'download') {
     this.emit('settingsDeepScreenRequested', id)
   }
 

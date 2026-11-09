@@ -3,14 +3,13 @@ import { Animated, View, ScrollView, TouchableOpacity, StyleSheet } from 'react-
 
 import SourceManage from './SourceManage'
 import ToolsPage from './ToolsPage'
-import Playback from '../settings/Refactored/Playback'
+import { ThemeSection, PlayerInteractionSection } from '../settings/Refactored/Appearance'
+import { PlaybackSection, AudioQualitySection } from '../settings/Refactored/Playback'
 import Lyric from '../settings/Refactored/Lyric'
-import Appearance from '../settings/Refactored/Appearance'
 import Library from '../settings/Refactored/Library'
-import SourceSearch from '../settings/Refactored/SourceSearch'
 import DownloadStorage from '../settings/Refactored/DownloadStorage'
 import System from '../settings/Refactored/System'
-import Misc from '../settings/Refactored/Misc'
+import { DataSection, AboutSection } from '../settings/Refactored/Misc'
 import { createStyle } from '@/utils/tools'
 import { type SettingScreenIds } from '../Main'
 import { Icon } from '@/components/common/Icon'
@@ -35,23 +34,26 @@ let lastActiveId: SettingScreenIds | null = null
 const DEEP_SECTIONS: Partial<Record<SettingScreenIds, ReactElement>> = {
   sourcesearch: <SourceManage />,
   library: <ToolsPage />,
+  download: <DownloadStorage />,
 }
 const DEEP_TITLES: Partial<Record<SettingScreenIds, { title: string, desc: string }>> = {
   sourcesearch: { title: '音源管理', desc: '当前音源、自定义源、音质矩阵与实测' },
   library: { title: '曲库工具', desc: '曲库体检、补封面、标签刮削、去重、重命名、隐藏与回收站' },
+  download: { title: '下载管理', desc: '保存位置、下载音质、附加文件与存储权限' },
 }
 const getSection = (id: SettingScreenIds) => DEEP_SECTIONS[id] ?? null
 
 /** 横屏主-子（master-detail）分类 */
 const CATEGORIES = [
-  { key: 'playback', label: '播放与音质', icon: 'play-circle-outline' },
-  { key: 'sourcesearch', label: '音源与搜索', icon: 'database-search-outline' },
-  { key: 'lyric', label: '歌词', icon: 'lyric-on' },
+  { key: 'theme', label: '主题与外观', icon: 'palette-outline' },
+  { key: 'interaction', label: '播放器与交互', icon: 'gesture-swipe-horizontal' },
+  { key: 'playback', label: '播放设置', icon: 'play-circle-outline' },
+  { key: 'quality', label: '音质与音效', icon: 'speedometer' },
+  { key: 'lyric', label: '歌词设置', icon: 'lyric-on' },
   { key: 'library', label: '本地音乐', icon: 'folder-music' },
-  { key: 'download', label: '下载管理', icon: 'download-2' },
-  { key: 'appearance', label: '主题与交互', icon: 'palette-outline' },
   { key: 'system', label: '通知与系统', icon: 'shield-check-outline' },
-  { key: 'data', label: '数据与版本', icon: 'database-outline' },
+  { key: 'data', label: '数据与存储', icon: 'database-outline' },
+  { key: 'about', label: '关于与版本', icon: 'information-outline' },
 ] as const
 type CategoryKey = typeof CATEGORIES[number]['key']
 
@@ -60,7 +62,7 @@ export default () => {
   const t = useI18n()
   const statusBarHeight = useStatusbarHeight()
   const horizontal = useHorizontalMode()
-  const [category, setCategory] = useState<CategoryKey>('playback')
+  const [category, setCategory] = useState<CategoryKey>('theme')
   const [activeId, setActiveIdState] = useState<SettingScreenIds | null>(
     lastActiveId && DEEP_SECTIONS[lastActiveId] ? lastActiveId : null,
   )
@@ -102,7 +104,7 @@ export default () => {
     const handleCloseRequested = () => {
       if (activeIdRef.current) setActiveId(null)
     }
-    const handleDeepRequested = (id: 'sourcesearch' | 'library') => {
+    const handleDeepRequested = (id: 'sourcesearch' | 'library' | 'download') => {
       setActiveId(id)
     }
     global.state_event.on('navActiveIdUpdated', handleNavActiveIdUpdate)
@@ -145,14 +147,15 @@ export default () => {
 
   const categoryContent = (() => {
     switch (category) {
-      case 'playback': return <Playback />
-      case 'sourcesearch': return <SourceSearch onOpenSource={() => { handlePress('sourcesearch') }} />
+      case 'theme': return <ThemeSection />
+      case 'interaction': return <PlayerInteractionSection />
+      case 'playback': return <PlaybackSection />
+      case 'quality': return <AudioQualitySection />
       case 'lyric': return <Lyric />
       case 'library': return <Library onOpenTools={() => { handlePress('library') }} />
-      case 'download': return <DownloadStorage />
-      case 'appearance': return <Appearance />
       case 'system': return <System />
-      default: return <Misc />
+      case 'data': return <DataSection />
+      default: return <AboutSection />
     }
   })()
 
@@ -223,7 +226,7 @@ export default () => {
                     keyboardShouldPersistTaps='always'
                     showsVerticalScrollIndicator={false}
                   >
-                    {section}
+                    <View style={styles.deepInner}>{section}</View>
                   </ScrollView>
                 </SlideInView>
               </Animated.View>
@@ -243,7 +246,8 @@ const styles = createStyle({
     flexDirection: 'row',
   },
   master: {
-    width: 250,
+    width: 190,
+    flexGrow: 0,
     borderRightWidth: 0.5,
   },
   masterContent: {
@@ -306,9 +310,14 @@ const styles = createStyle({
   modalDesc: {
     marginTop: 2,
   },
+  deepInner: {
+    width: '100%',
+    maxWidth: 900,
+    alignSelf: 'center',
+  },
   modalContent: {
-    paddingLeft: 16,
-    paddingRight: 16,
+    paddingLeft: 24,
+    paddingRight: 24,
     paddingTop: 6,
     paddingBottom: NAV_BAR_SPACE,
   },
