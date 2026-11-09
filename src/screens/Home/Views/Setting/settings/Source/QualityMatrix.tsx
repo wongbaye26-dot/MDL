@@ -2,6 +2,7 @@ import { memo } from 'react'
 import { View } from 'react-native'
 import Text from '@/components/common/Text'
 import { useTheme } from '@/store/theme/hook'
+import { getOnPrimary } from '@/theme/designTokens'
 import { useI18n } from '@/lang'
 import { createStyle } from '@/utils/tools'
 import { Group } from '../../components/ui'
@@ -27,10 +28,10 @@ export default memo(() => {
             return (
               <View key={source} style={styles.row}>
                 <View style={styles.head}>
-                  <Text size={12.5} numberOfLines={1} style={styles.sourceName}>{getSourceDisplayName(source)}</Text>
+                  <Text size={14} numberOfLines={1} style={styles.sourceName}>{getSourceDisplayName(source)}</Text>
                   {topQuality ? (
                     <View style={[styles.topTag, { backgroundColor: theme['c-primary-alpha-900'] }]}>
-                      <Text size={9.5} color={theme['c-primary']}>{qualityLabel(topQuality)}</Text>
+                      <Text size={11} color={theme['c-primary']}>{qualityLabel(topQuality)}</Text>
                     </View>
                   ) : null}
                 </View>
@@ -39,7 +40,7 @@ export default memo(() => {
                     const top = quality === topQuality
                     return (
                       <View key={quality} style={[styles.chip, { backgroundColor: top ? theme['c-primary'] : theme['c-primary-alpha-900'] }]}>
-                        <Text size={10.5} color={top ? '#FFFFFF' : theme['c-450']}>{qualityLabel(quality)}</Text>
+                        <Text size={12} color={top ? getOnPrimary(theme) : theme['c-450']}>{qualityLabel(quality)}</Text>
                       </View>
                     )
                   })}
@@ -47,7 +48,7 @@ export default memo(() => {
               </View>
             )
           })
-          : <Text size={11.5} color={theme['c-450']} style={styles.empty}>{t('setting_source_quality_empty')}</Text>}
+          : <Text size={12} color={theme['c-450']} style={styles.empty}>{t('setting_source_quality_empty')}</Text>}
       </View>
     </Group>
   )

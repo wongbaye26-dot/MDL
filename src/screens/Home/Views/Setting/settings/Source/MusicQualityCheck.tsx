@@ -7,6 +7,7 @@ import Text from '@/components/common/Text'
 import Tag from '@/components/common/Tag'
 import Input from '@/components/common/Input'
 import { useTheme } from '@/store/theme/hook'
+import { getDanger, getSuccess } from '@/theme/designTokens'
 import { useI18n } from '@/lang'
 import { useSettingValue } from '@/store/setting/hook'
 import { useUserApiList } from '@/store/userApi'
@@ -50,38 +51,38 @@ const ResultItem = ({ result }: { result: SourceCheckResult }) => {
       <View style={styles.resultHead}>
         <View style={{ ...styles.dot, backgroundColor: statusColor }} />
         <View style={styles.resultNameWrap}>
-          <Text size={12.5} numberOfLines={1} style={styles.resultName}>{result.sourceName}</Text>
+          <Text size={14} numberOfLines={1} style={styles.resultName}>{result.sourceName}</Text>
         </View>
-        <Text size={10} color={statusColor} style={styles.resultStatus}>{statusText}</Text>
+        <Text size={12} color={statusColor} style={styles.resultStatus}>{statusText}</Text>
         {result.bestQuality ? <Tag label={`${t('setting_source_check_best')} ${qualityLabel(result.bestQuality)}`} size='sm' tone='primary' style={styles.bestTag} /> : null}
-        {result.latencyMs != null ? <Text size={9.5} color={theme['c-450']} style={styles.latency}>{result.latencyMs}ms</Text> : null}
+        {result.latencyMs != null ? <Text size={11} color={theme['c-450']} style={styles.latency}>{result.latencyMs}ms</Text> : null}
       </View>
       {
         result.musicName
-          ? <Text size={10} color={theme['c-450']} numberOfLines={1} style={styles.songLine}>{result.musicName} - {result.singer ?? ''}</Text>
+          ? <Text size={12} color={theme['c-450']} numberOfLines={1} style={styles.songLine}>{result.musicName} - {result.singer ?? ''}</Text>
           : null
       }
       {
         result.qualities.map(quality => (
           <View key={quality.quality} style={styles.qualityItem}>
-            <Text size={10} style={styles.qualityName}>{qualityLabel(quality.quality)}</Text>
-            <Text size={10} color={quality.ok ? '#10B981' : '#EF4444'}>
+            <Text size={12} style={styles.qualityName}>{qualityLabel(quality.quality)}</Text>
+            <Text size={12} color={quality.ok ? getSuccess(theme) : getDanger(theme)}>
               {quality.ok ? t('setting_source_check_quality_ok') : t('setting_source_check_quality_fail')}
             </Text>
             {
               quality.bitrate
-                ? <Text size={9.5} color={theme['c-450']} style={styles.qualityMeta}>约 {quality.bitrate}kbps</Text>
+                ? <Text size={11} color={theme['c-450']} style={styles.qualityMeta}>约 {quality.bitrate}kbps</Text>
                 : null
             }
             {
               quality.contentLength
-                ? <Text size={9.5} color={theme['c-450']} style={styles.qualityMeta}>{formatSize(quality.contentLength)}</Text>
+                ? <Text size={11} color={theme['c-450']} style={styles.qualityMeta}>{formatSize(quality.contentLength)}</Text>
                 : null
             }
-            <Text size={9.5} color={theme['c-400']} style={styles.qualityMeta}>{quality.timeMs}ms</Text>
+            <Text size={11} color={theme['c-400']} style={styles.qualityMeta}>{quality.timeMs}ms</Text>
             {
               !quality.ok && quality.error
-                ? <Text size={9.5} color='#EF4444' numberOfLines={1} style={styles.qualityError}>{quality.error}</Text>
+                ? <Text size={11} color={getDanger(theme)} numberOfLines={1} style={styles.qualityError}>{quality.error}</Text>
                 : null
             }
           </View>
@@ -89,7 +90,7 @@ const ResultItem = ({ result }: { result: SourceCheckResult }) => {
       }
       {
         !result.qualities.length && result.error
-          ? <Text size={10} color='#EF4444' style={styles.resultError}>{result.error}</Text>
+          ? <Text size={12} color={getDanger(theme)} style={styles.resultError}>{result.error}</Text>
           : null
       }
     </View>
@@ -216,14 +217,14 @@ export default memo(() => {
   return (
     <Group title={t('setting_source_check')} icon='speedometer' color='#10B981'>
       <View style={styles.content}>
-        <Text size={10.5} color={theme['c-450']} style={styles.tip}>{t('setting_source_check_tip')}</Text>
+        <Text size={12} color={theme['c-450']} style={styles.tip}>{t('setting_source_check_tip')}</Text>
         <Text size={11} color={theme['c-450']} style={styles.inputLabel}>{t('setting_source_check_probe_song')}</Text>
         <Input
           value={keyword}
           placeholder={DEFAULT_CHECK_KEYWORD}
           onChangeText={setKeyword}
           editable={!running}
-          size={12.5}
+          size={14}
           style={{
             ...styles.input,
             backgroundColor: theme['c-primary-alpha-800'],
@@ -251,13 +252,13 @@ export default memo(() => {
         {
           running
             ? (
-              <Text size={10.5} color={theme['c-primary']} style={styles.progress}>{progressText}</Text>
+              <Text size={12} color={theme['c-primary']} style={styles.progress}>{progressText}</Text>
               )
             : null
         }
         {
           !sources.length
-            ? <Text size={10.5} color={theme['c-400']} style={styles.tip}>{t('setting_source_check_empty')}</Text>
+            ? <Text size={12} color={theme['c-400']} style={styles.tip}>{t('setting_source_check_empty')}</Text>
             : null
         }
         {
@@ -267,7 +268,7 @@ export default memo(() => {
                 {results.map(result => <ResultItem key={result.source} result={result} />)}
               </View>
               )
-            : (!running ? <Text size={10.5} color={theme['c-400']} style={styles.tip}>{t('setting_source_check_no_result')}</Text> : null)
+            : (!running ? <Text size={12} color={theme['c-400']} style={styles.tip}>{t('setting_source_check_no_result')}</Text> : null)
         }
       </View>
     </Group>

@@ -124,11 +124,11 @@ const MaterialYouColors = memo(() => {
   return (
     <View>
       <View style={styles.colorHead}>
-        <Text size={11} color={theme['c-450']}>主题色</Text>
+        <Text size={12} color={theme['c-450']}>主题色</Text>
         {useSeed
           ? (
             <TouchableOpacity onPress={handleReset} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Text size={11} color={theme['c-primary-font']}>恢复默认</Text>
+              <Text size={12} color={theme['c-primary-font']}>恢复默认</Text>
             </TouchableOpacity>
             )
           : null}
@@ -144,7 +144,7 @@ const MaterialYouColors = memo(() => {
           }}>
             <Icon name='cellphone-link' size={18} color='#FFFFFF' />
           </View>
-          <Text size={10} color={seedColor === 'system' ? theme['c-font'] : theme['c-450']} style={styles.swatchLabel}>系统</Text>
+          <Text size={11} color={seedColor === 'system' ? theme['c-font'] : theme['c-450']} style={styles.swatchLabel}>系统</Text>
         </TouchableOpacity>
         {SEED_COLORS.map(c => (
           <ColorSwatch
@@ -156,7 +156,7 @@ const MaterialYouColors = memo(() => {
           />
         ))}
       </ScrollView>
-      <Text size={10} color={theme['c-400']} style={styles.hint}>
+      <Text size={11} color={theme['c-400']} style={styles.hint}>
         选「系统」会读取手机 Material You 主题色（Android 12+），其余为固定种子色；选中后自动派生整套配色
       </Text>
     </View>

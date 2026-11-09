@@ -101,3 +101,30 @@
 2. 删除旧组件与死代码（Section/SettingRow/CheckBoxItem/ChoiceItem/Slider/Header/NavList/screenMeta），跑全量引用检查。
 3. 补真机回归：减少动态效果、横屏深页、深色/种子色组合、大字号。
 4. 发版 `v3.52.0`，附前后截图与 release notes。
+
+---
+
+## 6. P2 补充（2026-11-09 同日）
+
+### 已完成
+- `settings/Tools/parts.tsx`：工具卡片去掉 24dp 大卡/彩色图标底/描边，改为平铺分组标题 + 内容；
+  警告色统一 `getWarning`，分割线/底色统一 designTokens，字号归一到 14/12/11。
+- `settings/Source/*`：`SummaryCard` 状态色改 `getSuccess/getWarning`；`MusicQualityCheck`
+  成功/失败色改 `getSuccess/getDanger`；`QualityMatrix` 主色上的文字改 `getOnPrimary`；
+  字号归一（14/12/11）；深页内部与设置主页视觉一致（截图 `after/after-dark-source.jpg`）。
+- `settings/Basic/ThemeSettings.tsx`：主题色 swatches 字号归一（12/11）。
+
+### 仍未完成 / 未验证
+- Tools 深页（曲库工具）本次只改了共享卡片，**未重新进入工具深页逐项走查**（入口已在首页出现）；
+- 工具内部部分列表仍使用旧 `CheckBoxItem/ChoiceItem/Slider/InputItem/SubTitle`（grep：CheckBoxItem 22 处），
+  未完全替换；这些组件与新的 `Group/Row` 视觉已接近，但未做逐项截图对比。
+- 旧组件/旧页面仍未删除（`Basic/*`、`Player/*`、`Horizontal/NavList`、`Vertical/Header`、`screenMeta`、
+  `Section/SettingRow/...`），确认无引用后再清理。
+- 减少动态效果、大字号、深页横屏仍未重新回归（`未验证`）。
+- 版本未升，未发版。
+
+### 更新的验证
+- `npm run typecheck` → exit 0
+- `npm run lint` → exit 0（2 条既有 warning）
+- `npm run test:unit` → `tests 32 / pass 32 / fail 0`
+- `assembleRelease`/`assembleDebug` arm64 → BUILD SUCCESSFUL（P2 改动后已重新打包安装）

@@ -10,7 +10,7 @@ import { isCoverUsable, readEmbeddedCover } from '@/core/localMusic/cover'
 import { cleanSongName } from '@/utils/songName'
 import { useTheme } from '@/store/theme/hook'
 import { contrastOn } from '@/theme/solid'
-import { getCardBackground, getCardBorder, getCardShadow, getDividerColor, getIconColor, getTileBackground } from '../../components/surfaces'
+import { Space, Type, getWarning, getDivider } from '@/theme/designTokens'
 import { createStyle } from '@/utils/tools'
 import { setSpText } from '@/utils/pixelRatio'
 import { copyReport, exportReport } from './report'
@@ -23,14 +23,6 @@ import { copyReport, exportReport } from './report'
  * 这样切任何主题（含深色）都不会出现刺眼的撞色。
  */
 
-/** 问题数字的提示色（主题里没有 warning 语义色，用这个在深浅底上都读得出来） */
-const WARN_COLOR = '#E8A33D'
-
-// 和设置页其它卡片同一套 Material You 主色淡底，不再用中性灰白卡片
-const cardBackground = getCardBackground
-const cardBorder = getCardBorder
-const dividerColor = getDividerColor
-const tileBackground = (theme: LX.ActiveTheme) => getTileBackground(theme)
 
 /** 工具卡片标题 → 图标；标题没匹配到时退化为纯文字，不改变原有入口 */
 const CARD_ICONS: Record<string, string> = {
@@ -59,23 +51,16 @@ export const Card = memo(({ title, desc, right, icon, children }: {
   const theme = useTheme()
   const cardIcon = icon ?? CARD_ICONS[title]
   return (
-    <View style={{
-      ...styles.card,
-      backgroundColor: cardBackground(theme),
-      borderColor: cardBorder(theme),
-      ...getCardShadow(theme),
-    }}>
+    <View style={styles.card}>
       <View style={styles.cardHead}>
         {cardIcon
           ? (
-            <View style={{ ...styles.cardIcon, backgroundColor: getTileBackground(theme, '#8B5CF6') }}>
-              <Icon name={cardIcon} size={15} color={getIconColor(theme, '#8B5CF6')} />
-            </View>
+            <Icon name={cardIcon} size={20} color={theme['c-primary']} style={styles.cardIcon} />
             )
           : null}
         <View style={styles.cardTitleWrap}>
-          <Text size={13.5} style={styles.cardTitle}>{title}</Text>
-          {desc ? <Text size={10} color={theme['c-450']} style={styles.cardDesc}>{desc}</Text> : null}
+          <Text size={Type.rowTitle.fontSize} style={styles.cardTitle}>{title}</Text>
+          {desc ? <Text size={Type.rowDesc.fontSize} color={theme['c-450']} style={styles.cardDesc}>{desc}</Text> : null}
         </View>
         {right}
       </View>
@@ -112,20 +97,18 @@ export const HeroCard = memo(({
 }) => {
   const theme = useTheme()
   return (
-    <View style={{ ...styles.card, ...styles.heroCard, backgroundColor: cardBackground(theme), borderColor: cardBorder(theme), ...getCardShadow(theme) }}>
+    <View style={styles.heroCard}>
       <View style={styles.heroHead}>
-        <View style={{ ...styles.cardIcon, width: 38, height: 38, borderRadius: 13, backgroundColor: getTileBackground(theme, '#8B5CF6') }}>
-          <Icon name='stethoscope' size={19} color={getIconColor(theme, '#8B5CF6')} />
-        </View>
+        <Icon name='stethoscope' size={20} color={theme['c-primary']} style={styles.cardIcon} />
         <View style={styles.heroTitleWrap}>
-          <Text size={15} style={styles.cardTitle}>{title}</Text>
-          <Text size={10.5} color={theme['c-450']} style={styles.heroSubtitle}>{subtitle}</Text>
+          <Text size={17} style={styles.cardTitle}>{title}</Text>
+          <Text size={Type.rowDesc.fontSize} color={theme['c-450']} style={styles.heroSubtitle}>{subtitle}</Text>
         </View>
         <TouchableOpacity
           activeOpacity={0.8}
           disabled={refreshDisabled}
           onPress={onRefresh}
-          style={{ ...styles.refreshBtn, backgroundColor: tileBackground(theme), opacity: refreshDisabled ? 0.5 : 1 }}
+          style={{ ...styles.refreshBtn, opacity: refreshDisabled ? 0.5 : 1 }}
         >
           <Icon name='refresh' size={17} color={theme['c-450']} />
         </TouchableOpacity>
@@ -135,13 +118,13 @@ export const HeroCard = memo(({
         {
           stats.map(stat => {
             const color = stat.tone === 'warning'
-              ? WARN_COLOR
+              ? getWarning(theme)
               : stat.tone === 'primary' ? theme['c-primary'] : theme['c-font']
             return (
               <View key={stat.key} style={styles.statCell}>
-                <View style={{ ...styles.statTile, backgroundColor: tileBackground(theme) }}>
+                <View style={styles.statTile}>
                   <Text size={18} color={color} style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit>{stat.value}</Text>
-                  <Text size={9.5} color={theme['c-450']} style={styles.statLabel} numberOfLines={1}>{stat.label}</Text>
+                  <Text size={Type.caption.fontSize} color={theme['c-450']} style={styles.statLabel} numberOfLines={1}>{stat.label}</Text>
                 </View>
               </View>
             )
@@ -166,12 +149,12 @@ export const InfoLine = memo(({ label, desc, value, tone }: {
   tone?: 'warning' | 'primary'
 }) => {
   const theme = useTheme()
-  const color = tone === 'warning' ? WARN_COLOR : tone === 'primary' ? theme['c-primary'] : theme['c-font']
+  const color = tone === 'warning' ? getWarning(theme) : tone === 'primary' ? theme['c-primary'] : theme['c-font']
   return (
     <View style={styles.infoRow}>
       <View style={styles.infoWrap}>
-        <Text size={13.5}>{label}</Text>
-        {desc ? <Text size={10} color={theme['c-450']} style={styles.infoDesc}>{desc}</Text> : null}
+        <Text size={Type.rowTitle.fontSize}>{label}</Text>
+        {desc ? <Text size={Type.rowDesc.fontSize} color={theme['c-450']} style={styles.infoDesc}>{desc}</Text> : null}
       </View>
       <Text size={16} color={color} style={styles.infoValue}>{value}</Text>
     </View>
@@ -189,10 +172,10 @@ export const ProgressLine = memo(({ label, done, total }: {
   return (
     <View style={styles.progressWrap}>
       <View style={styles.progressText}>
-        <Text size={11} color={theme['c-450']}>{label} {done} / {total}</Text>
-        <Text size={11} color={theme['c-450']}>{total ? `${percent}%` : ''}</Text>
+        <Text size={Type.button.fontSize} color={theme['c-450']}>{label} {done} / {total}</Text>
+        <Text size={Type.button.fontSize} color={theme['c-450']}>{total ? `${percent}%` : ''}</Text>
       </View>
-      <View style={{ ...styles.progressTrack, backgroundColor: dividerColor(theme) }}>
+      <View style={{ ...styles.progressTrack, backgroundColor: getDivider(theme) }}>
         <View style={{
           ...styles.progressBar,
           width: `${percent}%`,
@@ -220,11 +203,11 @@ export const PrimaryButton = memo(({ label, icon, disabled, onPress }: {
       onPress={onPress}
       style={{
         ...styles.primaryBtn,
-        backgroundColor: disabled ? tileBackground(theme) : theme['c-primary'],
+        backgroundColor: disabled ? theme['c-primary-alpha-900'] : theme['c-primary'],
       }}
     >
-      <Icon name={icon} size={15} color={color} />
-      <Text size={13} color={color} style={styles.btnText}>{label}</Text>
+      <Icon name={icon} size={17} color={color} />
+      <Text size={Type.button.fontSize} color={color} style={styles.btnText}>{label}</Text>
     </TouchableOpacity>
   )
 })
@@ -238,7 +221,7 @@ export const SecondaryButton = memo(({ label, icon, disabled, danger, onPress }:
   onPress: () => void
 }) => {
   const theme = useTheme()
-  const color = danger ? WARN_COLOR : theme['c-font']
+  const color = danger ? getWarning(theme) : theme['c-font']
   return (
     <TouchableOpacity
       activeOpacity={0.85}
@@ -247,13 +230,13 @@ export const SecondaryButton = memo(({ label, icon, disabled, danger, onPress }:
       style={{
         ...styles.primaryBtn,
         ...styles.secondaryBtn,
-        backgroundColor: tileBackground(theme),
-        borderColor: dividerColor(theme),
+        backgroundColor: theme['c-primary-alpha-900'],
+        borderColor: getDivider(theme),
         opacity: disabled ? 0.5 : 1,
       }}
     >
-      <Icon name={icon} size={15} color={color} />
-      <Text size={13} color={color} style={styles.btnText}>{label}</Text>
+      <Icon name={icon} size={17} color={color} />
+      <Text size={Type.button.fontSize} color={color} style={styles.btnText}>{label}</Text>
     </TouchableOpacity>
   )
 })
@@ -278,12 +261,12 @@ export const SummaryChips = memo(({ chips }: { chips: SummaryChip[] }) => {
       {
         chips.map(chip => {
           const color = chip.tone === 'warning'
-            ? WARN_COLOR
+            ? getWarning(theme)
             : chip.tone === 'primary' ? theme['c-primary'] : theme['c-450']
           return (
-            <View key={chip.key} style={{ ...styles.chip, backgroundColor: tileBackground(theme), borderColor: dividerColor(theme) }}>
+            <View key={chip.key} style={{ ...styles.chip, backgroundColor: theme['c-primary-alpha-900'], borderColor: getDivider(theme) }}>
               <Text
-                size={10.5}
+                size={Type.value.fontSize}
                 color={color}
                 style={{
                   includeFontPadding: false,
@@ -374,13 +357,13 @@ export const PreviewList = memo(({ rows }: { rows: PreviewRow[] }) => {
             style={{
               ...styles.listRow,
               borderTopWidth: index > 0 ? StyleSheet.hairlineWidth : 0,
-              borderTopColor: dividerColor(theme),
+              borderTopColor: getDivider(theme),
             }}
           >
             <CoverThumb item={row.item} />
             <View style={styles.listInfo}>
-              <Text size={12.5} numberOfLines={1} style={styles.listTitle}>{row.title}</Text>
-              {row.sub ? <Text size={10} color={theme['c-450']} numberOfLines={1} style={styles.listSub}>{row.sub}</Text> : null}
+              <Text size={Type.value.fontSize} numberOfLines={1} style={styles.listTitle}>{row.title}</Text>
+              {row.sub ? <Text size={Type.caption.fontSize} color={theme['c-450']} numberOfLines={1} style={styles.listSub}>{row.sub}</Text> : null}
             </View>
             {row.tags ? <Tag label={row.tags} size='sm' tone={row.tagTone ?? 'muted'} style={styles.listTags} /> : null}
           </View>
@@ -434,14 +417,12 @@ export const ReportButtons = memo(({ getTitle, getLines, disabled }: {
 
 const styles = createStyle({
   card: {
-    borderRadius: 24,
-    borderWidth: 0.5,
-    marginBottom: 14,
-    paddingTop: 13,
-    paddingBottom: 12,
-    overflow: 'hidden',
+    marginBottom: Space.xxl,
+    paddingTop: 4,
+    paddingBottom: Space.md,
   },
   heroCard: {
+    marginBottom: Space.xxl,
     paddingBottom: 6,
   },
   cardHead: {
@@ -452,12 +433,7 @@ const styles = createStyle({
     paddingBottom: 10,
   },
   cardIcon: {
-    width: 27,
-    height: 27,
-    borderRadius: 9,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 9,
+    marginRight: Space.sm,
     flexShrink: 0,
   },
   cardTitleWrap: {
@@ -465,7 +441,7 @@ const styles = createStyle({
     flexShrink: 1,
   },
   cardTitle: {
-    fontWeight: '700',
+    fontWeight: '600',
     letterSpacing: 0.2,
   },
   cardDesc: {

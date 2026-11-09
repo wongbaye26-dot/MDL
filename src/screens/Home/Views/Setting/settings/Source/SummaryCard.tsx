@@ -6,6 +6,7 @@ import { useI18n } from '@/lang'
 import { useStatus } from '@/store/userApi'
 import { createStyle } from '@/utils/tools'
 import { Group } from '../../components/ui'
+import { getSuccess, getWarning } from '@/theme/designTokens'
 import { useQualityList, useSourcePageState } from './state'
 import { getTopQuality, formatTime, qualityLabel } from './helpers'
 
@@ -26,15 +27,15 @@ export default memo(() => {
     { label: t('setting_source_summary_sources'), value: sources.length ? String(sources.length) : '-' },
     { label: t('setting_source_summary_top_quality'), value: topQuality ? qualityLabel(topQuality) : '-' },
     { label: t('setting_source_summary_last_check'), value: pageState.lastCheckAt ? formatTime(pageState.lastCheckAt) : t('setting_source_summary_never') },
-    { label: t('setting_source_summary_status'), value: statusText, color: apiStatus.status ? '#10B981' : '#F59E0B' },
+    { label: t('setting_source_summary_status'), value: statusText, color: apiStatus.status ? getSuccess(theme) : getWarning(theme) },
   ]
   return (
     <Group title='音源概览' icon='chart-box-outline' color='#6366F1' desc={t('setting_source_summary_tip')}>
       <View style={styles.grid}>
         {cells.map(cell => (
           <View key={cell.label} style={styles.cell}>
-            <Text size={10} color={theme['c-450']} numberOfLines={1}>{cell.label}</Text>
-            <Text size={15} numberOfLines={1} style={styles.value} color={cell.color ?? theme['c-font']}>{cell.value}</Text>
+            <Text size={12} color={theme['c-450']} numberOfLines={1}>{cell.label}</Text>
+            <Text size={17} numberOfLines={1} style={styles.value} color={cell.color ?? theme['c-font']}>{cell.value}</Text>
           </View>
         ))}
       </View>
