@@ -280,7 +280,7 @@ export const getOnlineOtherSourceMusicUrl = async({ musicInfos, quality, onToggl
 
   let reqPromise
   try {
-    reqPromise = musicSdk[musicInfo.source].getMusicUrl(toOldMusicInfo(musicInfo), itemQuality).promise
+    reqPromise = withUrlResolveTimeout(musicSdk[musicInfo.source].getMusicUrl(toOldMusicInfo(musicInfo), itemQuality).promise as Promise<any>, `${musicInfo.source} getMusicUrl`)
   } catch (err: any) {
     reqPromise = Promise.reject(err)
   }
@@ -346,6 +346,21 @@ export const pickSourceQuality = (musicInfo: LX.Music.MusicInfoOnline, targetQua
  *   用于「下载到的文件内容与声称的音质不符」这类情况：URL 本身能请求成功，
  *   但音源给的内容是错的，继续重试原音源没有意义。
  */
+
+/** 单次在线地址解析超时：弱网/脚本卡死时尽快降级/换源，避免播放器一直转圈 */
+const URL_RESOLVE_TIMEOUT = 12_000
+const withUrlResolveTimeout = async<T,>(promise: PromiseLike<T>, label: string): Promise<T> => {
+  let timer: ReturnType<typeof setTimeout> | null = null
+  return Promise.race([
+    Promise.resolve(promise),
+    new Promise<T>((_resolve, reject) => {
+      timer = setTimeout(() => { reject(new Error(`${label} timeout after ${URL_RESOLVE_TIMEOUT}ms`)) }, URL_RESOLVE_TIMEOUT)
+    }),
+  ]).finally(() => {
+    if (timer) clearTimeout(timer)
+  })
+}
+
 export const handleGetOnlineMusicUrl = async({ musicInfo, quality, onToggleSource, isRefresh, allowToggleSource, forceToggleSource = false }: {
   musicInfo: LX.Music.MusicInfoOnline
   quality?: LX.Quality
@@ -369,7 +384,7 @@ export const handleGetOnlineMusicUrl = async({ musicInfo, quality, onToggleSourc
     const qualityChain = buildQualityChain(musicInfo, targetQuality, quality)
     for (const tryQuality of qualityChain) {
       try {
-        const { url, type } = await musicSdk[musicInfo.source].getMusicUrl(toOldMusicInfo(musicInfo), tryQuality).promise as { url: string, type: LX.Quality }
+        const { url, type } = await withUrlResolveTimeout(musicSdk[musicInfo.source].getMusicUrl(toOldMusicInfo(musicInfo), tryQuality).promise as Promise<{ url: string, type: LX.Quality }>, `${musicInfo.source} getMusicUrl`)
         // 同 getOnlineOtherSourceMusicUrl：脚本不返回 type 时按请求音质兜底
         const actualQuality = (type as LX.Quality | undefined) ?? tryQuality
         return { musicInfo, url, quality: actualQuality, isFromCache: false }

@@ -1626,12 +1626,18 @@ export default () => {
         不会出现透明/纯黑背景。歌词文字在该层之上，保持清晰。
       */}
       {
-        mode !== 'cover'
+        mode !== 'cover' && transitionPhase === 'idle'
           ? (
             <View pointerEvents='none' style={StyleSheet.absoluteFill}>
               <Glass blurRadius={25} tint='rgba(8,6,12,0.30)' />
             </View>
             )
+          : null
+      }
+      {/* 转场期间不跑实时 Glass 快照，用静态遮罩顶替，避免每帧重抓窗口导致掉帧 */}
+      {
+        mode !== 'cover' && transitionPhase !== 'idle'
+          ? <View pointerEvents='none' style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(8,6,12,0.30)' }]} />
           : null
       }
 

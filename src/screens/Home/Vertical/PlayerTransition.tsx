@@ -85,6 +85,8 @@ export default memo(() => {
 
       <Animated.View
         pointerEvents='none'
+        renderToHardwareTextureAndroid
+        shouldRasterizeIOS
         style={[
           styles.fly,
           animStyle,

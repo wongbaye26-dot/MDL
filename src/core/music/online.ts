@@ -54,6 +54,17 @@ export interface OnlineMusicUrlDetail {
  * 多音源自动换源之后，播放器要把换到的 musicInfo 记进 toggleMusicInfo、
  * 把实际音质记进 playerState.playQuality，界面/状态栏才不会显示成「请求的音质」。
  */
+/** 同一首歌/音质的并发解析合并（播放、预加载、下载同时请求时只打一次网络） */
+const inflightUrlRequests = new Map<string, Promise<OnlineMusicUrlDetail>>()
+/** 播放地址缓存命中统计，供后续诊断/优化使用 */
+let urlCacheHits = 0
+let urlCacheMisses = 0
+export const getUrlCacheMetrics = () => ({
+  hits: urlCacheHits,
+  misses: urlCacheMisses,
+  rate: urlCacheHits + urlCacheMisses ? urlCacheHits / (urlCacheHits + urlCacheMisses) : 0,
+})
+
 export const resolveMusicUrl = async({ musicInfo, quality, isRefresh, allowToggleSource = true, onToggleSource = () => {}, forceToggleSource = false }: {
   musicInfo: LX.Music.MusicInfoOnline
   quality?: LX.Quality
@@ -67,15 +78,26 @@ export const resolveMusicUrl = async({ musicInfo, quality, isRefresh, allowToggl
   // 强制换源时不能再走原音源的 URL 缓存，否则会拿回同一个错误音源
   if (!forceToggleSource) {
     const cachedUrl = await getStoreMusicUrl(musicInfo, targetQuality)
-    if (cachedUrl && !isRefresh) return { url: cachedUrl, musicInfo, quality: targetQuality, isFromCache: true }
+    if (cachedUrl && !isRefresh) {
+      urlCacheHits++
+      return { url: cachedUrl, musicInfo, quality: targetQuality, isFromCache: true }
+    }
   }
+  urlCacheMisses++
 
-  return handleGetOnlineMusicUrl({ musicInfo, quality, onToggleSource, isRefresh, allowToggleSource, forceToggleSource }).then(({ url, quality: actualQuality, musicInfo: targetMusicInfo, isFromCache }) => {
+  const key = `${musicInfo.id}|${targetQuality}|${forceToggleSource ? 1 : 0}|${isRefresh ? 1 : 0}`
+  const existing = inflightUrlRequests.get(key)
+  if (existing) return existing
+  const task = handleGetOnlineMusicUrl({ musicInfo, quality, onToggleSource, isRefresh, allowToggleSource, forceToggleSource }).then(({ url, quality: actualQuality, musicInfo: targetMusicInfo, isFromCache }) => {
     // 缓存按「实际音源 + 实际音质」记：换源后如果还按原音源记，下次播放又会先走一遍失败
     if (targetMusicInfo.id !== musicInfo.id && !isFromCache) void saveMusicUrl(targetMusicInfo, actualQuality, url)
     void saveMusicUrl(musicInfo, actualQuality, url)
     return { url, musicInfo: targetMusicInfo, quality: actualQuality, isFromCache }
+  }).finally(() => {
+    if (inflightUrlRequests.get(key) === task) inflightUrlRequests.delete(key)
   })
+  inflightUrlRequests.set(key, task)
+  return task
 }
 
 export const getMusicUrl = async({ musicInfo, quality, isRefresh, allowToggleSource = true, onToggleSource = () => {} }: {
