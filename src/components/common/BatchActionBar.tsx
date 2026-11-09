@@ -25,7 +25,7 @@ export interface BatchBarAction {
  * - 入场做 200ms 上浮 + 淡入，和 App 其它浮层一致。
  */
 export default memo(({ count, actions, onExit }: {
-  count: number
+  count?: number
   actions: readonly BatchBarAction[]
   onExit: () => void
 }) => {
@@ -53,10 +53,16 @@ export default memo(({ count, actions, onExit }: {
         },
       ]}
     >
-      <View style={styles.countWrap}>
-        <Text size={11.5} color={theme['c-primary']} numberOfLines={1} style={styles.count}>{`已选 ${count}`}</Text>
-      </View>
-      <View style={[styles.divider, { backgroundColor: theme['c-primary-alpha-700'] }]} />
+      {count != null
+        ? (
+          <>
+            <View style={styles.countWrap}>
+              <Text size={11.5} color={theme['c-primary']} numberOfLines={1} style={styles.count}>{`已选 ${count}`}</Text>
+            </View>
+            <View style={[styles.divider, { backgroundColor: theme['c-primary-alpha-700'] }]} />
+          </>
+          )
+        : null}
       <View style={styles.actions}>
         {actions.map(action => (
           <TouchableOpacity

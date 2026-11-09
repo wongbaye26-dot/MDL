@@ -1,96 +1,57 @@
 import { forwardRef, useImperativeHandle, useRef, useState } from 'react'
-import { View } from 'react-native'
+import { KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native'
+
 import Input, { type InputType } from '@/components/common/Input'
 import Text from '@/components/common/Text'
-import ConfirmAlert, { type ConfirmAlertType } from '@/components/common/ConfirmAlert'
+import CapsuleButton from '@/components/common/CapsuleButton'
+import CapsuleIconButton from '@/components/common/CapsuleIconButton'
+import { Icon } from '@/components/common/Icon'
+import { useSheetPalette } from '@/components/common/ActionSheet/palette'
+import { useKeyboard, useUnmounted, useWindowSize } from '@/utils/hooks'
 import { createStyle, toast } from '@/utils/tools'
 import { getManagedFolders, stat, removeManagedFolder, selectManagedFolder } from '@/utils/fs'
-import { useTheme } from '@/store/theme/hook'
 import { getOpenStoragePath, saveOpenStoragePath } from '@/utils/data'
-import Button from '@/components/common/Button'
-import ButtonPrimary from '@/components/common/ButtonPrimary'
-import { useUnmounted } from '@/utils/hooks'
-import { Icon } from '@/components/common/Icon'
 import type { PathItem } from './ListItem'
+
 const filterFileName = /[\\:*?#"<>|]/
-
-
-interface PathInputType {
-  setPath: (text: string) => void
-  getText: () => string
-  focus: () => void
-}
-const PathInput = forwardRef<PathInputType, {}>((props, ref) => {
-  const theme = useTheme()
-  const [text, setText] = useState('')
-  const inputRef = useRef<InputType>(null)
-
-  useImperativeHandle(ref, () => ({
-    getText() {
-      return text.trim()
-    },
-    setPath(text) {
-      setText(text)
-    },
-    focus() {
-      inputRef.current?.focus()
-    },
-  }))
-
-  return (
-    <Input
-      ref={inputRef}
-      placeholder={global.i18n.t('open_storage_tip')}
-      value={text}
-      onChangeText={setText}
-      multiline
-      numberOfLines={3}
-      textAlignVertical='top'
-      style={{ ...styles.input, backgroundColor: theme['c-primary-input-background'] }}
-    />
-  )
-})
 
 export interface OpenDirModalType {
   show: (paths: string[]) => void
 }
-export default forwardRef<OpenDirModalType, { onOpenDir: (dir: string) => Promise<PathItem[]> }>(({
-  onOpenDir,
-}, ref) => {
-  const confirmAlertRef = useRef<ConfirmAlertType>(null)
-  const inputRef = useRef<PathInputType>(null)
+
+/** 打开存储位置：统一底部 Sheet，替换旧 ConfirmAlert + 旧 Button */
+export default forwardRef<OpenDirModalType, { onOpenDir: (dir: string) => Promise<PathItem[]> }>(({ onOpenDir }, ref) => {
+  const palette = useSheetPalette()
+  const { keyboardShown, keyboardHeight } = useKeyboard()
+  const { height: windowHeight } = useWindowSize()
+  const inputRef = useRef<InputType>(null)
+  const [visible, setVisible] = useState(false)
   const [paths, setPaths] = useState<string[]>([])
   const [contentPaths, setContentPaths] = useState<string[]>([])
+  const [text, setText] = useState('')
   const isUnmounted = useUnmounted()
-  const theme = useTheme()
 
   useImperativeHandle(ref, () => ({
-    show(paths) {
-      setPaths(paths)
-      void getManagedFolders().then((dirs) => {
-        setContentPaths(dirs)
-      })
-      confirmAlertRef.current?.setVisible(true)
-      requestAnimationFrame(() => {
-        void getOpenStoragePath().then(path => {
-          if (path) inputRef.current?.setPath(path)
-        })
-      })
+    show(storagePaths) {
+      setPaths(storagePaths)
+      setText('')
+      setVisible(true)
+      void getManagedFolders().then(dirs => { if (!isUnmounted.current) setContentPaths(dirs) })
+      void getOpenStoragePath().then(path => { if (path) setText(path) })
     },
   }))
 
-  // const handleHideAlert = () => {
-  //   inputRef.current?.setPath('')
-  // }
-  const handleConfirmAlert = async() => {
-    const text = inputRef.current?.getText() ?? ''
-    if (text) {
-      if (!text.startsWith('content://') && (!text.startsWith('/') || filterFileName.test(text))) {
+  const close = () => { setVisible(false) }
+
+  const handleConfirm = async() => {
+    const target = text.trim()
+    if (target) {
+      if (!target.startsWith('content://') && (!target.startsWith('/') || filterFileName.test(target))) {
         toast(global.i18n.t('open_storage_error_tip'), 'long')
         return
       }
       try {
-        if (!(await stat(text)).canRead) {
+        if (!(await stat(target)).canRead) {
           toast('Permission denied', 'long')
           return
         }
@@ -98,130 +59,115 @@ export default forwardRef<OpenDirModalType, { onOpenDir: (dir: string) => Promis
         toast('Open failed: ' + err.message, 'long')
         return
       }
-      void onOpenDir(text)
+      void onOpenDir(target)
     }
-    void saveOpenStoragePath(text)
-    confirmAlertRef.current?.setVisible(false)
+    void saveOpenStoragePath(target)
+    close()
   }
-  const removeSelectStoragePath = (path: string) => {
-    void removeManagedFolder(path).then(async() => {
-      return getManagedFolders().then((dirs) => {
-        setContentPaths(dirs)
-      })
-    })
+
+  const removeSelectStoragePath = async(path: string) => {
+    await removeManagedFolder(path)
+    const dirs = await getManagedFolders()
+    if (!isUnmounted.current) setContentPaths(dirs)
   }
+
   const handleSelectStorage = () => {
     void selectManagedFolder(true).then((dir) => {
       if (!dir || isUnmounted.current) return
       void onOpenDir(dir.path)
-      confirmAlertRef.current?.setVisible(false)
+      close()
     }).catch((err) => {
       toast(global.i18n.t('open_storage_select_managed_folder_failed_tip', { msg: err.message }))
     })
   }
 
+  const keyboardSpace = keyboardShown ? keyboardHeight : 0
+  const PathRow = ({ path, removable }: { path: string, removable?: boolean }) => (
+    <View style={styles.row}>
+      <TouchableOpacity style={styles.rowMain} activeOpacity={0.7} onPress={() => { setText(path) }}>
+        <View style={[styles.rowIcon, { backgroundColor: palette.card }]}>
+          <Icon name='folder-outline' size={18} color={palette.primary} />
+        </View>
+        <Text size={12} color={palette.text} numberOfLines={2} style={styles.rowText}>{path}</Text>
+      </TouchableOpacity>
+      {removable
+        ? (
+          <TouchableOpacity onPress={() => { void removeSelectStoragePath(path) }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Icon name='close-circle' size={18} color={palette.textSecondary} />
+          </TouchableOpacity>
+          )
+        : null}
+    </View>
+  )
+
   return (
-    <ConfirmAlert
-      onConfirm={handleConfirmAlert}
-      ref={confirmAlertRef}
-    >
-      <View style={styles.newFolderContent} onStartShouldSetResponder={() => true}>
-        <Text style={styles.newFolderTitle}>
-          {
-            paths.length > 1
-              ? global.i18n.t('open_storage_title')
-              : global.i18n.t('open_storage_not_found_title')
-          }
-        </Text>
-        <PathInput ref={inputRef} />
-        <View style={styles.list}>
-          {
-            paths.map(path => {
-              return (
-                <Button style={styles.pathBtn} key={path} onPress={() => inputRef.current?.setPath(path)}>
-                  <Text size={12}>{path}</Text>
-                </Button>
-              )
-            })
-          }
-          {
-            contentPaths.map(path => {
-              return (
-                <View style={styles.listContentItem} key={path}>
-                  <Button style={styles.pathBtn} onPress={() => inputRef.current?.setPath(path)}>
-                    <Text size={12}>{path}</Text>
-                  </Button>
-                  <Button style={styles.removeBtn} onPress={() => { removeSelectStoragePath(path) }}>
-                    <Icon color={theme['c-font-label']} name="close" size={12} />
-                  </Button>
-                </View>
-              )
-            })
-          }
+    <Modal visible={visible} transparent statusBarTranslucent animationType='fade' onRequestClose={close}>
+      <KeyboardAvoidingView style={styles.mask} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={close} />
+        <View style={{ ...styles.sheet, marginBottom: keyboardSpace, maxHeight: Math.min(windowHeight * 0.9, 760), backgroundColor: palette.bg, borderColor: palette.border }}>
+          <View style={[styles.grabber, { backgroundColor: palette.border }]} />
+          <View style={styles.head}>
+            <View style={[styles.headIcon, { backgroundColor: palette.card, borderColor: palette.border }]}>
+              <Icon name='sd-card' size={20} color={palette.primary} />
+            </View>
+            <View style={styles.headInfo}>
+              <Text size={17} color={palette.text} numberOfLines={1} style={styles.title}>
+                {paths.length > 1 ? global.i18n.t('open_storage_title') : global.i18n.t('open_storage_not_found_title')}
+              </Text>
+              <Text size={11} color={palette.textSecondary} numberOfLines={1}>选择或输入可读取的目录</Text>
+            </View>
+            <CapsuleIconButton icon='close' label='关闭' onPress={close} />
+          </View>
+          <ScrollView keyboardShouldPersistTaps='always' showsVerticalScrollIndicator={false}>
+            <Input
+              ref={inputRef}
+              placeholder={global.i18n.t('open_storage_tip')}
+              value={text}
+              onChangeText={setText}
+              multiline
+              numberOfLines={3}
+              textAlignVertical='top'
+              style={{ ...styles.input, backgroundColor: palette.card, borderColor: palette.border }}
+            />
+            <Text size={11} color={palette.textSecondary} style={styles.sectionTitle}>系统存储</Text>
+            {paths.map(path => <PathRow key={path} path={path} />)}
+            {contentPaths.length
+              ? (
+                <>
+                  <Text size={11} color={palette.textSecondary} style={styles.sectionTitle}>已保存的目录</Text>
+                  {contentPaths.map(path => <PathRow key={path} path={path} removable />)}
+                </>
+                )
+              : null}
+            <Text size={11} color={palette.textSecondary} style={styles.tip}>{global.i18n.t('open_storage_select_path_tip')}</Text>
+          </ScrollView>
+          <View style={styles.btnRow}>
+            <CapsuleButton icon='folder-open-outline' label={global.i18n.t('open_storage_select_path')} primary={false} onPress={handleSelectStorage} />
+            <View style={{ flex: 1 }} />
+            <CapsuleButton icon='close' label='取消' primary={false} onPress={close} />
+            <View style={{ width: 8 }} />
+            <CapsuleButton icon='check' label='打开' onPress={() => { void handleConfirm() }} />
+          </View>
         </View>
-        <View style={styles.tips}>
-          <Text style={styles.tip} size={12}>
-            {global.i18n.t('open_storage_select_path_tip')}
-          </Text>
-          <ButtonPrimary style={styles.btn} size={12} onPress={handleSelectStorage}>{global.i18n.t('open_storage_select_path')}</ButtonPrimary>
-        </View>
-      </View>
-    </ConfirmAlert>
+      </KeyboardAvoidingView>
+    </Modal>
   )
 })
 
 const styles = createStyle({
-  newFolderContent: {
-    flexGrow: 0,
-    flexShrink: 1,
-    flexDirection: 'column',
-  },
-  newFolderTitle: {
-    marginBottom: 5,
-    width: 300,
-    maxWidth: '100%',
-  },
-  input: {
-    flexGrow: 1,
-    flexShrink: 1,
-    minWidth: 240,
-    borderRadius: 4,
-    paddingTop: 3,
-    paddingBottom: 3,
-    height: 'auto',
-  },
-  list: {
-    flexGrow: 1,
-    flexShrink: 1,
-    marginVertical: 10,
-  },
-  listContentItem: {
-    paddingVertical: 10,
-    flexDirection: 'row',
-  },
-  pathBtn: {
-    paddingHorizontal: 5,
-    paddingVertical: 10,
-    flex: 1,
-  },
-  removeBtn: {
-    flex: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-  },
-  tips: {
-    flexDirection: 'column',
-    alignItems: 'flex-start',
-    gap: 10,
-  },
-  tip: {
-    flex: 1,
-  },
-  btn: {
-    // alignSelf: 'flex-end',
-    flex: 0,
-  },
+  mask: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
+  sheet: { width: '100%', borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 0.5, paddingLeft: 20, paddingRight: 20, paddingTop: 8, paddingBottom: 24 },
+  grabber: { width: 36, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 12 },
+  head: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
+  headIcon: { width: 40, height: 40, borderRadius: 14, borderWidth: 0.5, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  headInfo: { flex: 1, minWidth: 0 },
+  title: { fontWeight: '700' },
+  input: { minHeight: 72, borderRadius: 14, borderWidth: 0.5, paddingLeft: 14, paddingRight: 14, paddingTop: 10, paddingBottom: 10 },
+  sectionTitle: { marginTop: 14, marginBottom: 2 },
+  row: { flexDirection: 'row', alignItems: 'center', minHeight: 48, borderBottomWidth: 0.5, borderBottomColor: 'rgba(128,128,128,0.16)' },
+  rowMain: { flex: 1, flexDirection: 'row', alignItems: 'center', minWidth: 0 },
+  rowIcon: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
+  rowText: { flex: 1, minWidth: 0 },
+  tip: { marginTop: 12, lineHeight: 16 },
+  btnRow: { flexDirection: 'row', alignItems: 'center', marginTop: 16 },
 })
-
