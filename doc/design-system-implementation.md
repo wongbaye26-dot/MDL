@@ -146,3 +146,30 @@
 
 验证：`npm run typecheck`/`lint` 0 error，`npm run test:unit` 32/32；release arm64 重新打包安装，
 截图见 `after/after-header-icons.jpg`、`after/after-download-manager.jpg`、`after/after-tools-page.jpg`。
+
+---
+
+## 8. 继续统一（下载音质对齐播放音质 + 旧文件清理）
+
+### 下载音质对齐播放音质
+- 移除下载音质的 `inline` chips 特例，恢复与「播放设置 → 优先播放音质」完全相同的交互：
+  **右侧显示当前值 + chevron → 点击打开 BottomSheet 单选**（选项来自 `useQualityList()`，
+  不会再出现初始化时机只显示 128k/320k 两档的问题）。
+- `ChoiceRow` 删除 `inline` 分支和相关的显式宽度/helper，保持控件只有「分段 / 值+Sheet」两种形态。
+
+### 旧文件清理
+删除确认无引用的旧设置页与组件：
+- `settings/Basic/` 下未使用的旧页面：`FontSize / IsCoverRotation / IsHomeCardMotion / IsHomePageScroll /
+  IsReduceMotion / Language / ShareType / SourceName / index.tsx`（保留 `ThemeSettings.tsx`、`UserApiEditModal/`，
+  它们仍被外观页 / 音源页 / 首页引用）。
+- `components/SettingRow.tsx`、`components/screenMeta.ts`、`Vertical/Header.tsx`、`Horizontal/NavList.tsx`。
+- 保留但暂不删除：`Section / SubTitle / ChoiceItem / InputItem / Slider / CheckBoxItem / Toggle / surfaces`
+  —— 播放器歌词设置面板（`Player/LyricSettingsPanel`、`LyricQuickMenu`）仍引用其中一部分；
+  该面板属于播放器内嵌 UI，下一轮再统一到新组件。
+
+### 验证
+- `npm run typecheck` → exit 0
+- `npm run lint` → exit 0（2 条既有 warning）
+- `npm run test:unit` → 32/32
+- `assembleRelease` arm64 → BUILD SUCCESSFUL
+- **真机验证未完成**：本轮最后构建后设备 ADB 掉线（`adb devices` 为空），下载音质改为「值+Sheet」后的真机截图待设备恢复后补。

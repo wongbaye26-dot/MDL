@@ -94,7 +94,7 @@ export default () => {
           { value: '歌手 - 歌名', label: '歌手 - 歌名' },
           { value: '歌名', label: '歌名' },
         ]} />
-        <ChoiceRow settingKey='download.quality' title='下载音质' options={qualityOptions} inline />
+        <ChoiceRow settingKey='download.quality' title='下载音质' options={qualityOptions} />
         <ChoiceRow settingKey='download.maxDownloadNum' title='同时下载数量' options={[1, 2, 3, 5].map(value => ({ value, label: `${value} 个` }))} />
         <ToggleRow settingKey='download.isUseOtherSource' title='使用其他音源' desc='当前音源没有该歌曲时自动换源' />
         <ToggleRow settingKey='download.autoSaveWhilePlaying' title='播放时自动保存' desc='边听边存' />
