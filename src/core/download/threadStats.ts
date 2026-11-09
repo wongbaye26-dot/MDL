@@ -61,11 +61,32 @@ export const recordThreadSample = (threads: number, bytesPerSec: number) => {
 
 export const getThreadStats = (): ThreadStat[] => Object.values(cache ?? {}).sort((a, b) => a.threads - b.threads)
 
-/** 样本足够时返回平均速度最高的线程数，否则返回 null（保持默认策略） */
+/** 1~4 线程是否都达到最少样本数；没测完前继续轮流采样 */
+export const isThreadBenchmarkComplete = () => {
+  const stats = getThreadStats()
+  return [1, 2, 3, 4].every(threads => (stats.find(item => item.threads === threads)?.samples ?? 0) >= MIN_SAMPLES)
+}
+
+/** 样本足够（4 种线程都测过）时返回平均速度最高的线程数 */
 export const getBestThreads = (): number | null => {
-  const list = getThreadStats().filter(item => item.samples >= MIN_SAMPLES)
-  if (!list.length) return null
+  if (!isThreadBenchmarkComplete()) return null
+  const list = getThreadStats()
   return list.reduce((best, item) => item.avgSpeed > best.avgSpeed ? item : best).threads
+}
+
+/** 基准未完成时，优先补样本最少（且还没测过）的线程数 */
+export const getProbeThreads = (): number => {
+  const stats = getThreadStats()
+  let target = 1
+  let targetSamples = Number.POSITIVE_INFINITY
+  for (const threads of [1, 2, 3, 4]) {
+    const samples = stats.find(item => item.threads === threads)?.samples ?? 0
+    if (samples < targetSamples) {
+      target = threads
+      targetSamples = samples
+    }
+  }
+  return target
 }
 
 export const clearThreadStats = async() => {

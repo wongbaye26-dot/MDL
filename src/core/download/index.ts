@@ -32,7 +32,7 @@ import {
   joinPath,
 } from './utils'
 import { log } from '@/utils/log'
-import { getBestThreads, loadThreadStats, recordThreadSample } from './threadStats'
+import { getBestThreads, getProbeThreads, loadThreadStats, recordThreadSample } from './threadStats'
 import { toast } from '@/utils/tools'
 import { isExternalStorageManager } from '@/utils/nativeModules/utils'
 import RNFS from 'react-native-fs'
@@ -66,8 +66,8 @@ const getTask = (id: string) => downloadAction.getTaskById(id)
 const getDownloadThreads = () => {
   const running = runningIds.size
   if (running <= 1) {
-    // 有足够基准样本时用实测最快的线程数；没有就保持默认 3
-    return getBestThreads() ?? 3
+    // 基准没测完 1~4 线程前轮流采样；测完后自动用实测最快的线程数
+    return getBestThreads() ?? getProbeThreads()
   }
   if (running === 2) return 2
   return 1
