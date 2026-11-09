@@ -27,6 +27,7 @@ import ImportBtn from '../settings/Basic/UserApiEditModal/ImportBtn'
 import settingState from '@/store/setting/state'
 import type { InitState as CommonState } from '@/store/common/state'
 import useSwipeBack from '../useSwipeBack'
+import { useBackHandler } from '@/utils/hooks/useBackHandler'
 
 /** 主题切换等导致组件重挂载时，用来恢复当前打开的子页，避免闪回设置主页 */
 let lastActiveId: SettingScreenIds | null = null
@@ -117,6 +118,13 @@ export default () => {
       global.state_event.off('settingsDeepScreenRequested', handleDeepRequested)
     }
   }, [setActiveId])
+
+  /** 深页打开时系统返回先关闭深页；设置首页返回 false，交给系统退到后台 */
+  useBackHandler(useCallback(() => {
+    if (!activeIdRef.current) return false
+    setActiveId(null)
+    return true
+  }, [setActiveId]))
 
   // 把「设置子页是否打开」广播给胶囊导航：这样在子页里再点一次「我的」可以回到设置首页
   useEffect(() => {
