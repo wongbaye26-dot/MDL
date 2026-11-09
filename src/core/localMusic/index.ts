@@ -749,7 +749,7 @@ export const getTotalSize = (list: LX.Music.MusicInfoLocal[]) => {
  * JS 侧拿到一个「成功」，于是提示「已删除」但文件还在。
  * 现在每一步都做校验，并按「路径 → SAF 文档 uri → MediaStore」的顺序退让。
  */
-const removeLocalFile = async(item: LX.Music.MusicInfoLocal) => {
+export const removeLocalFile = async(item: LX.Music.MusicInfoLocal) => {
   const filePath = item.meta.filePath
   if (!filePath) throw new Error('这首歌没有文件路径')
 
@@ -763,8 +763,12 @@ const removeLocalFile = async(item: LX.Music.MusicInfoLocal) => {
     const realPath = documentUriToRealPath(filePath)
     if (realPath) {
       if (await deleteDocument(realPath)) return
-      // 文件已经被外部删掉（文件管理器/清理软件/换机迁移）：按「已删除」处理，
-      // 否则曲库记录会永远卡住、用户怎么点删除都提示「系统不允许删除该文件」。
+      // SAF 授权丢失但仍有「所有文件访问」：直接删真实路径
+      try { await unlink(realPath) } catch {}
+      if (!await existsFile(realPath).catch(() => true)) return
+      // MediaStore 里可能还有索引，按媒体 uri 再删一次
+      const media = await findAudioByPath(realPath).catch(() => null)
+      if (media?.contentUri && await deleteDocument(media.contentUri)) return
       if (!await existsFile(realPath).catch(() => true)) return
     }
     throw new Error('系统不允许删除该文件')

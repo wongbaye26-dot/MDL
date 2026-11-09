@@ -1,5 +1,5 @@
 import { cpFile, existsFile, mkdir, privateStorageDirectoryPath, unlink, writeFile } from '@/utils/fs'
-import { deleteLocalMusic } from '@/core/localMusic'
+import { deleteLocalMusic, removeLocalFile } from '@/core/localMusic'
 import { getData, saveData } from '@/plugins/storage'
 
 /**
@@ -63,8 +63,14 @@ export const moveSongToRecycle = async(item: LX.Music.MusicInfoLocal): Promise<R
     await mkdir(RECYCLE_DIR).catch(() => {})
     const target = `${RECYCLE_DIR}/${Date.now()}_${safeName(baseNameOf(originalPath))}`
     await cpFile(originalPath, target)
-    // 只有复制成功才删除原文件
-    await unlink(originalPath)
+    // 只有复制成功才删除原文件；content:// 必须走 deleteDocument，
+    // 不能只 unlink（RNFS 对文档 uri 静默失败，会留下原文件导致重新扫描又出现）
+    try {
+      await removeLocalFile(item)
+    } catch (error) {
+      await unlink(target).catch(() => {})
+      throw error
+    }
     const list = await loadRecycleBin()
     const record: RecycleItem = {
       id: item.id,

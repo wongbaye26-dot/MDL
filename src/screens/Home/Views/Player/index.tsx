@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ComponentRef } from 'react'
 import {
   Animated,
   Easing,
@@ -16,6 +16,7 @@ import {
 } from 'react-native'
 
 import LinearGradient from 'react-native-linear-gradient'
+import PagerView from 'react-native-pager-view'
 
 import Text from '@/components/common/Text'
 import PicImage from '@/components/common/PicImage'
@@ -43,7 +44,6 @@ import { setNavActiveId, updateSetting } from '@/core/common'
 import { toggleTranslation } from '@/core/lyric'
 import { formatSize, formatSampleRate, QUALITY_LABEL, QUALITY_DESC } from '@/core/download/utils'
 import DownloadQualityModal, { type DownloadQualityModalType } from '@/components/DownloadQualityModal'
-import PlayerDetailSheet from '@/components/player/PlayerDetailSheet'
 import { canPlayCloseTransition, closePlayerWithTransition } from '@/utils/playerOpen'
 import Stage, { COVER_TOP_RATIO, COVER_H_RATIO } from './Stage'
 import SeekBar from './SeekBar'
@@ -491,12 +491,13 @@ export default () => {
   const playMode = (useSettingValue('player.togglePlayMethod') ?? 'listLoop') as PlayMode
   const lyricOffsetMs = useSettingValue('player.lyricOffsetMs') ?? 0
 
-  const [mode, setMode] = useState<'cover' | 'lyric'>('cover')
+  /** 歌曲信息 / 歌曲页面 / 歌词页面 三页；和 Salt Player 一样用原生 PagerView 横滑 */
+  const [mode, setMode] = useState<'info' | 'cover' | 'lyric'>('cover')
+  const pagerRef = useRef<ComponentRef<typeof PagerView>>(null)
   const [currentLine, setCurrentLine] = useState(-1)
   const [seekPreview, setSeekPreview] = useState<number | null>(null)
   const [collected, setCollected] = useState(false)
   const [queueVisible, setQueueVisible] = useState(false)
-  const [detailVisible, setDetailVisible] = useState(false)
   const [sleepTimerVisible, setSleepTimerVisible] = useState(false)
   const [lyricSettingsVisible, setLyricSettingsVisible] = useState(false)
   const musicAddRef = useRef<MusicAddModalType>(null)
@@ -924,9 +925,14 @@ export default () => {
     }
   }, [musicInfo.id])
 
-  const handleToggleMode = useCallback(() => {
-    setMode(mode => mode === 'cover' ? 'lyric' : 'cover')
+  /** 三页顺序：歌曲信息(0) / 歌曲页面(1) / 歌词页面(2) */
+  const goPage = useCallback((index: 0 | 1 | 2) => {
+    pagerRef.current?.setPage(index)
   }, [])
+
+  const handleToggleMode = useCallback(() => {
+    goPage(mode === 'cover' ? 2 : 1)
+  }, [goPage, mode])
 
   const handleSeek = useCallback((time: number) => {
     setSeekPreview(null)
@@ -1046,6 +1052,12 @@ export default () => {
     rows.push({ label: '歌名', value: songName || '-' })
     rows.push({ label: '歌手', value: musicInfo.singer || '-' })
     if (musicInfo.album) rows.push({ label: '专辑', value: musicInfo.album })
+    rows.push({
+      label: '文件来源',
+      value: raw
+        ? (('progress' in raw || raw.source === 'local') ? '本地文件' : `在线 · ${raw.source}`)
+        : '未知',
+    })
     if (raw) {
       if ('progress' in raw) {
         rows.push({ label: '来源', value: '下载文件' })
@@ -1289,16 +1301,6 @@ export default () => {
         )
   }
 
-  {/* 歌曲详情：Material You 底部 Sheet（封面 + 歌名歌手 + 只读信息行），横竖屏共用 */}
-  <PlayerDetailSheet
-    visible={detailVisible}
-    pic={pic}
-    name={songName}
-    singer={musicInfo.singer}
-    rows={detailRows}
-    onClose={() => { setDetailVisible(false) }}
-  />
-
   <DownloadQualityModal ref={downloadModalRef} />
 
   <SleepTimerSheet visible={sleepTimerVisible} onClose={() => { setSleepTimerVisible(false) }} />
@@ -1438,9 +1440,6 @@ export default () => {
               </TouchableOpacity>
               <TouchableOpacity style={styles.iconBtnLand} onPress={handleAddToPlaylist} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }} accessibilityRole='button' accessibilityLabel='添加至歌单'>
                 <AddPlaylistIcon size={u(26)} color='rgba(255,255,255,0.92)' />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.iconBtnLand} onPress={() => { setDetailVisible(true) }} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-                <Icon name='information-outline' size={u(20)} color='rgba(255,255,255,0.92)' />
               </TouchableOpacity>
             </View>
 
@@ -1587,7 +1586,7 @@ export default () => {
         }
       </View>
       {/* 压暗：歌词页用更透的遮罩，让封面半透明地透出来（黑主题也能看到底图） */}
-      <View pointerEvents='none' style={[styles.bgDim, { backgroundColor: mode === 'lyric' ? palette.dimLyric : palette.dim }]} />
+      <View pointerEvents='none' style={[styles.bgDim, { backgroundColor: mode !== 'cover' ? palette.dimLyric : palette.dim }]} />
 
       {/* 舞台：上倒影 + 封面（四边柔化）+ 下倒影，全部铺到屏幕边缘 */}
       <Animated.View pointerEvents='none' style={[styles.stage, { opacity: coverAnim }]}>
@@ -1646,16 +1645,23 @@ export default () => {
       }
 
       {/* 顶栏：返回键 + （歌词页）居中的歌名/歌手 */}
-      <View style={[styles.header, { top: statusBarHeight + 8 }]}>
-        <TouchableOpacity
-          style={styles.backBtn}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          accessibilityRole='button'
-          accessibilityLabel='收起播放器'
-          onPress={handleClosePlayer}
-        >
-          <Icon name='chevron-down' size={u(26)} color='rgba(255,255,255,0.94)' />
-        </TouchableOpacity>
+      {/* 顶栏：封面页显示下箭头；歌词页居中标题；歌曲信息页无按钮（和 Salt Player 三页一致） */}
+      <View style={[styles.header, { top: statusBarHeight + 8 }]} pointerEvents='box-none'>
+        {
+          mode === 'cover'
+            ? (
+              <TouchableOpacity
+                style={styles.backBtn}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                accessibilityRole='button'
+                accessibilityLabel='收起播放器'
+                onPress={handleClosePlayer}
+              >
+                <Icon name='chevron-down' size={u(26)} color='rgba(255,255,255,0.94)' />
+              </TouchableOpacity>
+              )
+            : null
+        }
         {
           mode === 'lyric'
             ? (
@@ -1668,72 +1674,103 @@ export default () => {
         }
       </View>
 
-      {
-        mode === 'cover'
-          ? (
-            <>
-              {/* 封面 + 封面下方当前歌词，整块可点切歌词（飞牛点击区 16..395dp） */}
-              <TouchableOpacity
-                activeOpacity={1}
-                style={{ position: 'absolute', left: 16, right: 16, top: coverTop, height: bottomTop - coverTop }}
-                onPress={handleToggleMode}
-              />
-              <View pointerEvents='none' style={[styles.lyricStrip, { top: stripTop, height: stripH }]}>
-                <Text size={u(16)} color='rgba(255,255,255,0.95)' numberOfLines={1} style={styles.nowLyric}>
-                  {lrcPlay.text || ' '}
-                </Text>
+      {/* 三页原生横滑：歌曲信息 / 歌曲页面 / 歌词页面（Salt Player 同款操作与动画） */}
+      <PagerView
+        ref={pagerRef}
+        style={{ position: 'absolute', left: 0, right: 0, top: coverTop, height: bottomTop - coverTop }}
+        initialPage={1}
+        scrollEnabled={!isLandscape}
+        onPageSelected={e => {
+          const pos = e.nativeEvent.position
+          setMode(pos === 0 ? 'info' : pos === 1 ? 'cover' : 'lyric')
+        }}
+      >
+        {/* 0: 歌曲信息页（背景与歌词页相同的磨砂封面） */}
+        <View key='info' style={{ flex: 1 }}>
+          <View pointerEvents='none' style={StyleSheet.absoluteFill}>
+            <Glass blurRadius={25} tint='rgba(8,6,12,0.30)' />
+            <LinearGradient
+              colors={[palette.scrimAt(0.42), palette.scrimAt(0.22), palette.scrimAt(0.62)]}
+              locations={[0, 0.45, 1]}
+              style={StyleSheet.absoluteFill}
+            />
+          </View>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingTop: statusBarHeight + 64, paddingLeft: 24, paddingRight: 24, paddingBottom: 160 }}
+          >
+            <Text size={u(20)} color='rgba(255,255,255,0.96)' style={styles.infoHeading}>歌曲信息</Text>
+            {detailRows.map(row => (
+              <View key={row.label} style={styles.infoPanelRow}>
+                <Text size={u(11)} color='rgba(255,255,255,0.5)' style={styles.infoPanelLabel}>{row.label}</Text>
+                <Text size={u(13)} color='rgba(255,255,255,0.92)' selectable numberOfLines={5} style={styles.infoPanelValue}>{row.value}</Text>
               </View>
-            </>
-            )
-          : (
-            <View
-              style={{ position: 'absolute', left: 0, right: 0, top: coverTop, height: lyricAreaH }}
-              onLayout={e => { setLyricH(e.nativeEvent.layout.height) }}
-            >
-              {
-                lines.length
-                  ? (
-                      isSingleLine
-                        ? (
-                        <TouchableOpacity activeOpacity={0.9} style={styles.singleLineArea} onPress={handleToggleMode}>
-                          <LyricLine
-                            text={currentLine >= 0 ? lines[currentLine].text : ''}
-                            extras={currentLine >= 0 ? (lyricExtras[currentLine] ?? []) : []}
-                            size={lyricSize + 4}
-                            active={currentLine >= 0}
-                            startMs={currentLine >= 0 ? lines[currentLine].time : 0}
-                            endMs={currentLine >= 0 ? (lines[currentLine + 1]?.time ?? (maxTime * 1000 || lines[currentLine].time + 4000)) : 4000}
-                            playing={isPlay}
-                            syncMs={progress.nowPlayTime * 1000 + lyricOffsetMs}
-                            wordByWord={isWordByWord && !(currentLine >= 0 && LYRIC_META_RXP.test(lines[currentLine].text.trim()))}
-                            activeColor={accent}
-                            align={lyricTextAlign}
-                            foreign={isForeignLyricPage}
-                          />
-                        </TouchableOpacity>
-                          )
-                        : (
-                        <ScrollView
-                          ref={scrollRef}
-                          showsVerticalScrollIndicator={false}
-                          contentContainerStyle={lyricContentStyle}
-                          scrollEventThrottle={32}
-                          onScroll={e => { lyricScrollY.current = e.nativeEvent.contentOffset.y }}
-                          onContentSizeChange={() => { scrollToLine(currentLineRef.current, false) }}
-                        >
-                          <View style={{ height: lyricPad }} />
-                          {lyricRowNodes}
-                          <View style={{ height: lyricPad }} />
-                        </ScrollView>
-                          )
-                    )
-                  : <LyricEmptyHint onPress={handleToggleMode} />
-              }
-            </View>
-            )
-      }
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* 1: 歌曲页面（保持原有封面页：点击封面仍可切到歌词页） */}
+        <View key='cover' style={{ flex: 1 }}>
+          <TouchableOpacity
+            activeOpacity={1}
+            style={{ flex: 1 }}
+            onPress={() => { goPage(2) }}
+            accessibilityRole='button'
+            accessibilityLabel='打开歌词页'
+          />
+          <View pointerEvents='none' style={[styles.lyricStrip, { top: stripTop - coverTop, height: stripH }]}>
+            <Text size={u(16)} color='rgba(255,255,255,0.95)' numberOfLines={1} style={styles.nowLyric}>
+              {lrcPlay.text || ' '}
+            </Text>
+          </View>
+        </View>
+
+        {/* 2: 歌词页面（右滑回歌曲页面由 PagerView 原生处理） */}
+        <View key='lyric' style={{ flex: 1 }} onLayout={e => { setLyricH(e.nativeEvent.layout.height) }}>
+          {
+            lines.length
+              ? (
+                  isSingleLine
+                    ? (
+                    <TouchableOpacity activeOpacity={0.9} style={styles.singleLineArea} onPress={() => { goPage(1) }}>
+                      <LyricLine
+                        text={currentLine >= 0 ? lines[currentLine].text : ''}
+                        extras={currentLine >= 0 ? (lyricExtras[currentLine] ?? []) : []}
+                        size={lyricSize + 4}
+                        active={currentLine >= 0}
+                        startMs={currentLine >= 0 ? lines[currentLine].time : 0}
+                        endMs={currentLine >= 0 ? (lines[currentLine + 1]?.time ?? (maxTime * 1000 || lines[currentLine].time + 4000)) : 4000}
+                        playing={isPlay}
+                        syncMs={progress.nowPlayTime * 1000 + lyricOffsetMs}
+                        wordByWord={isWordByWord && !(currentLine >= 0 && LYRIC_META_RXP.test(lines[currentLine].text.trim()))}
+                        activeColor={accent}
+                        align={lyricTextAlign}
+                        foreign={isForeignLyricPage}
+                      />
+                    </TouchableOpacity>
+                      )
+                    : (
+                    <ScrollView
+                      ref={scrollRef}
+                      showsVerticalScrollIndicator={false}
+                      contentContainerStyle={lyricContentStyle}
+                      scrollEventThrottle={32}
+                      onScroll={e => { lyricScrollY.current = e.nativeEvent.contentOffset.y }}
+                      onContentSizeChange={() => { scrollToLine(currentLineRef.current, false) }}
+                    >
+                      <View style={{ height: lyricPad }} />
+                      {lyricRowNodes}
+                      <View style={{ height: lyricPad }} />
+                    </ScrollView>
+                      )
+                )
+              : <LyricEmptyHint onPress={() => { goPage(1) }} />
+          }
+        </View>
+      </PagerView>
 
       {/* 底部整块：信息行/工具行 + 进度 + 五个主控键（尺寸全部按飞牛实测） */}
+      {mode !== 'info' ? (
       <View style={[styles.bottomBlock, { top: bottomTop }]}>
         {
           mode === 'cover'
@@ -1775,9 +1812,6 @@ export default () => {
                   <TouchableOpacity style={styles.iconBtn} onPress={handleAddToPlaylist} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }} accessibilityRole='button' accessibilityLabel='添加至歌单'>
                     <AddPlaylistIcon size={u(30)} color='rgba(255,255,255,0.92)' />
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.iconBtn} onPress={() => { setDetailVisible(true) }} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-                    <Icon name='information-outline' size={u(24)} color='rgba(255,255,255,0.92)' />
-                  </TouchableOpacity>
                 </View>
               </View>
               )
@@ -1807,9 +1841,6 @@ export default () => {
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.iconBtn} onPress={handleAddToPlaylist} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }} accessibilityRole='button' accessibilityLabel='添加至歌单'>
                     <AddPlaylistIcon size={u(30)} color='rgba(255,255,255,0.9)' />
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.iconBtn} onPress={() => { setDetailVisible(true) }} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-                    <Icon name='information-outline' size={u(24)} color='rgba(255,255,255,0.9)' />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -1868,6 +1899,7 @@ export default () => {
           </TouchableOpacity>
         </View>
       </View>
+      ) : null}
 
       {modals}
     </Animated.View>
@@ -1914,6 +1946,47 @@ const styles = {
 
   stage: { position: 'absolute' as const, left: 0, right: 0, top: 0, bottom: 0 },
 
+  foreground: {
+    flex: 1,
+  },
+  infoHeading: {
+    fontWeight: '600' as const,
+    marginBottom: 18,
+  },
+  infoPanel: {
+    position: 'absolute' as const,
+    top: 0,
+    bottom: 0,
+    right: 0,
+    zIndex: 60,
+  },
+  infoInner: {
+    flex: 1,
+    paddingLeft: 16,
+    paddingRight: 12,
+    paddingBottom: 20,
+  },
+  infoHead: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
+    marginBottom: 12,
+  },
+  infoTitle: {
+    fontWeight: '600' as const,
+  },
+  infoRows: {
+    paddingBottom: 24,
+  },
+  infoPanelRow: {
+    paddingBottom: 12,
+  },
+  infoPanelLabel: {
+    marginBottom: 3,
+  },
+  infoPanelValue: {
+    lineHeight: 16,
+  },
   header: {
     position: 'absolute' as const,
     left: 0,

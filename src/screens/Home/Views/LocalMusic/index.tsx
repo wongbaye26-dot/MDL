@@ -966,7 +966,7 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
     })
   }, [])
 
-  const runBatch = useCallback((action: 'queue' | 'playlist' | 'hide' | 'remove' | 'deleteFiles') => {
+  const runBatch = useCallback((action: 'queue' | 'playlist' | 'hide' | 'remove' | 'deleteFiles' | 'deletePermanently') => {
     const items = batchItems
     if (!items.length) return
     if (action === 'queue') {
@@ -992,6 +992,25 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
         if (!confirmed) return
         void Promise.all(items.map(async item => deleteLocalMusic(item, false))).then(() => {
           toast(`已从曲库移除 ${items.length} 首`)
+          setBatchSelected(new Set())
+          setBatchMode(false)
+        })
+      })
+      return
+    } else if (action === 'deletePermanently') {
+      void confirmDialog({
+        title: '彻底删除文件',
+        message: `彻底删除选中的 ${items.length} 首歌文件？不可恢复（不经过回收站）。`,
+        confirmButtonText: '彻底删除',
+        danger: true,
+      }).then(confirmed => {
+        if (!confirmed) return
+        void Promise.all(items.map(async item => {
+          try { await deleteLocalMusic(item, true); return true } catch { return false }
+        })).then(results => {
+          const ok = results.filter(Boolean).length
+          const failed = results.length - ok
+          toast(failed ? `已删除 ${ok} 首，${failed} 首失败（可改用「删除到回收站」）` : `已彻底删除 ${ok} 首`)
           setBatchSelected(new Set())
           setBatchMode(false)
         })
@@ -1441,7 +1460,8 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
   ], [runBatch])
 
   const batchMoreItems = useMemo(() => [
-    { key: 'deleteFiles', label: '删除文件到回收站', icon: 'delete-forever-outline', danger: true, onPress: () => { setBatchMoreSheet(false); runBatch('deleteFiles') } },
+    { key: 'deleteFiles', label: '删除文件到回收站', icon: 'delete-sweep-outline', danger: true, onPress: () => { setBatchMoreSheet(false); runBatch('deleteFiles') } },
+    { key: 'deletePermanently', label: '彻底删除文件（不可恢复）', icon: 'delete-forever-outline', danger: true, onPress: () => { setBatchMoreSheet(false); runBatch('deletePermanently') } },
     { key: 'remove', label: '从曲库移除', icon: 'delete-outline', danger: true, onPress: () => { setBatchMoreSheet(false); runBatch('remove') } },
   ], [runBatch])
 
