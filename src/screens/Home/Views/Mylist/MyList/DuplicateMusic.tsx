@@ -1,8 +1,10 @@
 import { useRef, useImperativeHandle, forwardRef, useState, useCallback, memo, useEffect } from 'react'
 import Text from '@/components/common/Text'
 import { createStyle } from '@/utils/tools'
-import Dialog, { type DialogType } from '@/components/common/Dialog'
-import { FlatList, TouchableOpacity, View, type FlatListProps as _FlatListProps } from 'react-native'
+import { Modal as RNModal, StyleSheet, TouchableOpacity } from 'react-native'
+import CapsuleIconButton from '@/components/common/CapsuleIconButton'
+import { useSheetPalette } from '@/components/common/ActionSheet/palette'
+import { FlatList, View, type FlatListProps as _FlatListProps } from 'react-native'
 import { scaleSizeH } from '@/utils/pixelRatio'
 import { useTheme } from '@/store/theme/hook'
 import { type DuplicateMusicItem, filterDuplicateMusic } from './utils'
@@ -12,20 +14,9 @@ import { useUnmounted } from '@/utils/hooks'
 import { playList } from '@/core/player/player'
 import { useI18n } from '@/lang'
 import { handleRemove } from '../MusicList/listAction'
-import Button from '@/components/common/Button'
 
 type FlatListProps = _FlatListProps<DuplicateMusicItem>
 const ITEM_HEIGHT = scaleSizeH(56)
-
-const Title = ({ title }: {
-  title: string
-}) => {
-  return (
-    <Text style={styles.title} size={16}>
-      {title}
-    </Text>
-  )
-}
 
 const Empty = () => {
   const theme = useTheme()
@@ -72,12 +63,8 @@ const ListItem = memo(({ info, index, onRemove, onPlay, selectedList, onPress }:
         <Text style={styles.listItemLabelText} size={13} color={theme['c-300']}>{info.musicInfo.interval}</Text>
       </View>
       <View style={styles.listItemBtns}>
-        <Button style={styles.listItemBtn} onPress={() => { onPlay(info) }}>
-          <Icon name="play-outline" style={{ color: theme['c-button-font'] }} size={18} />
-        </Button>
-        <Button style={styles.listItemBtn} onPress={() => { onRemove(index) }}>
-          <Icon name="remove" style={{ color: theme['c-button-font'] }} size={18} />
-        </Button>
+        <CapsuleIconButton icon='play-outline' label='播放' size={30} iconSize={16} onPress={() => { onPlay(info) }} />
+        <CapsuleIconButton icon='close' label='移除' size={30} iconSize={16} onPress={() => { onRemove(index) }} />
       </View>
     </View>
   )
@@ -208,35 +195,40 @@ export interface ModalType {
 const initInfo = {}
 
 const Modal = forwardRef<ModalType, {}>((props, ref) => {
+  const palette = useSheetPalette()
   const [info, setInfo] = useState<LX.List.MyListInfo>(initInfo as LX.List.MyListInfo)
-  const dialogRef = useRef<DialogType>(null)
+  const [visible, setVisible] = useState(false)
   useImperativeHandle(ref, () => ({
     show(info) {
       setInfo(info)
-
-      requestAnimationFrame(() => {
-        dialogRef.current?.setVisible(true)
-      })
+      setVisible(true)
     },
   }))
-  const handleHide = () => {
-    requestAnimationFrame(() => {
-      const ninfo = { ...info, name: '' }
-      setInfo(ninfo as LX.List.MyListInfo)
-    })
+  const close = () => {
+    setVisible(false)
+    requestAnimationFrame(() => { setInfo(initInfo as LX.List.MyListInfo) })
   }
 
   return (
-    <Dialog ref={dialogRef} onHide={handleHide}>
-      {
-        info.name
-          ? (<>
-              <Title title={info.name} />
-              <List listId={info.id} />
-            </>)
-          : null
-      }
-    </Dialog>
+    <RNModal visible={visible} transparent statusBarTranslucent animationType='fade' onRequestClose={close}>
+      <View style={styles.mask}>
+        <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={close} />
+        <View style={{ ...styles.sheet, backgroundColor: palette.bg, borderColor: palette.border }}>
+          <View style={[styles.grabber, { backgroundColor: palette.border }]} />
+          <View style={styles.sheetHead}>
+            <View style={[styles.sheetIcon, { backgroundColor: palette.card, borderColor: palette.border }]}>
+              <Icon name='content-duplicate' size={20} color={palette.primary} />
+            </View>
+            <View style={styles.sheetInfo}>
+              <Text size={17} color={palette.text} numberOfLines={1} style={styles.sheetTitle}>重复歌曲</Text>
+              <Text size={11} color={palette.textSecondary} numberOfLines={1}>{info.name}</Text>
+            </View>
+            <CapsuleIconButton icon='close' label='关闭' onPress={close} />
+          </View>
+          {info.name ? <List listId={info.id} /> : null}
+        </View>
+      </View>
+    </RNModal>
   )
 })
 
@@ -269,6 +261,13 @@ export default forwardRef<DuplicateMusicType, {}>((props, ref) => {
 
 
 const styles = createStyle({
+  mask: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
+  sheet: { width: '100%', maxHeight: '82%', borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 0.5, paddingLeft: 20, paddingRight: 20, paddingTop: 8, paddingBottom: 20 },
+  grabber: { width: 36, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 12 },
+  sheetHead: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+  sheetIcon: { width: 40, height: 40, borderRadius: 14, borderWidth: 0.5, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  sheetInfo: { flex: 1, minWidth: 0 },
+  sheetTitle: { fontWeight: '700' },
   container: {
     // flexGrow: 1,
   },

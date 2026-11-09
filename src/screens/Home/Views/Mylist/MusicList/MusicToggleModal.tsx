@@ -1,14 +1,15 @@
 import { useRef, useImperativeHandle, forwardRef, useState, useCallback, memo, useEffect } from 'react'
 import Text from '@/components/common/Text'
 import { createStyle } from '@/utils/tools'
-import Dialog, { type DialogType } from '@/components/common/Dialog'
-import { FlatList, ScrollView, TouchableOpacity, View, type FlatListProps as _FlatListProps } from 'react-native'
+import CapsuleIconButton from '@/components/common/CapsuleIconButton'
+import CapsuleButton from '@/components/common/CapsuleButton'
+import { FlatList, Modal as RNModal, ScrollView, StyleSheet, TouchableOpacity, View, type FlatListProps as _FlatListProps } from 'react-native'
 import { scaleSizeH } from '@/utils/pixelRatio'
 import { useTheme } from '@/store/theme/hook'
+import { useSheetPalette } from '@/components/common/ActionSheet/palette'
 import { Icon } from '@/components/common/Icon'
 import { useHorizontalMode, useUnmounted } from '@/utils/hooks'
 import { useI18n } from '@/lang'
-import Button from '@/components/common/Button'
 import { useSourceListI18n } from '@/components/SourceSelector'
 import { searchMusic } from '@/utils/musicSdk'
 import { toNewMusicInfo } from '@/utils'
@@ -102,12 +103,8 @@ const ListItem = memo(({ info, onPlay, onOpenDetail }: {
         <Text style={styles.listItemLabelText} size={13} color={theme['c-300']}>{info.interval}</Text>
       </View>
       <View style={styles.listItemBtns}>
-        <Button style={styles.listItemBtn} onPress={() => { onOpenDetail(info) }}>
-          <Icon name="share" style={{ color: theme['c-button-font'] }} size={18} />
-        </Button>
-        <Button style={styles.listItemBtn} onPress={() => { onPlay(info) }}>
-          <Icon name="play" style={{ color: theme['c-button-font'] }} size={18} />
-        </Button>
+        <CapsuleIconButton icon='share' label='查看来源' size={30} iconSize={16} onPress={() => { onOpenDetail(info) }} />
+        <CapsuleIconButton icon='play' label='播放' size={30} iconSize={16} onPress={() => { onPlay(info) }} />
       </View>
     </View>
   )
@@ -214,15 +211,7 @@ const SourceDetail = ({ info, onConfirm, toggleSource }: { info: LX.Music.MusicI
         ) : null
       }
       </View>
-      <Button
-        onPress={() => {
-          onConfirm(toggleSource!)
-        }}
-        style={{ ...styles.button, backgroundColor: theme['c-button-background'] }}
-        disabled={!toggleSource}
-      >
-        <Text color={theme['c-button-font']}>{t('music_toggle__confirm')}</Text>
-      </Button>
+      <CapsuleButton icon='check' label={t('music_toggle__confirm')} onPress={() => { onConfirm(toggleSource!) }} disabled={!toggleSource} />
     </View>
   ) : (
     <View style={styles.detailContainer}>
@@ -273,15 +262,7 @@ const SourceDetail = ({ info, onConfirm, toggleSource }: { info: LX.Music.MusicI
           ) : null
         }
       </View>
-      <Button
-        onPress={() => {
-          onConfirm(toggleSource!)
-        }}
-        style={{ ...styles.button, backgroundColor: theme['c-button-background'] }}
-        disabled={!toggleSource || toggleSource.id == info.id}
-      >
-        <Text color={theme['c-button-font']}>{t('music_toggle__confirm')}</Text>
-      </Button>
+      <CapsuleButton icon='check' label={t('music_toggle__confirm')} onPress={() => { onConfirm(toggleSource!) }} disabled={!toggleSource || toggleSource.id == info.id} />
     </View>
   )
 }
@@ -301,7 +282,8 @@ const Modal = forwardRef<ModalType, {}>((props, ref) => {
     error: boolean
   }>({ sourceInfo: [], lists: {}, loading: false, error: false })
   const [source, setSource] = useState<LX.OnlineSource | ''>('')
-  const dialogRef = useRef<DialogType>(null)
+  const palette = useSheetPalette()
+  const [visible, setVisible] = useState(false)
   const isUnmountedRef = useUnmounted()
   const [toggleSource, setToggleSource] = useState<LX.Music.MusicInfoOnline | null>(null)
 
@@ -338,20 +320,32 @@ const Modal = forwardRef<ModalType, {}>((props, ref) => {
       infoRef.current = info
       setSource('')
       loadData(info)
-      requestAnimationFrame(() => {
-        dialogRef.current?.setVisible(true)
-      })
+      setVisible(true)
     },
   }))
 
   const confirmToggleSource = useCallback(async(musicInfo: LX.Music.MusicInfoOnline) => {
     const isClose = await handleToggleSource(infoRef.current.listId, infoRef.current.musicInfo, musicInfo)
-    if (isClose) dialogRef.current?.setVisible(false)
+    if (isClose) setVisible(false)
   }, [])
 
   return (
-    <Dialog ref={dialogRef}>
-      <View style={styles.container}>
+    <RNModal visible={visible} transparent statusBarTranslucent animationType='fade' onRequestClose={() => { setVisible(false) }}>
+      <View style={styles.mask}>
+        <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => { setVisible(false) }} />
+        <View style={{ ...styles.sheet, backgroundColor: palette.bg, borderColor: palette.border }}>
+          <View style={[styles.grabber, { backgroundColor: palette.border }]} />
+          <View style={styles.sheetHead}>
+            <View style={[styles.sheetIcon, { backgroundColor: palette.card, borderColor: palette.border }]}>
+              <Icon name='swap-horizontal' size={20} color={palette.primary} />
+            </View>
+            <View style={styles.sheetInfo}>
+              <Text size={17} color={palette.text} numberOfLines={1} style={styles.sheetTitle}>切换音源</Text>
+              <Text size={11} color={palette.textSecondary} numberOfLines={1}>{infoRef.current.musicInfo?.name ?? ''}</Text>
+            </View>
+            <CapsuleIconButton icon='close' label='关闭' onPress={() => { setVisible(false) }} />
+          </View>
+          <View style={styles.container}>
         {
           sourceInfo.sourceInfo.length
             ? (<>
@@ -368,9 +362,11 @@ const Modal = forwardRef<ModalType, {}>((props, ref) => {
               </>)
             : <Empty loading={sourceInfo.loading} error={sourceInfo.error} onReload={loadData} />
         }
-        <SourceDetail info={infoRef.current.musicInfo} onConfirm={confirmToggleSource} toggleSource={toggleSource} />
+          <SourceDetail info={infoRef.current.musicInfo} onConfirm={confirmToggleSource} toggleSource={toggleSource} />
+          </View>
+        </View>
       </View>
-    </Dialog>
+    </RNModal>
   )
 })
 
@@ -407,11 +403,17 @@ export default forwardRef<MusicToggleModalType, {}>((props, ref) => {
 
 
 const styles = createStyle({
+  mask: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
+  sheet: { width: '100%', maxHeight: '88%', borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 0.5, paddingLeft: 16, paddingRight: 16, paddingTop: 8, paddingBottom: 16 },
+  grabber: { width: 36, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 12 },
+  sheetHead: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+  sheetIcon: { width: 40, height: 40, borderRadius: 14, borderWidth: 0.5, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  sheetInfo: { flex: 1, minWidth: 0 },
+  sheetTitle: { fontWeight: '700' },
   container: {
     flexGrow: 1,
     flexShrink: 1,
-    width: 600,
-    maxWidth: '100%',
+    width: '100%',
   },
   tabContainer: {
     flexGrow: 0,
