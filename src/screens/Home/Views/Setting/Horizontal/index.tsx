@@ -1,6 +1,6 @@
 import { View } from 'react-native'
 
-import Main from '../Main'
+import Main from '../Vertical/Main'
 import { createStyle } from '@/utils/tools'
 import { NAV_BAR_SPACE } from '@/config/constant'
 

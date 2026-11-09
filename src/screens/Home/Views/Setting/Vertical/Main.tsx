@@ -3,6 +3,14 @@ import { Animated, View, ScrollView, TouchableOpacity, StyleSheet } from 'react-
 
 import SourceManage from './SourceManage'
 import ToolsPage from './ToolsPage'
+import Playback from '../settings/Refactored/Playback'
+import Lyric from '../settings/Refactored/Lyric'
+import Appearance from '../settings/Refactored/Appearance'
+import Library from '../settings/Refactored/Library'
+import SourceSearch from '../settings/Refactored/SourceSearch'
+import DownloadStorage from '../settings/Refactored/DownloadStorage'
+import System from '../settings/Refactored/System'
+import Misc from '../settings/Refactored/Misc'
 import { createStyle } from '@/utils/tools'
 import { type SettingScreenIds } from '../Main'
 import { Icon } from '@/components/common/Icon'
@@ -34,10 +42,25 @@ const DEEP_TITLES: Partial<Record<SettingScreenIds, { title: string, desc: strin
 }
 const getSection = (id: SettingScreenIds) => DEEP_SECTIONS[id] ?? null
 
+/** 横屏主-子（master-detail）分类 */
+const CATEGORIES = [
+  { key: 'playback', label: '播放与音质', icon: 'play-circle-outline' },
+  { key: 'sourcesearch', label: '音源与搜索', icon: 'database-search-outline' },
+  { key: 'lyric', label: '歌词', icon: 'lyric-on' },
+  { key: 'library', label: '本地音乐', icon: 'folder-music' },
+  { key: 'download', label: '下载管理', icon: 'download-2' },
+  { key: 'appearance', label: '主题与交互', icon: 'palette-outline' },
+  { key: 'system', label: '通知与系统', icon: 'shield-check-outline' },
+  { key: 'data', label: '数据与版本', icon: 'database-outline' },
+] as const
+type CategoryKey = typeof CATEGORIES[number]['key']
+
 export default () => {
   const theme = useTheme()
   const t = useI18n()
   const statusBarHeight = useStatusbarHeight()
+  const horizontal = useHorizontalMode()
+  const [category, setCategory] = useState<CategoryKey>('playback')
   const [activeId, setActiveIdState] = useState<SettingScreenIds | null>(
     lastActiveId && DEEP_SECTIONS[lastActiveId] ? lastActiveId : null,
   )
@@ -118,13 +141,56 @@ export default () => {
   // 子页是整屏详情页：往上盖住「我的」页头（高度 = 状态栏 + 页头本体）
   const overlayTop = -(statusBarHeight + SETTINGS_HEADER_H)
   // 横屏导航浮在内容之上，设置子页要往回盖住它
-  const overlayLeft = useHorizontalMode() ? -HORIZONTAL_NAV_SPACE : 0
+  const overlayLeft = horizontal ? -HORIZONTAL_NAV_SPACE : 0
+
+  const categoryContent = (() => {
+    switch (category) {
+      case 'playback': return <Playback />
+      case 'sourcesearch': return <SourceSearch onOpenSource={() => { handlePress('sourcesearch') }} />
+      case 'lyric': return <Lyric />
+      case 'library': return <Library onOpenTools={() => { handlePress('library') }} />
+      case 'download': return <DownloadStorage />
+      case 'appearance': return <Appearance />
+      case 'system': return <System />
+      default: return <Misc />
+    }
+  })()
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
-        <Grid onPress={handlePress} />
-      </ScrollView>
+      {
+        horizontal
+          ? (
+            <View style={styles.masterDetail}>
+              <ScrollView style={styles.master} contentContainerStyle={styles.masterContent} showsVerticalScrollIndicator={false}>
+                {CATEGORIES.map(item => {
+                  const active = item.key === category
+                  return (
+                    <TouchableOpacity
+                      key={item.key}
+                      style={[styles.masterItem, active ? { backgroundColor: theme['c-primary-alpha-900'] } : null]}
+                      activeOpacity={0.7}
+                      onPress={() => { setCategory(item.key) }}
+                      accessibilityRole='button'
+                      accessibilityState={{ selected: active }}
+                    >
+                      <Icon name={item.icon} size={18} color={active ? theme['c-primary'] : theme['c-450']} />
+                      <Text size={13.5} color={active ? theme['c-primary'] : theme['c-font']} numberOfLines={1} style={styles.masterLabel}>{item.label}</Text>
+                    </TouchableOpacity>
+                  )
+                })}
+              </ScrollView>
+              <ScrollView style={styles.detailPane} contentContainerStyle={styles.detailContent} showsVerticalScrollIndicator={false}>
+                {categoryContent}
+              </ScrollView>
+            </View>
+            )
+          : (
+            <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
+              <Grid onPress={handlePress} />
+            </ScrollView>
+            )
+      }
 
       {
         activeId
@@ -171,6 +237,41 @@ export default () => {
 const styles = createStyle({
   container: {
     flex: 1,
+  },
+  masterDetail: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  master: {
+    width: 220,
+    borderRightWidth: 0.5,
+  },
+  masterContent: {
+    paddingTop: 8,
+    paddingBottom: NAV_BAR_SPACE,
+    paddingLeft: 8,
+    paddingRight: 8,
+  },
+  masterItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 44,
+    borderRadius: 12,
+    paddingLeft: 12,
+    paddingRight: 10,
+    marginBottom: 2,
+  },
+  masterLabel: {
+    marginLeft: 10,
+  },
+  detailPane: {
+    flex: 1,
+  },
+  detailContent: {
+    paddingLeft: 20,
+    paddingRight: 20,
+    paddingTop: 8,
+    paddingBottom: NAV_BAR_SPACE,
   },
   list: {
     paddingTop: 2,

@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type ComponentRef } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Animated,
   Easing,
@@ -16,7 +16,6 @@ import {
 } from 'react-native'
 
 import LinearGradient from 'react-native-linear-gradient'
-import PagerView from 'react-native-pager-view'
 
 import Text from '@/components/common/Text'
 import PicImage from '@/components/common/PicImage'
@@ -493,7 +492,7 @@ export default () => {
 
   /** 歌曲信息 / 歌曲页面 / 歌词页面 三页；和 Salt Player 一样用原生 PagerView 横滑 */
   const [mode, setMode] = useState<'info' | 'cover' | 'lyric'>('cover')
-  const pagerRef = useRef<ComponentRef<typeof PagerView>>(null)
+  const pagerRef = useRef<ScrollView>(null)
   const [currentLine, setCurrentLine] = useState(-1)
   const [seekPreview, setSeekPreview] = useState<number | null>(null)
   const [collected, setCollected] = useState(false)
@@ -927,8 +926,10 @@ export default () => {
 
   /** 三页顺序：歌曲信息(0) / 歌曲页面(1) / 歌词页面(2) */
   const goPage = useCallback((index: 0 | 1 | 2) => {
-    pagerRef.current?.setPage(index)
-  }, [])
+    pagerRef.current?.scrollTo({ x: layoutW * index, y: 0, animated: true })
+    setMode(index === 0 ? 'info' : index === 1 ? 'cover' : 'lyric')
+  }, [layoutW])
+
 
   const handleToggleMode = useCallback(() => {
     goPage(mode === 'cover' ? 2 : 1)
@@ -1675,26 +1676,31 @@ export default () => {
       </View>
 
       {/* 三页原生横滑：歌曲信息 / 歌曲页面 / 歌词页面（Salt Player 同款操作与动画） */}
-      <PagerView
+      <ScrollView
         ref={pagerRef}
+        horizontal
+        pagingEnabled
+        snapToInterval={layoutW}
+        snapToAlignment='start'
+        disableIntervalMomentum
+        showsHorizontalScrollIndicator={false}
+        scrollEventThrottle={16}
+        decelerationRate='fast'
+        contentOffset={{ x: layoutW, y: 0 }}
         style={{ position: 'absolute', left: 0, right: 0, top: coverTop, height: bottomTop - coverTop }}
-        initialPage={1}
-        scrollEnabled={!isLandscape}
-        onPageSelected={e => {
-          const pos = e.nativeEvent.position
+        onMomentumScrollEnd={e => {
+          const pos = Math.round(e.nativeEvent.contentOffset.x / Math.max(1, layoutW))
           setMode(pos === 0 ? 'info' : pos === 1 ? 'cover' : 'lyric')
         }}
       >
         {/* 0: 歌曲信息页（背景与歌词页相同的磨砂封面） */}
-        <View key='info' style={{ flex: 1 }}>
-          <View pointerEvents='none' style={StyleSheet.absoluteFill}>
-            <Glass blurRadius={25} tint='rgba(8,6,12,0.30)' />
-            <LinearGradient
-              colors={[palette.scrimAt(0.42), palette.scrimAt(0.22), palette.scrimAt(0.62)]}
-              locations={[0, 0.45, 1]}
-              style={StyleSheet.absoluteFill}
-            />
-          </View>
+        <View key='info' style={{ width: layoutW, height: '100%' }}>
+          <LinearGradient
+            pointerEvents='none'
+            colors={[palette.scrimAt(0.34), palette.scrimAt(0.2), palette.scrimAt(0.55)]}
+            locations={[0, 0.45, 1]}
+            style={StyleSheet.absoluteFill}
+          />
           <ScrollView
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingTop: statusBarHeight + 64, paddingLeft: 24, paddingRight: 24, paddingBottom: 160 }}
@@ -1710,14 +1716,7 @@ export default () => {
         </View>
 
         {/* 1: 歌曲页面（保持原有封面页：点击封面仍可切到歌词页） */}
-        <View key='cover' style={{ flex: 1 }}>
-          <TouchableOpacity
-            activeOpacity={1}
-            style={{ flex: 1 }}
-            onPress={() => { goPage(2) }}
-            accessibilityRole='button'
-            accessibilityLabel='打开歌词页'
-          />
+        <View key='cover' style={{ width: layoutW, height: '100%' }}>
           <View pointerEvents='none' style={[styles.lyricStrip, { top: stripTop - coverTop, height: stripH }]}>
             <Text size={u(16)} color='rgba(255,255,255,0.95)' numberOfLines={1} style={styles.nowLyric}>
               {lrcPlay.text || ' '}
@@ -1726,7 +1725,7 @@ export default () => {
         </View>
 
         {/* 2: 歌词页面（右滑回歌曲页面由 PagerView 原生处理） */}
-        <View key='lyric' style={{ flex: 1 }} onLayout={e => { setLyricH(e.nativeEvent.layout.height) }}>
+        <View key='lyric' style={{ width: layoutW, height: '100%' }} onLayout={e => { setLyricH(e.nativeEvent.layout.height) }}>
           {
             lines.length
               ? (
@@ -1767,7 +1766,7 @@ export default () => {
               : <LyricEmptyHint onPress={() => { goPage(1) }} />
           }
         </View>
-      </PagerView>
+      </ScrollView>
 
       {/* 底部整块：信息行/工具行 + 进度 + 五个主控键（尺寸全部按飞牛实测） */}
       {mode !== 'info' ? (
