@@ -19,6 +19,9 @@ import PageHeader from '@/components/common/PageHeader'
 import MiniTag from '@/components/common/MiniTag'
 import TaskItem from './TaskItem'
 import TaskMenu, { type TaskMenuType, type TaskMenuAction } from './TaskMenu'
+import BatchActionBar, { type BatchBarAction } from '@/components/common/BatchActionBar'
+import ActionSheet from '@/components/common/ActionSheet'
+import { useOverlayLock } from '@/utils/overlayLock'
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const emoLogo = require('@/resources/images/emo-logo.png')
@@ -35,6 +38,10 @@ export default () => {
   /** 多选管理：和本地音乐列表同一套交互（选择/长按进入，底部操作条） */
   const [batchMode, setBatchMode] = useState(false)
   const [batchSelected, setBatchSelected] = useState<Set<string>>(new Set())
+  const [batchMoreSheet, setBatchMoreSheet] = useState(false)
+
+  // 批量模式下收起底部胶囊导航，操作条和胶囊同位置
+  useOverlayLock(batchMode)
 
   const runningList = useMemo(() => list.filter(task => !task.isComplate), [list])
   const doneList = useMemo(() => list.filter(task => task.isComplate), [list])
@@ -124,6 +131,18 @@ export default () => {
       return new Set(shownList.map(task => task.id))
     })
   }, [shownList])
+
+  const batchActions = useMemo<BatchBarAction[]>(() => [
+    { key: 'all', label: '全选', icon: 'checkbox-multiple-marked-outline', onPress: handleBatchSelectAll },
+    { key: 'pause', label: '暂停', icon: 'pause', onPress: handleBatchPause },
+    { key: 'resume', label: '继续', icon: 'play', onPress: handleBatchResume },
+    { key: 'more', label: '更多', icon: 'dots-horizontal', onPress: () => { setBatchMoreSheet(true) } },
+  ], [handleBatchSelectAll, handleBatchPause, handleBatchResume])
+
+  const batchMoreItems = useMemo(() => [
+    { key: 'remove', label: '移除任务（不删文件）', icon: 'delete-outline', danger: true, onPress: () => { setBatchMoreSheet(false); handleBatchRemoveTasks() } },
+    { key: 'removeFiles', label: '删除已完成文件', icon: 'delete-forever-outline', danger: true, onPress: () => { setBatchMoreSheet(false); handleBatchRemoveFiles() } },
+  ], [handleBatchRemoveTasks, handleBatchRemoveFiles])
 
   const handleShowMenu = useCallback((task: LX.Download.ListItem, position: { x: number, y: number, w: number, h: number }) => {
     menuRef.current?.show(task, position)
@@ -296,36 +315,20 @@ export default () => {
       {
         batchMode
           ? (
-            <View style={[styles.batchBar, { backgroundColor: theme['c-content-background'], borderColor: theme['c-primary-alpha-700'] }]}>
-              <Text size={12} style={styles.batchCount}>{`已选 ${batchSelected.size}`}</Text>
-              <TouchableOpacity style={styles.batchBtn} onPress={handleBatchSelectAll} accessibilityLabel='全选'>
-                <Icon name='checkbox-multiple-marked-outline' size={19} color={theme['c-font']} />
-                <Text size={9.5} color={theme['c-450']} style={styles.batchLabel}>全选</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.batchBtn} onPress={handleBatchPause} accessibilityLabel='暂停所选'>
-                <Icon name='pause' size={19} color={theme['c-font']} />
-                <Text size={9.5} color={theme['c-450']} style={styles.batchLabel}>暂停</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.batchBtn} onPress={handleBatchResume} accessibilityLabel='继续所选'>
-                <Icon name='play' size={19} color={theme['c-font']} />
-                <Text size={9.5} color={theme['c-450']} style={styles.batchLabel}>继续</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.batchBtn} onPress={handleBatchRemoveTasks} accessibilityLabel='移除任务'>
-                <Icon name='delete-outline' size={19} color='#F59E0B' />
-                <Text size={9.5} color='#F59E0B' style={styles.batchLabel}>移除</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.batchBtn} onPress={handleBatchRemoveFiles} accessibilityLabel='删除文件'>
-                <Icon name='delete-forever-outline' size={19} color='#F87171' />
-                <Text size={9.5} color='#F87171' style={styles.batchLabel}>删文件</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.batchBtn} onPress={exitBatch} accessibilityLabel='退出批量选择'>
-                <Icon name='close' size={19} color={theme['c-font']} />
-                <Text size={9.5} color={theme['c-450']} style={styles.batchLabel}>退出</Text>
-              </TouchableOpacity>
-            </View>
+            <BatchActionBar
+              count={batchSelected.size}
+              actions={batchActions}
+              onExit={exitBatch}
+            />
             )
           : null
       }
+      <ActionSheet
+        visible={batchMoreSheet}
+        onClose={() => { setBatchMoreSheet(false) }}
+        header={{ title: '批量操作', subtitle: `已选 ${batchSelected.size} 个任务` }}
+        items={batchMoreItems}
+      />
       <TaskMenu ref={menuRef} onAction={handleMenuAction} />
     </View>
   )
@@ -364,36 +367,6 @@ const styles = createStyle({
     // 任务行已改成无卡片列表样式，这里只留一点与页头的呼吸间距
     paddingTop: 6,
     paddingBottom: NAV_BAR_SPACE,
-  },
-  batchBar: {
-    position: 'absolute',
-    left: 12,
-    right: 12,
-    bottom: 96,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 20,
-    borderWidth: 0.5,
-    paddingLeft: 14,
-    paddingRight: 8,
-    height: 56,
-    elevation: 18,
-    shadowColor: '#000000',
-    shadowOpacity: 0.24,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 8 },
-    zIndex: 20,
-  },
-  batchCount: {
-    flex: 1,
-  },
-  batchBtn: {
-    width: 52,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  batchLabel: {
-    marginTop: 2,
   },
   empty: {
     flex: 1,

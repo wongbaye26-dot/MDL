@@ -21,6 +21,7 @@ import Input from '@/components/common/Input'
 import Clipboard from '@react-native-clipboard/clipboard'
 import PageHeader from '@/components/common/PageHeader'
 import ActionSheet from '@/components/common/ActionSheet'
+import BatchActionBar, { type BatchBarAction } from '@/components/common/BatchActionBar'
 import { useStatusbarHeight } from '@/store/common/hook'
 import Tag from '@/components/common/Tag'
 import ListMusicAdd, { type MusicAddModalType } from '@/components/MusicAddModal'
@@ -31,6 +32,7 @@ import { contrastOn } from '@/theme/solid'
 import { setNavActiveId } from '@/core/common'
 import LiquidGlass from '@/components/common/LiquidGlass'
 import { useSettingValue } from '@/store/setting/hook'
+import { useOverlayLock } from '@/utils/overlayLock'
 import { confirmDialog, createStyle, tipDialog, toast } from '@/utils/tools'
 import { formatSize, formatSampleRate } from '@/core/download/utils'
 import { showAppDialog } from '@/components/common/AppDialog/service'
@@ -227,6 +229,10 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
   const cueImportRef = useRef(false)
   /** 批量管理（D-19） */
   const [batchMode, setBatchMode] = useState(false)
+  const [batchMoreSheet, setBatchMoreSheet] = useState(false)
+
+  // 批量模式下收起底部胶囊导航：操作条和胶囊同位置，避免双层底栏
+  useOverlayLock(batchMode)
   const [batchSelected, setBatchSelected] = useState<Set<string>>(() => new Set())
   const multiAddRef = useRef<MusicMultiAddModalType>(null)
   /**
@@ -1427,6 +1433,18 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
     setViewPrefs(prev => ({ ...prev, filter: { ...prev.filter, ...patch } }))
   }, [])
 
+  const batchActions = useMemo<BatchBarAction[]>(() => [
+    { key: 'queue', label: '队列', icon: 'playlist-plus', onPress: () => { runBatch('queue') } },
+    { key: 'playlist', label: '歌单', icon: 'playlist-music', onPress: () => { runBatch('playlist') } },
+    { key: 'hide', label: '隐藏', icon: 'eye-off-outline', onPress: () => { runBatch('hide') } },
+    { key: 'more', label: '更多', icon: 'dots-horizontal', onPress: () => { setBatchMoreSheet(true) } },
+  ], [runBatch])
+
+  const batchMoreItems = useMemo(() => [
+    { key: 'deleteFiles', label: '删除文件到回收站', icon: 'delete-forever-outline', danger: true, onPress: () => { setBatchMoreSheet(false); runBatch('deleteFiles') } },
+    { key: 'remove', label: '从曲库移除', icon: 'delete-outline', danger: true, onPress: () => { setBatchMoreSheet(false); runBatch('remove') } },
+  ], [runBatch])
+
   const sortSheetItems = [
     ...SORT_OPTIONS.map(option => ({
       key: option.key,
@@ -2058,36 +2076,20 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
       {
         batchMode
           ? (
-            <View style={[styles.batchBar, { backgroundColor: theme['c-content-background'], borderColor: theme['c-primary-alpha-700'] }]}>
-              <Text size={12} style={styles.batchCount}>{`已选 ${batchSelected.size}`}</Text>
-              <TouchableOpacity style={styles.batchBtn} onPress={() => { runBatch('queue') }} accessibilityLabel='加入播放队列'>
-                <Icon name='playlist-plus' size={19} color={theme['c-font']} />
-                <Text size={9.5} color={theme['c-450']} style={styles.batchLabel}>队列</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.batchBtn} onPress={() => { runBatch('playlist') }} accessibilityLabel='添加到歌单'>
-                <Icon name='playlist-music' size={19} color={theme['c-font']} />
-                <Text size={9.5} color={theme['c-450']} style={styles.batchLabel}>歌单</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.batchBtn} onPress={() => { runBatch('hide') }} accessibilityLabel='隐藏所选'>
-                <Icon name='eye-off-outline' size={19} color={theme['c-font']} />
-                <Text size={9.5} color={theme['c-450']} style={styles.batchLabel}>隐藏</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.batchBtn} onPress={() => { runBatch('deleteFiles') }} accessibilityLabel='删除文件到回收站'>
-                <Icon name='delete-forever-outline' size={19} color={WARN_COLOR} />
-                <Text size={9.5} color={WARN_COLOR} style={styles.batchLabel}>删文件</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.batchBtn} onPress={() => { runBatch('remove') }} accessibilityLabel='从曲库移除'>
-                <Icon name='delete-outline' size={19} color={WARN_COLOR} />
-                <Text size={9.5} color={WARN_COLOR} style={styles.batchLabel}>移除</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.batchBtn} onPress={toggleBatchMode} accessibilityLabel='退出批量选择'>
-                <Icon name='close' size={19} color={theme['c-font']} />
-                <Text size={9.5} color={theme['c-450']} style={styles.batchLabel}>退出</Text>
-              </TouchableOpacity>
-            </View>
+            <BatchActionBar
+              count={batchSelected.size}
+              actions={batchActions}
+              onExit={toggleBatchMode}
+            />
             )
           : null
       }
+      <ActionSheet
+        visible={batchMoreSheet}
+        onClose={() => { setBatchMoreSheet(false) }}
+        header={{ title: '批量操作', subtitle: `已选 ${batchSelected.size} 首` }}
+        items={batchMoreItems}
+      />
       <MusicMultiAddModal ref={multiAddRef} onAdded={() => { setBatchSelected(new Set()); setBatchMode(false) }} />
 
       <ChoosePath ref={choosePathRef} onConfirm={handleM3UPath} />
@@ -2754,36 +2756,6 @@ const styles = createStyle({
     width: 26,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  batchBar: {
-    position: 'absolute',
-    left: 12,
-    right: 12,
-    bottom: 96,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 20,
-    borderWidth: 0.5,
-    paddingLeft: 14,
-    paddingRight: 8,
-    height: 56,
-    elevation: 18,
-    shadowColor: '#000000',
-    shadowOpacity: 0.24,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 8 },
-    zIndex: 20,
-  },
-  batchCount: {
-    flex: 1,
-  },
-  batchBtn: {
-    width: 52,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  batchLabel: {
-    marginTop: 2,
   },
   row: {
     flexDirection: 'row',
