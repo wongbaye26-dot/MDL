@@ -223,11 +223,22 @@ export default () => {
                     </View>
                     {activeId === 'sourcesearch'
                       ? (
-                        <ImportBtn
+                        <>
+                          <TouchableOpacity
+                            style={{ width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: theme['c-primary-alpha-900'], marginRight: 6 }}
+                            activeOpacity={0.8}
+                            accessibilityRole='button'
+                            accessibilityLabel='音源检测'
+                            onPress={() => { global.state_event.sourceCheckRequested() }}
+                          >
+                            <Icon name='radar' size={19} color={theme['c-font']} />
+                          </TouchableOpacity>
+                          <ImportBtn
                           iconOnly
                           color={theme['c-font']}
-                          btnStyle={{ width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: theme['c-primary-alpha-900'] }}
-                        />
+                            btnStyle={{ width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: theme['c-primary-alpha-900'] }}
+                          />
+                        </>
                         )
                       : null}
                   </View>

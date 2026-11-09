@@ -188,6 +188,12 @@ export default memo(() => {
     })
   }, [running, sources, keyword, qualitys, t, finishCheck])
 
+  useEffect(() => {
+    const handleRequest = () => { handleStart() }
+    global.state_event.on('sourceCheckRequested', handleRequest)
+    return () => { global.state_event.off('sourceCheckRequested', handleRequest) }
+  }, [handleStart])
+
   const handleCancel = useCallback(() => {
     cancelledRef.current = true
     taskRef.current?.cancel()

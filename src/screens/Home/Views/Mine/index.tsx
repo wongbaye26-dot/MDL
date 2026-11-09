@@ -29,7 +29,7 @@ export default () => {
       }}>
         <Text size={compact ? 19 : Type.pageTitle.fontSize} style={styles.title}>设置</Text>
         <View style={styles.headerActions}>
-          <CapsuleIconButton icon='database-sync-outline' label='音源管理' onPress={() => { global.state_event.settingsDeepScreenRequested('sourcesearch') }} />
+          <CapsuleIconButton icon='music-box-multiple-outline' label='音源管理' onPress={() => { global.state_event.settingsDeepScreenRequested('sourcesearch') }} />
           <CapsuleIconButton icon='tools' label='曲库工具' onPress={() => { global.state_event.settingsDeepScreenRequested('library') }} />
           <CapsuleIconButton icon='download-2' label='下载管理' onPress={() => { global.state_event.settingsDeepScreenRequested('download') }} />
         </View>

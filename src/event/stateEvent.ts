@@ -134,6 +134,11 @@ export class StateEvent extends Event {
     this.emit('settingsDeepScreenRequested', id)
   }
 
+  /** 从音源管理页头图标触发「音源检测」 */
+  sourceCheckRequested() {
+    this.emit('sourceCheckRequested')
+  }
+
   sourceNamesUpdated(names: CommonState['sourceNames']) {
     this.emit('sourceNamesUpdated', names)
   }
