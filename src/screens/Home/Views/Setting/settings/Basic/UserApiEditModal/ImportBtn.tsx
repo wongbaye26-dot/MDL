@@ -57,7 +57,7 @@ export default ({ btnStyle, color = '#FFFFFF', iconOnly = false }: BtnProps) => 
       onPress={handleAction}
     >
       {iconOnly
-        ? <Icon name='file-import-outline' size={19} color={color} />
+        ? <Icon name='tray-arrow-down' size={19} color={color} />
         : <Text size={14} color={color} style={{ fontWeight: '600' }}>{t('user_api_btn_import')}</Text>}
       <ScriptImportExport ref={scriptImportExportRef} />
       <ScriptImportOnline ref={scriptImportOnlineRef} />

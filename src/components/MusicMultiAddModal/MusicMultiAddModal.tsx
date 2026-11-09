@@ -1,7 +1,8 @@
 import { forwardRef, useImperativeHandle, useRef, useState } from 'react'
 import Dialog, { type DialogType } from '@/components/common/Dialog'
 import { toast } from '@/utils/tools'
-import Title from './Title'
+import { View } from 'react-native'
+import Text from '@/components/common/Text'
 import List from './List'
 import { useI18n } from '@/lang'
 import { addListMusics, moveListMusics } from '@/core/list'
@@ -77,10 +78,16 @@ export default forwardRef<MusicMultiAddModalType, MusicMultiAddModalProps>(({ on
     <Dialog ref={dialogRef} onHide={handleHide}>
       {
         selectInfo.selectedList.length
-          ? (<>
-              <Title selectedList={selectInfo.selectedList} isMove={selectInfo.isMove} />
-              <List listId={selectInfo.listId} onPress={handleSelect} />
-            </>)
+          ? (
+              <View>
+                <View style={{ paddingLeft: 20, paddingRight: 20, paddingTop: 4, paddingBottom: 12 }}>
+                  <Text size={12} color='#9E9E9E' numberOfLines={1}>
+                    {selectInfo.isMove ? '移动' : '添加'} {selectInfo.selectedList.length} 首到歌单
+                  </Text>
+                </View>
+                <List listId={selectInfo.listId} onPress={handleSelect} />
+              </View>
+            )
           : null
       }
     </Dialog>
