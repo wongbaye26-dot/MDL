@@ -17,6 +17,7 @@ import { getLocalMusicListSync } from '@/core/localMusic'
 import { LIST_IDS } from '@/config/constant'
 import { measureStartRect, openPlayerWithTransition } from '@/utils/playerOpen'
 import { useTheme } from '@/store/theme/hook'
+import { useSheetPalette } from '@/components/common/ActionSheet/palette'
 import { usePlayerMusicInfo, useIsPlay, useProgress, usePlayInfo } from '@/store/player/hook'
 import { useSettingValue } from '@/store/setting/hook'
 import { useMyList } from '@/store/list/hook'
@@ -191,6 +192,7 @@ const MiniPlayer = memo(({ onOpenQueue }: { onOpenQueue: () => void }) => {
  */
 const QueueSheet = memo(({ visible, onClose }: { visible: boolean, onClose: () => void }) => {
   const theme = useTheme()
+  const palette = useSheetPalette()
   const playInfo = usePlayInfo()
   const musicInfo = usePlayerMusicInfo()
   const listId = playInfo.playerListId
@@ -209,11 +211,12 @@ const QueueSheet = memo(({ visible, onClose }: { visible: boolean, onClose: () =
       <View style={styles.queueRoot}>
         {/* 蒙层单独铺在底层：点空白处关闭，点/滚 Sheet 不会误触 */}
         <TouchableOpacity style={styles.queueBackdrop} activeOpacity={1} onPress={onClose} />
-        <View style={{ ...styles.queueSheet, backgroundColor: theme['c-content-background'] }}>
-          <View style={{ ...styles.queueHandle, backgroundColor: theme['c-350'] }} />
+        <View style={{ ...styles.queueSheet, backgroundColor: palette.bg, borderColor: palette.border }}>
+          <View style={{ ...styles.queueHandle, backgroundColor: palette.border }} />
           <View style={styles.queueHead}>
-            <Text size={15} style={styles.queueTitle}>播放队列</Text>
-            <Text size={10.5} color={theme['c-450']}>{queue.length} 首</Text>
+            <Text size={17} color={palette.text} style={styles.queueTitle}>播放队列</Text>
+            <Text size={11} color={palette.textSecondary} style={{ marginRight: 8 }}>{queue.length} 首</Text>
+            <CapsuleIconButton icon='close' label='关闭' onPress={onClose} />
           </View>
           {
             queue.length
@@ -233,14 +236,14 @@ const QueueSheet = memo(({ visible, onClose }: { visible: boolean, onClose: () =
                           <View style={styles.queueInfo}>
                             <Text
                               size={13}
-                              color={active ? theme['c-primary'] : theme['c-font']}
+                              color={active ? palette.primary : palette.text}
                               numberOfLines={1}
                             >{cleanSongName(item.name, item.singer)}</Text>
-                            <Text size={10} color={theme['c-450']} numberOfLines={1} style={styles.queueSinger}>
+                            <Text size={11} color={palette.textSecondary} numberOfLines={1} style={styles.queueSinger}>
                               {item.singer || '未知歌手'}
                             </Text>
                           </View>
-                          {active ? <Icon name='volume-high' size={15} color={theme['c-primary']} /> : null}
+                          {active ? <Icon name='volume-high' size={15} color={palette.primary} /> : null}
                         </TouchableOpacity>
                       )
                     })
@@ -876,10 +879,11 @@ const styles = createStyle({
     backgroundColor: 'rgba(0,0,0,0.45)',
   },
   queueSheet: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingLeft: 16,
-    paddingRight: 16,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderWidth: 0.5,
+    paddingLeft: 20,
+    paddingRight: 20,
     paddingTop: 8,
     paddingBottom: 28,
     maxHeight: '70%',
@@ -907,13 +911,14 @@ const styles = createStyle({
   queueRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: 6,
-    paddingBottom: 6,
+    minHeight: 56,
+    borderBottomWidth: 0.5,
+    borderBottomColor: 'rgba(128,128,128,0.16)',
   },
   queueCover: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
+    width: 42,
+    height: 42,
+    borderRadius: 12,
   },
   queueInfo: {
     flexGrow: 1,

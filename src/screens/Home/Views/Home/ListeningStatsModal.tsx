@@ -3,6 +3,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from
 
 import Text from '@/components/common/Text'
 import { Icon } from '@/components/common/Icon'
+import CapsuleIconButton from '@/components/common/CapsuleIconButton'
 import { useTheme } from '@/store/theme/hook'
 import { clearListeningStats, useListeningStats } from '@/core/player/listenStats'
 import { getListMusicSync } from '@/utils/listManage'
@@ -65,16 +66,15 @@ export default memo(({ visible, onClose }: { visible: boolean, onClose: () => vo
     <Modal visible={visible} transparent animationType='fade' statusBarTranslucent onRequestClose={onClose}>
       <View style={styles.backdrop}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityRole='button' accessibilityLabel='关闭听歌统计' />
-        <View style={[styles.card, { backgroundColor: theme['c-content-background'] }]}>
+        <View style={[styles.card, { backgroundColor: theme['c-content-background'], borderColor: theme['c-primary-alpha-700'] }]}>
+          <View style={[styles.grabber, { backgroundColor: theme['c-primary-alpha-700'] }]} />
           <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
             <View style={styles.header}>
               <View style={styles.headerTitle}>
                 <Icon name='chart-bar' size={20} color={theme['c-primary']} />
-                <Text size={18} style={styles.title}>听歌统计</Text>
+                <Text size={17} style={styles.title}>听歌统计</Text>
               </View>
-              <TouchableOpacity style={styles.closeBtn} activeOpacity={0.7} onPress={onClose} accessibilityLabel='关闭'>
-                <Icon name='close' size={19} color={theme['c-font']} />
-              </TouchableOpacity>
+              <CapsuleIconButton icon='close' label='关闭' onPress={onClose} />
             </View>
 
             <View style={[styles.periods, { backgroundColor: theme['c-primary-alpha-900'] }]}>
@@ -209,15 +209,22 @@ const styles = createStyle({
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.55)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
+    justifyContent: 'flex-end',
+  },
+  grabber: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginTop: 8,
   },
   card: {
     width: '100%',
-    maxWidth: 520,
-    maxHeight: '90%',
-    borderRadius: 26,
+    maxHeight: '92%',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderWidth: 0.5,
+    borderRadius: 0,
     paddingTop: 14,
   },
   body: {
