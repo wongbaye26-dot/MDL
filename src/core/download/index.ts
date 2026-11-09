@@ -32,12 +32,15 @@ import {
   joinPath,
 } from './utils'
 import { log } from '@/utils/log'
+import { getBestThreads, loadThreadStats, recordThreadSample } from './threadStats'
 import { toast } from '@/utils/tools'
 import { isExternalStorageManager } from '@/utils/nativeModules/utils'
 import RNFS from 'react-native-fs'
 
 /** 正在下载的任务 id */
 const runningIds = new Set<string>()
+/** 每个任务实际使用的分段线程数（用于线程基准采样） */
+const taskThreads = new Map<string, number>()
 /** 需要在下次开始时强制刷新下载地址的任务 id */
 const refreshingIds = new Set<string>()
 /** 下一次解析下载地址时强制跳过当前音源（内容与声称音质不符时优先换源重试） */
@@ -62,7 +65,10 @@ const getTask = (id: string) => downloadAction.getTaskById(id)
  */
 const getDownloadThreads = () => {
   const running = runningIds.size
-  if (running <= 1) return 3
+  if (running <= 1) {
+    // 有足够基准样本时用实测最快的线程数；没有就保持默认 3
+    return getBestThreads() ?? 3
+  }
   if (running === 2) return 2
   return 1
 }
@@ -111,6 +117,7 @@ export const saveNow = async() => {
   const list = downloadState.list.map((task): LX.Download.ListItem => ({
     ...task,
     speed: '',
+    speedBytes: 0,
     statusText: '',
     // 运行中的任务下次启动时视为暂停
     status: task.isComplate ? 'completed' : (task.status === 'run' ? 'pause' : task.status),
@@ -120,12 +127,13 @@ export const saveNow = async() => {
 
 const normalizeTask = (task: LX.Download.ListItem): LX.Download.ListItem => {
   if (task.isComplate || task.status === 'completed') {
-    return { ...task, status: 'completed', isComplate: true, progress: 100, speed: '', statusText: '' }
+    return { ...task, status: 'completed', isComplate: true, progress: 100, speed: '', speedBytes: 0, statusText: '' }
   }
   return {
     ...task,
     status: 'pause',
     speed: '',
+    speedBytes: 0,
     statusText: '',
     progress: task.total ? Math.min(99, Math.floor(task.downloaded / task.total * 100)) : 0,
   }
@@ -137,6 +145,7 @@ const normalizeTask = (task: LX.Download.ListItem): LX.Download.ListItem => {
 export const init = async() => {
   if (inited) return
   inited = true
+  void loadThreadStats()
   const list = await getDownloadList()
   downloadAction.setList(list.map(normalizeTask))
   downloadAction.setInit()
@@ -208,25 +217,30 @@ const handleNativeEvent = (event: DownloadEventPayload) => {
       downloadAction.updateTask(event.id, {
         status: 'run',
         statusText: '',
+        speedBytes: 0,
         downloaded: event.downloaded,
         total: event.total,
       })
       break
     case 'progress': {
       const progress = event.total > 0 ? Math.min(100, event.downloaded / event.total * 100) : 0
+      recordThreadSample(taskThreads.get(event.id) ?? getDownloadThreads(), event.speed)
       downloadAction.updateTask(event.id, {
         downloaded: event.downloaded,
         total: event.total,
         progress,
         speed: formatSpeed(event.speed),
+        speedBytes: event.speed,
       })
       break
     }
     case 'pause':
       runningIds.delete(event.id)
+      taskThreads.delete(event.id)
       downloadAction.updateTask(event.id, {
         status: 'pause',
         speed: '',
+        speedBytes: 0,
         downloaded: event.downloaded,
         total: event.total,
       })
@@ -235,10 +249,12 @@ const handleNativeEvent = (event: DownloadEventPayload) => {
       break
     case 'complete':
       runningIds.delete(event.id)
+      taskThreads.delete(event.id)
       void handleComplete(event.id, event.total)
       break
     case 'error':
       runningIds.delete(event.id)
+      taskThreads.delete(event.id)
       void handleError(event.id, event.code, event.message)
       break
   }
@@ -764,6 +780,8 @@ export const startTask = async(id: string) => {
       path: filePath,
       threads: getDownloadThreads(),
     }
+    const threads = startOptions.threads ?? 1
+    taskThreads.set(id, threads)
     nativeStartTask(startOptions)
   } catch (err: any) {
     runningIds.delete(id)
@@ -793,6 +811,7 @@ export const pauseTask = (id: string) => {
   const task = getTask(id)
   if (!task) return
   runningIds.delete(id)
+  taskThreads.delete(id)
   try {
     nativePauseTask(id)
   } catch (err) {
@@ -806,6 +825,7 @@ export const pauseTask = (id: string) => {
 export const removeTask = (id: string, isRemoveFile = true) => {
   const task = getTask(id)
   if (!task) return
+  taskThreads.delete(id)
   const isActive = task.status === 'run' || task.status === 'waiting'
   runningIds.delete(id)
   refreshingIds.delete(id)

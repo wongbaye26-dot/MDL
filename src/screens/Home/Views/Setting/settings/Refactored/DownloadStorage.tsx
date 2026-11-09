@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AppState, Linking, TouchableOpacity, View } from 'react-native'
 import { Group, ToggleRow, ChoiceRow, ActionRow } from '../../components/ui'
+import ActionSheet from '@/components/common/ActionSheet'
 import Text from '@/components/common/Text'
 import { useTheme } from '@/store/theme/hook'
 import { useSettingValue } from '@/store/setting/hook'
 import { useI18n } from '@/lang'
 import { createStyle, toast } from '@/utils/tools'
 import { updateSetting } from '@/core/common'
-import { QUALITYS, QUALITY_LABEL, getDefaultSavePath, getFallbackSavePath, isSafPath } from '@/core/download/utils'
+import { QUALITYS, QUALITY_LABEL, getDefaultSavePath, getFallbackSavePath, isSafPath, formatSpeed } from '@/core/download/utils'
 import { clearSavePathCache, ensureDir, migrateFallbackDownloads } from '@/core/download'
+import { getBestThreads, getThreadStats, loadThreadStats, clearThreadStats, type ThreadStat } from '@/core/download/threadStats'
 import { pickDirectory, canWriteTree, treeUriToDisplayPath } from '@/utils/directoryPicker'
 import { isExternalStorageManager, openAllFilesAccessSettings } from '@/utils/nativeModules/utils'
 import { useQualityList } from '../Source/state'
@@ -21,6 +23,9 @@ export default () => {
   const savePath = useSettingValue('download.savePath')
   const qualityList = useQualityList()
   const [allFilesAccess, setAllFilesAccess] = useState(false)
+  const [benchVisible, setBenchVisible] = useState(false)
+  const [threadStats, setThreadStats] = useState<ThreadStat[]>([])
+  const [bestThreads, setBestThreads] = useState<number | null>(null)
 
   const checkAllFilesAccess = useCallback(async() => {
     const granted = await isExternalStorageManager()
@@ -29,6 +34,14 @@ export default () => {
     const moved = await migrateFallbackDownloads()
     if (moved > 0) { clearSavePathCache(); toast(`已把 ${moved} 个文件迁回默认音乐目录`) }
   }, [])
+
+  const refreshThreadStats = useCallback(async() => {
+    await loadThreadStats()
+    setThreadStats(getThreadStats())
+    setBestThreads(getBestThreads())
+  }, [])
+
+  useEffect(() => { void refreshThreadStats() }, [refreshThreadStats])
 
   useEffect(() => {
     void checkAllFilesAccess()
@@ -96,6 +109,14 @@ export default () => {
         ]} />
         <ChoiceRow settingKey='download.quality' title='下载音质' options={qualityOptions} />
         <ChoiceRow settingKey='download.maxDownloadNum' title='同时下载数量' options={[1, 2, 3, 5].map(value => ({ value, label: `${value} 个` }))} />
+        <ActionRow
+          title='下载线程基准'
+          desc={threadStats.length
+            ? `已采样 ${threadStats.reduce((n, item) => n + item.samples, 0)} 次${bestThreads ? ` · 自动选择 ${bestThreads} 线程` : ''}`
+            : '下载几次后自动统计 1~4 线程的实际速度'}
+          action='查看'
+          onPress={() => { void refreshThreadStats().then(() => { setBenchVisible(true) }) }}
+        />
         <ToggleRow settingKey='download.isUseOtherSource' title='使用其他音源' desc='当前音源没有该歌曲时自动换源' />
         <ToggleRow settingKey='download.autoSaveWhilePlaying' title='播放时自动保存' desc='边听边存' />
         <ToggleRow settingKey='download.isDownloadLyric' title='下载歌词' />
@@ -108,6 +129,30 @@ export default () => {
           onPress={() => { void openAllFilesAccessSettings().then(ok => { if (!ok) void Linking.openSettings() }) }}
         />
       </Group>
+      <ActionSheet
+        visible={benchVisible}
+        onClose={() => { setBenchVisible(false) }}
+        header={{ title: '下载线程基准', subtitle: '按实际下载速度自动统计，样本足够后自动选择最快线程数' }}
+        items={[
+          ...(threadStats.length
+            ? threadStats.map(item => ({
+              key: `thread_${item.threads}`,
+              label: `${item.threads} 线程 · ${formatSpeed(item.avgSpeed)}`,
+              icon: 'speedometer',
+              value: `${item.samples} 次${bestThreads === item.threads ? ' · 最快' : ''}`,
+              active: bestThreads === item.threads,
+              onPress: () => {},
+            }))
+            : [{ key: 'empty', label: '暂无采样，先下载几首歌曲', icon: 'information-outline', value: '', onPress: () => {}, disabled: true }]),
+          {
+            key: 'clear',
+            label: '清空线程基准数据',
+            icon: 'delete-outline',
+            danger: true,
+            onPress: () => { void clearThreadStats().then(() => { setThreadStats([]); setBestThreads(null); setBenchVisible(false) }) },
+          },
+        ]}
+      />
     </View>
   )
 }

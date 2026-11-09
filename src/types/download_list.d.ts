@@ -17,6 +17,8 @@ declare namespace LX {
     interface ProgressInfo {
       progress: number
       speed: string
+      /** 原始速度 bytes/s，用于剩余时间估算；UI 用 speed 显示 */
+      speedBytes?: number
       downloaded: number
       total: number
     }
@@ -48,6 +50,8 @@ declare namespace LX {
       total: number
       progress: number
       speed: string
+      /** 原始速度 bytes/s，用于剩余时间估算；UI 用 speed 显示 */
+      speedBytes?: number
       /** 出错时的提示信息 */
       errorMessage?: string
       /** 重试次数 */

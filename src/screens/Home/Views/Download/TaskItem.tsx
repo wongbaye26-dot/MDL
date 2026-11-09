@@ -5,7 +5,7 @@ import PicImage from '@/components/common/PicImage'
 import { Icon } from '@/components/common/Icon'
 import { useTheme } from '@/store/theme/hook'
 import { createStyle } from '@/utils/tools'
-import { QUALITY_LABEL, formatSize } from '@/core/download/utils'
+import { QUALITY_LABEL, formatEta, formatSize } from '@/core/download/utils'
 import { SOURCE_LOGO_MAP, isKnownSource } from '@/components/common/SourceLogo'
 import { getSourceName } from '@/core/music/utils'
 import { useReducedMotion } from '@/utils/hooks'
@@ -48,9 +48,13 @@ const getStatusText = (task: LX.Download.ListItem) => {
   switch (task.status) {
     case 'completed':
       return `已完成 · ${formatSize(task.total)}`
-    case 'run':
+    case 'run': {
       if (task.statusText) return task.statusText
-      return `${task.progress.toFixed(1)}%${task.speed ? ` · ${task.speed}` : ''} · ${formatSize(task.downloaded)} / ${formatSize(task.total)}`
+      const eta = task.speedBytes && task.speedBytes > 0 && task.total > task.downloaded
+        ? formatEta((task.total - task.downloaded) / task.speedBytes)
+        : ''
+      return `${task.progress.toFixed(1)}%${task.speed ? ` · ${task.speed}` : ''}${eta ? ` · 剩余 ${eta}` : ''} · ${formatSize(task.downloaded)} / ${formatSize(task.total)}`
+    }
     case 'pause':
       return `已暂停 · ${formatSize(task.downloaded)}`
     case 'error':

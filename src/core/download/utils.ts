@@ -141,3 +141,19 @@ export const formatSpeed = (speed: number) => {
   if (!speed) return ''
   return `${formatSize(speed)}/s`
 }
+
+
+/** 剩余时间：用于下载任务状态行 */
+export const formatEta = (seconds: number) => {
+  if (!Number.isFinite(seconds) || seconds <= 0) return ''
+  const total = Math.ceil(seconds)
+  if (total < 60) return `${total} 秒`
+  if (total < 3600) {
+    const m = Math.floor(total / 60)
+    const s = total % 60
+    return s ? `${m} 分 ${s} 秒` : `${m} 分`
+  }
+  const h = Math.floor(total / 3600)
+  const m = Math.round((total % 3600) / 60)
+  return m ? `${h} 小时 ${m} 分` : `${h} 小时`
+}
