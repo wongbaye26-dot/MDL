@@ -17,6 +17,7 @@ import {
 
 import Text from '@/components/common/Text'
 import { Icon } from '@/components/common/Icon'
+import CapsuleIconButton from '@/components/common/CapsuleIconButton'
 import Input from '@/components/common/Input'
 import Clipboard from '@react-native-clipboard/clipboard'
 import PageHeader from '@/components/common/PageHeader'
@@ -1005,15 +1006,18 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
         danger: true,
       }).then(confirmed => {
         if (!confirmed) return
-        void Promise.all(items.map(async item => {
-          try { await deleteLocalMusic(item, true); return true } catch { return false }
-        })).then(results => {
-          const ok = results.filter(Boolean).length
-          const failed = results.length - ok
+        // 串行删除：并发调用 deleteLocalMusic 会同时读旧曲库列表再写回，后写覆盖前写导致记录回魂；
+        // 另外 content:// 文档删除也不适合并发。
+        void (async() => {
+          let ok = 0
+          for (const item of items) {
+            try { await deleteLocalMusic(item, true); ok += 1 } catch {}
+          }
+          const failed = items.length - ok
           toast(failed ? `已删除 ${ok} 首，${failed} 首失败（可改用「删除到回收站」）` : `已彻底删除 ${ok} 首`)
           setBatchSelected(new Set())
           setBatchMode(false)
-        })
+        })()
       })
       return
     } else {
@@ -1580,11 +1584,9 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
                   </>
                   )
                 : null}
-              <TouchableOpacity
-                style={{ ...styles.headerBtn, backgroundColor: theme['c-primary-alpha-900'] }}
-                activeOpacity={0.8}
-                accessibilityRole='button'
-                accessibilityLabel='我的收藏'
+              <CapsuleIconButton
+                icon='heart-outline'
+                label='我的收藏'
                 onPress={() => {
                   if (onOpenFavorites) onOpenFavorites()
                   else {
@@ -1592,28 +1594,10 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
                     setTimeout(() => { global.app_event.openFavorites() }, 180)
                   }
                 }}
-              >
-                <Icon name='heart-outline' size={19} color={theme['c-font']} />
-              </TouchableOpacity>
+              />
               {/* 文件夹图标回归：直接进「扫描文件夹」面板，不用先展开搜索 */}
-              <TouchableOpacity
-                style={{ ...styles.headerBtn, backgroundColor: theme['c-primary-alpha-900'] }}
-                activeOpacity={0.8}
-                accessibilityRole='button'
-                accessibilityLabel='扫描文件夹'
-                onPress={() => { setDirModal(true) }}
-              >
-                <Icon name='folder-cog' size={19} color={theme['c-font']} />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={{ ...styles.headerBtn, backgroundColor: theme['c-primary-alpha-900'] }}
-                activeOpacity={0.8}
-                accessibilityRole='button'
-                accessibilityLabel='搜索本地音乐'
-                onPress={() => { setSearchOpen(true) }}
-              >
-                <Icon name='search-2' size={20} color={theme['c-font']} />
-              </TouchableOpacity>
+              <CapsuleIconButton icon='folder-cog' label='扫描文件夹' onPress={() => { setDirModal(true) }} />
+              <CapsuleIconButton icon='search-2' label='搜索本地音乐' onPress={() => { setSearchOpen(true) }} />
             </View>
           )}
         />

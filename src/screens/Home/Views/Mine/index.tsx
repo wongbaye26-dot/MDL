@@ -1,14 +1,13 @@
-import { TouchableOpacity, View } from 'react-native'
+import { View } from 'react-native'
 
 import { createStyle } from '@/utils/tools'
 import { useStatusbarHeight } from '@/store/common/hook'
 import { useHorizontalMode } from '@/utils/hooks'
 import Text from '@/components/common/Text'
-import { Icon } from '@/components/common/Icon'
-import { useTheme } from '@/store/theme/hook'
 import { SETTINGS_HEADER_COMPACT_H, SETTINGS_HEADER_H } from '../Setting/components/headerMetrics'
 import Setting from '../Setting'
 import { Space, Type } from '@/theme/designTokens'
+import CapsuleIconButton from '@/components/common/CapsuleIconButton'
 
 /**
  * 「我的」Tab = 设置页。
@@ -17,7 +16,6 @@ import { Space, Type } from '@/theme/designTokens'
  * 只保留标题与合理的顶部留白；设置列表本身就是页面主体。
  */
 export default () => {
-  const theme = useTheme()
   const statusBarHeight = useStatusbarHeight()
   const compact = useHorizontalMode()
   const headerH = compact ? SETTINGS_HEADER_COMPACT_H : SETTINGS_HEADER_H
@@ -31,33 +29,9 @@ export default () => {
       }}>
         <Text size={compact ? 19 : Type.pageTitle.fontSize} style={styles.title}>设置</Text>
         <View style={styles.headerActions}>
-          <TouchableOpacity
-            style={[styles.headerBtn, { backgroundColor: theme['c-primary-alpha-900'] }]}
-            activeOpacity={0.8}
-            accessibilityRole='button'
-            accessibilityLabel='音源管理'
-            onPress={() => { global.state_event.settingsDeepScreenRequested('sourcesearch') }}
-          >
-            <Icon name='database-sync-outline' size={19} color={theme['c-font']} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.headerBtn, { backgroundColor: theme['c-primary-alpha-900'] }]}
-            activeOpacity={0.8}
-            accessibilityRole='button'
-            accessibilityLabel='曲库工具'
-            onPress={() => { global.state_event.settingsDeepScreenRequested('library') }}
-          >
-            <Icon name='tools' size={19} color={theme['c-font']} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.headerBtn, { backgroundColor: theme['c-primary-alpha-900'] }]}
-            activeOpacity={0.8}
-            accessibilityRole='button'
-            accessibilityLabel='下载管理'
-            onPress={() => { global.state_event.settingsDeepScreenRequested('download') }}
-          >
-            <Icon name='download-2' size={19} color={theme['c-font']} />
-          </TouchableOpacity>
+          <CapsuleIconButton icon='database-sync-outline' label='音源管理' onPress={() => { global.state_event.settingsDeepScreenRequested('sourcesearch') }} />
+          <CapsuleIconButton icon='tools' label='曲库工具' onPress={() => { global.state_event.settingsDeepScreenRequested('library') }} />
+          <CapsuleIconButton icon='download-2' label='下载管理' onPress={() => { global.state_event.settingsDeepScreenRequested('download') }} />
         </View>
       </View>
       <View style={styles.setting}>
@@ -82,14 +56,7 @@ const styles = createStyle({
     alignItems: 'center',
     marginLeft: 'auto',
   },
-  headerBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    marginLeft: Space.sm,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+
   title: {
     ...Type.pageTitle,
     flexShrink: 0,

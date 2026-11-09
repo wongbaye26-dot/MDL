@@ -20,9 +20,9 @@ import { useStatusbarHeight } from '@/store/common/hook'
 import { useHorizontalMode } from '@/utils/hooks'
 import SlideInView from '@/components/common/SlideInView'
 import Grid from './Grid'
-import { NAV_BAR_SPACE, HORIZONTAL_NAV_SPACE } from '@/config/constant'
+import { NAV_BAR_SPACE } from '@/config/constant'
 import { getSolidBackground } from '@/theme/solid'
-import { SETTINGS_HEADER_H } from '../components/headerMetrics'
+import { SETTINGS_HEADER_COMPACT_H, SETTINGS_HEADER_H } from '../components/headerMetrics'
 import settingState from '@/store/setting/state'
 import type { InitState as CommonState } from '@/store/common/state'
 import useSwipeBack from '../useSwipeBack'
@@ -140,10 +140,10 @@ export default () => {
     return restore
   }, [activeId])
 
-  // 子页是整屏详情页：往上盖住「我的」页头（高度 = 状态栏 + 页头本体）
-  const overlayTop = -(statusBarHeight + SETTINGS_HEADER_H)
-  // 横屏导航浮在内容之上，设置子页要往回盖住它
-  const overlayLeft = horizontal ? -HORIZONTAL_NAV_SPACE : 0
+  // 子页往上盖住「我的」页头（高度 = 状态栏 + 页头本体）；横屏用紧凑页头高度
+  const overlayTop = -(statusBarHeight + (horizontal ? SETTINGS_HEADER_COMPACT_H : SETTINGS_HEADER_H))
+  // 深页和设置页内容区对齐：横屏不再往左扩，避免盖住左侧导航/超出设置页宽度
+  const overlayLeft = 0
 
   const categoryContent = (() => {
     switch (category) {
@@ -202,7 +202,7 @@ export default () => {
                 {...swipeBack.panHandlers}
                 style={[
                   StyleSheet.absoluteFill,
-                  { top: overlayTop, left: overlayLeft, zIndex: 200, elevation: 24 },
+                  { top: overlayTop, left: overlayLeft, bottom: 88, zIndex: 200, elevation: 24 },
                   swipeBack.animatedStyle,
                 ]}
               >
@@ -312,7 +312,7 @@ const styles = createStyle({
   },
   deepInner: {
     width: '100%',
-    maxWidth: 900,
+    maxWidth: 980,
     alignSelf: 'center',
   },
   modalContent: {
