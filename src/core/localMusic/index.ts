@@ -404,6 +404,16 @@ const savePendingAdded = async(list: LX.Music.MusicInfoLocal[]) => {
   await saveData(PENDING_KEY, list)
 }
 
+/** 删除/移除曲目时同时清掉「刚下载待确认」暂存，否则下次扫描会被重新并回曲库 */
+const removePendingAdded = async(item: LX.Music.MusicInfoLocal) => {
+  try {
+    const pending = await getPendingAdded()
+    if (!pending.length) return
+    const next = pending.filter(entry => entry.id !== item.id && entry.meta.filePath !== item.meta.filePath)
+    if (next.length !== pending.length) await savePendingAdded(next)
+  } catch {}
+}
+
 /** 全部扫描根目录：当前下载目录 + 用户额外目录，去重 */
 export const getScanDirs = async(): Promise<ScanDir[]> => {
   const downloadDir = await getDownloadScanDir()
@@ -681,8 +691,10 @@ export const scanLocalMusic = async(
         const filePath = item.meta.filePath
         if (!filePath || scannedPaths.has(filePath)) continue
         if (filePath.startsWith('content://')) {
-          // content:// 文档 uri 没法用 existsFile 判断，只能靠扫描 SAF 目录确认；
-          // 超过 7 天还没被扫到就放弃，避免删掉的文件变成永远清不掉的僵尸条目
+          // content:// 文档 uri 没法用 existsFile 判断；先尝试读文档元信息，文档已被删掉/失权就直接丢弃，
+          // 不再等 7 天 TTL（之前批量删除后重扫又出现，就是这里把已删的暂存条目又并回来了）。
+          const alive = await readAudioMeta(filePath).then(() => true).catch(() => false)
+          if (!alive) continue
           if (item.meta.mtime && Date.now() - item.meta.mtime > PENDING_TTL) continue
           scannedPaths.add(filePath)
           list.push(item)
@@ -803,6 +815,7 @@ export const deleteLocalMusic = async(item: LX.Music.MusicInfoLocal, deleteFile:
   // getLocalMusicList 给的是副本，这里赋值不会动到别的页面已经拿走的数组
   cachedList = newList
   await saveLocalMusicList(newList)
+  await removePendingAdded(item)
   emitLocalMusicUpdated(newList)
 }
 

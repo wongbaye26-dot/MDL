@@ -243,14 +243,14 @@ const styles = createStyle({
     flexDirection: 'row',
   },
   master: {
-    width: 220,
+    width: 250,
     borderRightWidth: 0.5,
   },
   masterContent: {
-    paddingTop: 8,
+    paddingTop: 4,
     paddingBottom: NAV_BAR_SPACE,
-    paddingLeft: 8,
-    paddingRight: 8,
+    paddingLeft: 12,
+    paddingRight: 12,
   },
   masterItem: {
     flexDirection: 'row',
@@ -268,9 +268,9 @@ const styles = createStyle({
     flex: 1,
   },
   detailContent: {
-    paddingLeft: 20,
-    paddingRight: 20,
-    paddingTop: 8,
+    paddingLeft: 24,
+    paddingRight: 24,
+    paddingTop: 4,
     paddingBottom: NAV_BAR_SPACE,
   },
   list: {
