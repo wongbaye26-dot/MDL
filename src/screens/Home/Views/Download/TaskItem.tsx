@@ -112,7 +112,8 @@ export default memo(({
       toValue: progress,
       duration: 300,
       easing: Easing.out(Easing.quad),
-      useNativeDriver: false,
+      // scaleX 可以走原生驱动，进度补间不再占 JS 线程
+      useNativeDriver: true,
     })
     animation.start()
     return () => { animation.stop() }
@@ -204,7 +205,13 @@ export default memo(({
         </View>
         <Text size={11} color={theme['c-450']} numberOfLines={1} style={styles.singer}>{musicInfo.singer || '未知歌手'}</Text>
         <View style={{ ...styles.progressTrack, backgroundColor: theme['c-primary-alpha-700'] }}>
-          <Animated.View style={{ ...styles.progressBar, width: progressAnim.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] }), backgroundColor: isCompleted ? SUCCESS : isError ? DANGER : theme['c-primary'] }} />
+          <Animated.View style={{
+            ...styles.progressBar,
+            width: '100%',
+            transformOrigin: 'left',
+            transform: [{ scaleX: progressAnim.interpolate({ inputRange: [0, 100], outputRange: [0, 1] }) }],
+            backgroundColor: isCompleted ? SUCCESS : isError ? DANGER : theme['c-primary'],
+          }} />
         </View>
         <Text size={10} color={statusColor ?? theme['c-450']} numberOfLines={1}>
           {sourceLabel ? `${statusText} · ${sourceLabel}` : statusText}

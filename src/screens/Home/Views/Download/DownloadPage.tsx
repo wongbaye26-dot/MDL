@@ -106,21 +106,18 @@ export default () => {
     })
   }, [selectedTasks, exitBatch])
 
-  const handleBatchRemoveFiles = useCallback(() => {
-    const tasks = selectedTasks.filter(task => task.isComplate)
-    if (!tasks.length) {
-      toast('选中的任务里没有已完成文件')
-      return
-    }
+  /** 删除任务 + 文件：不论是否完成，正在下载的会先取消并清掉临时分片 */
+  const handleBatchRemoveTaskAndFiles = useCallback(() => {
+    if (!selectedTasks.length) return
     void confirmDialog({
-      title: '删除文件',
-      message: `删除选中 ${tasks.length} 个已完成任务的文件和任务记录？此操作不可恢复。`,
+      title: '删除任务与文件',
+      message: `删除选中的 ${selectedTasks.length} 个任务及其文件？正在下载的会先取消，未完成的分片也会清理；此操作不可恢复。`,
       confirmButtonText: '删除',
       danger: true,
     }).then(confirmed => {
       if (!confirmed) return
-      tasks.forEach(task => { removeTask(task.id, true) })
-      toast(`已删除 ${tasks.length} 个文件`)
+      selectedTasks.forEach(task => { removeTask(task.id, true) })
+      toast(`已删除 ${selectedTasks.length} 个任务与文件`)
       exitBatch()
     })
   }, [selectedTasks, exitBatch])
@@ -141,8 +138,8 @@ export default () => {
 
   const batchMoreItems = useMemo(() => [
     { key: 'remove', label: '移除任务（不删文件）', icon: 'delete-outline', danger: true, onPress: () => { setBatchMoreSheet(false); handleBatchRemoveTasks() } },
-    { key: 'removeFiles', label: '删除已完成文件', icon: 'delete-forever-outline', danger: true, onPress: () => { setBatchMoreSheet(false); handleBatchRemoveFiles() } },
-  ], [handleBatchRemoveTasks, handleBatchRemoveFiles])
+    { key: 'removeTaskAndFiles', label: '删除任务与文件', icon: 'delete-forever-outline', danger: true, onPress: () => { setBatchMoreSheet(false); handleBatchRemoveTaskAndFiles() } },
+  ], [handleBatchRemoveTasks, handleBatchRemoveTaskAndFiles])
 
   const handleShowMenu = useCallback((task: LX.Download.ListItem, position: { x: number, y: number, w: number, h: number }) => {
     menuRef.current?.show(task, position)
