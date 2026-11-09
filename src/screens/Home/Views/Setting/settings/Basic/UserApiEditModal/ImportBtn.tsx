@@ -2,6 +2,7 @@ import { useMemo, useRef } from 'react'
 
 import DorpDownMenu, { type DorpDownMenuProps as _DorpDownMenuProps } from '@/components/common/DorpDownMenu'
 import Text from '@/components/common/Text'
+import { Icon } from '@/components/common/Icon'
 import { useI18n } from '@/lang'
 import ScriptImportExport, { type ScriptImportExportType } from './ScriptImportExport'
 import ScriptImportOnline, { type ScriptImportOnlineType } from './ScriptImportOnline'
@@ -12,10 +13,12 @@ interface BtnProps {
   btnStyle?: _DorpDownMenuProps<any[]>['btnStyle']
   /** 按钮文字颜色：默认白色，主色偏亮时由调用方传入对比色 */
   color?: string
+  /** 只显示图标（用于页面标题右侧的导入入口） */
+  iconOnly?: boolean
 }
 
 
-export default ({ btnStyle, color = '#FFFFFF' }: BtnProps) => {
+export default ({ btnStyle, color = '#FFFFFF', iconOnly = false }: BtnProps) => {
   const t = useI18n()
   const scriptImportExportRef = useRef<ScriptImportExportType>(null)
   const scriptImportOnlineRef = useRef<ScriptImportOnlineType>(null)
@@ -53,7 +56,9 @@ export default ({ btnStyle, color = '#FFFFFF' }: BtnProps) => {
       center
       onPress={handleAction}
     >
-      <Text size={14} color={color} style={{ fontWeight: '600' }}>{t('user_api_btn_import')}</Text>
+      {iconOnly
+        ? <Icon name='import' size={19} color={color} />
+        : <Text size={14} color={color} style={{ fontWeight: '600' }}>{t('user_api_btn_import')}</Text>}
       <ScriptImportExport ref={scriptImportExportRef} />
       <ScriptImportOnline ref={scriptImportOnlineRef} />
     </DorpDownMenu>

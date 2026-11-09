@@ -23,6 +23,7 @@ import Grid from './Grid'
 import { NAV_BAR_SPACE } from '@/config/constant'
 import { getSolidBackground } from '@/theme/solid'
 import { SETTINGS_HEADER_COMPACT_H, SETTINGS_HEADER_H } from '../components/headerMetrics'
+import ImportBtn from '../settings/Basic/UserApiEditModal/ImportBtn'
 import settingState from '@/store/setting/state'
 import type { InitState as CommonState } from '@/store/common/state'
 import useSwipeBack from '../useSwipeBack'
@@ -152,7 +153,7 @@ export default () => {
       case 'playback': return <PlaybackSection />
       case 'quality': return <AudioQualitySection />
       case 'lyric': return <Lyric />
-      case 'library': return <Library onOpenTools={() => { handlePress('library') }} />
+      case 'library': return <Library />
       case 'system': return <System />
       case 'data': return <DataSection />
       default: return <AboutSection />
@@ -220,6 +221,15 @@ export default () => {
                       <Text size={22} style={styles.modalTitle}>{DEEP_TITLES[activeId]?.title ?? t(`setting_${activeId}` as 'setting_basic')}</Text>
                       <Text size={12} color={theme['c-450']} numberOfLines={1} style={styles.modalDesc}>{DEEP_TITLES[activeId]?.desc ?? ''}</Text>
                     </View>
+                    {activeId === 'sourcesearch'
+                      ? (
+                        <ImportBtn
+                          iconOnly
+                          color={theme['c-font']}
+                          btnStyle={{ width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: theme['c-primary-alpha-900'] }}
+                        />
+                        )
+                      : null}
                   </View>
                   <ScrollView
                     contentContainerStyle={styles.modalContent}

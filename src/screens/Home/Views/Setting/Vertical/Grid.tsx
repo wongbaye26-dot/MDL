@@ -23,7 +23,7 @@ export default ({ onPress }: { onPress: (id: SettingScreenIds) => void }) => (
     <PlaybackSection />
     <AudioQualitySection />
     <Lyric />
-    <Library onOpenTools={() => { onPress('library') }} />
+    <Library />
     <System />
     <DataSection />
     <AboutSection />

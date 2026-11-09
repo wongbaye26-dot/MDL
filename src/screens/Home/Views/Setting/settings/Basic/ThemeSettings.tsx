@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useState } from 'react'
-import { Appearance, View, TouchableOpacity, ScrollView } from 'react-native'
+import { Appearance, View, TouchableOpacity } from 'react-native'
 
 import Text from '@/components/common/Text'
 import { Icon } from '@/components/common/Icon'
@@ -133,7 +133,7 @@ const MaterialYouColors = memo(() => {
             )
           : null}
       </View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.swatchRow}>
+      <View style={styles.swatchRow}>
         {/* 跟随系统主题色 */}
         <TouchableOpacity style={styles.swatchWrap} activeOpacity={0.7} onPress={() => { handleSelect('system') }}>
           <View style={{
@@ -155,7 +155,7 @@ const MaterialYouColors = memo(() => {
             onPress={() => { handleSelect(c.hex) }}
           />
         ))}
-      </ScrollView>
+      </View>
       <Text size={11} color={theme['c-400']} style={styles.hint}>
         选「系统」会读取手机 Material You 主题色（Android 12+），其余为固定种子色；选中后自动派生整套配色
       </Text>
@@ -210,13 +210,16 @@ const styles = createStyle({
     paddingBottom: 8,
   },
   swatchRow: {
-    paddingLeft: 14,
-    paddingRight: 8,
-    paddingBottom: 6,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingLeft: 10,
+    paddingRight: 10,
+    paddingBottom: 2,
   },
   swatchWrap: {
+    width: '16.666%',
     alignItems: 'center',
-    marginRight: 10,
+    marginBottom: 10,
   },
   swatch: {
     width: 40,

@@ -17,7 +17,6 @@ import { setApiSource } from '@/core/apiSource'
 import { confirmDialog, createStyle, openUrl, toast } from '@/utils/tools'
 import apiSourceInfo from '@/utils/musicSdk/api-source-info'
 import settingState from '@/store/setting/state'
-import ImportBtn from '../Basic/UserApiEditModal/ImportBtn'
 import { checkUserApiUpdate } from './updateCheck'
 import { useQualityList, useSourcePageState, type UpdateCheckInfo } from './state'
 import { formatTime, formatVersion, qualityLabel, sortQualitys } from './helpers'
@@ -250,12 +249,6 @@ export default () => {
     <Group title={t('setting_source_user_list')} desc={t('setting_source_import_tip')}>
       {/* Section 会在多个顶层子元素之间插分隔线，这里整体包一层、自己控制列表分隔 */}
       <View>
-        <View style={{ ...styles.importRow, borderBottomColor: theme['c-primary-alpha-700'] }}>
-          <ImportBtn
-            btnStyle={{ ...styles.importBtn, backgroundColor: theme['c-primary-alpha-700'] }}
-            color={theme['c-primary-light-200']}
-          />
-        </View>
         {
           userApiList.length
             ? userApiList.map((item, index) => (
