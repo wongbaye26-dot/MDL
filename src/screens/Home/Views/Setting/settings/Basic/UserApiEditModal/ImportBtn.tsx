@@ -4,6 +4,7 @@ import { Modal, StyleSheet, TouchableOpacity, View } from 'react-native'
 import Text from '@/components/common/Text'
 import { Icon } from '@/components/common/Icon'
 import CapsuleIconButton from '@/components/common/CapsuleIconButton'
+import AddSourceIcon from '@/components/common/AddSourceIcon'
 import { useSheetPalette } from '@/components/common/ActionSheet/palette'
 import { useI18n } from '@/lang'
 import ScriptImportExport, { type ScriptImportExportType } from './ScriptImportExport'
@@ -65,7 +66,7 @@ export default ({ btnStyle, color = '#FFFFFF', iconOnly = false }: BtnProps) => 
         accessibilityLabel={t('user_api_btn_import')}
       >
         {iconOnly
-          ? <Icon name='tray-arrow-down' size={19} color={color} />
+          ? <AddSourceIcon size={19} color={color} />
           : <Text size={14} color={color} style={{ fontWeight: '600' }}>{t('user_api_btn_import')}</Text>}
       </TouchableOpacity>
       <Modal visible={visible} transparent statusBarTranslucent animationType='fade' onRequestClose={() => { setVisible(false) }}>
