@@ -181,6 +181,19 @@ def _edge_glint(size, box, radius, angle, alpha=42):
     return out
 
 
+def _play_mask(size):
+    """圆角播放三角，用作花瓣的裁切轮廓。"""
+    s = size / 1024.0
+    m = Image.new('L', (size * SS, size * SS), 0)
+    d = ImageDraw.Draw(m)
+    pts = [(180 * s * SS, 150 * s * SS), (180 * s * SS, 874 * s * SS), (872 * s * SS, 512 * s * SS)]
+    d.polygon(pts, fill=255)
+    r = 46 * s * SS
+    for x, y in pts:
+        d.ellipse((x - r, y - r, x + r, y + r), fill=255)
+    return m.resize((size, size), Image.LANCZOS).filter(ImageFilter.GaussianBlur(max(0.4, 0.7 * s)))
+
+
 def _glass_flower(size):
     """三层半透明玻璃花瓣：软边、叠色、柔和高光，像用户参考图里的液态玻璃。"""
     canvas = Image.new('RGBA', (size, size), (0, 0, 0, 0))
@@ -199,22 +212,22 @@ def _glass_flower(size):
         canvas.alpha_composite(_soft_sheen(size, box, radius, angle, sheen_alpha))
         canvas.alpha_composite(_edge_glint(size, box, radius, angle, 36))
 
-    # 后层：左上竖瓣
-    petal((250, 185, 615, 665), 150, 38, [
-        (0.00, (124, 58, 237, 166)),
-        (0.50, (109, 40, 217, 138)),
-        (1.00, (76, 29, 149, 34)),
+    # 三角构图：左上、右侧尖端、左下三片花瓣叠成一个指向右的「播放」三角
+    petal((205, 180, 600, 585), 132, 26, [
+        (0.00, (139, 92, 246, 172)),
+        (0.52, (124, 58, 237, 140)),
+        (1.00, (91, 33, 182, 36)),
     ], 2, 30)
-    # 后层：右竖瓣
-    petal((430, 195, 790, 690), 145, -20, [
-        (0.00, (168, 85, 247, 164)),
-        (0.55, (139, 92, 246, 126)),
-        (1.00, (109, 40, 217, 32)),
+    # 右侧尖端：让三片花瓣的轮廓收在右侧，读成播放三角
+    petal((455, 285, 825, 735), 150, 76, [
+        (0.00, (168, 85, 247, 168)),
+        (0.52, (147, 51, 234, 132)),
+        (1.00, (109, 40, 217, 34)),
     ], 2, 28)
-    # 前层：底部横瓣（带一点粉）
-    petal((245, 490, 805, 785), 140, 4, [
-        (0.00, (196, 181, 253, 126)),
-        (0.50, (168, 85, 247, 112)),
+    # 前层左下：压住中心，和上方花瓣形成三角底边
+    petal((205, 435, 605, 850), 132, -24, [
+        (0.00, (196, 181, 253, 136)),
+        (0.50, (168, 85, 247, 116)),
         (1.00, (236, 72, 153, 46)),
     ], 2, 24)
 
@@ -259,7 +272,7 @@ def _note_layer(size):
     d.polygon(flag, fill=(255, 255, 255, 255))
 
     # 符头：旋转椭圆，中心对齐符干末端
-    hw, hh = int(size * 0.190), int(size * 0.150)
+    hw, hh = int(size * 0.182), int(size * 0.140)
     head = Image.new('RGBA', (hw, hh), (0, 0, 0, 0))
     hd = ImageDraw.Draw(head)
     hd.ellipse((0, 0, hw - 1, hh - 1), fill=(255, 255, 255, 255))
@@ -312,8 +325,14 @@ def _art(size, with_bg=True, circular=False):
         if circular:
             bg.putalpha(_circle_mask(size))
         canvas.alpha_composite(bg)
-    canvas.alpha_composite(_glass_flower(size))
-    canvas.alpha_composite(_note_layer(size * SS).resize((size, size), Image.LANCZOS))
+    flower = _glass_flower(size)
+    flower.putalpha(ImageChops.multiply(flower.getchannel('A'), _play_mask(size)))
+    canvas.alpha_composite(flower)
+    # 音符略微上移、左移，落在播放三角的视觉中心，符头不压到三角下边缘
+    note = _note_layer(size * SS).resize((size, size), Image.LANCZOS)
+    shifted = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+    shifted.alpha_composite(note, (-int(size * 0.035), -int(size * 0.030)))
+    canvas.alpha_composite(shifted)
     if with_bg:
         if not circular:
             canvas.alpha_composite(_rim(size, RADIUS, circular))

@@ -24,6 +24,7 @@ import {
 import { addRecentPlay } from '@/core/player/recentPlay'
 import { resolveMusicUrl, getPicPath, getLyricInfo, type ResolvedMusicUrl } from '@/core/music'
 import { getPlayQuality, getSourceName } from '@/core/music/utils'
+import { clearMusicUrlByMusic } from '@/utils/data'
 import { requestMsg } from '@/utils/message'
 import { getRandom } from '@/utils/common'
 import { filterList } from './utils'
@@ -205,7 +206,12 @@ const getMusicPlayUrl = async(
   // const type = getPlayType(settingState.setting['player.isPlayHighQuality'], musicInfo)
   let toggleMusicInfo = ('progress' in musicInfo ? musicInfo.metadata.musicInfo : musicInfo).meta.toggleMusicInfo
 
-  return (toggleMusicInfo ? resolveMusicUrl({
+  /*
+    刷新地址 / 强制换源时不能再优先走 toggleMusicInfo：
+    这个记录可能指向同一条已经 410 的链接，导致每次重试都拿回坏地址。
+    只有正常播放时才沿用上次换源成功的结果。
+  */
+  return ((toggleMusicInfo && !isRefresh && !forceToggleSource) ? resolveMusicUrl({
     musicInfo: toggleMusicInfo,
     isRefresh,
     allowToggleSource: false,
@@ -288,21 +294,35 @@ export const handlePlaybackErrorRetry = (): boolean => {
   }
   const forceToggle = playbackErrorCount >= 1
   playbackErrorCount += 1
+  // 先删掉这首歌所有音质的地址缓存，避免后续解析又把刚失败的 410 链接拿回来
+  void clearMusicUrlByMusic(root).catch(() => {})
   global.lx.gettingUrlId = createGettingUrlId(musicInfo)
   setStatusText(global.i18n.t(forceToggle ? 'toggle_source_try' : 'player__getting_url'))
   log.info(`[player] playback error retry (refresh=${String(!forceToggle)}, toggleSource=${String(forceToggle)})`)
-  void getMusicPlayUrl(musicInfo, true, true, 0, forceToggle).then((url) => {
-    if (!url) return
-    setResource(musicInfo, url, getStartTime(musicInfo))
-  }).catch((err: any) => {
-    log.error(err)
-    setStatusText(err.message as string)
-    global.app_event.error()
-    global.app_event.playerError()
-    addDelayNextTimeout()
-  }).finally(() => {
-    if (musicInfo === playerState.playMusicInfo.musicInfo) clearLoadTimeout()
-  })
+  void (async() => {
+    try {
+      let url: string | null = null
+      try {
+        url = await getMusicPlayUrl(musicInfo, true, true, 0, forceToggle)
+      } catch (err: any) {
+        // 刷新地址仍然失败（同源仍返回过期链接）：立刻再强制换源，别把错误直接抛给界面
+        if (forceToggle) throw err
+        log.info(`[player] refresh failed, force toggle source: ${err?.message ?? ''}`)
+        setStatusText(global.i18n.t('toggle_source_try'))
+        url = await getMusicPlayUrl(musicInfo, true, true, 0, true)
+      }
+      if (!url) return
+      setResource(musicInfo, url, getStartTime(musicInfo))
+    } catch (err: any) {
+      log.error(err)
+      setStatusText(err.message as string)
+      global.app_event.error()
+      global.app_event.playerError()
+      addDelayNextTimeout()
+    } finally {
+      if (musicInfo === playerState.playMusicInfo.musicInfo) clearLoadTimeout()
+    }
+  })()
   return true
 }
 
