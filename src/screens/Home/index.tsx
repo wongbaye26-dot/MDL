@@ -12,6 +12,8 @@ import Horizontal from './Horizontal'
 import PlayerTransition from './Vertical/PlayerTransition'
 import AppDialogHost from '@/components/common/AppDialog'
 import { requestStartupPermissions } from '@/core/permissions'
+import { useSettingValue } from '@/store/setting/hook'
+import { showBeginnerGuide } from '@/core/onboarding/beginnerGuide'
 
 
 interface Props {
@@ -22,6 +24,7 @@ interface Props {
 export default ({ componentId }: Props) => {
   const isHorizontalMode = useHorizontalMode()
   const navActiveId = useNavActiveId()
+  const isAgreePact = useSettingValue('common.isAgreePact')
 
   /** 用户交互时间戳：首页装饰动效空闲时暂停，触摸立刻恢复 */
   const notifyActivity = useCallback(() => {
@@ -44,6 +47,13 @@ export default ({ componentId }: Props) => {
     // 首次启动申请一次「音乐和音频 / 通知」权限
     void requestStartupPermissions()
   }, [])
+
+  useEffect(() => {
+    // 同意协议后给一次新手引导：只在线听 / 在线听 + 下载，按选择提示音源与下载目录
+    if (!isAgreePact) return
+    const timer = setTimeout(() => { void showBeginnerGuide() }, 1500)
+    return () => { clearTimeout(timer) }
+  }, [isAgreePact])
 
   useEffect(() => {
     setComponentId(COMPONENT_IDS.home, componentId)

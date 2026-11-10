@@ -13,6 +13,7 @@ import { clearSavePathCache, ensureDir, migrateFallbackDownloads } from '@/core/
 import { getBestThreads, getThreadStats, loadThreadStats, clearThreadStats, type ThreadStat } from '@/core/download/threadStats'
 import { pickDirectory, canWriteTree, treeUriToDisplayPath } from '@/utils/directoryPicker'
 import { isExternalStorageManager, openAllFilesAccessSettings } from '@/utils/nativeModules/utils'
+import { showBeginnerGuide } from '@/core/onboarding/beginnerGuide'
 import { useQualityList } from '../Source/state'
 import { Radius, Space, Type } from '@/theme/designTokens'
 
@@ -122,6 +123,12 @@ export default () => {
         <ToggleRow settingKey='download.isDownloadLyric' title='下载歌词' />
         <ToggleRow settingKey='download.isDownloadPic' title='下载封面' />
         <ToggleRow settingKey='download.isWriteMetadata' title='写入元数据' />
+        <ActionRow
+          title='新手引导'
+          desc='重看「在线听歌 / 在线听歌 + 下载」两种使用方式的提示'
+          action='重看'
+          onPress={() => { void showBeginnerGuide(true) }}
+        />
         <ActionRow
           title='所有文件访问权限'
           desc={allFilesAccess ? '已开启，可直接写入公共音乐目录' : '未开启时文件会落到应用私有目录'}

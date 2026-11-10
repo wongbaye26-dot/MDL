@@ -38,6 +38,32 @@ export const updateSetting = (setting: Partial<LX.AppSetting>) => {
   throttleSaveSetting()
 }
 
+/** 设置里支持从外部直达的深页 */
+export type SettingDeepPage = 'sourcesearch' | 'library' | 'download'
+
+/** 待打开的设置深页（音源管理 / 下载管理…）：设置页挂载后消费一次 */
+let pendingSettingPage: SettingDeepPage | null = null
+
+/**
+ * 从任意页面跳到设置里的某个深页（新手引导等用）。
+ *
+ * 设置页是 Tab 内页面，深页状态保存在它自己的组件里，所以这里同时做两件事：
+ * 1. 广播已有的 `settingsDeepScreenRequested` 事件（设置页已挂载时立即生效）；
+ * 2. 记一个待打开请求，设置页首次挂载时消费（还没进过设置时的事件会丢）。
+ */
+export const openSettingPage = (id: SettingDeepPage) => {
+  pendingSettingPage = id
+  setNavActiveId('nav_mine')
+  global.state_event.settingsDeepScreenRequested(id)
+}
+
+/** 设置页消费待打开深页（只生效一次） */
+export const consumePendingSettingPage = () => {
+  const id = pendingSettingPage
+  pendingSettingPage = null
+  return id
+}
+
 export const setLanguage = (locale: Parameters<typeof applyLanguage>[0]) => {
   updateSetting({ 'common.langId': locale })
   global.state_event.languageChanged(locale)

@@ -29,6 +29,7 @@ import type { InitState as CommonState } from '@/store/common/state'
 import useSwipeBack from '../useSwipeBack'
 import CapsuleIconButton from '@/components/common/CapsuleIconButton'
 import { useBackHandler } from '@/utils/hooks/useBackHandler'
+import { consumePendingSettingPage } from '@/core/common'
 
 /** 主题切换等导致组件重挂载时，用来恢复当前打开的子页，避免闪回设置主页 */
 let lastActiveId: SettingScreenIds | null = null
@@ -111,6 +112,13 @@ export default () => {
   const setActiveId = useCallback((id: SettingScreenIds | null) => {
     lastActiveId = id
     setActiveIdState(id)
+  }, [])
+
+  // 首次进设置页时，消费外面（新手引导等）登记的「待打开深页」请求
+  useEffect(() => {
+    const pending = consumePendingSettingPage()
+    if (pending) setActiveId(DEEP_SECTIONS[pending] ? pending : null)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const handleClose = useCallback(() => {
