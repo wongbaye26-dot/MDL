@@ -2278,7 +2278,7 @@ const styles = {
   },
 
   modalMask: { flex: 1, justifyContent: 'flex-end' as const, backgroundColor: 'rgba(0,0,0,0.45)' },
-  queueSheet: { maxHeight: '80%' as const, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 0.5, paddingBottom: 10 },
+  queueSheet: { maxHeight: '80%' as const, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 0.5, paddingBottom: 0 },
   queueHandleWrap: {
     alignItems: 'center' as const,
     paddingTop: 8,
