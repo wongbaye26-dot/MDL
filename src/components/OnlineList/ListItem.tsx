@@ -7,7 +7,7 @@ import { Icon } from '@/components/common/Icon'
 import Image from '@/components/common/Image'
 import { useI18n } from '@/lang'
 import { useTheme } from '@/store/theme/hook'
-import { getDivider } from '@/theme/designTokens'
+import { getListDivider } from '@/theme/designTokens'
 import { scaleSizeH } from '@/utils/pixelRatio'
 import { LIST_ITEM_HEIGHT } from '@/config/constant'
 import { createStyle, type RowInfo } from '@/utils/tools'
@@ -156,7 +156,7 @@ export default memo(({ item, index, showSource, picUrl, onPress, onLongPress, on
   /** 列表模式显示专辑时给第二行多留一行高度：专辑名经常被歌手名挤掉 */
   const showAlbum = isShowAlbumName && !!item.meta.albumName
   return (
-    <View style={{ ...styles.listItem, width: rowInfo.rowWidth, height: showAlbum ? ITEM_HEIGHT + 16 : ITEM_HEIGHT, backgroundColor: isSelected ? theme['c-primary-background-hover'] : 'rgba(0,0,0,0)', borderBottomWidth: 0.5, borderBottomColor: getDivider(theme) }}>
+    <View style={{ ...styles.listItem, width: rowInfo.rowWidth, height: showAlbum ? ITEM_HEIGHT + 16 : ITEM_HEIGHT, backgroundColor: isSelected ? theme['c-primary-background-hover'] : 'rgba(0,0,0,0)' }}>
       <TouchableOpacity
         style={styles.listItemLeft}
         accessibilityRole='button'
@@ -190,6 +190,7 @@ export default memo(({ item, index, showSource, picUrl, onPress, onLongPress, on
       >
         <Icon name="dots-vertical" style={{ color: theme['c-350'] }} size={12} />
       </TouchableOpacity>
+      <View pointerEvents='none' style={{ position: 'absolute', left: showRank ? 95 : 65, right: 48, bottom: 0, height: 0.5, backgroundColor: getListDivider(theme) }} />
     </View>
   )
 }, (prevProps, nextProps) => {

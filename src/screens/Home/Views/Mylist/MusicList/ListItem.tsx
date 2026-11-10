@@ -6,7 +6,7 @@ import { Icon } from '@/components/common/Icon'
 import Image from '@/components/common/Image'
 import { createStyle, type RowInfo } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
-import { getDivider } from '@/theme/designTokens'
+import { getListDivider } from '@/theme/designTokens'
 
 import { scaleSizeH } from '@/utils/pixelRatio'
 import Text from '@/components/common/Text'
@@ -54,7 +54,7 @@ export default memo(({ item, index, activeIndex, onPress, onShowMenu, onLongPres
   const singer = `${info.singer}${isShowAlbumName && info.meta?.albumName ? ` · ${info.meta.albumName}` : ''}`
 
   return (
-    <View style={{ ...styles.listItem, width: rowInfo.rowWidth, height: ITEM_HEIGHT, backgroundColor: isSelected ? theme['c-primary-background-hover'] : 'rgba(0,0,0,0)', borderBottomWidth: 0.5, borderBottomColor: getDivider(theme), opacity: 1 }}>
+    <View style={{ ...styles.listItem, width: rowInfo.rowWidth, height: ITEM_HEIGHT, backgroundColor: isSelected ? theme['c-primary-background-hover'] : 'rgba(0,0,0,0)', opacity: 1 }}>
       <TouchableOpacity style={styles.listItemLeft} onPress={() => { onPress(item, index) }} onLongPress={() => { onLongPress(item, index) }}>
         <Image url={info.meta?.picUrl} style={styles.cover} />
         <View style={styles.itemInfo}>
@@ -79,6 +79,7 @@ export default memo(({ item, index, activeIndex, onPress, onShowMenu, onLongPres
         <Icon name="dots-vertical" style={{ color: theme['c-350'] }} size={12} />
       </TouchableOpacity>
       {/* </View> */}
+      <View pointerEvents='none' style={{ position: 'absolute', left: 65, right: 48, bottom: 0, height: 0.5, backgroundColor: getListDivider(theme) }} />
     </View>
   )
 }, (prevProps, nextProps) => {

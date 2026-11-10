@@ -15,7 +15,6 @@ import { type SettingScreenIds } from '../Main'
 import { Icon } from '@/components/common/Icon'
 import Text from '@/components/common/Text'
 import { useTheme } from '@/store/theme/hook'
-import { getCardSurface, getDivider } from '@/theme/designTokens'
 import { useI18n } from '@/lang'
 import { useStatusbarHeight } from '@/store/common/hook'
 import { useHorizontalMode } from '@/utils/hooks'
@@ -258,15 +257,15 @@ export default () => {
                   <View
                     key={`group_${groupIndex}`}
                     style={[styles.portraitCard, {
-                      backgroundColor: getCardSurface(theme),
-                      borderColor: getDivider(theme),
+                      backgroundColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.032)',
+                      borderColor: theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
                     }]}
                   >
                     {group.map((item, index) => (
                       <TouchableOpacity
                         key={item}
                         style={[styles.portraitRow, index > 0
-                          ? { borderTopWidth: 0.5, borderTopColor: getDivider(theme) }
+                          ? { borderTopWidth: 0.5, borderTopColor: theme.isDark ? 'rgba(255,255,255,0.07)' : theme['c-primary-alpha-900'] }
                           : null]}
                         activeOpacity={0.72}
                         onPress={() => { setPortraitCategory(item) }}

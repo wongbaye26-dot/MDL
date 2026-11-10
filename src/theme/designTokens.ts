@@ -53,6 +53,11 @@ export const getDivider = (theme: ActiveTheme): string => (
   theme.isDark ? theme['c-primary-light-600-alpha-100'] : theme['c-primary-alpha-200']
 )
 
+/** 歌曲列表行分隔线：比设置分割线更淡、中性，避免列表看起来发黑 */
+export const getListDivider = (theme: ActiveTheme): string => (
+  theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)'
+)
+
 /** 浮层/页头玻璃 tint：集中一处，PageHeader 与其它浮层共用 */
 export const getGlassTint = (theme: ActiveTheme): string => (
   theme.isDark ? 'rgba(20,16,28,0.42)' : 'rgba(255,255,255,0.34)'
