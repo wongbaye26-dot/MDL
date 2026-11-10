@@ -508,6 +508,118 @@ import android.util.Log;`,
               : getReactNativeHost().getReactInstanceManager().getCurrentReactContext();`,
     'serviceReactHost.getCurrentReactContext()',
   ],
+  // ---- 系统媒体卡片：收藏 / 播放模式要出现在 PlaybackState 里 ----
+  // One UI 7 的下拉通知栏媒体卡片（SystemUI MediaData）按 PlaybackState 生成按钮位，
+  // 只把按钮放进通知的 mActions 时，卡片折叠态只画 compact 的 3 个（上一首 / 播放 / 下一首）。
+  // 把收藏、循环再发布成 PlaybackState 的自定义动作，卡片才有第 4、5 个按钮位；
+  // 动作名 / 标题 / 图标 / 点击 Intent 全部复用通知按钮那一套（getNamedIcon 已按 app 包解析 drawable）。
+  [
+    path.join(rootPath, 'node_modules/react-native-track-player/android/src/main/java/com/guichaguri/trackplayer/service/metadata/MetadataManager.java'),
+    `        PlaybackStateCompat.Builder pb = new PlaybackStateCompat.Builder();
+        pb.setActions(actions);
+        pb.setState(playback.getState(), playback.getPosition(), playback.getRate());
+        pb.setBufferedPosition(playback.getBufferedPosition());
+
+        session.setPlaybackState(pb.build());
+    }`,
+    `        PlaybackStateCompat.Builder pb = new PlaybackStateCompat.Builder();
+        pb.setActions(actions);
+        pb.setState(playback.getState(), playback.getPosition(), playback.getRate());
+        pb.setBufferedPosition(playback.getBufferedPosition());
+
+        // 收藏 / 播放模式同时发布成自定义动作，系统媒体卡片才会多出这两个按钮位
+        for(PlaybackStateCompat.CustomAction customAction : buildPlaybackCustomActions()) {
+            pb.addCustomAction(customAction);
+        }
+
+        session.setPlaybackState(pb.build());
+    }
+
+    /**
+     * 把通知栏的收藏 / 播放模式按钮映射成 PlaybackState 的自定义动作。
+     *
+     * 动作名 / 标题 / 图标沿用通知按钮（图标是 JS 传来的 drawable 名，createCustomAction 里
+     * 已按 app 包解析成资源 id）；点击还是同一个 PendingIntent.getService，
+     * 由 MusicService.onStartCommand 转成 remote-favorite / remote-loop 事件。
+     */
+    private List<PlaybackStateCompat.CustomAction> buildPlaybackCustomActions() {
+        List<PlaybackStateCompat.CustomAction> result = new ArrayList<>(2);
+
+        appendPlaybackCustomAction(result, "emo_favorite", favoriteAction);
+        appendPlaybackCustomAction(result, "emo_loop", loopAction);
+
+        return result;
+    }
+
+    private void appendPlaybackCustomAction(List<PlaybackStateCompat.CustomAction> out, String action, Action source) {
+        if(source == null) return;
+
+        // 通知按钮的图标是 IconCompat；JS 传 drawable 名时是资源图标，其余（bitmap）跳过
+        androidx.core.graphics.drawable.IconCompat iconCompat = source.getIconCompat();
+        int icon = iconCompat != null ? iconCompat.getResId() : 0;
+        if(icon == 0) return;
+
+        // PlaybackState 的自定义动作只带 action / 名称 / 图标；点击由媒体会话的
+        // ButtonEvents.onCustomAction 按 action 名分发（见 ButtonEvents 的补丁）
+        out.add(new PlaybackStateCompat.CustomAction.Builder(action, source.getTitle(), icon).build());
+    }`,
+  ],
+  // ---- 系统媒体卡片：按钮点击回到媒体会话回调 ----
+  // SystemUI 点 PlaybackState 自定义动作时走 transportControls.sendCustomAction，
+  // 由 MediaSessionCompat.Callback 接收；这里补 onCustomAction，按动作名转成和通知栏一样的
+  // remote-favorite / remote-loop 事件，JS 侧的监听逻辑完全复用。
+  [
+    path.join(rootPath, 'node_modules/react-native-track-player/android/src/main/java/com/guichaguri/trackplayer/service/metadata/ButtonEvents.java'),
+    `    @Override
+    public void onRewind() {`,
+    `    /**
+     * 系统媒体卡片（下拉通知栏）多出来的两个按钮：收藏 / 播放模式。
+     *
+     * MetadataManager 把这两个动作发布成 PlaybackState.CustomAction，SystemUI 点击时
+     * 通过 MediaController.transportControls.sendCustomAction 回到这里。
+     * 事件名与通知栏按钮 / MusicService.onStartCommand 保持一致，JS 侧不用改。
+     */
+    @Override
+    public void onCustomAction(String action, Bundle extras) {
+        if("emo_favorite".equals(action)) {
+            service.emit("remote-favorite", null);
+        } else if("emo_loop".equals(action)) {
+            service.emit("remote-loop", null);
+        }
+    }
+
+    @Override
+    public void onRewind() {`,
+    'onCustomAction',
+  ],
+  // ---- 桌面小组件：点封面直达播放页 ----
+  // 原来整块 widget_root 的点击都是「回首页」；封面单独挂一个深链 PendingIntent，
+  // 走 emomusic://player/open（JS 侧 handlePlayerAction('open') → openPlayerWithTransition），
+  // 点封面直接切到播放器页，点标题 / 空白处仍然回首页。
+  [
+    path.join(rootPath, 'android/app/src/main/java/cn/emomusic/mobile/widget/WidgetViews.java'),
+    'import android.content.SharedPreferences;',
+    'import android.content.SharedPreferences;\nimport android.net.Uri;',
+    'openPlayer',
+  ],
+  [
+    path.join(rootPath, 'android/app/src/main/java/cn/emomusic/mobile/widget/WidgetViews.java'),
+    '    views.setOnClickPendingIntent(R.id.widget_root, PendingIntent.getActivity(context, wide ? 10 : 0, open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));',
+    `    views.setOnClickPendingIntent(R.id.widget_root, PendingIntent.getActivity(context, wide ? 10 : 0, open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
+
+    // 封面单独开一个深链：点封面直达播放器页（emomusic://player/open）
+    Intent openPlayer = new Intent(Intent.ACTION_VIEW, Uri.parse("emomusic://player/open"))
+        .setClassName(PKG, PKG + ".MainActivity")
+        .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+    PendingIntent openPlayerIntent = PendingIntent.getActivity(context, wide ? 20 : 21, openPlayer, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+    views.setOnClickPendingIntent(R.id.widget_cover, openPlayerIntent);
+    if (!wide) {
+      // 小尺寸布局里 widget_scrim 盖在封面上面（纯装饰、本身不接收点击），
+      // 不把点击挂到它身上，点封面区域会一路冒泡到 root，变成「回首页」
+      views.setOnClickPendingIntent(R.id.widget_scrim, openPlayerIntent);
+    }`,
+    'emomusic://player/open',
+  ],
   // ---- react-native-linear-gradient 2.8.3：AGP8 namespace ----
   // 上游 2.8.3 没有 namespace（AGP 8 会报错），本地手工补过但没进这个脚本；
   // 全新 npm install 时如果不补，构建会失败。RNGP 0.76 对「manifest 有 package」的库

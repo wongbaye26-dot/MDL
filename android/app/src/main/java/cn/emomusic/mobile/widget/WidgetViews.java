@@ -5,6 +5,7 @@ import android.appwidget.AppWidgetManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.net.Uri;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -86,6 +87,18 @@ final class WidgetViews {
     Intent open = new Intent().setClassName(PKG, PKG + ".MainActivity");
     open.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
     views.setOnClickPendingIntent(R.id.widget_root, PendingIntent.getActivity(context, wide ? 10 : 0, open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
+
+    // 封面单独开一个深链：点封面直达播放器页（emomusic://player/open）
+    Intent openPlayer = new Intent(Intent.ACTION_VIEW, Uri.parse("emomusic://player/open"))
+        .setClassName(PKG, PKG + ".MainActivity")
+        .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+    PendingIntent openPlayerIntent = PendingIntent.getActivity(context, wide ? 20 : 21, openPlayer, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+    views.setOnClickPendingIntent(R.id.widget_cover, openPlayerIntent);
+    if (!wide) {
+      // 小尺寸布局里 widget_scrim 盖在封面上面（纯装饰、本身不接收点击），
+      // 不把点击挂到它身上，点封面区域会一路冒泡到 root，变成「回首页」
+      views.setOnClickPendingIntent(R.id.widget_scrim, openPlayerIntent);
+    }
     views.setOnClickPendingIntent(R.id.widget_play, broadcast(context, wide ? 11 : 1, WidgetActionReceiver.ACTION_TOGGLE));
     views.setOnClickPendingIntent(R.id.widget_next, broadcast(context, wide ? 12 : 2, WidgetActionReceiver.ACTION_NEXT));
     views.setOnClickPendingIntent(R.id.widget_prev, broadcast(context, wide ? 13 : 3, WidgetActionReceiver.ACTION_PREV));
