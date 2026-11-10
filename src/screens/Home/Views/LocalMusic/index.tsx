@@ -41,7 +41,7 @@ import { formatSize, formatSampleRate, isSafPath } from '@/core/download/utils'
 import { clearSavePathCache, ensureDir, getSavePath } from '@/core/download'
 import { isExternalStorageManager, openAllFilesAccessSettings } from '@/utils/nativeModules/utils'
 import { showAppDialog } from '@/components/common/AppDialog/service'
-import { getLocalMusicList, getLocalMusicListCacheOnly, getLocalMusicListSync, getScanPartialList, subscribeScanPartialList, scanLocalMusicInBackground, isScanning, useScanState, getTotalSize, deleteLocalMusic, getScanDirs, getExtraDirs, setExtraDirs, getLastScanReport, type ScanDir, type ScanReport } from '@/core/localMusic'
+import { getLocalMusicList, getLocalMusicListCacheOnly, getLocalMusicListSync, getScanPartialList, subscribeScanPartialList, scanLocalMusicInBackground, isScanning, useScanState, getTotalSize, deleteLocalMusic, getScanDirs, getExtraDirs, setExtraDirs, getLastScanReport, consumeAutoDiscoverOnMount, type ScanDir, type ScanReport } from '@/core/localMusic'
 import { pickDirectory, isDirectoryPickerSupported, treeUriToDisplayPath } from '@/utils/directoryPicker'
 import AutoDirModal from './AutoDirModal'
 import type { FoundMusicDir } from '@/core/localMusic/discoverDirs'
@@ -1216,6 +1216,14 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
       setAutoDirModal(true)
     }
     global.state_event.on('localMusicAutoDiscoverRequested', handleRequest)
+    // 引导页跳过来时事件可能早于本页挂载，用一次性标记补一次
+    if (consumeAutoDiscoverOnMount()) {
+      const timer = setTimeout(() => { setAutoDirModal(true) }, 500)
+      return () => {
+        clearTimeout(timer)
+        global.state_event.off('localMusicAutoDiscoverRequested', handleRequest)
+      }
+    }
     return () => { global.state_event.off('localMusicAutoDiscoverRequested', handleRequest) }
   }, [])
 

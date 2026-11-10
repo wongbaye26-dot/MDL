@@ -5,7 +5,7 @@ import { isExternalStorageManager, openAllFilesAccessSettings } from '@/utils/na
 import { pickDirectory, treeUriToDisplayPath } from '@/utils/directoryPicker'
 import { clearSavePathCache, ensureDir, getSavePath } from '@/core/download'
 import { openSettingPage, setNavActiveId, updateSetting } from '@/core/common'
-import { getExtraDirs, setExtraDirs } from '@/core/localMusic'
+import { getExtraDirs, requestAutoDiscoverOnMount, setExtraDirs } from '@/core/localMusic'
 import { state as userApiState } from '@/store/userApi/state'
 import { isSafPath } from '@/core/download/utils'
 import { toast } from '@/utils/tools'
@@ -14,6 +14,11 @@ import { toast } from '@/utils/tools'
 const GUIDE_DONE_KEY = 'beginner_guide_done_v1'
 
 let showing = false
+
+/** 弹窗链中途被打断（取消选择器等）时复位，避免再也弹不出来 */
+const resetGuide = () => {
+  showing = false
+}
 
 const settingDescription = async() => {
   let saveDir = ''
@@ -29,7 +34,10 @@ const settingDescription = async() => {
 const chooseDownloadDir = async(close: () => void) => {
   try {
     const picked = await pickDirectory()
-    if (!picked) return
+    if (!picked) {
+      resetGuide()
+      return
+    }
     const writable = await ensureDir(picked.path).catch(() => false)
     if (writable) {
       updateSetting({ 'download.savePath': picked.path })
@@ -75,6 +83,7 @@ const showDownloadStep = async(next: 'local' | 'none' = 'none') => {
     title: '第二步：设置下载目录',
     message: lines.join('\n'),
     bgClose: false,
+    onDismiss: resetGuide,
     actions: [
       {
         text: '选择目录',
@@ -117,11 +126,13 @@ const showLocalStep = (thenFinish = true) => {
       '原文件夹不会被移动，只是加入扫描列表。',
     ].join('\n'),
     bgClose: false,
+    onDismiss: resetGuide,
     actions: [
       {
         text: '自动识别',
         style: 'primary',
         onPress: () => {
+          requestAutoDiscoverOnMount()
           setNavActiveId('nav_local')
           setTimeout(() => { global.state_event.localMusicAutoDiscoverRequested() }, 400)
           if (thenFinish) void finishGuide()
@@ -133,7 +144,11 @@ const showLocalStep = (thenFinish = true) => {
           void (async() => {
             try {
               const picked = await pickDirectory()
-              if (!picked) return
+              if (!picked) {
+                if (thenFinish) await finishGuide()
+                else resetGuide()
+                return
+              }
               const extra = await getExtraDirs()
               if (!extra.some(dir => dir.path === picked.path)) {
                 await setExtraDirs([...extra, { path: picked.path, ...(picked.treeUri ? { treeUri: picked.treeUri } : {}) }])
@@ -170,6 +185,7 @@ const showSourceStep = (next: 'download' | 'local' | 'none') => {
     title: '第一步：确认音源',
     message,
     bgClose: false,
+    onDismiss: resetGuide,
     actions: [
       {
         text: '去音源管理',
@@ -222,6 +238,7 @@ export const showBeginnerGuide = async(force = false) => {
       '· 全都要  → 上面几步依次来一遍',
     ].join('\n'),
     bgClose: false,
+    onDismiss: resetGuide,
     actions: [
       {
         text: '只在线听歌',

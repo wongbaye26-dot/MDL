@@ -1177,6 +1177,20 @@ export const useScanState = () => {
 export const isScanning = () => scanState.scanning
 
 /**
+ * 「自动识别音乐文件夹」的一次性待办标记。
+ *
+ * 新手引导触发自动识别时，本地音乐 Tab 可能还没挂载（事件会丢），
+ * 先记一个标记，等页面挂载后再弹窗。
+ */
+let pendingAutoDiscover = false
+export const requestAutoDiscoverOnMount = () => { pendingAutoDiscover = true }
+export const consumeAutoDiscoverOnMount = () => {
+  const pending = pendingAutoDiscover
+  pendingAutoDiscover = false
+  return pending
+}
+
+/**
  * 静默的后台增量扫描：不设置「扫描中」状态、不推半成品列表，
  * 扫完照常持久化并广播曲库更新。供自动同步（文件变化 / 下载完成）使用。
  *
