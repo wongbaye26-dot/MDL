@@ -31,6 +31,7 @@ import ChoosePath, { type ChoosePathType } from '@/components/common/ChoosePath'
 import MusicMultiAddModal, { type MusicMultiAddModalType } from '@/components/MusicMultiAddModal'
 import { useTheme } from '@/store/theme/hook'
 import { contrastOn } from '@/theme/solid'
+import { getDivider } from '@/theme/designTokens'
 import { setNavActiveId } from '@/core/common'
 import LiquidGlass from '@/components/common/LiquidGlass'
 import { useSettingValue } from '@/store/setting/hook'
@@ -2275,7 +2276,7 @@ const LocalRow = memo(({ item, index, onPress, onMore, batchMode = false, select
   }, [item.meta.sampleRate])
 
   return (
-    <View style={[styles.row, selected ? { backgroundColor: theme['c-primary-alpha-900'] } : null]}>
+    <View style={[styles.row, selected ? { backgroundColor: theme['c-primary-alpha-900'] } : null, { borderBottomWidth: 0.5, borderBottomColor: getDivider(theme) }]}>
       <TouchableOpacity
         style={styles.rowMain}
         activeOpacity={0.7}
