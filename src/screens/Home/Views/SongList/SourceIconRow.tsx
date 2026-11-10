@@ -11,21 +11,21 @@ import { createStyle } from '@/utils/tools'
  * 页头标题右侧的「来源品牌图标组」（排行榜 / 歌单广场共用，保证两处尺寸与间距一致）。
  *
  * 尺寸（对齐右侧圆形按钮组）：
- *  - 品牌字形光学尺寸约 20dp：SourceLogo 的路径只占 48 视框的 36 单位（75%），
- *    所以传 size=27 → 实际字形 27×0.75 ≈ **20.25dp**，和按钮里的 Icon size=20 同大；
+ *  - 品牌字形光学尺寸 20dp：SourceLogo 的路径统一占 48 视框的 30 单位（62.5%），
+ *    所以传 size=32 → 实际字形 32×0.625 = **20dp**，和 38/40dp 按钮里的 Icon size=20 完全同大；
  *  - 不再画圆形底色：右侧按钮是 38dp 实心圆，图标组如果也套 30dp 圆底会显得
  *    「小一圈又挤在一起」。改成裸图标后，字形大小与按钮图标一致，节奏才对得上；
  *  - 图标之间：与按钮组相同的 **8dp** 间距（之前是 30dp 槽位紧挨、视觉只隔 ~10dp）；
- *  - 触控区：28dp 布局 + hitSlop 5 → **38dp**，和按钮同档，不会因为去掉圆底变小；
+ *  - 触控区：38dp 布局 + hitSlop 2 → **42dp**，和按钮同档；
  *  - 与右侧圆形按钮组：由调用方给 8dp 间距（CompactHero 按钮 marginLeft=8 /
  *    歌单广场 HeaderSourceBar marginRight=8）。
  *
  * 颜色：当前音源=主题主色，其余 c-450（onSurfaceVariant 档）；按压 0.5 透明度反馈；
  * 无障碍标签沿用原「小X音乐」文字；未识别自定义音源回退文字按钮。
  */
-export const HEADER_SOURCE_ICON_SIZE = 24
+export const HEADER_SOURCE_ICON_SIZE = 32
 /** 每个来源按钮的布局尺寸（配合 hitSlop 5 → 38dp 触控区） */
-const ITEM_SIZE = 34
+const ITEM_SIZE = 38
 /** 与右侧圆形按钮组保持同一间距 */
 const ITEM_GAP = 4
 /** hitSlop：布局 28 + 5×2 = 38dp 触控区 */
