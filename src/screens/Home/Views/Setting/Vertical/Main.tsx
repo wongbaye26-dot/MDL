@@ -59,6 +59,38 @@ const CATEGORIES = [
 ] as const
 type CategoryKey = typeof CATEGORIES[number]['key']
 
+/** 竖屏主列表分组卡片（参考飞牛设置）：主题单独一张，播放相关+音质/歌词/本地一张，系统相关一张 */
+type PortraitCategoryKey = CategoryKey | 'playbackInteraction'
+const PORTRAIT_GROUPS: PortraitCategoryKey[][] = [
+  ['theme'],
+  ['playbackInteraction', 'quality', 'lyric', 'library'],
+  ['system', 'data', 'about'],
+]
+const PORTRAIT_LABELS: Record<PortraitCategoryKey, string> = {
+  theme: '主题与外观',
+  playbackInteraction: '播放与交互',
+  quality: '音质与音效',
+  lyric: '歌词设置',
+  library: '本地音乐',
+  system: '通知与系统',
+  data: '数据与存储',
+  about: '关于与版本',
+  interaction: '播放器与交互',
+  playback: '播放设置',
+}
+const PORTRAIT_ICONS: Record<PortraitCategoryKey, string> = {
+  theme: 'palette-outline',
+  playbackInteraction: 'play-circle-outline',
+  quality: 'speedometer',
+  lyric: 'lyric-on',
+  library: 'folder-music',
+  system: 'shield-check-outline',
+  data: 'database-outline',
+  about: 'information-outline',
+  interaction: 'gesture-swipe-horizontal',
+  playback: 'play-circle-outline',
+}
+
 export default () => {
   const theme = useTheme()
   const t = useI18n()
@@ -66,7 +98,7 @@ export default () => {
   const horizontal = useHorizontalMode()
   const [category, setCategory] = useState<CategoryKey>('theme')
   /** 竖屏主/子二级：null = 分类列表，非空 = 对应子页 */
-  const [portraitCategory, setPortraitCategory] = useState<CategoryKey | null>(null)
+  const [portraitCategory, setPortraitCategory] = useState<PortraitCategoryKey | null>(null)
   const [activeId, setActiveIdState] = useState<SettingScreenIds | null>(
     lastActiveId && DEEP_SECTIONS[lastActiveId] ? lastActiveId : null,
   )
@@ -156,9 +188,10 @@ export default () => {
   // 深页和设置页内容区对齐：横屏不再往左扩，避免盖住左侧导航/超出设置页宽度
   const overlayLeft = 0
 
-  const renderCategory = (key: CategoryKey) => {
+  const renderCategory = (key: PortraitCategoryKey) => {
     switch (key) {
       case 'theme': return <ThemeSection />
+      case 'playbackInteraction': return <><PlayerInteractionSection /><PlaybackSection /></>
       case 'interaction': return <PlayerInteractionSection />
       case 'playback': return <PlaybackSection />
       case 'quality': return <AudioQualitySection />
@@ -171,9 +204,7 @@ export default () => {
   }
   const categoryContent = renderCategory(category)
   const portraitContent = portraitCategory ? renderCategory(portraitCategory) : null
-  const portraitLabel = portraitCategory
-    ? CATEGORIES.find(item => item.key === portraitCategory)?.label ?? ''
-    : ''
+  const portraitLabel = portraitCategory ? PORTRAIT_LABELS[portraitCategory] : ''
 
   return (
     <View style={styles.container}>
@@ -221,25 +252,35 @@ export default () => {
               </View>
               )
             : (
-              <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
-                <View style={styles.portraitMaster}>
-                  {CATEGORIES.map((item, index) => (
-                    <TouchableOpacity
-                      key={item.key}
-                      style={[styles.portraitRow, index > 0 ? { borderTopWidth: 0.5, borderTopColor: theme['c-primary-alpha-700'] } : null]}
-                      activeOpacity={0.72}
-                      onPress={() => { setPortraitCategory(item.key) }}
-                      accessibilityRole='button'
-                      accessibilityLabel={item.label}
-                    >
-                      <View style={[styles.portraitRowIcon, { backgroundColor: theme['c-primary-alpha-900'] }]}>
-                        <Icon name={item.icon} size={19} color={theme['c-primary']} />
-                      </View>
-                      <Text size={14.5} style={styles.portraitRowLabel}>{item.label}</Text>
-                      <Icon name='chevron-right' size={19} color={theme['c-450']} />
-                    </TouchableOpacity>
-                  ))}
-                </View>
+              <ScrollView contentContainerStyle={styles.portraitList} showsVerticalScrollIndicator={false}>
+                {PORTRAIT_GROUPS.map((group, groupIndex) => (
+                  <View
+                    key={`group_${groupIndex}`}
+                    style={[styles.portraitCard, {
+                      backgroundColor: theme.isDark ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.72)',
+                      borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+                    }]}
+                  >
+                    {group.map((item, index) => (
+                      <TouchableOpacity
+                        key={item}
+                        style={[styles.portraitRow, index > 0
+                          ? { borderTopWidth: 0.5, borderTopColor: theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }
+                          : null]}
+                        activeOpacity={0.72}
+                        onPress={() => { setPortraitCategory(item) }}
+                        accessibilityRole='button'
+                        accessibilityLabel={PORTRAIT_LABELS[item]}
+                      >
+                        <View style={[styles.portraitRowIcon, { backgroundColor: theme['c-primary-alpha-900'] }]}>
+                          <Icon name={PORTRAIT_ICONS[item]} size={19} color={theme['c-primary']} />
+                        </View>
+                        <Text size={14.5} style={styles.portraitRowLabel}>{PORTRAIT_LABELS[item]}</Text>
+                        <Icon name='chevron-right' size={19} color={theme['c-450']} />
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                ))}
               </ScrollView>
               )
       }
@@ -346,15 +387,17 @@ const styles = createStyle({
     paddingTop: 4,
     paddingBottom: NAV_BAR_SPACE,
   },
-  portraitMaster: {
-    marginLeft: 16,
-    marginRight: 16,
-    marginTop: 4,
-    borderRadius: 18,
+  portraitList: {
+    paddingLeft: 16,
+    paddingRight: 16,
+    paddingTop: 6,
+    paddingBottom: NAV_BAR_SPACE,
+    gap: 12,
+  },
+  portraitCard: {
+    borderRadius: 20,
     borderWidth: 0.5,
     overflow: 'hidden',
-    borderColor: 'rgba(128,128,128,0.18)',
-    backgroundColor: 'rgba(128,128,128,0.06)',
   },
   portraitRow: {
     flexDirection: 'row',
