@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentRef } from 'react'
-import { View, Animated, Easing } from 'react-native'
+import { View } from 'react-native'
 import Home from '../Views/Home'
 import Download from '../Views/Download'
 import Mine from '../Views/Mine'
@@ -29,9 +29,13 @@ const PAGES = [
 /**
  * 单个 Tab 页面。
  *
- * PagerView 切页是 `setPageWithoutAnimation`（瞬间跳），所以切换质感全靠这里：
- * 淡入 + 轻微上浮 + 一点点推近（240~280ms ease-out），比原来的纯 200ms 淡入更有层次；
- * 已访问过的页面不会重播（visible 只置 true 一次），回来时内容不跳。
+ * 这里**不做任何切页动画**：
+ *  - PagerView 手势左右滑本身有原生转场，再叠一层动画是重复的；
+ *  - 之前的 opacity 0→1 会在切换第一帧让整页透明，露出下层 PageContent 的背景，
+ *    亮色主题下就是左右上角闪一下的残影（暗色下底色接近所以看不出来）；
+ *  - translateY / scale 还会让页面四周露出父容器底色。
+ * 点击底部 Tab 是 `setPageWithoutAnimation` 瞬间跳，同样不需要淡入。
+ * 已访问过的页面不会重建（visible 只置 true 一次），回来时滚动位置和播放状态都保留。
  */
 const Page = ({ id, children }: { id: CommonState['navActiveId'], children: React.ReactNode }) => {
   const theme = useTheme()
@@ -40,45 +44,8 @@ const Page = ({ id, children }: { id: CommonState['navActiveId'], children: Reac
   // React 19 的 ReactNode 包含 Promise<ReactNode>，lint 的 promise-function-async 会误判；这里就是同步缓存 children
   // eslint-disable-next-line react-hooks/exhaustive-deps, @typescript-eslint/promise-function-async
   const component = useMemo(() => children, [])
-  const firstShowRef = useRef(true)
-  const opacity = useRef(new Animated.Value(1)).current
-  const translateY = useRef(new Animated.Value(0)).current
-  const scale = useRef(new Animated.Value(1)).current
-  useEffect(() => {
-    if (!visible) return
-    // 首次挂载不做淡入：挂载帧本身需要布局，再叠加 opacity 0→1 会闪一下；
-    // 已挂载页面切换由 PagerView 手势负责，不需要这里再演一次。
-    if (firstShowRef.current) {
-      firstShowRef.current = false
-      opacity.setValue(1)
-      translateY.setValue(0)
-      scale.setValue(1)
-      return
-    }
-    opacity.setValue(0)
-    translateY.setValue(12)
-    scale.setValue(0.992)
-    Animated.parallel([
-      Animated.timing(opacity, {
-        toValue: 1,
-        duration: 240,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.timing(translateY, {
-        toValue: 0,
-        duration: 280,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.timing(scale, {
-        toValue: 1,
-        duration: 280,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-    ]).start()
-  }, [visible, opacity, translateY, scale])
+  // 页面背景保持主题的半透明底，让 PageContent 的背景图透出来
+  const backgroundColor = theme['c-main-background']
   useEffect(() => {
     let currentId: CommonState['navActiveId'] = commonState.navActiveId
     const handleNavIdUpdate = (_id: CommonState['navActiveId']) => {
@@ -117,9 +84,9 @@ const Page = ({ id, children }: { id: CommonState['navActiveId'], children: Reac
 
   return visible
     ? (
-      <Animated.View style={{ flex: 1, backgroundColor: theme['c-main-background'], opacity, transform: [{ translateY }, { scale }] }}>
+      <View style={{ flex: 1, backgroundColor }}>
         {component}
-      </Animated.View>
+      </View>
       )
     : null
 }
@@ -141,7 +108,17 @@ const Main = () => {
 
   const onPageScrollStateChanged = useCallback(({ nativeEvent }: PageScrollStateChangedNativeEvent) => {
     const idle = nativeEvent.pageScrollState == 'idle'
-    if (global.lx.homePagerIdle != idle) global.lx.homePagerIdle = idle
+    if (global.lx.homePagerIdle != idle) {
+      global.lx.homePagerIdle = idle
+      /*
+       * 通知玻璃层：滑动中把「整窗快照模糊」降级成纯色。
+       *
+       * GlassBlurView 是 preDraw 抓整个 window 的快照再软件模糊，滑动中刷新间隔
+       * 50ms（20fps），跟不上页面 60fps 的位移，页头/胶囊边缘就会拖出上一页的
+       * 模糊残影（亮色主题下最明显）。滑动这几百毫秒直接不模糊，结束后恢复。
+       */
+      global.state_event.homePagerScrollChanged(!idle)
+    }
   }, [])
 
   useEffect(() => {

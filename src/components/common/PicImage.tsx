@@ -33,12 +33,34 @@ const PicImage = ({ musicInfo, listId, ...rest }: {
         return
       }
     }
-    // 异步解析
+    // 异步解析：取不到/网络抖动时再重试一次，减少「偶发无封面」
     let alive = true
-    void getPicPath({ musicInfo, isRefresh: false, listId }).then(u => {
-      if (alive && u) setUrl(u)
-    }).catch(() => {})
-    return () => { alive = false }
+    let retries = 0
+    let timer: ReturnType<typeof setTimeout> | null = null
+    const run = () => {
+      void getPicPath({ musicInfo, isRefresh: false, listId }).then(u => {
+        if (!alive) return
+        if (u) {
+          setUrl(u)
+          return
+        }
+        if (retries < 1) {
+          retries++
+          timer = setTimeout(run, 1200)
+        }
+      }).catch(() => {
+        if (!alive) return
+        if (retries < 1) {
+          retries++
+          timer = setTimeout(run, 1200)
+        }
+      })
+    }
+    run()
+    return () => {
+      alive = false
+      if (timer) clearTimeout(timer)
+    }
   }, [musicInfo, listId])
 
   return <Image url={url} {...rest} />

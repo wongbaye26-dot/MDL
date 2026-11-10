@@ -139,12 +139,8 @@ export default forwardRef<ListType, ListProps>(({ onRefresh, onLoadMore, onOpenD
     return list
   }, [currentList, rowInfo])
 
-  /**
-   * 这个工程的 VirtualizedList 只会渲染 initialNumToRender 那一批（滚动不再补），
-   * 之前默认 10 个格子 = 3 行多就没了，看起来像「列表只有一屏」。两列后行数翻倍，
-   * 直接把初始批次设成当前列表长度，保证整页数据都渲染出来。
-   */
-  const renderAll = Math.max(6, list.length)
+  /** 初始/单批只渲染 3 行，其余交给 VirtualizedList 滚动补；之前一次渲染全量是卡顿主因 */
+  const batchSize = Math.max(6, rowInfo.num * 3)
   // 只有「加载完且真的没有数据」才展示空态；加载失败交给 footer 的「点击重试」
   const emptyComponent = useMemo(() => {
     if (status !== 'end' || currentList.length) return null
@@ -178,10 +174,10 @@ export default forwardRef<ListType, ListProps>(({ onRefresh, onLoadMore, onOpenD
                 columnWrapperStyle={styles.row}
                 numColumns={rowInfo.num}
                 data={list}
-                maxToRenderPerBatch={renderAll}
-                windowSize={21}
-                removeClippedSubviews={false}
-                initialNumToRender={renderAll}
+                maxToRenderPerBatch={batchSize}
+                windowSize={7}
+                removeClippedSubviews
+                initialNumToRender={batchSize}
                 renderItem={renderItem}
                 keyExtractor={getkey}
                 onEndReachedThreshold={0.6}

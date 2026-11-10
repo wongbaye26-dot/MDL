@@ -54,9 +54,12 @@ export const useSourcePageState = (): SourcePageState => {
  * 初始化成功 / 切换音源后由 apiSourceUpdated 事件刷新。
  */
 export const useQualityList = (): LX.QualityList => {
-  const [qualityList, setQualityList] = useState<LX.QualityList>(global.lx.qualityList)
+  const [qualityList, setQualityList] = useState<LX.QualityList>({ ...global.lx.qualityList })
   useEffect(() => {
     const handleUpdate = () => { setQualityList({ ...global.lx.qualityList }) }
+    // 挂载时先主动同步一次：页面可能是事件触发之后才挂载的（比如从别的 Tab 切进来），
+    // 只订阅事件会一直显示挂载前的旧矩阵。
+    handleUpdate()
     global.state_event.on('apiSourceUpdated', handleUpdate)
     return () => { global.state_event.off('apiSourceUpdated', handleUpdate) }
   }, [])

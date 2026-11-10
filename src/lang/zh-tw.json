@@ -467,7 +467,7 @@
   "setting_source_summary_last_check": "上次檢測",
   "setting_source_summary_status": "目前狀態",
   "setting_source_summary_never": "未檢測",
-  "setting_source_summary_tip": "音質與檢測資料來自目前啟用腳本，切換音源後自動重新整理",
+  "setting_source_summary_tip": "音質與檢測資料來自目前啟用腳本；可用音源數隨匯入/刪除即時更新",
   "setting_source_current": "目前音源",
   "setting_source_user_list": "自訂音源",
   "setting_source_quality": "音源品質",

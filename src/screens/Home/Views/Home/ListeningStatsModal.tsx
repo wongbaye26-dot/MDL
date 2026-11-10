@@ -10,6 +10,7 @@ import { getListMusicSync } from '@/utils/listManage'
 import { useMyList } from '@/store/list/hook'
 import { LIST_IDS } from '@/config/constant'
 import { confirmDialog, createStyle, toast } from '@/utils/tools'
+import { contrastOn } from '@/theme/solid'
 
 type Period = 'week' | 'month' | 'year' | 'all'
 
@@ -87,7 +88,7 @@ export default memo(({ visible, onClose }: { visible: boolean, onClose: () => vo
                     activeOpacity={0.85}
                     onPress={() => { setPeriod(item.key) }}
                   >
-                    <Text size={11.5} color={active ? '#FFFFFF' : theme['c-450']} style={styles.periodText}>{item.label}</Text>
+                    <Text size={11.5} color={active ? contrastOn(theme['c-primary']) : theme['c-450']} style={styles.periodText}>{item.label}</Text>
                   </TouchableOpacity>
                 )
               })}
@@ -101,21 +102,11 @@ export default memo(({ visible, onClose }: { visible: boolean, onClose: () => vo
                   <Text size={14} color={theme['c-450']} style={styles.heroUnit}>小时</Text>
                 </View>
                 <View style={styles.heroMetaRow}>
-                  <Icon name='arrow-up' size={13} color='#22B07D' />
-                  <Text size={11} color='#22B07D'>{`今日 ${formatDuration(stats.todaySeconds)}`}</Text>
+                  <Icon name='arrow-up' size={13} color={theme['c-primary']} />
+                  <Text size={11} color={theme['c-primary']}>{`今日 ${formatDuration(stats.todaySeconds)}`}</Text>
                   <Text size={11} color={theme['c-450']} style={styles.heroDot}>·</Text>
                   <Text size={11} color={theme['c-450']}>{`累计 ${formatDuration(stats.totalSeconds)}`}</Text>
                 </View>
-              </View>
-              {/* 唱片插画：纯 View 画，避免额外图片资源 */}
-              <View style={styles.vinylWrap} pointerEvents='none'>
-                <View style={[styles.vinyl, { backgroundColor: theme.isDark ? '#23202E' : '#171522' }]}>
-                  <View style={[styles.vinylRing, { borderColor: 'rgba(255,255,255,0.08)' }]} />
-                  <View style={[styles.vinylLabel, { backgroundColor: theme['c-primary'] }]}>
-                    <Icon name='music-note' size={22} color='#FFFFFF' />
-                  </View>
-                </View>
-                <View style={[styles.vinylOrbit, { borderColor: theme['c-primary-alpha-700'] }]} />
               </View>
             </View>
 
@@ -154,8 +145,8 @@ export default memo(({ visible, onClose }: { visible: boolean, onClose: () => vo
                 <Text size={10} color={theme['c-450']}>播放次数</Text>
               </View>
               <View style={[styles.metric, { backgroundColor: theme['c-primary-alpha-900'] }]}>
-                <View style={[styles.metricIcon, { backgroundColor: 'rgba(255,90,120,0.16)' }]}>
-                  <Icon name='heart' size={17} color='#FF5A78' />
+                <View style={[styles.metricIcon, { backgroundColor: theme['c-primary-alpha-800'] }]}>
+                  <Icon name='heart' size={17} color={theme['c-primary']} />
                 </View>
                 <Text size={20} style={styles.metricValue}>{loveCount}</Text>
                 <Text size={10} color={theme['c-450']}>喜欢歌曲</Text>
@@ -171,7 +162,7 @@ export default memo(({ visible, onClose }: { visible: boolean, onClose: () => vo
 
             <View style={[styles.favoriteCard, { backgroundColor: theme['c-primary-alpha-900'] }]}>
               <View style={styles.favoriteHead}>
-                <Icon name='trophy-outline' size={16} color='#F5A524' />
+                <Icon name='trophy-outline' size={16} color={theme['c-primary']} />
                 <Text size={13} style={styles.favoriteTitle}>本周最爱</Text>
                 <Text size={10.5} color={theme['c-450']}>按收听时长</Text>
               </View>

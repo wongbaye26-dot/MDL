@@ -467,7 +467,7 @@
   "setting_source_summary_last_check": "上次检测",
   "setting_source_summary_status": "当前状态",
   "setting_source_summary_never": "未检测",
-  "setting_source_summary_tip": "音质与检测数据来自当前启用脚本，切换音源后自动刷新",
+  "setting_source_summary_tip": "音质与检测数据来自当前启用脚本；可用音源数随导入/删除实时更新",
   "setting_source_current": "当前音源",
   "setting_source_user_list": "自定义源",
   "setting_source_quality": "音源质量",

@@ -467,7 +467,7 @@
   "setting_source_summary_last_check": "Last check",
   "setting_source_summary_status": "Status",
   "setting_source_summary_never": "Not checked",
-  "setting_source_summary_tip": "Quality and check data come from the active script and refresh after switching.",
+  "setting_source_summary_tip": "Quality and check data come from the active script; the source count updates as scripts are imported or removed.",
   "setting_source_current": "Current source",
   "setting_source_user_list": "Custom sources",
   "setting_source_quality": "Source quality",

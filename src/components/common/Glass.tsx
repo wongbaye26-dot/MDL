@@ -35,6 +35,7 @@ export default ({
   tint,
   radius = 0,
   style,
+  enabled = true,
 }: {
   /** 模糊半径，0~25（原生侧会夹紧） */
   blurRadius?: number
@@ -42,6 +43,8 @@ export default ({
   tint?: string
   /** 圆角（需要和父容器的圆角一致，父容器同时要 overflow: hidden） */
   radius?: number
+  /** 关闭后原生停止抓快照并释放 bitmap（滑动期间用，避免整窗快照拖影） */
+  enabled?: boolean
   style?: StyleProp<ViewStyle>
 }) => {
   const shape = radius ? { borderRadius: radius } : null
@@ -51,7 +54,7 @@ export default ({
         pointerEvents='none'
         blurRadius={Math.min(25, Math.max(0, blurRadius))}
         overlayColor={(processColor(tint) ?? 0) as number}
-        enabled
+        enabled={enabled}
         style={[styles.blur, shape, style]}
       />
     )

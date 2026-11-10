@@ -36,6 +36,16 @@ export class StateEvent extends Event {
     this.emit('apiSourceUpdated', source)
   }
 
+  /** 首页 PagerView 开始/结束滑动：玻璃层据此在滑动期间降级为纯色，避免快照残影 */
+  homePagerScrollChanged(paused: boolean) {
+    this.emit('homePagerScrollChanged', paused)
+  }
+
+  /** 整屏子页进场/退场期间：玻璃层暂停整窗快照，避免抓到下层页面的色块 */
+  pageTransitionChanged(paused: boolean) {
+    this.emit('pageTransitionChanged', paused)
+  }
+
   themeUpdated(theme: LX.ActiveTheme) {
     this.emit('themeUpdated', theme)
   }

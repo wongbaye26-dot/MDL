@@ -37,12 +37,19 @@ const EmptyPic = memo(({ style, nativeID }: { style: ImageProps['style'], native
 
 const Image = memo(({ url, cache, resizeMode = 'cover', style, onError, nativeID, blurRadius }: ImageProps) => {
   const [isError, setError] = useState(false)
+  /** 远程封面偶发 403/超时时自动重试一次（换 reload 缓存），减少首页「偶发无封面」 */
+  const [retry, setRetry] = useState(0)
   const handleError = useCallback(() => {
+    if (retry < 1) {
+      setRetry(r => r + 1)
+      return
+    }
     setError(true)
     onError?.(url!)
-  }, [onError, url])
+  }, [onError, retry, url])
   useEffect(() => {
     setError(false)
+    setRetry(0)
   }, [url])
   let uri = typeof url == 'number'
     ? FastImage.resolveAssetSource(url).uri
@@ -54,11 +61,12 @@ const Image = memo(({ url, cache, resizeMode = 'cover', style, onError, nativeID
     showDefault ? <EmptyPic style={style} nativeID={nativeID} />
       : (
           <FastImage
+            key={retry}
             style={style}
             source={{
               uri: uri!,
               headers: defaultHeaders,
-              cache: cache === false ? 'reload' : 'force-cache',
+              cache: retry > 0 ? 'reload' : (cache === false ? 'reload' : 'force-cache'),
               // priority: FastImage.priority.normal,
               // cache: cache === false ? 'web' : 'immutable',
             }}

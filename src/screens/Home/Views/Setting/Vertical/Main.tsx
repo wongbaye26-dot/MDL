@@ -19,7 +19,6 @@ import { useI18n } from '@/lang'
 import { useStatusbarHeight } from '@/store/common/hook'
 import { useHorizontalMode } from '@/utils/hooks'
 import SlideInView from '@/components/common/SlideInView'
-import Grid from './Grid'
 import { NAV_BAR_SPACE } from '@/config/constant'
 import { getSolidBackground } from '@/theme/solid'
 import { SETTINGS_HEADER_COMPACT_H, SETTINGS_HEADER_H } from '../components/headerMetrics'
@@ -27,6 +26,7 @@ import ImportBtn from '../settings/Basic/UserApiEditModal/ImportBtn'
 import settingState from '@/store/setting/state'
 import type { InitState as CommonState } from '@/store/common/state'
 import useSwipeBack from '../useSwipeBack'
+import CapsuleIconButton from '@/components/common/CapsuleIconButton'
 import { useBackHandler } from '@/utils/hooks/useBackHandler'
 
 /** 主题切换等导致组件重挂载时，用来恢复当前打开的子页，避免闪回设置主页 */
@@ -65,6 +65,8 @@ export default () => {
   const statusBarHeight = useStatusbarHeight()
   const horizontal = useHorizontalMode()
   const [category, setCategory] = useState<CategoryKey>('theme')
+  /** 竖屏主/子二级：null = 分类列表，非空 = 对应子页 */
+  const [portraitCategory, setPortraitCategory] = useState<CategoryKey | null>(null)
   const [activeId, setActiveIdState] = useState<SettingScreenIds | null>(
     lastActiveId && DEEP_SECTIONS[lastActiveId] ? lastActiveId : null,
   )
@@ -88,12 +90,6 @@ export default () => {
    * （之前的下拉返回走的是子页 ScrollView 的 RefreshControl，已去掉）
    */
   const swipeBack = useSwipeBack(handleClose)
-
-  const handlePress = useCallback((id: SettingScreenIds) => {
-    // 上一次可能是滑出关闭，整页还停在屏幕外，重新打开前必须复位
-    swipeBack.reset()
-    setActiveId(id)
-  }, [setActiveId, swipeBack])
 
   // 子页打开时：胶囊切到哪个 Tab 就去哪个 Tab，只把子页收掉，不再强制弹回「我的」。
   // （之前这里 setNavActiveId('nav_mine') 会把用户刚点的目标页覆盖掉，表现为
@@ -121,10 +117,16 @@ export default () => {
 
   /** 深页打开时系统返回先关闭深页；设置首页返回 false，交给系统退到后台 */
   useBackHandler(useCallback(() => {
-    if (!activeIdRef.current) return false
-    setActiveId(null)
-    return true
-  }, [setActiveId]))
+    if (activeIdRef.current) {
+      setActiveId(null)
+      return true
+    }
+    if (portraitCategory) {
+      setPortraitCategory(null)
+      return true
+    }
+    return false
+  }, [portraitCategory, setActiveId]))
 
   // 把「设置子页是否打开」广播给胶囊导航：这样在子页里再点一次「我的」可以回到设置首页
   useEffect(() => {
@@ -154,8 +156,8 @@ export default () => {
   // 深页和设置页内容区对齐：横屏不再往左扩，避免盖住左侧导航/超出设置页宽度
   const overlayLeft = 0
 
-  const categoryContent = (() => {
-    switch (category) {
+  const renderCategory = (key: CategoryKey) => {
+    switch (key) {
       case 'theme': return <ThemeSection />
       case 'interaction': return <PlayerInteractionSection />
       case 'playback': return <PlaybackSection />
@@ -166,7 +168,12 @@ export default () => {
       case 'data': return <DataSection />
       default: return <AboutSection />
     }
-  })()
+  }
+  const categoryContent = renderCategory(category)
+  const portraitContent = portraitCategory ? renderCategory(portraitCategory) : null
+  const portraitLabel = portraitCategory
+    ? CATEGORIES.find(item => item.key === portraitCategory)?.label ?? ''
+    : ''
 
   return (
     <View style={styles.container}>
@@ -197,11 +204,44 @@ export default () => {
               </ScrollView>
             </View>
             )
-          : (
-            <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
-              <Grid onPress={handlePress} />
-            </ScrollView>
-            )
+          : portraitCategory
+            ? (
+              <View style={styles.portraitDetail}>
+                <View style={styles.portraitBackRow}>
+                  <CapsuleIconButton icon='chevron-left' label='返回设置' onPress={() => { setPortraitCategory(null) }} />
+                  <Text size={19} style={styles.portraitDetailTitle}>{portraitLabel}</Text>
+                </View>
+                <ScrollView
+                  key={portraitCategory}
+                  contentContainerStyle={styles.portraitDetailContent}
+                  showsVerticalScrollIndicator={false}
+                >
+                  {portraitContent}
+                </ScrollView>
+              </View>
+              )
+            : (
+              <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
+                <View style={styles.portraitMaster}>
+                  {CATEGORIES.map((item, index) => (
+                    <TouchableOpacity
+                      key={item.key}
+                      style={[styles.portraitRow, index > 0 ? { borderTopWidth: 0.5, borderTopColor: theme['c-primary-alpha-700'] } : null]}
+                      activeOpacity={0.72}
+                      onPress={() => { setPortraitCategory(item.key) }}
+                      accessibilityRole='button'
+                      accessibilityLabel={item.label}
+                    >
+                      <View style={[styles.portraitRowIcon, { backgroundColor: theme['c-primary-alpha-900'] }]}>
+                        <Icon name={item.icon} size={19} color={theme['c-primary']} />
+                      </View>
+                      <Text size={14.5} style={styles.portraitRowLabel}>{item.label}</Text>
+                      <Icon name='chevron-right' size={19} color={theme['c-450']} />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
+              )
       }
 
       {
@@ -304,6 +344,47 @@ const styles = createStyle({
     paddingLeft: 24,
     paddingRight: 24,
     paddingTop: 4,
+    paddingBottom: NAV_BAR_SPACE,
+  },
+  portraitMaster: {
+    marginLeft: 16,
+    marginRight: 16,
+    marginTop: 4,
+    borderRadius: 18,
+    borderWidth: 0.5,
+    overflow: 'hidden',
+    borderColor: 'rgba(128,128,128,0.18)',
+    backgroundColor: 'rgba(128,128,128,0.06)',
+  },
+  portraitRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 58,
+    paddingLeft: 12,
+    paddingRight: 12,
+  },
+  portraitRowIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  portraitRowLabel: { flex: 1 },
+  portraitDetail: { flex: 1 },
+  portraitBackRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingLeft: 16,
+    paddingRight: 16,
+    paddingTop: 4,
+    paddingBottom: 8,
+  },
+  portraitDetailTitle: { marginLeft: 10, fontWeight: '700' },
+  portraitDetailContent: {
+    paddingLeft: 16,
+    paddingRight: 16,
     paddingBottom: NAV_BAR_SPACE,
   },
   list: {
