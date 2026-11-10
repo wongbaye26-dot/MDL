@@ -11,8 +11,8 @@ import { createStyle } from '@/utils/tools'
  * 页头标题右侧的「来源品牌图标组」（排行榜 / 歌单广场共用，保证两处尺寸与间距一致）。
  *
  * 尺寸（对齐右侧圆形按钮组）：
- *  - 品牌字形光学尺寸 20dp：SourceLogo 的路径统一占 48 视框的 30 单位（62.5%），
- *    所以传 size=32 → 实际字形 32×0.625 = **20dp**，和 38/40dp 按钮里的 Icon size=20 完全同大；
+ *  - 品牌字形光学尺寸约 19dp：SourceLogo 的路径统一占 48 视框的 30 单位（62.5%），
+ *    所以传 size=30 → 实际字形 30×0.625 = **18.75dp**，与本地音乐/设置页头 CapsuleIconButton 的 19dp 图标同档；槽位 36 → 比本地 38 略小，避免标题被挤断。
  *  - 不再画圆形底色：右侧按钮是 38dp 实心圆，图标组如果也套 30dp 圆底会显得
  *    「小一圈又挤在一起」。改成裸图标后，字形大小与按钮图标一致，节奏才对得上；
  *  - 图标之间：与按钮组相同的 **8dp** 间距（之前是 30dp 槽位紧挨、视觉只隔 ~10dp）；
@@ -23,9 +23,9 @@ import { createStyle } from '@/utils/tools'
  * 颜色：当前音源=主题主色，其余 c-450（onSurfaceVariant 档）；按压 0.5 透明度反馈；
  * 无障碍标签沿用原「小X音乐」文字；未识别自定义音源回退文字按钮。
  */
-export const HEADER_SOURCE_ICON_SIZE = 32
+export const HEADER_SOURCE_ICON_SIZE = 30
 /** 每个来源按钮的布局尺寸（配合 hitSlop 5 → 38dp 触控区） */
-const ITEM_SIZE = 38
+const ITEM_SIZE = 36
 /** 与右侧圆形按钮组保持同一间距 */
 const ITEM_GAP = 4
 /** hitSlop：布局 28 + 5×2 = 38dp 触控区 */
