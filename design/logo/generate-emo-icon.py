@@ -184,11 +184,14 @@ def _edge_glint(size, box, radius, angle, alpha=42):
 def _glass_flower(size):
     """三层半透明玻璃花瓣：软边、叠色、柔和高光，像用户参考图里的液态玻璃。"""
     canvas = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+    s = size / 1024.0
 
     def petal(box, radius, angle, stops, blur, sheen_alpha):
+        box = tuple(v * s for v in box)
+        radius = max(6, int(radius * s))
         layer = _petal(size, box, radius, angle, _diag_gradient(size, stops, 0.35), blur)
         # 花瓣外侧的柔光，让它浮在深色底上
-        halo = _blur_alpha(layer, 16)
+        halo = _blur_alpha(layer, max(2, int(16 * s)))
         ha = halo.getchannel('A').point(lambda v: round(v * 0.22))
         halo.putalpha(ha)
         canvas.alpha_composite(halo)
