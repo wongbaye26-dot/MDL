@@ -236,14 +236,7 @@ public final class DlnaManager {
         String args = instanceArgs()
           + "<CurrentURI>" + escape(streamUrl) + "</CurrentURI>"
           + "<CurrentURIMetaData>" + escape(metadata) + "</CurrentURIMetaData>";
-        Soap.invoke(device.avTransport, Soap.AV_TRANSPORT, "SetAVTransportURI", args);
-        try {
-          Soap.invoke(device.avTransport, Soap.AV_TRANSPORT, "Play", instanceArgs() + "<Speed>1</Speed>");
-        } catch (IOException first) {
-          // 部分电视设置 URI 后需要一点时间准备
-          Thread.sleep(400);
-          Soap.invoke(device.avTransport, Soap.AV_TRANSPORT, "Play", instanceArgs() + "<Speed>1</Speed>");
-        }
+        setTransportUriAndPlay(device, args);
         casting = true;
         lastDuration = (long) durationSec;
         lastLoggedState = "PLAYING";
@@ -255,6 +248,40 @@ public final class DlnaManager {
         emitError("投屏失败：" + e.getMessage());
       }
     });
+  }
+
+  /** 701 = Transition not available：快速切歌时电视还没从上一首过渡完，等一下再重试 */
+  private static boolean isTransitionError(Exception e) {
+    String message = e.getMessage();
+    return message != null && (message.contains("701") || message.contains("Transition"));
+  }
+
+  private void setTransportUriAndPlay(UpnpDevice device, String args) throws IOException {
+    IOException last = null;
+    for (int attempt = 0; attempt < 6; attempt++) {
+      if (attempt > 0) {
+        try {
+          Thread.sleep(500L);
+        } catch (InterruptedException ignored) {}
+      }
+      try {
+        Soap.invoke(device.avTransport, Soap.AV_TRANSPORT, "SetAVTransportURI", args);
+      } catch (IOException e) {
+        last = e;
+        if (!isTransitionError(e)) throw e;
+        continue;
+      }
+      try {
+        Soap.invoke(device.avTransport, Soap.AV_TRANSPORT, "Play", instanceArgs() + "<Speed>1</Speed>");
+        return;
+      } catch (IOException e) {
+        last = e;
+        if (!isTransitionError(e)) throw e;
+      }
+    }
+    // 电视还卡在过渡态时 Play 会一直回 701，但 SetAVTransportURI 已经成功，
+    // 很多三星机型其实会自己开始播；这里只告警，交给轮询校正，不让整次投屏失败
+    Log.w(TAG, "play still transitioning, keep going: " + last);
   }
 
   void control(String action, double value) {

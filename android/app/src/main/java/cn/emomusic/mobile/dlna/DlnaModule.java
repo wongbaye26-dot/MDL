@@ -37,6 +37,16 @@ public class DlnaModule extends ReactContextBaseJavaModule {
     manager.stopSearch();
   }
 
+  /** 投屏前探活：返回 HTTP 状态码（200/206 可用），网络错误返回 -1 */
+  @ReactMethod
+  public void probe(String url, Promise promise) {
+    try {
+      promise.resolve(MediaServer.probe(url));
+    } catch (Exception e) {
+      promise.reject("probe_failed", e);
+    }
+  }
+
   @ReactMethod
   public void getDevices(Promise promise) {
     try {

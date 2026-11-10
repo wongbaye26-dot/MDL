@@ -418,6 +418,39 @@ final class MediaServer {
     writeText(out, 502, "Bad Gateway", "upstream failed: " + (last == null ? "" : last.getMessage()));
   }
 
+  /**
+   * 投屏前探活：真正拉一下 CDN 地址，判断这个 URL 电视还能不能拿到。
+   *
+   * 在线音源的地址带时效（酷我/QQ 常见 403、410），手机上刚解析出来的地址
+   * 有时因为换源/刷新已经失效，直接丢给电视就会起播失败、被当成播完自动切歌。
+   * 这里按同样的 UA/Referer 组合发一个 Range: bytes=0-1 的请求，2xx 才算可用。
+   *
+   * @return HTTP 状态码，全部失败返回 -1
+   */
+  static int probe(String url) {
+    int last = -1;
+    for (String referer : referers(url)) {
+      HttpURLConnection conn = null;
+      try {
+        conn = (HttpURLConnection) new URL(url).openConnection();
+        conn.setConnectTimeout(6000);
+        conn.setReadTimeout(8000);
+        conn.setInstanceFollowRedirects(true);
+        conn.setRequestProperty("User-Agent", UA);
+        conn.setRequestProperty("Accept", "*/*");
+        conn.setRequestProperty("Range", "bytes=0-1");
+        if (referer != null) conn.setRequestProperty("Referer", referer);
+        last = conn.getResponseCode();
+        conn.disconnect();
+        if (last == 200 || last == 206) return last;
+      } catch (Exception e) {
+        Log.d(TAG, "probe failed: " + e + " " + url);
+        if (conn != null) conn.disconnect();
+      }
+    }
+    return last;
+  }
+
   private static String[] referers(String url) {
     String host = "";
     try {

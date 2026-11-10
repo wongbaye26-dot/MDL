@@ -23,6 +23,7 @@ import PicImage from '@/components/common/PicImage'
 import Glass from '@/components/common/Glass'
 import MarqueeText from '@/components/common/MarqueeText'
 import { Icon } from '@/components/common/Icon'
+import CastIcon from '@/components/common/CastIcon'
 import { useTheme } from '@/store/theme/hook'
 import { usePlayerMusicInfo, useIsPlay, useProgress } from '@/store/player/hook'
 import { useStatusbarHeight, useNavActiveId, useFontSize } from '@/store/common/hook'
@@ -1759,7 +1760,7 @@ export default () => {
                 accessibilityLabel={castConnected ? '投屏设置' : '投屏到电视'}
                 onPress={() => { setCastVisible(true) }}
               >
-                <Icon name={castConnected ? 'cast-connected' : 'cast'} size={u(22)} color='rgba(255,255,255,0.94)' />
+                <CastIcon size={u(24)} active={castConnected} color='rgba(255,255,255,0.94)' activeColor={theme['c-primary']} />
               </TouchableOpacity>
               )
             : null

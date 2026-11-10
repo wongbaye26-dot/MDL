@@ -47,6 +47,7 @@ interface DlnaNativeModule {
   disconnect: () => void
   cast: (url: string, title: string, artist: string, album: string, cover: string, duration: number) => void
   control: (action: string, value: number) => void
+  probe: (url: string) => Promise<number>
 }
 
 const native = NativeModules.DlnaModule as DlnaNativeModule | undefined
@@ -107,18 +108,47 @@ const handleConnection = (payload: { connected: boolean, device?: CastDevice }) 
 // 断开投屏时用它把电视进度接回手机播放
 let lastCastPosition = 0
 
+/** 起播失败重试用：在线地址过期/被拒时重新解析一次，而不是当成播完自动切歌 */
+let interruptedHandler: (() => Promise<void>) | null = null
+let interruptHandled = false
+
+export const setCastInterruptedHandler = (handler: (() => Promise<void>) | null) => {
+  interruptedHandler = handler
+}
+
 const handleState = (payload: { transport?: CastTransport, position?: number, duration?: number, ended?: boolean }) => {
   if (typeof payload.position == 'number' && payload.position > 0) lastCastPosition = payload.position
   // 电视每次轮询都会报 STOPPED，只在「之前不是 STOPPED」时算一次播完
   const wasStopped = snapshot.transport === 'STOPPED'
   const transport = payload.transport ?? snapshot.transport
-  const ended = !wasStopped && transport === 'STOPPED' && snapshot.transport === 'PLAYING'
+  const duration = payload.duration ?? snapshot.duration
+  const position = payload.position ?? snapshot.position
+  // 用「停下前最后一次位置」判断是不是播到结尾：电视 STOPPED 后会把 RelTime 归零，
+  // 拿 STOPPED 的 position 判断会把每首都当成「流断了」
+  const lastPosition = snapshot.position
+  const stopped = !wasStopped && transport === 'STOPPED' && snapshot.transport === 'PLAYING'
+  const endedNaturally = duration > 0 && lastPosition >= duration - 5
+  // 离结尾还远就停了 = 流断了（CDN 过期、被拒、电视解不了），重解析地址再推一次
+  const interrupted = stopped && !endedNaturally
+  const ended = stopped && endedNaturally
   patch({
     transport,
-    position: payload.position ?? snapshot.position,
-    duration: payload.duration ?? snapshot.duration,
+    position,
+    duration,
     ended,
   })
+  if (stopped) {
+    if (interrupted && !interruptHandled && interruptedHandler) {
+      interruptHandled = true
+      void interruptedHandler()
+      return
+    }
+    // 重试过一次还是被中断：别再卡住，按放完处理（交给播放器自动下一首）
+    if (interrupted) {
+      global.app_event.playerEnded()
+      return
+    }
+  }
   // 电视把这首放完了：交给播放器走一次自动下一首（只在本轮 STOPPED 的第一次触发）
   if (ended) global.app_event.playerEnded()
 }
@@ -216,9 +246,25 @@ export const castMedia = (url: string, meta: CastMediaMeta) => {
   if (!native || !snapshot.connected) return
   try {
     native.cast(url, meta.title, meta.artist, meta.album, meta.cover, meta.duration)
+    interruptHandled = false
+    lastCastPosition = 0
     patch({ transport: 'PLAYING', position: 0, duration: meta.duration, ended: false, error: null })
   } catch (error) {
     patch({ error: (error as Error)?.message ?? '投屏失败' })
+  }
+}
+
+/**
+ * 探活：真正拉一下地址，确认电视端还能拿到（在线音源地址经常带时效）。
+ *
+ * @returns HTTP 状态码，200/206 表示可用；原生不可用时返回 0（当作可用，别误判）
+ */
+export const probeCastUrl = async(url: string): Promise<number> => {
+  if (!native?.probe) return 0
+  try {
+    return await native.probe(url)
+  } catch {
+    return -1
   }
 }
 

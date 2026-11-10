@@ -3,7 +3,7 @@ import {
   setStatusText,
 } from '@/core/player/playStatus'
 import { setMaxplayTime, setNowPlayTime } from '@/core/player/progress'
-import { castCoverUrl, castLastPosition, castMedia, isCasting } from '@/core/cast'
+import { castCoverUrl, castLastPosition, castMedia, isCasting, probeCastUrl, setCastInterruptedHandler } from '@/core/cast'
 import playerState from '@/store/player/state'
 import settingState from '@/store/setting/state'
 import { normalizeMusicInfo } from '@/utils/musicInfo'
@@ -474,11 +474,40 @@ const castDurationSeconds = (musicInfo: LX.Player.PlayMusic | LX.Download.ListIt
  * 投屏时手机本地播放器不参与（TrackPlayer 保持暂停），所以这里要自己解析地址、
  * 自己维护「正在播放」状态；封面/歌词仍由 debouncePlay 里的 getPicPath/getLyricInfo 加载。
  */
-const playOnCastDevice = async(musicInfo: LX.Player.PlayMusic | LX.Download.ListItem) => {
-  try {
-    const result = await resolveMusicUrl({ musicInfo })
-    if (global.lx.isPlayedStop || playerState.playMusicInfo.musicInfo?.id != musicInfo.id) return
+/**
+ * 解析一个「电视真的能拉到」的地址。
+ *
+ * 在线音源的地址带时效，有时手机上刚解析出来就已经 403/410，直接丢给电视会起播失败、
+ * 然后被当成播完自动切歌。这里先本地探活（Range: bytes=0-1），不通就强制刷新/换源重试。
+ */
+const resolveCastUrl = async(musicInfo: LX.Player.PlayMusic | LX.Download.ListItem, forceRefresh = false) => {
+  const maxAttempt = 3
+  let attempt = 0
+  while (true) {
+    const result = await resolveMusicUrl({
+      musicInfo,
+      isRefresh: forceRefresh || attempt > 0,
+      forceToggleSource: attempt > 0,
+      allowToggleSource: true,
+    })
+    if (global.lx.isPlayedStop || playerState.playMusicInfo.musicInfo?.id != musicInfo.id) return null
     if (!result.url) throw new Error('播放地址为空')
+    // 本地文件电视由我们自己的代理读，不用探活
+    if (!/^https?:/i.test(result.url)) return result
+    const status = await probeCastUrl(result.url)
+    if (status === 0 || status === 200 || status === 206) return result
+    log.info(`cast probe failed (${status}), retry ${attempt + 1}/${maxAttempt}`)
+    attempt++
+    if (attempt >= maxAttempt) return result
+    if (global.lx.isPlayedStop || playerState.playMusicInfo.musicInfo?.id != musicInfo.id) return null
+  }
+}
+
+const playOnCastDevice = async(musicInfo: LX.Player.PlayMusic | LX.Download.ListItem, forceRefresh = false) => {
+  try {
+    const result = await resolveCastUrl(musicInfo, forceRefresh)
+    if (!result) return
+    if (global.lx.isPlayedStop || playerState.playMusicInfo.musicInfo?.id != musicInfo.id) return
     applyResolvedMusicUrl(musicInfo, result)
 
     const info = 'progress' in musicInfo ? musicInfo.metadata.musicInfo : musicInfo
@@ -498,6 +527,14 @@ const playOnCastDevice = async(musicInfo: LX.Player.PlayMusic | LX.Download.List
     setStatusText((error as Error).message)
   }
 }
+
+// 电视提前停下（流断了）时重新解析地址、再推一次，避免直接跳到下一首
+setCastInterruptedHandler(async() => {
+  const musicInfo = playerState.playMusicInfo.musicInfo
+  if (!musicInfo || !isCasting()) return
+  log.info('cast interrupted, retry with refreshed url')
+  await playOnCastDevice(musicInfo, true)
+})
 
 /** 连接电视后：把手机正在播的这首转过去（本地先暂停，避免两边同时出声） */
 export const castCurrentMusic = async() => {
