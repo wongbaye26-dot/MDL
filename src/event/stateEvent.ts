@@ -144,6 +144,11 @@ export class StateEvent extends Event {
     this.emit('settingsDeepScreenRequested', id)
   }
 
+  /** 请求打开「自动识别音乐文件夹」（新手引导、外部入口用） */
+  localMusicAutoDiscoverRequested() {
+    this.emit('localMusicAutoDiscoverRequested')
+  }
+
   /** 从音源管理页头图标触发「音源检测」 */
   sourceCheckRequested() {
     this.emit('sourceCheckRequested')

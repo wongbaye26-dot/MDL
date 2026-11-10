@@ -4,7 +4,8 @@ import { isAppDialogAvailable, showAppDialog } from '@/components/common/AppDial
 import { isExternalStorageManager, openAllFilesAccessSettings } from '@/utils/nativeModules/utils'
 import { pickDirectory, treeUriToDisplayPath } from '@/utils/directoryPicker'
 import { clearSavePathCache, ensureDir, getSavePath } from '@/core/download'
-import { openSettingPage, updateSetting } from '@/core/common'
+import { openSettingPage, setNavActiveId, updateSetting } from '@/core/common'
+import { getExtraDirs, setExtraDirs } from '@/core/localMusic'
 import { state as userApiState } from '@/store/userApi/state'
 import { isSafPath } from '@/core/download/utils'
 import { toast } from '@/utils/tools'
@@ -62,7 +63,7 @@ const chooseDownloadDir = async(close: () => void) => {
 }
 
 /** 下载目录这一步：显示当前目录 + 全盘访问状态 */
-const showDownloadStep = async() => {
+const showDownloadStep = async(next: 'local' | 'none' = 'none') => {
   const { saveDir, allFiles } = await settingDescription()
   const lines = [
     saveDir ? `当前保存位置：${saveDir}` : '还没有设置保存位置',
@@ -78,29 +79,92 @@ const showDownloadStep = async() => {
       {
         text: '选择目录',
         style: 'primary',
-        onPress: () => { chooseDownloadDir(() => { void finishGuide() }).catch(() => {}) },
+        onPress: () => {
+          chooseDownloadDir(() => {
+            if (next === 'local') showLocalStep()
+            else void finishGuide()
+          }).catch(() => {})
+        },
       },
       {
         text: allFiles ? '重新检查' : '开启全盘访问',
         onPress: () => {
-          openAllFilesAccessSettings().then(() => { void showDownloadStep() }).catch(() => {})
+          openAllFilesAccessSettings().then(() => { void showDownloadStep(next) }).catch(() => {})
         },
       },
-      { text: '完成', style: 'cancel', onPress: () => { void finishGuide() } },
+      {
+        text: '完成',
+        style: 'cancel',
+        onPress: () => {
+          if (next === 'local') showLocalStep()
+          else void finishGuide()
+        },
+      },
+    ],
+  })
+}
+
+/** 添加本地音乐：自动识别有音乐的文件夹 / 手动选一个目录 */
+const showLocalStep = (thenFinish = true) => {
+  showAppDialog({
+    title: '添加本地音乐（可选）',
+    message: [
+      '手机里已经有音乐的话，把它们加进来就能一起管理、播放。',
+      '',
+      '· 自动识别：扫描手机存储，列出「里面有音乐」的文件夹，勾选即可',
+      '· 手动选择：自己指一个文件夹',
+      '',
+      '原文件夹不会被移动，只是加入扫描列表。',
+    ].join('\n'),
+    bgClose: false,
+    actions: [
+      {
+        text: '自动识别',
+        style: 'primary',
+        onPress: () => {
+          setNavActiveId('nav_local')
+          setTimeout(() => { global.state_event.localMusicAutoDiscoverRequested() }, 400)
+          if (thenFinish) void finishGuide()
+        },
+      },
+      {
+        text: '手动选择',
+        onPress: () => {
+          void (async() => {
+            try {
+              const picked = await pickDirectory()
+              if (!picked) return
+              const extra = await getExtraDirs()
+              if (!extra.some(dir => dir.path === picked.path)) {
+                await setExtraDirs([...extra, { path: picked.path, ...(picked.treeUri ? { treeUri: picked.treeUri } : {}) }])
+              }
+              toast(`已添加「${picked.name}」，正在扫描`)
+              setNavActiveId('nav_local')
+            } catch {
+              toast('添加失败，换个文件夹试试')
+            }
+            if (thenFinish) void finishGuide()
+          })()
+        },
+      },
+      { text: '完成', style: 'cancel', onPress: () => { if (thenFinish) void finishGuide() } },
     ],
   })
 }
 
 /** 音源这一步：内置音源已可用，自定义音源可选 */
-const showSourceStep = (withDownload: boolean) => {
+const showSourceStep = (next: 'download' | 'local' | 'none') => {
+  const withDownload = next !== 'none'
   const imported = userApiState.list.length
   const message = [
     '内置音源（酷我 / 酷狗 / QQ / 网易 / 咪咕）装好就能用，排行榜、歌单广场可以直接播放。',
     imported > 0 ? `已导入 ${imported} 个自定义音源脚本。` : '想要更多搜索来源或更高音质，可以导入自定义音源脚本（.js）。',
     '',
-    withDownload
+    next === 'download'
       ? '确认音源后，下一步再设置下载目录。'
-      : '到这里就可以在线听歌了，随时能在 设置 → 音源管理 里补充音源。',
+      : next === 'local'
+        ? '确认音源后，下一步添加本地音乐文件夹。'
+        : '到这里就可以在线听歌了，随时能在 设置 → 音源管理 里补充音源。',
   ].join('\n')
   showAppDialog({
     title: '第一步：确认音源',
@@ -117,7 +181,11 @@ const showSourceStep = (withDownload: boolean) => {
       },
       {
         text: withDownload ? '下一步' : '知道了',
-        onPress: () => { withDownload ? showDownloadStep().catch(() => {}) : finishGuide().catch(() => {}) },
+        onPress: () => {
+          if (next === 'download') showDownloadStep('local').catch(() => {})
+          else if (next === 'local') showLocalStep()
+          else finishGuide().catch(() => {})
+        },
       },
     ],
   })
@@ -149,18 +217,28 @@ export const showBeginnerGuide = async(force = false) => {
       '先选一下你的使用方式，我们只提示你需要的一步：',
       '',
       '· 在线听歌  → 确认音源可用',
-      '· 在线听歌 + 下载  → 再设置一个下载目录',
+      '· 听歌 + 下载  → 再设置下载目录',
+      '· 本地音乐  → 添加手机里的音乐文件夹',
+      '· 全都要  → 上面几步依次来一遍',
     ].join('\n'),
     bgClose: false,
     actions: [
       {
         text: '只在线听歌',
         style: 'primary',
-        onPress: () => { showSourceStep(false) },
+        onPress: () => { showSourceStep('none') },
       },
       {
         text: '听歌 + 下载',
-        onPress: () => { showSourceStep(true) },
+        onPress: () => { showSourceStep('download') },
+      },
+      {
+        text: '本地音乐',
+        onPress: () => { showLocalStep() },
+      },
+      {
+        text: '全都要',
+        onPress: () => { showSourceStep('download') },
       },
       {
         text: '稍后再说',

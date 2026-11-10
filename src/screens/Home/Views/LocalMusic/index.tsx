@@ -43,6 +43,8 @@ import { isExternalStorageManager, openAllFilesAccessSettings } from '@/utils/na
 import { showAppDialog } from '@/components/common/AppDialog/service'
 import { getLocalMusicList, getLocalMusicListCacheOnly, getLocalMusicListSync, getScanPartialList, subscribeScanPartialList, scanLocalMusicInBackground, isScanning, useScanState, getTotalSize, deleteLocalMusic, getScanDirs, getExtraDirs, setExtraDirs, getLastScanReport, type ScanDir, type ScanReport } from '@/core/localMusic'
 import { pickDirectory, isDirectoryPickerSupported, treeUriToDisplayPath } from '@/utils/directoryPicker'
+import AutoDirModal from './AutoDirModal'
+import type { FoundMusicDir } from '@/core/localMusic/discoverDirs'
 import { cleanSongName } from '@/utils/songName'
 import { initialOfText } from '@/utils/pinyinInitial'
 import { normalizeGroupKey, useLocalLibraryIndex } from '@/core/localMusic/libraryIndex'
@@ -198,6 +200,8 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
   /** 全部扫描根目录（默认下载目录 + 用户添加的） */
   const [dirs, setDirs] = useState<ScanDir[]>([])
   const [dirModal, setDirModal] = useState(false)
+  /** 「自动识别有音乐的文件夹」弹窗 */
+  const [autoDirModal, setAutoDirModal] = useState(false)
   const dirsRef = useRef<ScanDir[]>([])
   /** 浏览层级：最近添加 / 专辑 / 艺人 / 文件夹树 / 全部歌曲 */
   const [tab, setTab] = useState<LocalTab>(initialTab ?? 'song')
@@ -1192,6 +1196,29 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
   }, [handleScan])
 
   /** 移除一个额外目录（默认下载目录不能删） */
+  /** 把自动识别出来的文件夹加入扫描目录并重扫 */
+  const handleAddDiscoveredDirs = useCallback(async(found: FoundMusicDir[]) => {
+    const extra = await getExtraDirs()
+    const byPath = new Map(extra.map(dir => [dir.path, dir]))
+    for (const item of found) {
+      if (!byPath.has(item.path)) byPath.set(item.path, { path: item.path })
+    }
+    await setExtraDirs([...byPath.values()])
+    setAutoDirModal(false)
+    setDirModal(false)
+    toast(`已添加 ${found.length} 个文件夹，开始扫描`)
+    void handleScan()
+  }, [handleScan])
+
+  // 外部（新手引导）请求：切到本地音乐并直接打开识别弹窗
+  useEffect(() => {
+    const handleRequest = () => {
+      setAutoDirModal(true)
+    }
+    global.state_event.on('localMusicAutoDiscoverRequested', handleRequest)
+    return () => { global.state_event.off('localMusicAutoDiscoverRequested', handleRequest) }
+  }, [])
+
   const handleRemoveDir = useCallback(async(path: string) => {
     const extra = await getExtraDirs()
     await setExtraDirs(extra.filter(d => d.path !== path))
@@ -2295,8 +2322,10 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
             {
               isDirectoryPickerSupported
                 ? (
-                  <View style={{ alignItems: 'center', marginTop: 14 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 14 }}>
                     <CapsuleButton icon='folder-plus' label='添加文件夹' onPress={() => { void handleAddDir() }} />
+                    <View style={{ width: 10 }} />
+                    <CapsuleButton icon='folder-search' label='自动识别' onPress={() => { setAutoDirModal(true) }} />
                   </View>
                   )
                 : <Text size={11} color={theme['c-450']} style={styles.dirTip}>当前版本不支持选择目录</Text>
@@ -2307,6 +2336,12 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
           </View>
         </TouchableOpacity>
       </Modal>
+      <AutoDirModal
+        visible={autoDirModal}
+        existing={dirs.map(d => d.path)}
+        onClose={() => { setAutoDirModal(false) }}
+        onConfirm={dirs => { void handleAddDiscoveredDirs(dirs) }}
+      />
       </View>
     </Animated.View>
   )

@@ -125,7 +125,7 @@ export default () => {
         <ToggleRow settingKey='download.isWriteMetadata' title='写入元数据' />
         <ActionRow
           title='新手引导'
-          desc='重看「在线听歌 / 在线听歌 + 下载」两种使用方式的提示'
+          desc='重看四种使用方式（在线 / 下载 / 本地 / 全都要）的引导'
           action='重看'
           onPress={() => { void showBeginnerGuide(true) }}
         />
