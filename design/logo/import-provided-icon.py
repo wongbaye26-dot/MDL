@@ -2,6 +2,7 @@
 """把用户提供的最终 LOGO 转成 Android 各尺寸图标（不再做二次设计）。"""
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageChops
+import numpy as np
 
 ROOT = Path(__file__).resolve().parents[2]
 SRC = ROOT / 'design/logo/source-provided.png'
@@ -27,7 +28,34 @@ def load_square() -> Image.Image:
     side = max(im.size)
     canvas = Image.new('RGBA', (side, side), (0, 0, 0, 0))
     canvas.alpha_composite(im, ((side - im.width) // 2, (side - im.height) // 2))
-    return canvas
+    return _clean_edge_glow(canvas)
+
+
+def _clean_edge_glow(art: Image.Image) -> Image.Image:
+    """保留三条渐变条，清掉四周的霓虹光圈，重建干净的黑色圆角底。"""
+    s = art.size[0]
+    outer = Image.new('L', (s * SS, s * SS), 0)
+    ImageDraw.Draw(outer).rounded_rectangle((0, 0, s * SS - 1, s * SS - 1), radius=int(s * 0.22 * SS), fill=255)
+    outer = outer.resize((s, s), Image.LANCZOS)
+
+    # 只取中央区域，避开外圈辉光；三条横条都在这个范围内
+    inner = Image.new('L', (s, s), 0)
+    inset = int(s * 0.13)
+    ImageDraw.Draw(inner).rectangle((inset, inset, s - inset, s - inset), fill=255)
+
+    arr = np.asarray(art).astype(np.float32)
+    max_rgb = arr[..., :3].max(axis=2)
+    bar_alpha = np.clip((max_rgb - 55) / 80, 0, 1) * 255
+    allow = np.asarray(inner, dtype=np.float32) / 255.0 * np.asarray(outer, dtype=np.float32) / 255.0
+    new_alpha = np.asarray(art.getchannel('A'), dtype=np.float32) * bar_alpha / 255.0 * allow
+
+    bars = art.copy()
+    bars.putalpha(Image.fromarray(np.uint8(np.clip(new_alpha, 0, 255))))
+
+    base = Image.new('RGBA', (s, s), (0, 0, 0, 0))
+    ImageDraw.Draw(base).rounded_rectangle((0, 0, s - 1, s - 1), radius=int(s * 0.22), fill=(8, 7, 13, 255))
+    base.alpha_composite(bars)
+    return base
 
 
 def circle_mask(size):
