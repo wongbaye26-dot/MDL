@@ -1177,6 +1177,24 @@ export const useScanState = () => {
 export const isScanning = () => scanState.scanning
 
 /**
+ * 静默的后台增量扫描：不设置「扫描中」状态、不推半成品列表，
+ * 扫完照常持久化并广播曲库更新。供自动同步（文件变化 / 下载完成）使用。
+ *
+ * 用一个独立标志位和前台扫描互斥，避免两边同时写曲库。
+ */
+let silentScanning = false
+export const scanLocalMusicSilently = async(roots?: ScanDir[]): Promise<ScanResult | null> => {
+  if (silentScanning || scanState.scanning) return null
+  silentScanning = true
+  try {
+    const dirs = roots?.length ? roots : await getScanDirs()
+    return await scanLocalMusic(undefined, dirs)
+  } finally {
+    silentScanning = false
+  }
+}
+
+/**
  * 后台静默扫描：不依赖任何页面存活。
  * 扫描状态放模块级；进度节流 250ms，列表快照节流 800ms（见 enrichMissingMeta），
  * 扫完再发一次最终结果。

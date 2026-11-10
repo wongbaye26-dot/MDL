@@ -15,6 +15,7 @@ import cn.emomusic.mobile.dirpicker.DirectoryPickerPackage;
 import cn.emomusic.mobile.download.DownloadPackage;
 import cn.emomusic.mobile.widget.WidgetPackage;
 import cn.emomusic.mobile.dlna.DlnaPackage;
+import cn.emomusic.mobile.mediawatch.MediaWatchPackage;
 import cn.emomusic.mobile.blur.GlassBlurPackage;
 import cn.emomusic.mobile.lyric.LyricPackage;
 import cn.emomusic.mobile.userApi.UserApiPackage;
@@ -44,6 +45,7 @@ public class MainApplication extends NavigationApplication {
           packages.add(new DirectoryPickerPackage());
           packages.add(new WidgetPackage());
           packages.add(new DlnaPackage());
+          packages.add(new MediaWatchPackage());
           packages.add(new GlassBlurPackage());
           return packages;
         }

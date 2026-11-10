@@ -559,6 +559,8 @@ const addDownloadedToLibrary = async(task: LX.Download.ListItem, attempt = 0): P
       // 下载任务本来就知道封面地址，传给入库流程优先使用（省得再联网搜一次）
       picUrl: task.metadata.musicInfo.meta.picUrl ?? undefined,
     })
+    // 再多走一次后台同步：SAF 目录 / 索引延迟时也能保证曲库状态最终一致
+    void import('@/core/localMusic/autoSync').then(mod => { mod.requestLocalMusicSync(2500) }).catch(() => {})
   } catch (err) {
     log.error(`add downloaded music to local library failed (attempt ${attempt + 1})`, err)
     if (attempt < 2) {

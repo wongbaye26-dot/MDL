@@ -12,6 +12,7 @@ import { init as initDownload } from '@/core/download'
 import commonActions from '@/store/common/action'
 import { bootLog } from '@/utils/bootLog'
 import { getLocalMusicList } from '@/core/localMusic'
+import { initLocalMusicAutoSync } from '@/core/localMusic/autoSync'
 
 let isFirstPush = true
 const handlePushedHomeScreen = async() => {
@@ -53,6 +54,9 @@ export default async() => {
   void getLocalMusicList().catch(() => {})
   await initDownload()
   bootLog('Download inited.')
+  // 本地曲库后台自动同步：MediaStore 变化 / 下载完成 / 回到前台都会增量扫描
+  initLocalMusicAutoSync()
+  bootLog('Local music auto sync inited.')
   await initCommonState(setting)
   bootLog('Common State inited.')
 
