@@ -29,6 +29,7 @@ import { useStatusbarHeight, useNavActiveId, useFontSize } from '@/store/common/
 import { useWindowSize } from '@/utils/hooks'
 import { useBackHandler } from '@/utils/hooks/useBackHandler'
 import { useSettingValue } from '@/store/setting/hook'
+import { getListDivider } from '@/theme/designTokens'
 import { toast } from '@/utils/tools'
 import { useLrcSet, useLrcPlay, type Line } from '@/plugins/lyric'
 import * as Jyutping from '@/utils/jyutping/index.js'
@@ -1356,7 +1357,7 @@ export default () => {
                   >
                     <Icon name='close' size={u(16)} color={theme['c-350']} />
                   </TouchableOpacity>
-                  <View pointerEvents='none' style={[styles.queueDivider, { backgroundColor: theme['c-primary-alpha-700'] }]} />
+                  <View pointerEvents='none' style={[styles.queueDivider, { backgroundColor: getListDivider(theme) }]} />
                 </TouchableOpacity>
               )
             })
@@ -2369,5 +2370,5 @@ const styles = {
   queueInfo: { flexGrow: 1, flexShrink: 1 },
   queueSinger: { marginTop: 2 },
   queueActiveIcon: { marginRight: 6 },
-  queueDivider: { position: 'absolute' as const, left: 54, right: 0, bottom: 0, height: 0.5 },
+  queueDivider: { position: 'absolute' as const, left: 54, right: 18, bottom: 0, height: 0.5 },
 }
