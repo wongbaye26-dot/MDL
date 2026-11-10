@@ -4,6 +4,7 @@ import { Pressable, View, type StyleProp, type ViewStyle } from 'react-native'
 import SourceLogo, { isKnownSource } from '@/components/common/SourceLogo'
 import { useSourceListI18n } from '@/components/SourceSelector'
 import { useTheme } from '@/store/theme/hook'
+import { contrastOn } from '@/theme/solid'
 import { createStyle } from '@/utils/tools'
 
 /**
@@ -22,13 +23,13 @@ import { createStyle } from '@/utils/tools'
  * 颜色：当前音源=主题主色，其余 c-450（onSurfaceVariant 档）；按压 0.5 透明度反馈；
  * 无障碍标签沿用原「小X音乐」文字；未识别自定义音源回退文字按钮。
  */
-export const HEADER_SOURCE_ICON_SIZE = 27
+export const HEADER_SOURCE_ICON_SIZE = 24
 /** 每个来源按钮的布局尺寸（配合 hitSlop 5 → 38dp 触控区） */
-const ITEM_SIZE = 28
+const ITEM_SIZE = 34
 /** 与右侧圆形按钮组保持同一间距 */
-const ITEM_GAP = 8
+const ITEM_GAP = 4
 /** hitSlop：布局 28 + 5×2 = 38dp 触控区 */
-const ITEM_HIT_SLOP = 5
+const ITEM_HIT_SLOP = 2
 
 export interface SourceIconRowProps {
   sources: readonly LX.OnlineSource[]
@@ -53,7 +54,7 @@ export default memo(({ sources, active, onChange, style }: SourceIconRowProps) =
            * 圆底去掉之后它算出来是白色，白图标画在浅色页头上等于看不见
            * （用户看到的「选中图标透明」）。
            */
-          const color = isActive ? theme['c-primary'] : theme['c-450']
+          const color = isActive ? contrastOn(theme['c-primary']) : theme['c-450']
           // 已知品牌用 27（光学约 20dp）；未知自定义音源回退文字时用小一号，避免文字撑爆槽位
           const iconSize = isKnownSource(action) ? HEADER_SOURCE_ICON_SIZE : 18
           return (
@@ -72,7 +73,9 @@ export default memo(({ sources, active, onChange, style }: SourceIconRowProps) =
                 paddingRight: isKnownSource(action) ? 0 : 8,
                 alignItems: 'center',
                 justifyContent: 'center',
-                opacity: pressed ? 0.6 : 1,
+                borderRadius: ITEM_SIZE / 2,
+                backgroundColor: isActive ? theme['c-primary'] : theme['c-primary-alpha-900'],
+                opacity: pressed ? 0.7 : 1,
               })}
             >
               <SourceLogo source={action} label={label} size={iconSize} color={color} />

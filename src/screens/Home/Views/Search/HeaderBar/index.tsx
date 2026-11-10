@@ -80,7 +80,7 @@ export default forwardRef<HeaderBarType, HeaderBarProps>(({
 
   return (
     <View style={{ ...styles.header, paddingTop: statusBarHeight }}>
-      <LiquidGlass mode={glassStyle} blurRadius={24} radius={0} tint={theme.isDark ? 'rgba(20,16,28,0.42)' : 'rgba(255,255,255,0.34)'} isDark={theme.isDark} seamless />
+      <LiquidGlass solid mode={glassStyle} blurRadius={24} radius={0} tint={theme.isDark ? 'rgba(20,16,28,0.42)' : 'rgba(255,255,255,0.34)'} isDark={theme.isDark} seamless />
       <View style={styles.searchRow}>
         <TouchableOpacity
           style={styles.backBtn}

@@ -968,6 +968,11 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
     })
   }, [])
 
+  const enterBatch = useCallback((item: LX.Music.MusicInfoLocal) => {
+    setBatchMode(true)
+    setBatchSelected(new Set([item.id]))
+  }, [])
+
   const runBatch = useCallback((action: 'queue' | 'playlist' | 'hide' | 'remove' | 'deleteFiles' | 'deletePermanently') => {
     const items = batchItems
     if (!items.length) return
@@ -1435,9 +1440,10 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
         batchMode={batchMode}
         selected={batchSelected.has(item.id)}
         onToggle={toggleBatchItem}
+        onEnterBatch={enterBatch}
       />
     )
-  }, [theme, handleRowPress, handleOpenSheet, isGrid, gridSize, batchMode, batchSelected, toggleBatchItem])
+  }, [theme, handleRowPress, handleOpenSheet, isGrid, gridSize, batchMode, batchSelected, toggleBatchItem, enterBatch])
 
   /** 二级页「播放全部」：从这一组的第一首开始播 */
   const handlePlayGroup = useCallback(() => {
@@ -1465,9 +1471,9 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
   ], [runBatch])
 
   const batchMoreItems = useMemo(() => [
-    { key: 'deleteFiles', label: '删除文件到回收站', icon: 'delete-sweep-outline', danger: true, onPress: () => { setBatchMoreSheet(false); runBatch('deleteFiles') } },
-    { key: 'deletePermanently', label: '彻底删除文件（不可恢复）', icon: 'delete-forever-outline', danger: true, onPress: () => { setBatchMoreSheet(false); runBatch('deletePermanently') } },
-    { key: 'remove', label: '从曲库移除', icon: 'delete-outline', danger: true, onPress: () => { setBatchMoreSheet(false); runBatch('remove') } },
+    { key: 'deleteFiles', label: '删除文件到回收站', icon: 'delete-sweep-outline', danger: true, value: '可恢复', onPress: () => { setBatchMoreSheet(false); runBatch('deleteFiles') } },
+    { key: 'deletePermanently', label: '彻底删除文件', icon: 'delete-forever-outline', danger: true, value: '不可恢复', onPress: () => { setBatchMoreSheet(false); runBatch('deletePermanently') } },
+    { key: 'remove', label: '从曲库移除', icon: 'delete-outline', danger: true, value: '保留文件', onPress: () => { setBatchMoreSheet(false); runBatch('remove') } },
   ], [runBatch])
 
   const sortSheetItems = [
@@ -1518,7 +1524,7 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
     >
       <View style={styles.container}>
       <View style={styles.glassTop}>
-        <LiquidGlass mode={glassStyle} blurRadius={24} radius={0} tint={theme.isDark ? 'rgba(20,16,28,0.42)' : 'rgba(255,255,255,0.34)'} isDark={theme.isDark} seamless />
+        <LiquidGlass solid mode={glassStyle} blurRadius={24} radius={0} tint={theme.isDark ? 'rgba(20,16,28,0.42)' : 'rgba(255,255,255,0.34)'} isDark={theme.isDark} seamless />
       {/* 作为主 Tab 用时补一个统一页头；从下载中心弹出来时不需要（那个是整屏子页） */}
       {hasClose ? null : (
         <PageHeader
@@ -2240,15 +2246,17 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
   )
 }
 
-const LocalRow = memo(({ item, index, onPress, onMore, batchMode = false, selected = false, onToggle }: {
+const LocalRow = memo(({ item, index, onPress, onMore, batchMode = false, selected = false, onToggle, onEnterBatch }: {
   item: LX.Music.MusicInfoLocal
   index: number
   onPress: (item: LX.Music.MusicInfoLocal) => void
-  /** 打开「更多」底部 Sheet（点行尾 ⋮ 或长按整行） */
+  /** 行尾 ⋮ 打开「更多」底部 Sheet */
   onMore: (item: LX.Music.MusicInfoLocal) => void
   batchMode?: boolean
   selected?: boolean
   onToggle?: (item: LX.Music.MusicInfoLocal) => void
+  /** 长按整行进入批量选择并选中当前项 */
+  onEnterBatch?: (item: LX.Music.MusicInfoLocal) => void
 }) => {
   const theme = useTheme()
 
@@ -2272,7 +2280,7 @@ const LocalRow = memo(({ item, index, onPress, onMore, batchMode = false, select
         style={styles.rowMain}
         activeOpacity={0.7}
         onPress={() => { batchMode ? onToggle?.(item) : onPress(item) }}
-        onLongPress={() => { batchMode ? onToggle?.(item) : onMore(item) }}
+        onLongPress={() => { if (batchMode) onToggle?.(item); else if (onEnterBatch) onEnterBatch(item); else onMore(item) }}
         delayLongPress={320}
       >
         {

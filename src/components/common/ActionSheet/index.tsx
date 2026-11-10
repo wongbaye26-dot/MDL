@@ -148,7 +148,7 @@ export default ({ visible, header, actions, items, onClose }: ActionSheetProps) 
             borderTopLeftRadius: 24,
             borderTopRightRadius: 24,
             paddingTop: 16,
-            paddingBottom: 20,
+            paddingBottom: 30,
             backgroundColor: palette.bg,
             transform: [{
               translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [windowHeight, 0] }),
@@ -159,7 +159,7 @@ export default ({ visible, header, actions, items, onClose }: ActionSheetProps) 
 
           <ScrollView
             style={{ maxHeight: windowHeight * 0.62 }}
-            contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 4 }}
+            contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 20 }}
             keyboardShouldPersistTaps='handled'
             showsVerticalScrollIndicator={false}
           >

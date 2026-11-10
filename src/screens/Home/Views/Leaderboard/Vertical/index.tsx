@@ -144,7 +144,7 @@ export default () => {
   return (
     <View style={styles.container}>
       <View style={styles.filters}>
-        <LiquidGlass mode={glassStyle} blurRadius={24} radius={0} tint={theme.isDark ? 'rgba(20,16,28,0.42)' : 'rgba(255,255,255,0.34)'} isDark={theme.isDark} seamless flat />
+        <LiquidGlass solid mode={glassStyle} blurRadius={24} radius={0} tint={theme.isDark ? 'rgba(20,16,28,0.42)' : 'rgba(255,255,255,0.34)'} isDark={theme.isDark} seamless flat />
         <BoardChips boards={boards} activeId={activeId} onChange={handleBoardChange} />
       </View>
       <View style={styles.list}>

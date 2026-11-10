@@ -96,6 +96,11 @@ export const ThemeSection = () => {
           { value: 'real', label: t('setting_basic_sourcename_real') },
           { value: 'alias', label: t('setting_basic_sourcename_alias') },
         ]} />
+        <ChoiceRow settingKey='common.navGlassStyle' title='胶囊/迷你播放器玻璃效果' options={[
+          { value: 'liquid', label: '液态玻璃' },
+          { value: 'frosted', label: '毛玻璃' },
+          { value: 'none', label: '关闭' },
+        ]} />
         <ChoiceRow settingKey='common.navProgressStyle' title='底部胶囊进度条' options={[
           { value: 'ring', label: '封面圆环' },
           { value: 'none', label: '关闭' },

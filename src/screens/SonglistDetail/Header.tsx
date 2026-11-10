@@ -97,7 +97,7 @@ export default forwardRef<HeaderType, HeaderProps>(({ componentId }: { component
         ...styles.card,
         borderColor: theme['c-primary-alpha-800'],
       }}>
-        <LiquidGlass mode={glassStyle} blurRadius={24} radius={16} tint={theme.isDark ? 'rgba(20,16,28,0.42)' : 'rgba(255,255,255,0.34)'} isDark={theme.isDark} seamless />
+        <LiquidGlass solid mode={glassStyle} blurRadius={24} radius={16} tint={theme.isDark ? 'rgba(20,16,28,0.42)' : 'rgba(255,255,255,0.34)'} isDark={theme.isDark} seamless />
         <View style={styles.headRow}>
           <Pic componentId={componentId} playCount={detailInfo.playCount} imgUrl={detailInfo.imgUrl} />
           <View style={styles.infoArea} nativeID={NAV_SHEAR_NATIVE_IDS.songlistDetail_title}>
