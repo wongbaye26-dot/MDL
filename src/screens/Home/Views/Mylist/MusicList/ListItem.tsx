@@ -1,5 +1,5 @@
 import { memo, useRef, type ComponentRef } from 'react'
-import { View, TouchableOpacity } from 'react-native'
+import { View, TouchableOpacity, StyleSheet } from 'react-native'
 import { LIST_ITEM_HEIGHT } from '@/config/constant'
 // import { BorderWidths } from '@/theme'
 import { Icon } from '@/components/common/Icon'
@@ -79,7 +79,7 @@ export default memo(({ item, index, activeIndex, onPress, onShowMenu, onLongPres
         <Icon name="dots-vertical" style={{ color: theme['c-350'] }} size={12} />
       </TouchableOpacity>
       {/* </View> */}
-      <View pointerEvents='none' style={{ position: 'absolute', left: 65, right: 18, bottom: 0, height: 0.5, backgroundColor: getListDivider(theme) }} />
+      <View pointerEvents='none' style={{ position: 'absolute', left: 65, right: 18, bottom: 0, height: StyleSheet.hairlineWidth, backgroundColor: getListDivider(theme) }} />
     </View>
   )
 }, (prevProps, nextProps) => {

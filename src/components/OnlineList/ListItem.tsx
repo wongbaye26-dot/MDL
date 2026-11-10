@@ -1,5 +1,5 @@
 import { memo, useRef, type ComponentRef } from 'react'
-import { View, TouchableOpacity, type GestureResponderEvent } from 'react-native'
+import { View, TouchableOpacity, StyleSheet, type GestureResponderEvent } from 'react-native'
 // import Button from '@/components/common/Button'
 import Text from '@/components/common/Text'
 import Badge, { type BadgeType } from '@/components/common/Badge'
@@ -190,7 +190,7 @@ export default memo(({ item, index, showSource, picUrl, onPress, onLongPress, on
       >
         <Icon name="dots-vertical" style={{ color: theme['c-350'] }} size={12} />
       </TouchableOpacity>
-      <View pointerEvents='none' style={{ position: 'absolute', left: showRank ? 95 : 65, right: 18, bottom: 0, height: 0.5, backgroundColor: getListDivider(theme) }} />
+      <View pointerEvents='none' style={{ position: 'absolute', left: showRank ? 95 : 65, right: 18, bottom: 0, height: StyleSheet.hairlineWidth, backgroundColor: getListDivider(theme) }} />
     </View>
   )
 }, (prevProps, nextProps) => {

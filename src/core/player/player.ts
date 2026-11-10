@@ -282,17 +282,18 @@ export const handlePlaybackErrorRetry = (): boolean => {
   const musicInfo = playerState.playMusicInfo.musicInfo
   if (!musicInfo || global.lx.isPlayedStop) return false
   const root = 'progress' in musicInfo ? musicInfo.metadata.musicInfo : musicInfo
-  if (root.source === 'local') return false
+  const isLocal = root.source === 'local'
   const key = getPlaybackErrorKey(musicInfo)
   if (playbackErrorKey !== key) {
     playbackErrorKey = key
     playbackErrorCount = 0
   }
-  if (playbackErrorCount >= 2) {
+  // 本地文件只给一次重载机会（文件被占用/临时读取失败通常能恢复）；在线仍是最多两次
+  if (playbackErrorCount >= (isLocal ? 1 : 2)) {
     resetPlaybackErrorRetry()
     return false
   }
-  const forceToggle = playbackErrorCount >= 1
+  const forceToggle = !isLocal && playbackErrorCount >= 1
   playbackErrorCount += 1
   // 先删掉这首歌所有音质的地址缓存，避免后续解析又把刚失败的 410 链接拿回来
   void clearMusicUrlByMusic(root).catch(() => {})
@@ -306,7 +307,7 @@ export const handlePlaybackErrorRetry = (): boolean => {
         url = await getMusicPlayUrl(musicInfo, true, true, 0, forceToggle)
       } catch (err: any) {
         // 刷新地址仍然失败（同源仍返回过期链接）：立刻再强制换源，别把错误直接抛给界面
-        if (forceToggle) throw err
+        if (forceToggle || isLocal) throw err
         log.info(`[player] refresh failed, force toggle source: ${err?.message ?? ''}`)
         setStatusText(global.i18n.t('toggle_source_try'))
         url = await getMusicPlayUrl(musicInfo, true, true, 0, true)

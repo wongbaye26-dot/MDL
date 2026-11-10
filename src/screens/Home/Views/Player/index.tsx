@@ -1584,7 +1584,6 @@ export default () => {
   return (
     <Animated.View
       style={{ ...styles.container, backgroundColor: palette.scrim, transform: [{ translateY: panY }] }}
-      {...panResponder.panHandlers}
       onLayout={handleLayout}
     >
       {/* 下滑关闭时把让出来的区域也涂成播放器底色，避免露出页面白底（浅色主题下就是白屏） */}
@@ -1757,7 +1756,7 @@ export default () => {
         </View>
 
         {/* 1: 歌曲页面（保持原有封面页：点击封面仍可切到歌词页） */}
-        <View key='cover' style={{ flex: 1 }}>
+        <View key='cover' style={{ flex: 1 }} {...panResponder.panHandlers}>
           <View pointerEvents='none' style={[styles.lyricStrip, { top: stripTop - coverTop, height: stripH }]}>
             <Text size={u(16)} color='rgba(255,255,255,0.95)' numberOfLines={1} style={styles.nowLyric}>
               {lrcPlay.text || ' '}
@@ -1831,25 +1830,25 @@ export default () => {
                       ? null
                       : (
                         <TouchableOpacity style={styles.iconBtn} onPress={handleDownload} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-                          <Icon name='download-2' size={u(21)} color='rgba(255,255,255,0.92)' />
+                          <Icon name='download-2' size={u(24)} color='rgba(255,255,255,0.92)' />
                         </TouchableOpacity>
                         )
                   }
                   <SleepTimerButton
                     onPress={() => { setSleepTimerVisible(true) }}
-                    size={u(22)}
+                    size={u(24)}
                     activeColor={accent}
                     style={styles.iconBtn}
                   />
                   <TouchableOpacity style={styles.iconBtn} onPress={handleToggleCollect} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
                     <Icon
                       name={collected ? 'love' : 'heart-outline'}
-                      size={u(26)}
+                      size={u(24)}
                       color={collected ? accent : 'rgba(255,255,255,0.92)'}
                     />
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.iconBtn} onPress={handleAddToPlaylist} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }} accessibilityRole='button' accessibilityLabel='添加至歌单'>
-                    <AddPlaylistIcon size={u(30)} color='rgba(255,255,255,0.92)' />
+                    <AddPlaylistIcon size={u(24)} color='rgba(255,255,255,0.92)' />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -1871,15 +1870,15 @@ export default () => {
                 <View style={styles.infoActions}>
                   <SleepTimerButton
                     onPress={() => { setSleepTimerVisible(true) }}
-                    size={u(22)}
+                    size={u(24)}
                     activeColor={accent}
                     style={styles.iconBtn}
                   />
                   <TouchableOpacity style={styles.iconBtn} onPress={handleToggleCollect} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
-                    <Icon name={collected ? 'love' : 'heart-outline'} size={u(26)} color={collected ? accent : 'rgba(255,255,255,0.9)'} />
+                    <Icon name={collected ? 'love' : 'heart-outline'} size={u(24)} color={collected ? accent : 'rgba(255,255,255,0.9)'} />
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.iconBtn} onPress={handleAddToPlaylist} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }} accessibilityRole='button' accessibilityLabel='添加至歌单'>
-                    <AddPlaylistIcon size={u(30)} color='rgba(255,255,255,0.9)' />
+                    <AddPlaylistIcon size={u(24)} color='rgba(255,255,255,0.9)' />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -2337,5 +2336,5 @@ const styles = {
   queueInfo: { flexGrow: 1, flexShrink: 1 },
   queueSinger: { marginTop: 2 },
   queueActiveIcon: { marginRight: 6 },
-  queueDivider: { position: 'absolute' as const, left: 54, right: 18, bottom: 0, height: 0.5 },
+  queueDivider: { position: 'absolute' as const, left: 54, right: 18, bottom: 0, height: StyleSheet.hairlineWidth },
 }
