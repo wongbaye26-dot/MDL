@@ -32,15 +32,16 @@ import MusicMultiAddModal, { type MusicMultiAddModalType } from '@/components/Mu
 import { useTheme } from '@/store/theme/hook'
 import { contrastOn } from '@/theme/solid'
 import { getListDivider } from '@/theme/designTokens'
-import { setNavActiveId } from '@/core/common'
+import { setNavActiveId, updateSetting } from '@/core/common'
 import LiquidGlass from '@/components/common/LiquidGlass'
 import { useSettingValue } from '@/store/setting/hook'
 import { useOverlayLock } from '@/utils/overlayLock'
 import { confirmDialog, createStyle, tipDialog, toast } from '@/utils/tools'
-import { formatSize, formatSampleRate } from '@/core/download/utils'
+import { formatSize, formatSampleRate, isSafPath } from '@/core/download/utils'
+import { getSavePath, clearSavePathCache } from '@/core/download'
 import { showAppDialog } from '@/components/common/AppDialog/service'
 import { getLocalMusicList, getLocalMusicListCacheOnly, getLocalMusicListSync, getScanPartialList, subscribeScanPartialList, scanLocalMusicInBackground, isScanning, useScanState, getTotalSize, deleteLocalMusic, getScanDirs, getExtraDirs, setExtraDirs, getLastScanReport, type ScanDir, type ScanReport } from '@/core/localMusic'
-import { pickDirectory, isDirectoryPickerSupported } from '@/utils/directoryPicker'
+import { pickDirectory, isDirectoryPickerSupported, treeUriToDisplayPath } from '@/utils/directoryPicker'
 import { cleanSongName } from '@/utils/songName'
 import { initialOfText } from '@/utils/pinyinInitial'
 import { normalizeGroupKey, useLocalLibraryIndex } from '@/core/localMusic/libraryIndex'
@@ -1122,6 +1123,27 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
     try {
       const picked = await pickDirectory()
       if (!picked) return
+      /*
+        如果用户重新选的是「当前的下载目录」（默认目录 / 之前用 SAF 选的目录），
+        要改的是下载目录这条设置本身：只把授权写进额外目录列表的话，
+        getScanDirs 会按路径去重、优先用下载目录那条的旧 treeUri，
+        用户就会看到「重新选择后还是提示授权失败」。
+      */
+      const savePath = await getSavePath().catch(() => '')
+      const savePathDisplay = savePath
+        ? (isSafPath(savePath) ? treeUriToDisplayPath(savePath) : savePath)
+        : ''
+      if (savePathDisplay && savePathDisplay === picked.path) {
+        updateSetting({ 'download.savePath': picked.treeUri ?? picked.path })
+        clearSavePathCache()
+        const nextDownload = await getScanDirs()
+        dirsRef.current = nextDownload
+        setDirs(nextDownload)
+        toast(`已重新授权下载目录「${picked.name}」，开始扫描…`)
+        setDirModal(false)
+        void handleScan()
+        return
+      }
       const extra = await getExtraDirs()
       const exist = extra.find(d => d.path === picked.path)
       if (exist?.treeUri) {

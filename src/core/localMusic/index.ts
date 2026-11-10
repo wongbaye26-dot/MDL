@@ -53,6 +53,39 @@ const PENDING_TTL = 7 * 24 * 60 * 60 * 1000
 /** 应用自己的目录可以直接读；公共目录要走 MediaStore / SAF */
 const isAppPrivateDir = (dir: string) => dir.includes('/Android/data/') || dir.includes('/Android/obb/')
 
+/**
+ * 同一个文件可能有两个地址：真实路径（/storage/emulated/0/...）和 SAF 文档 uri（content://...）。
+ * 曲库以真实路径为主键（id 也由它派生），比较/去重前统一成真实路径，
+ * 否则同一个文件会以两个 id 各占一条 —— 列表里出现两首一样的歌，
+ * 删掉其中一条（实际删的是同一个文件）两条就一起消失了。
+ */
+const normalizeFilePath = (path: string) => {
+  if (!path) return ''
+  if (!path.startsWith('content://')) return path
+  return documentUriToRealPath(path) || path
+}
+
+/** 按「归一化路径」去重（保留封面 / SAF uri 更完整的那个） */
+const dedupeByFilePath = (list: LX.Music.MusicInfoLocal[]) => {
+  const byPath = new Map<string, LX.Music.MusicInfoLocal>()
+  for (const item of list) {
+    const key = normalizeFilePath(item.meta.filePath) || item.id
+    const prev = byPath.get(key)
+    if (!prev) {
+      byPath.set(key, item)
+      continue
+    }
+    // 后到的条目如果信息更全（有 contentUri / 有封面），就用它覆盖，路径统一成真实路径
+    const next = (item.meta.contentUri && !prev.meta.contentUri) ? item : prev
+    const other = next === item ? prev : item
+    next.meta.filePath = key
+    if (!next.meta.contentUri && other.meta.contentUri) next.meta.contentUri = other.meta.contentUri
+    if (!next.meta.picUrl && other.meta.picUrl) next.meta.picUrl = other.meta.picUrl
+    byPath.set(key, next)
+  }
+  return [...byPath.values()]
+}
+
 /** 一个扫描根目录 */
 export interface ScanDir {
   path: string
@@ -409,7 +442,8 @@ const removePendingAdded = async(item: LX.Music.MusicInfoLocal) => {
   try {
     const pending = await getPendingAdded()
     if (!pending.length) return
-    const next = pending.filter(entry => entry.id !== item.id && entry.meta.filePath !== item.meta.filePath)
+    const filePath = normalizeFilePath(item.meta.filePath)
+    const next = pending.filter(entry => entry.id !== item.id && normalizeFilePath(entry.meta.filePath) !== filePath)
     if (next.length !== pending.length) await savePendingAdded(next)
   } catch {}
 }
@@ -418,14 +452,26 @@ const removePendingAdded = async(item: LX.Music.MusicInfoLocal) => {
 export const getScanDirs = async(): Promise<ScanDir[]> => {
   const downloadDir = await getDownloadScanDir()
   const dirs = [downloadDir, ...await getExtraDirs()]
-  const seen = new Set<string>()
-  const out: ScanDir[] = []
+  const byPath = new Map<string, ScanDir>()
   for (const dir of dirs) {
-    if (!dir?.path || seen.has(dir.path)) continue
-    seen.add(dir.path)
-    out.push(dir)
+    if (!dir?.path) continue
+    const prev = byPath.get(dir.path)
+    if (!prev) {
+      byPath.set(dir.path, { path: dir.path, treeUri: dir.treeUri })
+      continue
+    }
+    /*
+      同一个目录可能既是下载目录、又在额外目录列表里（改过下载目录就会这样）。
+      不能简单「先到先得」：下载目录那条可能带着已经失效的 treeUri，
+      用户重新授权后新的 treeUri 在额外目录那条里，丢掉它就会一直提示「需要重新授权」。
+    */
+    if (!prev.treeUri && dir.treeUri) {
+      prev.treeUri = dir.treeUri
+    } else if (prev.treeUri && dir.treeUri && prev.treeUri !== dir.treeUri) {
+      if (!await hasTreePermission(prev.treeUri) && await hasTreePermission(dir.treeUri)) prev.treeUri = dir.treeUri
+    }
   }
-  return out
+  return [...byPath.values()]
 }
 
 /** 把 AudioMeta 合并进条目（标签/时长/封面/码率） */
@@ -625,7 +671,12 @@ export const scanLocalMusic = async(
     } else {
       await collectPublicDir(plainDir, files, onProgress)
     }
-    if (files.length === before && !plainDir.treeUri) needAuth.push(plainDir)
+    // 一个文件都没扫到、又没有 SAF 授权：只有目录真的不存在/读不到才算「需要重新授权」。
+    // 刚换过下载目录时目录是空的很正常，不能因此提示用户去重新授权。
+    if (files.length === before && !plainDir.treeUri) {
+      const exists = await existsFile(plainDir.path).catch(() => false)
+      if (!exists) needAuth.push(plainDir)
+    }
   }
 
   const list: LX.Music.MusicInfoLocal[] = []
@@ -637,7 +688,7 @@ export const scanLocalMusic = async(
   */
   const scanStartedAt = Date.now()
   const previous = await getLocalMusicList().catch(() => [])
-  const previousByPath = new Map(previous.map(item => [item.meta.filePath, item]))
+  const previousByPath = new Map(previous.map(item => [normalizeFilePath(item.meta.filePath), item]))
   let added = 0
   let updated = 0
   let unchanged = 0
@@ -645,7 +696,7 @@ export const scanLocalMusic = async(
   for (const file of files) {
     if (seen.has(file.path)) continue
     seen.add(file.path)
-    const prev = previousByPath.get(file.path)
+    const prev = previousByPath.get(normalizeFilePath(file.path))
     const canReuse = canReuseScannedFile(prev, file)
     if (canReuse && prev) {
       list.push(prev)
@@ -679,23 +730,30 @@ export const scanLocalMusic = async(
 
   list.sort((a, b) => a.name.localeCompare(b.name, 'zh-Hans-CN'))
 
+  // 同一个文件可能同时以「真实路径」和「SAF 文档 uri」入过库（老版本下载目录走 SAF 时就这样），
+  // 统一归一化后去重，顺手把历史遗留的重复条目清掉
+  list.splice(0, list.length, ...dedupeByFilePath(list))
+
   // 合并「刚下载、这次还没扫到」的条目（见 PENDING_KEY 注释）：
   // 文件确实还在才保留，删掉的歌不会被复活；扫到了的从暂存里移除。
   try {
     const pending = await getPendingAdded()
     if (pending.length) {
-      const scannedPaths = new Set(list.map(item => item.meta.filePath))
+      const scannedPaths = new Set(list.map(item => normalizeFilePath(item.meta.filePath)))
       const remain: LX.Music.MusicInfoLocal[] = []
       let appended = false
       for (const item of pending) {
-        const filePath = item.meta.filePath
+        const rawPath = item.meta.filePath
+        const filePath = normalizeFilePath(rawPath)
         if (!filePath || scannedPaths.has(filePath)) continue
-        if (filePath.startsWith('content://')) {
+        if (rawPath.startsWith('content://')) {
           // content:// 文档 uri 没法用 existsFile 判断；先尝试读文档元信息，文档已被删掉/失权就直接丢弃，
           // 不再等 7 天 TTL（之前批量删除后重扫又出现，就是这里把已删的暂存条目又并回来了）。
-          const alive = await readAudioMeta(filePath).then(() => true).catch(() => false)
+          const alive = await readAudioMeta(rawPath).then(() => true).catch(() => false)
           if (!alive) continue
           if (item.meta.mtime && Date.now() - item.meta.mtime > PENDING_TTL) continue
+          if (!item.meta.contentUri) item.meta.contentUri = rawPath
+          item.meta.filePath = filePath
           scannedPaths.add(filePath)
           list.push(item)
           remain.push(item)
@@ -709,8 +767,11 @@ export const scanLocalMusic = async(
           appended = true
         }
       }
-      if (appended) list.sort((a, b) => a.name.localeCompare(b.name, 'zh-Hans-CN'))
-      await savePendingAdded(remain)
+      if (appended) {
+        list.splice(0, list.length, ...dedupeByFilePath(list))
+        list.sort((a, b) => a.name.localeCompare(b.name, 'zh-Hans-CN'))
+      }
+      await savePendingAdded(dedupeByFilePath(remain))
     }
   } catch (err) {
     // 暂存区读写失败不能影响扫描结果本身
@@ -902,15 +963,18 @@ export const addLocalMusicFile = async(item: {
     log.warn(`add local music skipped, file not exists: ${item.filePath}`)
     return
   }
+  // SAF 目录下载时 filePath 是文档 uri，入库统一存真实路径（contentUri 留作播放用）：
+  // 否则重新扫描时 MediaStore 给出的真实路径会被当成「另一首歌」，最近添加里出现两条一模一样的
+  const filePath = normalizeFilePath(item.filePath)
   const list = await getLocalMusicList()
-  if (list.some(m => m.meta.filePath === item.filePath)) return
+  if (list.some(m => normalizeFilePath(m.meta.filePath) === filePath)) return
   // 传进来的是文件名（「歌手 - 歌名.flac」），歌名要把歌手摘掉再入库
   const baseName = item.name.replace(/\.[^.]+$/, '')
   // SAF 下载的 filePath 本身就是文档 uri，播放 / 抽封面都要靠 contentUri
   const contentUri = item.contentUri ?? (item.filePath.startsWith('content://') ? item.filePath : undefined)
   const entry: DirEntry = {
     name: item.name,
-    path: item.filePath,
+    path: filePath,
     isDirectory: false,
     size: item.size ?? 0,
     mtime: Date.now(),
