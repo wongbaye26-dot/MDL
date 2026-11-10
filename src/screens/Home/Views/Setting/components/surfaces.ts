@@ -26,7 +26,7 @@ export const getCardBorder = (theme: LX.ActiveTheme) => (
 )
 
 export const getDividerColor = (theme: LX.ActiveTheme) => (
-  theme.isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(120, 100, 160, 0.10)'
+  theme.isDark ? 'rgba(255,255,255,0.07)' : theme['c-primary-alpha-900']
 )
 
 /** 图标底色：有识别色用识别色 14%（深色 20%），否则用主题主色淡底 */

@@ -275,7 +275,7 @@ export default () => {
                         </View>
                         <Text size={14.5} style={styles.portraitRowLabel}>{PORTRAIT_LABELS[item]}</Text>
                         <Icon name='chevron-right' size={19} color={theme['c-450']} />
-                        {index > 0
+                        {index < group.length - 1
                           ? <View pointerEvents='none' style={{ position: 'absolute', left: 16, right: 12, bottom: 0, height: 0.5, backgroundColor: theme.isDark ? 'rgba(255,255,255,0.07)' : theme['c-primary-alpha-900'] }} />
                           : null}
                       </TouchableOpacity>

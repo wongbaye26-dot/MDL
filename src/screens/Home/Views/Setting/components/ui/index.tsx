@@ -16,8 +16,8 @@ import {
   Space,
   Type,
   getDanger,
-  getDivider,
   getOnPrimary,
+  getSettingsDivider,
 } from '@/theme/designTokens'
 
 /**
@@ -50,7 +50,7 @@ export const Group = ({ title, desc, children, footer }: {
       <View>
         {items.map((item, index) => (
           <View key={index}>
-            {index > 0 ? <View style={{ height: 0.5, marginLeft: Space.lg, backgroundColor: getDivider(theme) }} /> : null}
+            {index > 0 ? <View style={{ height: 0.5, marginLeft: 16, marginRight: 12, backgroundColor: getSettingsDivider(theme) }} /> : null}
             {item}
           </View>
         ))}

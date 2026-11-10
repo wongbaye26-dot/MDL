@@ -66,9 +66,15 @@ export const getGlassTint = (theme: ActiveTheme): string => (
 /** 主色实心上的前景色（自动明暗） */
 export const getOnPrimary = (theme: ActiveTheme): string => contrastOn(theme['c-primary'])
 
+/** 设置页统一分隔线：比列表线略淡、带主色，左右内缩不接卡片边 */
+export const getSettingsDivider = (theme: ActiveTheme): string => (
+  theme.isDark ? 'rgba(255,255,255,0.07)' : theme['c-primary-alpha-900']
+)
+
 /** 设置页平铺行的分隔线样式 */
 export const rowDividerStyle = (theme: ActiveTheme): ViewStyle => ({
   height: 0.5,
-  backgroundColor: getDivider(theme),
-  marginLeft: Space.lg,
+  marginLeft: 16,
+  marginRight: 12,
+  backgroundColor: getSettingsDivider(theme),
 })

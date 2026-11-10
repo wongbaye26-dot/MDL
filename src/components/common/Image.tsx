@@ -74,6 +74,11 @@ const Image = memo(({ url, cache, resizeMode = 'cover', style, onError, nativeID
             resizeMode={resizeMode}
             blurRadius={blurRadius}
             nativeID={nativeID}
+            // Android 默认 300ms 淡入会让人觉得封面“慢半拍”；列表封面直接显示
+            fadeDuration={0}
+            // 按控件尺寸解码，避免整张原图解码后占用带宽/内存
+            resizeMethod='resize'
+            progressiveRenderingEnabled
           />
         )
   )

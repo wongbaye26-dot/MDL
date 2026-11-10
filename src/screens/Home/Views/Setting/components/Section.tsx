@@ -124,6 +124,7 @@ const styles = createStyle({
   },
   divider: {
     height: 0.5,
-    marginLeft: 20,
+    marginLeft: 16,
+    marginRight: 12,
   },
 })

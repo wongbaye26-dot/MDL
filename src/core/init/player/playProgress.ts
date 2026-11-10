@@ -22,6 +22,14 @@ const delaySavePlayInfo = throttleBackgroundTimer(() => {
   })
 }, 2000)
 
+/** 在线歌曲的 interval 是 "04:13" 文本；兜底时长用 */
+const parseIntervalSeconds = (interval?: string | number) => {
+  if (typeof interval === 'number') return interval > 0 ? interval : 0
+  const m = /^(\d+):(\d+)$/.exec(interval ?? '')
+  if (!m) return 0
+  return Number(m[1]) * 60 + Number(m[2])
+}
+
 export default () => {
   // const updateMusicInfo = useCommit('list', 'updateMusicInfo')
 
@@ -36,7 +44,7 @@ export default () => {
     if (Date.now() < seekHoldUntil) return
     let id = playerState.musicInfo.id
     void getPosition().then(position => {
-      if (!position || id != playerState.musicInfo.id || Date.now() < seekHoldUntil) return
+      if (position == null || id != playerState.musicInfo.id || Date.now() < seekHoldUntil) return
       setNowPlayTime(position)
       recordPlaybackTick(position)
       if (!playerState.isPlay) return
@@ -53,7 +61,13 @@ export default () => {
     })
   }
   const getMaxTime = async() => {
-    setMaxplayTime(await getDuration())
+    const duration = await getDuration()
+    const current = playerState.playMusicInfo.musicInfo
+    const fallback = current && 'interval' in current
+      ? parseIntervalSeconds((current as { interval?: string | number }).interval)
+      : 0
+    const max = Number.isFinite(duration) && duration > 0 ? duration : fallback
+    if (max > 0) setMaxplayTime(max)
 
     if (playerState.playMusicInfo.musicInfo && 'source' in playerState.playMusicInfo.musicInfo && !playerState.playMusicInfo.musicInfo.interval) {
       // console.log(formatPlayTime2(playProgress.maxPlayTime))
@@ -200,6 +214,7 @@ export default () => {
   // 修复在某些设备上屏幕状态改变事件未触发导致的进度条未更新的问题
   AppState.addEventListener('change', (state) => {
     if (state == 'active' && !isScreenOn) handleScreenStateChanged('ON')
+    if (state == 'active' && playerState.isPlay) startUpdateTimeout()
     // 退到后台可能被杀进程：先落一次队列/进度
     if (state !== 'active') saveNow()
   })
@@ -218,4 +233,6 @@ export default () => {
   global.state_event.on('configUpdated', handleConfigUpdated)
 
   onScreenStateChange(handleScreenStateChanged)
+  // 冷启动/恢复播放时补启动轮询，避免错过 play 事件后进度条不动
+  if (playerState.isPlay) startUpdateTimeout()
 }

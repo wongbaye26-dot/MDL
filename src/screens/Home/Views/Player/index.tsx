@@ -35,7 +35,7 @@ import * as Jyutping from '@/utils/jyutping/index.js'
 import { detectLanguage, isCantonese, isChineseLanguage } from '@/utils/language'
 import playerState from '@/store/player/state'
 import { collectMusic, playList, playNext, playPrev, togglePlay, uncollectMusic } from '@/core/player/player'
-import { setCurrentTime, getDuration } from '@/plugins/player'
+import { setCurrentTime, getDuration, getPosition } from '@/plugins/player'
 import { removeListMusics } from '@/core/list'
 import { setNowPlayTime, setMaxplayTime } from '@/core/player/progress'
 import { getListMusicSync } from '@/utils/listManage'
@@ -450,6 +450,14 @@ const LyricEmptyHint = memo(({ onPress }: { onPress?: () => void }) => {
     ? <TouchableOpacity activeOpacity={0.85} style={styles.lyricEmptyTouch} onPress={onPress}>{body}</TouchableOpacity>
     : body
 })
+
+/** 在线歌曲的 interval 是 "04:13" 文本；进度兜底时转成秒 */
+const parseIntervalSeconds = (interval?: string | number) => {
+  if (typeof interval === 'number') return interval > 0 ? interval : 0
+  const m = /^(\d+):(\d+)$/.exec(interval ?? '')
+  if (!m) return 0
+  return Number(m[1]) * 60 + Number(m[2])
+}
 
 export default () => {
   const theme = useTheme()
@@ -951,6 +959,38 @@ export default () => {
     return () => {
       alive = false
       clearTimeout(timer)
+    }
+  }, [musicInfo.id])
+
+  // 进度兜底：核心 1s 轮询在部分起播/恢复场景会没启动，页面自己补拉，
+  // 避免在线歌曲偶发「没有时间、进度条不动」。
+  const seekPreviewRef = useRef<number | null>(seekPreview)
+  useEffect(() => { seekPreviewRef.current = seekPreview }, [seekPreview])
+  useEffect(() => {
+    if (!musicInfo.id) return
+    let alive = true
+    let busy = false
+    const fallbackMax = parseIntervalSeconds((musicInfo as { interval?: string | number }).interval)
+    const tick = () => {
+      if (!alive || busy) return
+      busy = true
+      void Promise.all([getPosition(), getDuration()]).then(([pos, dur]) => {
+        if (!alive) return
+        if (Number.isFinite(pos) && seekPreviewRef.current == null && Math.abs(pos - playerState.progress.nowPlayTime) > 0.7) {
+          setNowPlayTime(pos)
+        }
+        if (Number.isFinite(dur) && dur > 0) {
+          if (Math.abs(dur - playerState.progress.maxPlayTime) > 0.5) setMaxplayTime(dur)
+        } else if (fallbackMax > 0 && playerState.progress.maxPlayTime <= 0) {
+          setMaxplayTime(fallbackMax)
+        }
+      }).catch(() => {}).finally(() => { busy = false })
+    }
+    tick()
+    const timer = setInterval(tick, 1000)
+    return () => {
+      alive = false
+      clearInterval(timer)
     }
   }, [musicInfo.id])
 
