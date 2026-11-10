@@ -1,4 +1,4 @@
-import { memo, useEffect, useState } from 'react'
+import { memo } from 'react'
 import { StyleSheet, View } from 'react-native'
 import LinearGradient from 'react-native-linear-gradient'
 
@@ -33,26 +33,7 @@ export default memo(({
   /** 表头用：不做模糊快照，直接铺一层稳定实色 */
   solid?: boolean
 }) => {
-  /*
-   * 首页 PagerView 左右滑动/子页进场期间，玻璃层降级成纯色。
-   * 胶囊栏保留玻璃，但滑动时不停抓整窗快照，避免拖影和掉帧。
-   */
-  const [scrollPaused, setScrollPaused] = useState(!global.lx.homePagerIdle)
-  const [transitionPaused, setTransitionPaused] = useState(false)
-  useEffect(() => {
-    const onScroll = (paused: boolean) => { setScrollPaused(paused) }
-    const onTransition = (paused: boolean) => { setTransitionPaused(paused) }
-    global.state_event.on('homePagerScrollChanged', onScroll)
-    global.state_event.on('pageTransitionChanged', onTransition)
-    return () => {
-      global.state_event.off('homePagerScrollChanged', onScroll)
-      global.state_event.off('pageTransitionChanged', onTransition)
-    }
-  }, [])
-
   if (mode === 'none') return null
-
-  const paused = scrollPaused || transitionPaused
 
   if (solid) {
     return (
@@ -67,17 +48,13 @@ export default memo(({
     )
   }
 
-  const solidTint = tint ?? (isDark ? 'rgba(20,16,28,0.42)' : 'rgba(255,255,255,0.34)')
-
   return (
     <View
       pointerEvents='none'
       style={[StyleSheet.absoluteFillObject, { borderRadius: radius, overflow: 'hidden' }]}
     >
-      <Glass blurRadius={blurRadius} tint={tint} radius={radius} enabled={!paused} />
-      {paused
-        ? <View style={[StyleSheet.absoluteFillObject, { backgroundColor: solidTint, borderRadius: radius }]} />
-        : null}
+      {/* 不再在滑动/转场时切换模糊/纯色：切换会让胶囊透明度突然变化。玻璃层常开，透明度由 tint 固定。 */}
+      <Glass blurRadius={blurRadius} tint={tint} radius={radius} enabled />
 
       {
         flat

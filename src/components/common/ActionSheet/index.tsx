@@ -148,7 +148,7 @@ export default ({ visible, header, actions, items, onClose }: ActionSheetProps) 
             borderTopLeftRadius: 24,
             borderTopRightRadius: 24,
             paddingTop: 16,
-            paddingBottom: 18,
+            paddingBottom: 10,
             backgroundColor: palette.bg,
             transform: [{
               translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [windowHeight, 0] }),
@@ -159,7 +159,7 @@ export default ({ visible, header, actions, items, onClose }: ActionSheetProps) 
 
           <ScrollView
             style={{ maxHeight: windowHeight * 0.74 }}
-            contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 8 }}
+            contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 0 }}
             keyboardShouldPersistTaps='handled'
             showsVerticalScrollIndicator={false}
           >
@@ -175,7 +175,7 @@ export default ({ visible, header, actions, items, onClose }: ActionSheetProps) 
                   )
                 : null
             }
-            {items.map(item => <ActionRow key={item.key} item={item} />)}
+            {items.map((item, index) => <ActionRow key={item.key} item={item} last={index === items.length - 1} />)}
           </ScrollView>
         </Animated.View>
       </View>
@@ -238,7 +238,7 @@ const ActionCard = ({ action }: { action: ActionSheetAction }) => {
 }
 
 /** 圆角操作行：高 50、左侧标签、右侧补充值 + 图标 */
-const ActionRow = ({ item }: { item: ActionSheetItem }) => {
+const ActionRow = ({ item, last = false }: { item: ActionSheetItem, last?: boolean }) => {
   const palette = useSheetPalette()
   const labelColor = item.danger ? palette.danger : item.disabled ? palette.textSecondary : palette.text
   const iconColor = item.danger ? palette.danger : item.active ? palette.primary : palette.icon
@@ -250,7 +250,7 @@ const ActionRow = ({ item }: { item: ActionSheetItem }) => {
         backgroundColor: palette.card,
         borderWidth: 0.5,
         borderColor: palette.border,
-        marginBottom: GAP,
+        marginBottom: last ? 0 : GAP,
         paddingHorizontal: 16,
         flexDirection: 'row',
         alignItems: 'center',
