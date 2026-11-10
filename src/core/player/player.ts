@@ -1,7 +1,9 @@
-import { isInitialized, initial as playerInitial, isEmpty, setPause, setPlay, setResource, setStop, initTrackInfo, setVolume } from '@/plugins/player'
+import { isInitialized, initial as playerInitial, isEmpty, setPause, setPlay, setResource, setStop, initTrackInfo, setVolume, pauseLocalPlayback, setCurrentTime } from '@/plugins/player'
 import {
   setStatusText,
 } from '@/core/player/playStatus'
+import { setMaxplayTime, setNowPlayTime } from '@/core/player/progress'
+import { castCoverUrl, castLastPosition, castMedia, isCasting } from '@/core/cast'
 import playerState from '@/store/player/state'
 import settingState from '@/store/setting/state'
 import { normalizeMusicInfo } from '@/utils/musicInfo'
@@ -453,8 +455,75 @@ AppState.addEventListener('change', state => {
   if (state === 'active' && playerState.isPlay && currentFadeVolume <= 0.01) restoreVolume()
 })
 
+const castDurationSeconds = (musicInfo: LX.Player.PlayMusic | LX.Download.ListItem) => {
+  const info = 'progress' in musicInfo ? musicInfo.metadata.musicInfo : musicInfo
+  const interval = info.interval
+  if (typeof interval === 'number' && interval > 0) return interval
+  if (typeof interval === 'string' && interval) {
+    const parts = interval.split(':').map(part => Number(part))
+    if (parts.length > 0 && parts.every(part => Number.isFinite(part))) {
+      return parts.reduce((total, part) => total * 60 + part, 0)
+    }
+  }
+  return playerState.progress.maxPlayTime
+}
+
+/**
+ * 把当前这首推给电视。
+ *
+ * 投屏时手机本地播放器不参与（TrackPlayer 保持暂停），所以这里要自己解析地址、
+ * 自己维护「正在播放」状态；封面/歌词仍由 debouncePlay 里的 getPicPath/getLyricInfo 加载。
+ */
+const playOnCastDevice = async(musicInfo: LX.Player.PlayMusic | LX.Download.ListItem) => {
+  try {
+    const result = await resolveMusicUrl({ musicInfo })
+    if (global.lx.isPlayedStop || playerState.playMusicInfo.musicInfo?.id != musicInfo.id) return
+    if (!result.url) throw new Error('播放地址为空')
+    applyResolvedMusicUrl(musicInfo, result)
+
+    const info = 'progress' in musicInfo ? musicInfo.metadata.musicInfo : musicInfo
+    const duration = castDurationSeconds(musicInfo)
+    castMedia(result.url, {
+      title: info.name ?? '',
+      artist: info.singer ?? '',
+      album: info.meta?.albumName ?? '',
+      cover: castCoverUrl(),
+      duration,
+    })
+    setMaxplayTime(duration)
+    setNowPlayTime(0)
+    global.app_event.play()
+  } catch (error) {
+    log.error(error)
+    setStatusText((error as Error).message)
+  }
+}
+
+/** 连接电视后：把手机正在播的这首转过去（本地先暂停，避免两边同时出声） */
+export const castCurrentMusic = async() => {
+  const musicInfo = playerState.playMusicInfo.musicInfo
+  if (!musicInfo) return
+  await pauseLocalPlayback().catch(() => {})
+  await playOnCastDevice(musicInfo)
+}
+
+/** 断开投屏：把电视上的进度接回手机继续播，避免电视停了手机也不出声 */
+export const resumeLocalPlayback = async() => {
+  const musicInfo = playerState.playMusicInfo.musicInfo
+  if (!musicInfo) return
+  const position = castLastPosition()
+  await handlePlay().catch((err: unknown) => { log.error(err) })
+  if (position > 0 && musicInfo.id == playerState.playMusicInfo.musicInfo?.id) {
+    void setCurrentTime(position)
+  }
+}
+
 const debouncePlay = debounceBackgroundTimer((musicInfo: LX.Player.PlayMusic) => {
-  setMusicUrl(musicInfo)
+  if (isCasting()) {
+    void playOnCastDevice(musicInfo)
+  } else {
+    setMusicUrl(musicInfo)
+  }
 
   void getPicPath({ musicInfo, listId: playerState.playMusicInfo.listId }).then((url: string) => {
     if (
@@ -536,6 +605,11 @@ const handlePlay = async(isRestore = false) => {
   if (settingState.setting['player.togglePlayMethod'] == 'random' && !playMusicInfo.isTempPlay) addPlayedList(playMusicInfo as LX.Player.PlayMusicInfo)
 
   debouncePlay(musicInfo)
+  if (isCasting()) {
+    // 投屏时本地播放器不参与：音量、淡入淡出都交给电视，进度由电视轮询回填
+    restoreVolume()
+    return
+  }
   if (fadeMs > 0 && isAppForeground()) {
     // 新歌加载/起播有延迟，稍等再渐入；播放失败时由下面的 restoreVolume 兜底
     currentFadeVolume = 0

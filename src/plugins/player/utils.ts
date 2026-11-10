@@ -4,6 +4,7 @@ import { playMusic as handlePlayMusic } from './playList'
 import { buildNotificationOptions } from './notification'
 import { existsFile, moveFile, privateStorageDirectoryPath, temporaryDirectoryPath } from '@/utils/fs'
 import { toast } from '@/utils/tools'
+import { castControl, castDuration, castPosition, isCasting } from '@/core/cast'
 // import { PlayerMusicInfo } from '@/store/modules/player/playInfo'
 
 
@@ -165,18 +166,50 @@ export const setResource = (musicInfo: LX.Player.PlayMusic, url: string, duratio
   playMusic(musicInfo, toPlayableUrl(url), duration ?? 0)
 }
 
-export const setPlay = async() => TrackPlayer.play()
-export const getPosition = async() => TrackPlayer.getPosition()
-export const getDuration = async() => TrackPlayer.getDuration()
+/**
+ * 投屏时播放进度/时长来自电视轮询，手机端的 TrackPlayer 是暂停的，
+ * 所以这几个基础操作要分派到电视，界面（含歌词滚动）才跟得上。
+ */
+export const setPlay = async() => {
+  if (isCasting()) {
+    castControl('play')
+    global.app_event.play()
+    return
+  }
+  return TrackPlayer.play()
+}
+export const getPosition = async() => isCasting() ? castPosition() : TrackPlayer.getPosition()
+export const getDuration = async() => isCasting() ? castDuration() : TrackPlayer.getDuration()
 export const setStop = async() => {
+  if (isCasting()) {
+    castControl('stop')
+    return
+  }
   await TrackPlayer.stop()
   if (!isEmpty()) await TrackPlayer.skipToNext()
 }
 export const setLoop = async(loop: boolean) => TrackPlayer.setRepeatMode(loop ? RepeatMode.Off : RepeatMode.Track)
 
-export const setPause = async() => TrackPlayer.pause()
+export const setPause = async() => {
+  if (isCasting()) {
+    castControl('pause')
+    global.app_event.pause()
+    return
+  }
+  return TrackPlayer.pause()
+}
+
+/** 手机本地播放器的暂停：投屏接管时需要绕过上面的分派，直接停本地 */
+export const pauseLocalPlayback = async() => TrackPlayer.pause()
+
 // export const skipToNext = () => TrackPlayer.skipToNext()
-export const setCurrentTime = async(time: number) => TrackPlayer.seekTo(time)
+export const setCurrentTime = async(time: number) => {
+  if (isCasting()) {
+    castControl('seek', time)
+    return
+  }
+  return TrackPlayer.seekTo(time)
+}
 export const setVolume = async(num: number) => TrackPlayer.setVolume(num)
 export const setPlaybackRate = async(num: number) => TrackPlayer.setRate(num)
 export interface NowPlayingTitles {

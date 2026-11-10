@@ -35,7 +35,7 @@ import { useLrcSet, useLrcPlay, type Line } from '@/plugins/lyric'
 import * as Jyutping from '@/utils/jyutping/index.js'
 import { detectLanguage, isCantonese, isChineseLanguage } from '@/utils/language'
 import playerState from '@/store/player/state'
-import { collectMusic, playList, playNext, playPrev, togglePlay, uncollectMusic } from '@/core/player/player'
+import { castCurrentMusic, collectMusic, playList, playNext, playPrev, resumeLocalPlayback, togglePlay, uncollectMusic } from '@/core/player/player'
 import { setCurrentTime, getDuration, getPosition } from '@/plugins/player'
 import { removeListMusics } from '@/core/list'
 import { setNowPlayTime, setMaxplayTime } from '@/core/player/progress'
@@ -50,6 +50,7 @@ import Stage, { COVER_TOP_RATIO, COVER_H_RATIO } from './Stage'
 import SeekBar from './SeekBar'
 import SleepTimerButton from './SleepTimerButton'
 import SleepTimerSheet from './SleepTimerSheet'
+import CastSheet from './CastSheet'
 import LyricQuickMenu from './LyricQuickMenu'
 import ListMusicAdd, { type MusicAddModalType } from '@/components/MusicAddModal'
 import AddPlaylistIcon from '@/components/common/AddPlaylistIcon'
@@ -58,6 +59,7 @@ import CapsuleButton from '@/components/common/CapsuleButton'
 import { getLocalMusicListSync, updateLocalMusicMeta } from '@/core/localMusic'
 import { getLanguageOverrideSync, setLanguageOverride } from '@/core/music/languageOverride'
 import PlayGlyph from './PlayGlyph'
+import { isCastSupported, startCastSearch, stopCastSearch, useCast } from '@/core/cast'
 import QueueCoverFlow from './QueueCoverFlow'
 import FadeMask from './FadeMask'
 import { u } from './metrics'
@@ -510,9 +512,15 @@ export default () => {
   const [collected, setCollected] = useState(false)
   const [queueVisible, setQueueVisible] = useState(false)
   const [sleepTimerVisible, setSleepTimerVisible] = useState(false)
+  const [castVisible, setCastVisible] = useState(false)
   const [lyricSettingsVisible, setLyricSettingsVisible] = useState(false)
   const musicAddRef = useRef<MusicAddModalType>(null)
   /** 冷启动的短时兜底：模糊图首帧出来前，先用清晰封面垫底，避免透明 */
+  const cast = useCast()
+  // 没有投屏设备时连入口都不出现（用户要求：没有投屏设备可以不显示）
+  const showCastButton = cast.supported && (cast.connected || cast.devices.length > 0)
+  const castConnected = cast.connected
+
   const [bgFallback, setBgFallback] = useState(true)
   const downloadModalRef = useRef<DownloadQualityModalType>(null)
   const autoSaveEnabled = useSettingValue('download.autoSaveWhilePlaying')
@@ -675,6 +683,26 @@ export default () => {
     dragY.setValue(0)
   }, [navActiveId])
 
+  // 播放器页打开时搜一次电视；离开页面就停止搜索（已经连上的投屏不受影响）
+  useEffect(() => {
+    if (!isCastSupported()) return
+    startCastSearch()
+    return () => { stopCastSearch() }
+  }, [])
+
+  /*
+    刚连上电视：把手机上正在播的这首歌转过去。
+    只在「从未连接 → 已连接」的那一次触发，重连/切换设备都会重新投当前曲。
+  */
+  const wasCastConnectedRef = useRef(false)
+  useEffect(() => {
+    const justConnected = castConnected && !wasCastConnectedRef.current
+    const justDisconnected = !castConnected && wasCastConnectedRef.current
+    wasCastConnectedRef.current = castConnected
+    if (justConnected) void castCurrentMusic()
+    else if (justDisconnected) void resumeLocalPlayback()
+  }, [castConnected])
+
   /**
    * 整页下滑并切回原 Tab（没有共享元素可用时的关闭方式：横屏 / 起点没记到）。
    * 关掉的是「当前这次进入前的 Tab」，不是固定回首页。
@@ -725,9 +753,13 @@ export default () => {
       setQueueVisible(false)
       return true
     }
+    if (castVisible) {
+      setCastVisible(false)
+      return true
+    }
     handleClosePlayer()
     return true
-  }, [handleClosePlayer, navActiveId, queueVisible]))
+  }, [castVisible, handleClosePlayer, navActiveId, queueVisible]))
 
   const lyricScrollY = useRef(0)
   // 记录最后一次 move 的位移：系统 cancel 手势时 g.dx 可能归零，靠它判断翻页方向
@@ -1353,6 +1385,7 @@ export default () => {
   <DownloadQualityModal ref={downloadModalRef} />
 
   <SleepTimerSheet visible={sleepTimerVisible} onClose={() => { setSleepTimerVisible(false) }} />
+  <CastSheet visible={castVisible} onClose={() => { setCastVisible(false) }} />
 
   <ListMusicAdd ref={musicAddRef} />
 
@@ -1717,6 +1750,21 @@ export default () => {
             : null
         }
         {
+          mode === 'cover' && showCastButton
+            ? (
+              <TouchableOpacity
+                style={[styles.backBtn, styles.castBtn]}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                accessibilityRole='button'
+                accessibilityLabel={castConnected ? '投屏设置' : '投屏到电视'}
+                onPress={() => { setCastVisible(true) }}
+              >
+                <Icon name={castConnected ? 'cast-connected' : 'cast'} size={u(22)} color='rgba(255,255,255,0.94)' />
+              </TouchableOpacity>
+              )
+            : null
+        }
+        {
           mode === 'lyric'
             ? (
               <View pointerEvents='none' style={styles.headerTitle}>
@@ -2035,6 +2083,8 @@ const styles = {
     paddingRight: 16,
   },
   backBtn: { width: 32, height: 32, justifyContent: 'center' as const, alignItems: 'center' as const },
+  // 右上角投屏：和左上角收起键同尺寸、同一行对齐（一左一右对称）
+  castBtn: { marginLeft: 'auto' as const },
   headerTitle: {
     position: 'absolute' as const,
     left: 60,

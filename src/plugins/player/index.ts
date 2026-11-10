@@ -82,4 +82,5 @@ export {
   isEmpty,
   useBufferProgress,
   initTrackInfo,
+  pauseLocalPlayback,
 } from './utils'
