@@ -144,11 +144,11 @@ export default ({ visible, header, actions, items, onClose }: ActionSheetProps) 
             left: 0,
             right: 0,
             bottom: 0,
-            maxHeight: windowHeight * 0.86,
+            maxHeight: windowHeight * 0.92,
             borderTopLeftRadius: 24,
             borderTopRightRadius: 24,
             paddingTop: 16,
-            paddingBottom: 30,
+            paddingBottom: 18,
             backgroundColor: palette.bg,
             transform: [{
               translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [windowHeight, 0] }),
@@ -158,8 +158,8 @@ export default ({ visible, header, actions, items, onClose }: ActionSheetProps) 
           {header != null ? <Header header={header} /> : null}
 
           <ScrollView
-            style={{ maxHeight: windowHeight * 0.62 }}
-            contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 20 }}
+            style={{ maxHeight: windowHeight * 0.74 }}
+            contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 8 }}
             keyboardShouldPersistTaps='handled'
             showsVerticalScrollIndicator={false}
           >

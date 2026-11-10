@@ -52,6 +52,8 @@ import SleepTimerSheet from './SleepTimerSheet'
 import LyricQuickMenu from './LyricQuickMenu'
 import ListMusicAdd, { type MusicAddModalType } from '@/components/MusicAddModal'
 import AddPlaylistIcon from '@/components/common/AddPlaylistIcon'
+import CapsuleIconButton from '@/components/common/CapsuleIconButton'
+import CapsuleButton from '@/components/common/CapsuleButton'
 import { getLocalMusicListSync, updateLocalMusicMeta } from '@/core/localMusic'
 import { getLanguageOverrideSync, setLanguageOverride } from '@/core/music/languageOverride'
 import PlayGlyph from './PlayGlyph'
@@ -1258,58 +1260,61 @@ export default () => {
       : (
   <Modal visible={queueVisible} transparent animationType='slide' onRequestClose={() => { setQueueVisible(false) }}>
     <TouchableOpacity style={styles.modalMask} activeOpacity={1} onPress={() => { setQueueVisible(false) }}>
-      <View style={{ ...styles.queueSheet, backgroundColor: theme['c-content-background'] }}>
-        {/* 顶部拖拽条：在它上面下滑只关队列（不动播放器），列表滚动不受影响 */}
+      <View style={{ ...styles.queueSheet, backgroundColor: theme['c-content-background'], borderColor: theme['c-primary-alpha-700'] }}>
         <View {...queuePan.panHandlers} style={styles.queueHandleWrap}>
           <View style={{ ...styles.queueHandle, backgroundColor: theme['c-350'] }} />
         </View>
-        {/* 顶部：左边是播放模式（点一下切换），右边清空 —— 对齐飞牛的队列面板 */}
         <View style={styles.queueHead}>
-          <TouchableOpacity
-            style={{ ...styles.queueModeBtn, backgroundColor: theme['c-primary-alpha-900'] }}
-            activeOpacity={0.7}
+          <View style={styles.queueTitleWrap}>
+            <Text size={17} style={styles.queueTitle}>待播列表</Text>
+            <Text size={11} color={theme['c-450']}>{queue.length} 首</Text>
+          </View>
+          <CapsuleIconButton icon='close' label='关闭待播列表' onPress={handleCloseQueue} />
+        </View>
+        <View style={styles.queueTools}>
+          <CapsuleButton
+            icon={MODE_ICON[playMode]}
+            label={MODE_LABEL[playMode]}
+            primary={false}
             onPress={() => {
               const next = PLAY_MODES[(PLAY_MODES.indexOf(playMode) + 1) % PLAY_MODES.length]
               updateSetting({ 'player.togglePlayMethod': next })
             }}
-          >
-            <Icon name={MODE_ICON[playMode]} size={u(15)} color={theme['c-primary']} />
-            <Text size={u(13)} color={theme['c-primary']} style={styles.queueModeText}>{MODE_LABEL[playMode]}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.queueClearBtn}
-            activeOpacity={0.7}
+          />
+          <View style={{ flex: 1 }} />
+          <CapsuleButton
+            icon='delete-outline'
+            label='清空'
+            primary={false}
             onPress={() => {
               if (!queue.length) return
               void removeListMusics(playerState.playInfo.playerListId ?? '', queue.map(item => item.id))
             }}
-          >
-            <Icon name='delete-outline' size={u(15)} color={theme['c-450']} />
-            <Text size={u(13)} color={theme['c-450']} style={styles.queueModeText}>清空</Text>
-          </TouchableOpacity>
+          />
         </View>
-        <ScrollView style={styles.queueList}>
+        <ScrollView style={styles.queueList} showsVerticalScrollIndicator={false}>
           {
             queue.map((item, index) => {
               const active = item.id === musicInfo.id
               return (
                 <TouchableOpacity
                   key={`${item.id}_${index}`}
-                  style={styles.queueRow}
-                  activeOpacity={0.6}
+                  style={[styles.queueRow, { borderBottomColor: theme['c-primary-alpha-700'] }]}
+                  activeOpacity={0.65}
                   onPress={() => { handlePlayFromQueue(index) }}
                 >
                   <PicImage musicInfo={item} listId={playerState.playInfo.playerListId} style={styles.queueCover} />
                   <View style={styles.queueInfo}>
-                    <Text size={u(13)} color={active ? theme['c-primary'] : theme['c-font']} numberOfLines={1}>{cleanSongName(item.name, item.singer)}</Text>
-                    <Text size={u(10)} color={theme['c-450']} numberOfLines={1} style={styles.queueSinger}>{item.singer}</Text>
+                    <Text size={14} color={active ? theme['c-primary'] : theme['c-font']} numberOfLines={1}>{cleanSongName(item.name, item.singer)}</Text>
+                    <Text size={11} color={theme['c-450']} numberOfLines={1} style={styles.queueSinger}>{item.singer || '未知歌手'}</Text>
                   </View>
+                  {active ? <Icon name='volume-high' size={u(16)} color={theme['c-primary']} style={styles.queueActiveIcon} /> : null}
                   <TouchableOpacity
                     style={styles.queueRemove}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     onPress={() => { void removeListMusics(playerState.playInfo.playerListId ?? '', [item.id]) }}
                   >
-                    <Icon name='close' size={u(15)} color={theme['c-350']} />
+                    <Icon name='close' size={u(16)} color={theme['c-350']} />
                   </TouchableOpacity>
                 </TouchableOpacity>
               )
@@ -2273,7 +2278,7 @@ const styles = {
   },
 
   modalMask: { flex: 1, justifyContent: 'flex-end' as const, backgroundColor: 'rgba(0,0,0,0.45)' },
-  queueSheet: { maxHeight: '78%' as const, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: 20 },
+  queueSheet: { maxHeight: '80%' as const, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 0.5, paddingBottom: 24 },
   queueHandleWrap: {
     alignItems: 'center' as const,
     paddingTop: 8,
@@ -2288,12 +2293,14 @@ const styles = {
   queueHead: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
-    justifyContent: 'space-between' as const,
-    paddingLeft: 18,
-    paddingRight: 18,
-    paddingTop: 16,
-    paddingBottom: 12,
+    paddingLeft: 20,
+    paddingRight: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
   },
+  queueTitleWrap: { flex: 1, flexDirection: 'row' as const, alignItems: 'baseline' as const },
+  queueTitle: { fontWeight: '700' as const, marginRight: 8 },
+  queueTools: { flexDirection: 'row' as const, alignItems: 'center' as const, paddingLeft: 16, paddingRight: 16, paddingBottom: 8 },
   queueModeBtn: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
@@ -2311,16 +2318,15 @@ const styles = {
     paddingRight: 6,
   },
   queueRemove: { width: 32, height: 32, justifyContent: 'center' as const, alignItems: 'center' as const },
-  queueList: { paddingLeft: 8, paddingRight: 8 },
+  queueList: { paddingLeft: 16, paddingRight: 16 },
   queueRow: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
-    paddingLeft: 10,
-    paddingRight: 10,
-    paddingTop: 7,
-    paddingBottom: 7,
+    minHeight: 58,
+    borderBottomWidth: 0.5,
   },
-  queueCover: { width: 44, height: 44, borderRadius: 10, marginRight: 12 },
+  queueCover: { width: 42, height: 42, borderRadius: 12, marginRight: 12 },
   queueInfo: { flexGrow: 1, flexShrink: 1 },
   queueSinger: { marginTop: 2 },
+  queueActiveIcon: { marginRight: 6 },
 }
