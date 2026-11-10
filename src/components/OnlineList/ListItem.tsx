@@ -190,7 +190,7 @@ export default memo(({ item, index, showSource, picUrl, onPress, onLongPress, on
       >
         <Icon name="dots-vertical" style={{ color: theme['c-350'] }} size={12} />
       </TouchableOpacity>
-      <View pointerEvents='none' style={{ position: 'absolute', left: showRank ? 95 : 65, right: 48, bottom: 0, height: 0.5, backgroundColor: getListDivider(theme) }} />
+      <View pointerEvents='none' style={{ position: 'absolute', left: showRank ? 95 : 65, right: 0, bottom: 0, height: 0.5, backgroundColor: getListDivider(theme) }} />
     </View>
   )
 }, (prevProps, nextProps) => {

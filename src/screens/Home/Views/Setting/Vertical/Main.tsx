@@ -264,9 +264,7 @@ export default () => {
                     {group.map((item, index) => (
                       <TouchableOpacity
                         key={item}
-                        style={[styles.portraitRow, index > 0
-                          ? { borderTopWidth: 0.5, borderTopColor: theme.isDark ? 'rgba(255,255,255,0.07)' : theme['c-primary-alpha-900'] }
-                          : null]}
+                        style={styles.portraitRow}
                         activeOpacity={0.72}
                         onPress={() => { setPortraitCategory(item) }}
                         accessibilityRole='button'
@@ -277,6 +275,9 @@ export default () => {
                         </View>
                         <Text size={14.5} style={styles.portraitRowLabel}>{PORTRAIT_LABELS[item]}</Text>
                         <Icon name='chevron-right' size={19} color={theme['c-450']} />
+                        {index > 0
+                          ? <View pointerEvents='none' style={{ position: 'absolute', left: 16, right: 12, bottom: 0, height: 0.5, backgroundColor: theme.isDark ? 'rgba(255,255,255,0.07)' : theme['c-primary-alpha-900'] }} />
+                          : null}
                       </TouchableOpacity>
                     ))}
                   </View>

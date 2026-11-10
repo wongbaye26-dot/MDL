@@ -2331,7 +2331,7 @@ const LocalRow = memo(({ item, index, onPress, onMore, batchMode = false, select
             </TouchableOpacity>
             )
       }
-      <View pointerEvents='none' style={{ position: 'absolute', left: batchMode ? 110 : 106, right: 50, bottom: 0, height: 0.5, backgroundColor: getListDivider(theme) }} />
+      <View pointerEvents='none' style={{ position: 'absolute', left: batchMode ? 110 : 106, right: 0, bottom: 0, height: 0.5, backgroundColor: getListDivider(theme) }} />
     </View>
   )
 })
