@@ -7,8 +7,8 @@ import SourceIconRow from './SourceIconRow'
  * 歌单广场页头标题右侧的来源图标组。
  *
  * 两个入口（独立页 SongListScreen / 首页 PageModal）的页头都渲染这个组件；
- * 尺寸/间距与排行榜共用 `SourceIconRow`（品牌字形光学约 20dp、触控区 38dp、
- * 字形间距约 10dp），与右侧圆形按钮之间固定 8dp（row 的 marginRight）。
+ * 尺寸/间距与排行榜共用 `SourceIconRow`（圆形槽位 34dp、品牌字形光学约 15dp、
+ * 间距 8dp、触控区 40dp），与右侧圆形按钮之间固定 8dp（row 的 marginRight）。
  */
 export default memo(() => {
   const [, forceUpdate] = useReducer((n: number) => n + 1, 0)

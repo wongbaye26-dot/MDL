@@ -1595,6 +1595,7 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
               <CapsuleIconButton
                 icon='heart-outline'
                 label='我的收藏'
+                style={styles.headerActionFlush}
                 onPress={() => {
                   if (onOpenFavorites) onOpenFavorites()
                   else {
@@ -1604,8 +1605,8 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
                 }}
               />
               {/* 文件夹图标回归：直接进「扫描文件夹」面板，不用先展开搜索 */}
-              <CapsuleIconButton icon='folder-cog' label='扫描文件夹' onPress={() => { setDirModal(true) }} />
-              <CapsuleIconButton icon='search-2' label='搜索本地音乐' onPress={() => { setSearchOpen(true) }} />
+              <CapsuleIconButton icon='folder-cog' label='扫描文件夹' style={styles.headerActionFlush} onPress={() => { setDirModal(true) }} />
+              <CapsuleIconButton icon='search-2' label='搜索本地音乐' style={styles.headerActionFlush} onPress={() => { setSearchOpen(true) }} />
             </View>
           )}
         />
@@ -2360,10 +2361,18 @@ const styles = createStyle({
     justifyContent: 'center',
     marginLeft: 8,
   },
+  /**
+   * 页头右侧图标组：间距只由这里的 gap（8dp，和排行榜/歌单广场/设置页一致）决定，
+   * 子按钮不再自己带 marginLeft，否则会叠成 14dp。
+   */
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  /** 清掉 CapsuleIconButton 内置的 marginLeft: 6，让父级 gap 独占间距 */
+  headerActionFlush: {
+    marginLeft: 0,
   },
   headerTags: {
     flexDirection: 'row',
@@ -2422,7 +2431,6 @@ const styles = createStyle({
     width: 38,
     height: 38,
     borderRadius: 19,
-    marginLeft: 6,
     justifyContent: 'center',
     alignItems: 'center',
   },

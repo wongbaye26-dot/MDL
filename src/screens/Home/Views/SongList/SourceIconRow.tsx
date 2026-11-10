@@ -10,26 +10,28 @@ import { createStyle } from '@/utils/tools'
 /**
  * 页头标题右侧的「来源品牌图标组」（排行榜 / 歌单广场共用，保证两处尺寸与间距一致）。
  *
- * 尺寸（对齐右侧圆形按钮组）：
- *  - 品牌字形光学尺寸约 19dp：SourceLogo 的路径统一占 48 视框的 30 单位（62.5%），
- *    所以传 size=30 → 实际字形 30×0.625 = **18.75dp**，与本地音乐/设置页头 CapsuleIconButton 的 19dp 图标同档；槽位 36 → 比本地 38 略小，避免标题被挤断。
- *  - 不再画圆形底色：右侧按钮是 38dp 实心圆，图标组如果也套 30dp 圆底会显得
- *    「小一圈又挤在一起」。改成裸图标后，字形大小与按钮图标一致，节奏才对得上；
- *  - 图标之间：与按钮组相同的 **8dp** 间距（之前是 30dp 槽位紧挨、视觉只隔 ~10dp）；
- *  - 触控区：38dp 布局 + hitSlop 2 → **42dp**，和按钮同档；
+ * 尺寸（对齐**收藏页页头**那组圆形按钮，用户把这组当成页头图标的基准）：
+ *  - 槽位 34dp：和收藏页页头的 34dp 胶囊同直径，两处页头看起来是同一档控件；
+ *  - 品牌字形 20dp 名义尺寸：SourceLogo 的路径实际占满 48 视框的 36 单位（**75%**，
+ *    见 SourceLogo 里「30 单位」注释的勘误），所以 20 × 0.75 ≈ **15dp 光学高度**，
+ *    正好等于收藏页 18dp Material 图标的光学高度（MCI 图标实际只占 16/18 视框）。
+ *    之前按注释里不成立的 62.5% 传 30，实际画成 22.5dp —— 这才是「来源图标太大」的原因，
+ *    靠缩槽位救不回来；
+ *  - 图标之间 **8dp**：和页头圆形按钮组（排行榜播放/下载、歌单广场打开链接）同一节奏；
+ *  - 触控区：34dp 布局 + hitSlop 3 → **40dp**（相邻 gap 8 > 两侧 hitSlop 6，不会互相抢点击）；
  *  - 与右侧圆形按钮组：由调用方给 8dp 间距（CompactHero 按钮 marginLeft=8 /
  *    歌单广场 HeaderSourceBar marginRight=8）。
  *
  * 颜色：当前音源=主题主色，其余 c-450（onSurfaceVariant 档）；按压 0.5 透明度反馈；
  * 无障碍标签沿用原「小X音乐」文字；未识别自定义音源回退文字按钮。
  */
-export const HEADER_SOURCE_ICON_SIZE = 30
-/** 每个来源按钮的布局尺寸（配合 hitSlop 5 → 38dp 触控区） */
-const ITEM_SIZE = 36
+export const HEADER_SOURCE_ICON_SIZE = 20
+/** 每个来源按钮的布局尺寸（配合 hitSlop 3 → 40dp 触控区） */
+const ITEM_SIZE = 34
 /** 与右侧圆形按钮组保持同一间距 */
-const ITEM_GAP = 4
-/** hitSlop：布局 28 + 5×2 = 38dp 触控区 */
-const ITEM_HIT_SLOP = 2
+const ITEM_GAP = 8
+/** hitSlop：布局 34 + 3×2 = 40dp 触控区 */
+const ITEM_HIT_SLOP = 3
 
 export interface SourceIconRowProps {
   sources: readonly LX.OnlineSource[]

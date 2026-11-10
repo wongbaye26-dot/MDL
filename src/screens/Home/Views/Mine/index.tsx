@@ -34,9 +34,11 @@ const styles = createStyle({
   container: {
     flex: 1,
   },
+  /** 页头右侧图标组：间距与本地音乐/排行榜/歌单广场统一为 8dp */
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
   },
   setting: {
     flex: 1,

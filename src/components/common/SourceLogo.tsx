@@ -14,8 +14,9 @@ import { setSpText } from '@/utils/pixelRatio'
  * 的来源选择只显示这一枚 Material You 单色图标（选中=主题主色，未选中=次级灰）。
  *
  * 描摹流程：取官方图标 → 按颜色分离出品牌字形（去掉底色）→ 轮廓多边形简化 → 统一
- * 归一化到 48 视框、居中、光学尺寸 30 单位（保证 5 个品牌在 16~20dp 下大小一致）。
- * 字形内部的镂空用 fillRule=evenodd 保留。
+ * 归一化到 48 视框、居中。**注意实际比例**：路径 bbox 是 6~42，即占满 48 视框的
+ * 36 单位（**75%**）。早期注释写的「30 单位 / 62.5%」与路径不符，别拿它算尺寸——
+ * 字号要按 `size × 0.75 = 光学高度` 换算（20 → 15dp）。字形内部镂空用 fillRule=evenodd 保留。
  *
  * 用法：
  *   <SourceLogo source='kw' size={20} />
@@ -43,7 +44,7 @@ export const isKnownSource = (source?: string | null): source is KnownSource =>
 const VIEWBOX = 48
 
 /**
- * 品牌字形路径（48 视框、居中、统一 30 单位光学尺寸）。
+ * 品牌字形路径（48 视框、居中，bbox 36 单位 = 75% 视框）。
  * 来源：酷我 / 酷狗 / QQ音乐 / 网易云音乐 / 咪咕音乐 官方 App 图标描摹。
  */
 const SOURCE_GLYPH_PATH: Record<KnownSource, string> = {
@@ -56,7 +57,7 @@ const SOURCE_GLYPH_PATH: Record<KnownSource, string> = {
 
 export interface SourceLogoProps {
   source?: string | null
-  /** 图标边长（dp），来源行建议 18~20 */
+  /** 图标视框边长（dp）：光学高度 = size × 0.75；页头来源行传 20（光学约 15dp） */
   size?: number
   /** 未识别音源时回退显示的文字，不传则显示 source 原文 */
   label?: string

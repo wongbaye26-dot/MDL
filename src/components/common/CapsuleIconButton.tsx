@@ -1,5 +1,5 @@
 import { memo } from 'react'
-import { TouchableOpacity } from 'react-native'
+import { TouchableOpacity, type StyleProp, type ViewStyle } from 'react-native'
 
 import { Icon } from './Icon'
 import { useTheme } from '@/store/theme/hook'
@@ -9,6 +9,8 @@ import { contrastOn } from '@/theme/solid'
 /**
  * 全站统一的「小胶囊图标按钮」：列表页/详情页头部与工具行共用。
  * 38dp 正圆 + 主色淡底（选中态主色实心），图标 19dp，按压反馈统一。
+ *
+ * `style` 用于覆盖内置的 marginLeft: 6（例如页头把间距交给父级 gap 统一管）。
  */
 export default memo(({
   icon,
@@ -18,6 +20,7 @@ export default memo(({
   size = 38,
   iconSize = 19,
   color,
+  style,
 }: {
   icon: string
   onPress?: () => void
@@ -26,6 +29,7 @@ export default memo(({
   size?: number
   iconSize?: number
   color?: string
+  style?: StyleProp<ViewStyle>
 }) => {
   const theme = useTheme()
   const activeColor = active ? contrastOn(theme['c-primary']) : (color ?? theme['c-font'])
@@ -35,7 +39,7 @@ export default memo(({
       onPress={onPress}
       accessibilityRole='button'
       accessibilityLabel={label}
-      style={{
+      style={[{
         width: size,
         height: size,
         borderRadius: size / 2,
@@ -43,7 +47,7 @@ export default memo(({
         justifyContent: 'center',
         alignItems: 'center',
         backgroundColor: active ? theme['c-primary'] : theme['c-primary-alpha-900'],
-      }}
+      }, style]}
     >
       <Icon name={icon} size={iconSize} color={activeColor} />
     </TouchableOpacity>

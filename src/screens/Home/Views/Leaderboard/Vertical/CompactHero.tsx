@@ -15,7 +15,8 @@ import HeaderSourceBar from './HeaderSourceBar'
  * 38dp 圆形按钮：播放当前榜单 / 下载当前榜单；榜单名与歌曲数交给下面的胶囊。
  *
  * 样式对齐本地音乐 / 下载中心的页头操作组：38dp 圆形、icon 20、主色淡底；
- * 按钮之间、以及与左侧来源图标组之间统一 8dp 间距（v3.8.5 页头节奏统一）。
+ * 按钮之间、以及与左侧来源图标组之间统一 8dp 间距（页头图标组统一节奏：
+ * 间距一律 8dp，来源组槽位 34dp、字形光学约 15dp，见 SourceIconRow）。
  */
 export default memo(() => {
   const theme = useTheme()
