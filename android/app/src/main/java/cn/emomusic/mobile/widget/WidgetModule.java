@@ -41,6 +41,8 @@ public class WidgetModule extends ReactContextBaseJavaModule {
     editor.putString("lyric", lyric == null ? "" : lyric);
     editor.apply();
     push();
+    // 在线封面是 http(s) 地址，先落磁盘缓存；下完再刷一次，避免小组件下次重绘还是占位图
+    if (WidgetCover.isRemote(pic)) WidgetCover.prefetch(context, pic, this::push);
   }
 
   @ReactMethod

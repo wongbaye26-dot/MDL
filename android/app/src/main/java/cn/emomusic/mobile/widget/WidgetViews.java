@@ -1,21 +1,17 @@
 package cn.emomusic.mobile.widget;
 
 import android.app.PendingIntent;
+import android.appwidget.AppWidgetManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
-import android.graphics.Path;
 import android.graphics.RectF;
-import android.net.Uri;
 import android.util.TypedValue;
 import android.widget.RemoteViews;
-
-import java.io.File;
 
 import cn.emomusic.mobile.R;
 
@@ -73,9 +69,19 @@ final class WidgetViews {
 
     int coverSize = wide ? dp(context, 48) : Math.min(dp(context, 384), 384);
     int coverRadius = wide ? -1 : dp(context, 26);
-    Bitmap bitmap = loadCover(pic, coverSize, coverRadius);
+    Bitmap bitmap = loadCover(context, pic, coverSize, coverRadius);
     if (bitmap == null) bitmap = fallbackCover(coverSize, coverRadius, title, primary, dark);
     if (bitmap != null) views.setImageViewBitmap(R.id.widget_cover, bitmap);
+    // 在线歌曲的封面是 http(s) 地址，第一次渲染时磁盘缓存里还没有：
+    // 先用占位图顶上，后台下完再让小组件自己重绘一次。
+    if (WidgetCover.isRemote(pic) && !WidgetCover.isCached(context, pic)) {
+      final Context app = context.getApplicationContext();
+      WidgetCover.prefetch(app, pic, () -> {
+        AppWidgetManager manager = AppWidgetManager.getInstance(app);
+        MusicWidgetSmallProvider.updateAll(app, manager);
+        MusicWidgetWideProvider.updateAll(app, manager);
+      });
+    }
 
     Intent open = new Intent().setClassName(PKG, PKG + ".MainActivity");
     open.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
@@ -128,23 +134,11 @@ final class WidgetViews {
     } catch (Exception e) { return null; }
   }
 
-  private static Bitmap loadCover(String pic, int size, int radius) {
-    try {
-      if (pic == null || pic.isEmpty()) return null;
-      String path = pic.startsWith("file://") ? Uri.parse(pic).getPath() : pic;
-      if (path == null || !new File(path).exists()) return null;
-      Bitmap source = BitmapFactory.decodeFile(path);
-      if (source == null) return null;
-      Bitmap scaled = Bitmap.createScaledBitmap(source, size, size, true);
-      if (radius == 0) return scaled;
-      Bitmap rounded = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
-      Canvas canvas = new Canvas(rounded);
-      Path pathShape = new Path();
-      int r = radius < 0 ? size / 2 : radius;
-      pathShape.addRoundRect(new RectF(0, 0, size, size), r, r, Path.Direction.CW);
-      canvas.clipPath(pathShape);
-      canvas.drawBitmap(scaled, 0, 0, new Paint(Paint.FILTER_BITMAP_FLAG));
-      return rounded;
-    } catch (Exception e) { return null; }
+  /**
+   * 封面：本地路径 / file:// 直接解码，在线 http(s) 走 WidgetCover 的磁盘缓存。
+   * 旧实现只认本地文件，在线歌曲因此一直显示首字占位图。
+   */
+  private static Bitmap loadCover(Context context, String pic, int size, int radius) {
+    return WidgetCover.cover(context, pic, size, radius);
   }
 }
