@@ -1339,7 +1339,7 @@ export default () => {
               return (
                 <TouchableOpacity
                   key={`${item.id}_${index}`}
-                  style={[styles.queueRow, { borderBottomColor: theme['c-primary-alpha-700'] }]}
+                  style={styles.queueRow}
                   activeOpacity={0.65}
                   onPress={() => { handlePlayFromQueue(index) }}
                 >
@@ -1356,6 +1356,7 @@ export default () => {
                   >
                     <Icon name='close' size={u(16)} color={theme['c-350']} />
                   </TouchableOpacity>
+                  <View pointerEvents='none' style={[styles.queueDivider, { backgroundColor: theme['c-primary-alpha-700'] }]} />
                 </TouchableOpacity>
               )
             })
@@ -2363,10 +2364,10 @@ const styles = {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
     minHeight: 58,
-    borderBottomWidth: 0.5,
   },
   queueCover: { width: 42, height: 42, borderRadius: 12, marginRight: 12 },
   queueInfo: { flexGrow: 1, flexShrink: 1 },
   queueSinger: { marginTop: 2 },
   queueActiveIcon: { marginRight: 6 },
+  queueDivider: { position: 'absolute' as const, left: 54, right: 0, bottom: 0, height: 0.5 },
 }

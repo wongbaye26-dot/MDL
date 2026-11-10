@@ -21,6 +21,7 @@ import { useHorizontalMode } from '@/utils/hooks'
 import SlideInView from '@/components/common/SlideInView'
 import { NAV_BAR_SPACE } from '@/config/constant'
 import { getSolidBackground } from '@/theme/solid'
+import { getSettingsDivider } from '@/theme/designTokens'
 import { SETTINGS_HEADER_COMPACT_H, SETTINGS_HEADER_H } from '../components/headerMetrics'
 import ImportBtn from '../settings/Basic/UserApiEditModal/ImportBtn'
 import settingState from '@/store/setting/state'
@@ -262,23 +263,24 @@ export default () => {
                     }]}
                   >
                     {group.map((item, index) => (
-                      <TouchableOpacity
-                        key={item}
-                        style={styles.portraitRow}
-                        activeOpacity={0.72}
-                        onPress={() => { setPortraitCategory(item) }}
-                        accessibilityRole='button'
-                        accessibilityLabel={PORTRAIT_LABELS[item]}
-                      >
-                        <View style={[styles.portraitRowIcon, { backgroundColor: theme['c-primary-alpha-900'] }]}>
-                          <Icon name={PORTRAIT_ICONS[item]} size={19} color={theme['c-primary']} />
-                        </View>
-                        <Text size={14.5} style={styles.portraitRowLabel}>{PORTRAIT_LABELS[item]}</Text>
-                        <Icon name='chevron-right' size={19} color={theme['c-450']} />
+                      <View key={item}>
+                        <TouchableOpacity
+                          style={styles.portraitRow}
+                          activeOpacity={0.72}
+                          onPress={() => { setPortraitCategory(item) }}
+                          accessibilityRole='button'
+                          accessibilityLabel={PORTRAIT_LABELS[item]}
+                        >
+                          <View style={[styles.portraitRowIcon, { backgroundColor: theme['c-primary-alpha-900'] }]}>
+                            <Icon name={PORTRAIT_ICONS[item]} size={19} color={theme['c-primary']} />
+                          </View>
+                          <Text size={14.5} style={styles.portraitRowLabel}>{PORTRAIT_LABELS[item]}</Text>
+                          <Icon name='chevron-right' size={19} color={theme['c-450']} />
+                        </TouchableOpacity>
                         {index < group.length - 1
-                          ? <View pointerEvents='none' style={{ position: 'absolute', left: 16, right: 12, bottom: 0, height: 0.5, backgroundColor: theme.isDark ? 'rgba(255,255,255,0.07)' : theme['c-primary-alpha-900'] }} />
+                          ? <View style={{ height: 0.5, marginLeft: 16, marginRight: 12, backgroundColor: getSettingsDivider(theme) }} />
                           : null}
-                      </TouchableOpacity>
+                      </View>
                     ))}
                   </View>
                 ))}
