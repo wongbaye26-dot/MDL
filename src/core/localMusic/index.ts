@@ -7,6 +7,7 @@ import { getData, saveData } from '@/plugins/storage'
 import { existsFile, extname, readDir, unlink } from '@/utils/fs'
 import { readMetadata } from '@/utils/localMediaMetadata'
 import { getSavePath } from '@/core/download'
+import { isExternalStorageManager } from '@/utils/nativeModules/utils'
 import { getDefaultSavePath, getFallbackSavePath } from '@/core/download/utils'
 import {
   listAudioFiles,
@@ -382,6 +383,19 @@ const normalizeDirs = (raw: unknown): ScanDir[] => {
 }
 
 /**
+ * 有「所有文件访问权限」时，公共目录可以直接按路径列目录，
+ * 不需要（也不应该）再依赖会失效的 SAF 授权 —— needAuth 那套提示只留给
+ * 真正只能用 SAF 的场景（用户额外添加的目录 / 未授予全盘访问）。
+ */
+const canReadSharedByPath = async() => {
+  try {
+    return await isExternalStorageManager()
+  } catch {
+    return false
+  }
+}
+
+/**
  * 下载目录本身就是本地音乐的第一个扫描根目录，且不写进用户目录列表。
  * 这样下载目录改了（默认目录 / 重新授权 / SAF）之后，本地音乐会自动跟着走，
  * 不会再残留一个旧的 Android/data 兜底目录。
@@ -392,11 +406,11 @@ const getDownloadScanDir = async(): Promise<ScanDir | null> => {
     base = await getSavePath()
   } catch {}
   if (!base) return null
-  // 下载目录可能是 SAF 授权目录（content://），要还原成路径 + treeUri，
-  // 否则后面拿它去 MediaStore 查是查不到的
-  return base.startsWith('content://')
-    ? { path: treeUriToDisplayPath(base), treeUri: base }
-    : { path: base }
+  // 下载目录可能是 SAF 授权目录（content://），要还原成路径；
+  // 能按路径读时不再带 treeUri，避免以后授权失效又提示「需重新授权」
+  if (!base.startsWith('content://')) return { path: base }
+  const path = treeUriToDisplayPath(base)
+  return await canReadSharedByPath() ? { path } : { path, treeUri: base }
 }
 
 /** v3.6.3 之前播种过的默认下载目录：旧兜底/android/data、旧品牌 Music/EMOMusic 等 */
@@ -470,6 +484,17 @@ export const getScanDirs = async(): Promise<ScanDir[]> => {
     } else if (prev.treeUri && dir.treeUri && prev.treeUri !== dir.treeUri) {
       if (!await hasTreePermission(prev.treeUri) && await hasTreePermission(dir.treeUri)) prev.treeUri = dir.treeUri
     }
+  }
+  // 有全盘访问权限时把所有 treeUri 丢掉：默认目录 / 公共目录都能按路径读，
+  // 顺手把用户目录列表里过期的 SAF 授权清掉（否则弹窗里会一直显示「授权已失效」）
+  if (await canReadSharedByPath()) {
+    for (const dir of byPath.values()) delete dir.treeUri
+    try {
+      const extra = await getExtraDirs()
+      if (extra.some(dir => dir.treeUri)) {
+        await setExtraDirs(extra.map(dir => dir.treeUri ? { path: dir.path } : dir))
+      }
+    } catch {}
   }
   return [...byPath.values()]
 }

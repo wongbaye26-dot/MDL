@@ -38,7 +38,8 @@ import { useSettingValue } from '@/store/setting/hook'
 import { useOverlayLock } from '@/utils/overlayLock'
 import { confirmDialog, createStyle, tipDialog, toast } from '@/utils/tools'
 import { formatSize, formatSampleRate, isSafPath } from '@/core/download/utils'
-import { getSavePath, clearSavePathCache } from '@/core/download'
+import { clearSavePathCache, ensureDir, getSavePath } from '@/core/download'
+import { isExternalStorageManager, openAllFilesAccessSettings } from '@/utils/nativeModules/utils'
 import { showAppDialog } from '@/components/common/AppDialog/service'
 import { getLocalMusicList, getLocalMusicListCacheOnly, getLocalMusicListSync, getScanPartialList, subscribeScanPartialList, scanLocalMusicInBackground, isScanning, useScanState, getTotalSize, deleteLocalMusic, getScanDirs, getExtraDirs, setExtraDirs, getLastScanReport, type ScanDir, type ScanReport } from '@/core/localMusic'
 import { pickDirectory, isDirectoryPickerSupported, treeUriToDisplayPath } from '@/utils/directoryPicker'
@@ -219,6 +220,18 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
   const [folderPath, setFolderPath] = useState<string | null>(null)
   /** 授权失效、需要用户重新选一次的目录 */
   const [needAuth, setNeedAuth] = useState<ScanDir[]>([])
+  // 没有「所有文件访问权限」时，SAF 授权会反复失效；有它就能按路径读写，永久免授权
+  const [hasAllFiles, setHasAllFiles] = useState(false)
+
+  // 全盘访问状态要尽早读一次：目录弹窗里的「直接读取 / 仅系统索引」标记依赖它
+  useEffect(() => {
+    void isExternalStorageManager().then(setHasAllFiles).catch(() => {})
+  }, [])
+
+  const openDirModal = useCallback(() => {
+    void isExternalStorageManager().then(setHasAllFiles).catch(() => {})
+    setDirModal(true)
+  }, [])
   /** 上次扫描报告（新增/更新/移除/失败/失权），用于 banner 与扫描面板 */
   const [lastReport, setLastReport] = useState<ScanReport | null>(null)
   const [reportDismissed, setReportDismissed] = useState(false)
@@ -284,6 +297,9 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
   }, [scanning])
 
   const handleScan = useCallback(async() => {
+    // 扫描前刷新全盘访问状态：授权后下载目录可以迁回纯路径，不再需要 SAF
+    const granted = await isExternalStorageManager().catch(() => false)
+    setHasAllFiles(granted)
     if (isScanning()) return
     try {
       /*
@@ -1124,6 +1140,15 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
       const picked = await pickDirectory()
       if (!picked) return
       /*
+        有「所有文件访问权限」时优先只存路径：
+        默认音乐目录本来就能按路径读写，存 treeUri 反而会因为它以后失效
+        反复提示「需要重新授权」。只有按路径写不进去（没给全盘权限 /
+        目录在 SD 卡等特殊位置）时才退回 SAF 授权。
+      */
+      const canWriteByPath = await isExternalStorageManager().catch(() => false) &&
+        await ensureDir(picked.path).catch(() => false)
+      const pickedDir = canWriteByPath ? { path: picked.path } : { path: picked.path, treeUri: picked.treeUri }
+      /*
         如果用户重新选的是「当前的下载目录」（默认目录 / 之前用 SAF 选的目录），
         要改的是下载目录这条设置本身：只把授权写进额外目录列表的话，
         getScanDirs 会按路径去重、优先用下载目录那条的旧 treeUri，
@@ -1134,7 +1159,7 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
         ? (isSafPath(savePath) ? treeUriToDisplayPath(savePath) : savePath)
         : ''
       if (savePathDisplay && savePathDisplay === picked.path) {
-        updateSetting({ 'download.savePath': picked.treeUri ?? picked.path })
+        updateSetting({ 'download.savePath': pickedDir.treeUri ?? pickedDir.path })
         clearSavePathCache()
         const nextDownload = await getScanDirs()
         dirsRef.current = nextDownload
@@ -1153,8 +1178,8 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
       // 老版本加进来的目录只有路径、没有 SAF 授权 —— 系统不索引它就永远扫不到，
       // 所以这里不拒绝，而是把授权补上
       await setExtraDirs(exist
-        ? extra.map(d => d.path === picked.path ? { ...d, treeUri: picked.treeUri } : d)
-        : [...extra, { path: picked.path, treeUri: picked.treeUri }])
+        ? extra.map(d => d.path === picked.path ? { ...pickedDir } : d)
+        : [...extra, pickedDir])
       const next = await getScanDirs()
       dirsRef.current = next
       setDirs(next)
@@ -1627,7 +1652,7 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
                 }}
               />
               {/* 文件夹图标回归：直接进「扫描文件夹」面板，不用先展开搜索 */}
-              <CapsuleIconButton icon='folder-cog' label='扫描文件夹' style={styles.headerActionFlush} onPress={() => { setDirModal(true) }} />
+              <CapsuleIconButton icon='folder-cog' label='扫描文件夹' style={styles.headerActionFlush} onPress={openDirModal} />
               <CapsuleIconButton icon='search-2' label='搜索本地音乐' style={styles.headerActionFlush} onPress={() => { setSearchOpen(true) }} />
             </View>
           )}
@@ -1712,7 +1737,7 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
           }}
           hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
           activeOpacity={0.8}
-          onPress={() => { setDirModal(true) }}
+          onPress={openDirModal}
         >
           {/* 只放图标：「文件夹」三个字会把左边的目录数/统计挤到只剩 4 个字 */}
           <Icon name='folder-cog' size={14} color={theme['c-primary']} />
@@ -1762,11 +1787,24 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
                 lastReport.needAuth.length
                   ? (
                     <TouchableOpacity
-                      onPress={() => { setDirModal(true) }}
+                      onPress={() => {
+                        // 没有全盘访问权限时，「重新授权」治标不治本：
+                        // 引导去开一次全盘访问，之后目录改走纯路径，不会再失权
+                        if (hasAllFiles) {
+                          openDirModal()
+                          return
+                        }
+                        void (async() => {
+                          await openAllFilesAccessSettings().catch(() => {})
+                          const granted = await isExternalStorageManager().catch(() => false)
+                          setHasAllFiles(granted)
+                          if (granted) void handleScan()
+                        })()
+                      }}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       style={{ paddingHorizontal: 8 }}
                     >
-                      <Text size={11} color={WARN_COLOR}>重新授权</Text>
+                      <Text size={11} color={WARN_COLOR}>{hasAllFiles ? '重新授权' : '开启全盘访问'}</Text>
                     </TouchableOpacity>
                     )
                   : null
@@ -2240,7 +2278,11 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
                       >
                         {invalid
                           ? '授权已失效，点这里重新选择'
-                          : `${d.path}${d.treeUri ? '' : '（仅系统索引）'}`}
+                          : `${d.path}${d.treeUri
+                            ? ''
+                            : hasAllFiles
+                              ? '（直接读取）'
+                              : '（仅系统索引）'}`}
                       </Text>
                     </View>
                     <TouchableOpacity onPress={() => { void handleRemoveDir(d.path) }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
@@ -2260,7 +2302,7 @@ export default ({ onClose, initialTab, initialAlbum, onOpenFavorites }: { onClos
                 : <Text size={11} color={theme['c-450']} style={styles.dirTip}>当前版本不支持选择目录</Text>
             }
             <Text size={10} color={theme['c-450']} style={styles.dirTip}>
-              添加的目录会和默认下载目录一起扫描；如果提示目录不可读，请在系统设置里给本应用「音乐和音频」权限。
+              添加的目录会和默认下载目录一起扫描。开启「所有文件访问」后目录会直接按路径读取，不再需要反复授权。
             </Text>
           </View>
         </TouchableOpacity>

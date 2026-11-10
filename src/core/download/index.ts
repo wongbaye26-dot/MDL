@@ -1,4 +1,7 @@
 import settingState from '@/store/setting/state'
+import settingActions from '@/store/setting/action'
+import { saveData } from '@/plugins/storage'
+import { storageDataPrefix } from '@/config/constant'
 import { action as downloadAction, state as downloadState } from '@/store/download'
 import { getDownloadList, saveDownloadList } from '@/utils/data'
 import { resolveMusicUrl } from '@/core/music/online'
@@ -689,10 +692,34 @@ export const migrateFallbackDownloads = async(): Promise<number> => {
 
 let didWarnFallback = false
 
+/**
+ * 把下载目录的 SAF 授权迁回纯路径。
+ *
+ * SAF 授权会因清数据 / 重装 / 系统回收而失效，而默认音乐目录（Music/EmoMusic）
+ * 在拿到「所有文件访问权限」后本来就能按路径直接读写 —— 继续依赖 SAF 只会
+ * 隔一段时间就弹一次「需要重新授权」。这里一旦能按路径写就落成纯路径并持久化，
+ * 下载 / 扫描 / 标签写入全部走普通文件 API，不再有授权过期这回事。
+ */
+let didNoticeSafMigration = false
+const migrateSafSavePath = async(configured: string): Promise<string | null> => {
+  if (!isSafPath(configured)) return null
+  if (!await isExternalStorageManager().catch(() => false)) return null
+  const realPath = documentUriToRealPath(configured)
+  if (!realPath) return null
+  if (!await ensureDir(realPath)) return null
+  settingActions.updateSetting({ 'download.savePath': realPath })
+  void saveData(storageDataPrefix.setting, settingState.setting)
+  if (!didNoticeSafMigration) {
+    didNoticeSafMigration = true
+    toast('下载目录已改为直接读写，后续不再需要重复授权')
+  }
+  return realPath
+}
+
 const resolveSavePath = async(): Promise<string> => {
   const configured = settingState.setting['download.savePath']
   if (configured) {
-    if (isSafPath(configured)) return configured
+    if (isSafPath(configured)) return await migrateSafSavePath(configured) ?? configured
     if (await ensureDir(configured)) return configured
   }
   const defaultPath = getDefaultSavePath()
