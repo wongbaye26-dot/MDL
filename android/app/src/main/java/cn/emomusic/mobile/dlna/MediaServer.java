@@ -132,6 +132,8 @@ final class MediaServer {
         writeText(out, 200, "OK", "ok");
       } else if (target.startsWith("/cast")) {
         serveCast(target, range, timeSeek, method, out);
+      } else if (target.startsWith("/cover")) {
+        serveCover(target, method, out);
       } else {
         writeText(out, 404, "Not Found", "not found");
       }
@@ -143,6 +145,118 @@ final class MediaServer {
       Log.w(TAG, "media request failed: " + e);
     } finally {
       Ssdp.closeQuietly(socket);
+    }
+  }
+
+  /** 封面图代理：电视直接拉 CDN 图常常因为 Referer/UA 被拒，这里统一经手机转一手 */
+  private void serveCover(String target, String method, OutputStream out) throws IOException {
+    String encoded = query(target, "u");
+    if (encoded == null) {
+      writeText(out, 400, "Bad Request", "missing u");
+      return;
+    }
+    String url = URLDecoder.decode(encoded, "UTF-8");
+    if (!url.startsWith("http://") && !url.startsWith("https://")) {
+      serveLocalCover(url, method, out);
+      return;
+    }
+    IOException last = null;
+    for (String referer : referers(url)) {
+      HttpURLConnection conn = null;
+      try {
+        conn = (HttpURLConnection) new URL(url).openConnection();
+        conn.setConnectTimeout(8000);
+        conn.setReadTimeout(15000);
+        conn.setInstanceFollowRedirects(true);
+        conn.setRequestProperty("User-Agent", UA);
+        conn.setRequestProperty("Accept", "image/*,*/*");
+        if (referer != null) conn.setRequestProperty("Referer", referer);
+        int code = conn.getResponseCode();
+        if (code != 200) {
+          last = new IOException("cover http " + code);
+          conn.disconnect();
+          continue;
+        }
+        String contentType = conn.getContentType();
+        if (contentType == null || !contentType.startsWith("image/")) contentType = "image/jpeg";
+        long length = conn.getContentLengthLong();
+        StringBuilder head = new StringBuilder();
+        head.append("HTTP/1.1 200 OK\r\n");
+        head.append("Content-Type: ").append(contentType).append("\r\n");
+        if (length >= 0) head.append("Content-Length: ").append(length).append("\r\n");
+        head.append("Cache-Control: max-age=600\r\n");
+        head.append("Connection: close\r\n\r\n");
+        out.write(head.toString().getBytes(StandardCharsets.UTF_8));
+        if (!"HEAD".equalsIgnoreCase(method)) {
+          InputStream body = conn.getInputStream();
+          try {
+            byte[] buf = new byte[16 * 1024];
+            int n;
+            while ((n = body.read(buf)) > 0) out.write(buf, 0, n);
+          } finally {
+            Ssdp.closeQuietly(body);
+          }
+        }
+        out.flush();
+        conn.disconnect();
+        return;
+      } catch (IOException e) {
+        last = e;
+        if (conn != null) conn.disconnect();
+      }
+    }
+    Log.w(TAG, "cover fetch failed: " + last + " " + url);
+    writeText(out, 502, "Bad Gateway", "cover fetch failed");
+  }
+
+  /** 本地封面（content:// / file:// / 绝对路径）：本地音乐投屏时电视看不到手机文件，只能由我们读出来再转发 */
+  private void serveLocalCover(String rawPath, String method, OutputStream out) throws IOException {
+    InputStream stream = null;
+    long total = -1;
+    String contentType = null;
+    try {
+      if (rawPath.startsWith("content://")) {
+        android.net.Uri uri = android.net.Uri.parse(rawPath);
+        String type = context.getContentResolver().getType(uri);
+        if (type != null && type.startsWith("image/")) contentType = type;
+        android.content.res.AssetFileDescriptor fd = context.getContentResolver().openAssetFileDescriptor(uri, "r");
+        if (fd != null) {
+          total = fd.getLength();
+          stream = fd.createInputStream();
+        }
+      } else {
+        File file = new File(rawPath.startsWith("file://") ? rawPath.substring(7) : rawPath);
+        if (file.exists()) {
+          total = file.length();
+          stream = new FileInputStream(file);
+        }
+      }
+      if (contentType == null) contentType = contentTypeFor(rawPath);
+      if (contentType == null || !contentType.startsWith("image/")) {
+        String lower = rawPath.toLowerCase(Locale.US);
+        if (lower.contains(".png")) contentType = "image/png";
+        else if (lower.contains(".webp")) contentType = "image/webp";
+        else contentType = "image/jpeg";
+      }
+      if (stream == null) {
+        writeText(out, 404, "Not Found", "cover not found");
+        return;
+      }
+      StringBuilder head = new StringBuilder();
+      head.append("HTTP/1.1 200 OK\r\n");
+      head.append("Content-Type: ").append(contentType).append("\r\n");
+      if (total >= 0) head.append("Content-Length: ").append(total).append("\r\n");
+      head.append("Cache-Control: max-age=600\r\n");
+      head.append("Connection: close\r\n\r\n");
+      out.write(head.toString().getBytes(StandardCharsets.UTF_8));
+      if (!"HEAD".equalsIgnoreCase(method)) {
+        byte[] buf = new byte[16 * 1024];
+        int n;
+        while ((n = stream.read(buf)) > 0) out.write(buf, 0, n);
+      }
+      out.flush();
+    } finally {
+      Ssdp.closeQuietly(stream);
     }
   }
 

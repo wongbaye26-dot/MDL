@@ -232,5 +232,6 @@ export const castControl = (action: 'play' | 'pause' | 'stop' | 'seek' | 'volume
 /** 当前歌曲的封面地址：只有 http(s) 才给电视（本地图片电视拉不到） */
 export const castCoverUrl = () => {
   const pic = playerState.musicInfo.pic
-  return pic && /^https?:\/\//.test(pic) ? pic : ''
+  // 本地音乐的封面是 content:// 或 file://，电视访问不到，交给原生代理转一手
+  return typeof pic == 'string' ? pic : ''
 }

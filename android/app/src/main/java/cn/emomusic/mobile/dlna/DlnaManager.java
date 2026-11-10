@@ -28,7 +28,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * 设计上只做「一台电视一个会话」，够用且状态简单：连接时起本地 HTTP 服务，
  * 断开时停掉服务并清空状态。
  */
-final class DlnaManager {
+public final class DlnaManager {
   private static final String TAG = "EmoDlna";
 
   static final String EVENT_DEVICES = "DlnaDevices";
@@ -57,8 +57,24 @@ final class DlnaManager {
   private String lastLoggedState = "";
   private long lastPollLogAt = 0;
 
+  /** MainActivity 拦截音量键时用它（同一时间只有一个投屏会话） */
+  @Nullable
+  static DlnaManager active;
+
+  public static boolean isCastingNow() {
+    DlnaManager manager = active;
+    return manager != null && manager.casting;
+  }
+
+  /** 手机音量键：把 ± 步进直接打到电视的 RenderingControl 上，返回调整后的电视音量（0-100，非投屏返回 -1） */
+  public static int nudgeVolume(int delta) {
+    DlnaManager manager = active;
+    return manager != null ? manager.adjustVolume(delta) : -1;
+  }
+
   DlnaManager(ReactApplicationContext context) {
     this.context = context;
+    active = this;
   }
 
   // ───────────────────────── 搜索 ─────────────────────────
@@ -115,6 +131,7 @@ final class DlnaManager {
         activeDevice = device;
         localIp = MediaServer.localIpv4();
         casting = false;
+        readTvVolume();
         Log.i(TAG, "connected " + device.name + " media server port " + port + " ip " + localIp);
         emitConnection(true, device);
       } catch (IOException e) {
@@ -143,6 +160,49 @@ final class DlnaManager {
     });
   }
 
+  private void readTvVolume() {
+    UpnpDevice device = activeDevice;
+    if (device == null || device.renderingControl == null) return;
+    worker.execute(() -> {
+      try {
+        String response = Soap.invoke(device.renderingControl, Soap.RENDERING_CONTROL, "GetVolume",
+          "<InstanceID>0</InstanceID><Channel>Master</Channel>");
+        String text = Soap.value(response, "CurrentVolume");
+        if (text != null) volume = Math.max(0, Math.min(100, (int) Double.parseDouble(text)));
+        Log.i(TAG, "tv volume " + volume);
+      } catch (Exception e) {
+        Log.w(TAG, "read tv volume failed: " + e);
+      }
+    });
+  }
+
+  /** 手机音量键 +5 / -5，直接改电视音量，并把百分比冒泡到 JS 用来提示 */
+  private int adjustVolume(int delta) {
+    UpnpDevice device = activeDevice;
+    if (device == null || device.renderingControl == null) return -1;
+    int next = Math.max(0, Math.min(100, volume + delta));
+    if (next == volume) return volume;
+    volume = next;
+    main.post(() -> emitVolume(volume));
+    worker.execute(() -> {
+      try {
+        Soap.invoke(device.renderingControl, Soap.RENDERING_CONTROL, "SetVolume",
+          "<InstanceID>0</InstanceID><Channel>Master</Channel><DesiredVolume>" + volume + "</DesiredVolume>");
+      } catch (Exception e) {
+        Log.w(TAG, "set tv volume failed: " + e);
+      }
+    });
+    return volume;
+  }
+
+  private void emitVolume(int value) {
+    WritableMap payload = Arguments.createMap();
+    payload.putInt("volume", value);
+    try {
+      context.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class).emit("DlnaVolume", payload);
+    } catch (Exception ignored) {}
+  }
+
   // ───────────────────────── 投屏 ─────────────────────────
 
   /**
@@ -167,7 +227,12 @@ final class DlnaManager {
         }
         String streamUrl = "http://" + ip + ":" + mediaServer.getPort() + "/cast?u="
           + URLEncoder.encode(url, "UTF-8") + "&d=" + Math.max(1, (long) durationSec);
-        String metadata = buildMetadata(streamUrl, MediaServer.mimeOf(context, url), title, artist, album, coverUrl, durationSec);
+        // 封面统一走手机代理：在线图避免 Referer/UA 被拒，本地图电视根本访问不到
+        String coverProxy = coverUrl;
+        if (coverUrl != null && !coverUrl.isEmpty()) {
+          coverProxy = "http://" + ip + ":" + mediaServer.getPort() + "/cover?u=" + URLEncoder.encode(coverUrl, "UTF-8");
+        }
+        String metadata = buildMetadata(streamUrl, MediaServer.mimeOf(context, url), title, artist, album, coverProxy, durationSec);
         String args = instanceArgs()
           + "<CurrentURI>" + escape(streamUrl) + "</CurrentURI>"
           + "<CurrentURIMetaData>" + escape(metadata) + "</CurrentURIMetaData>";

@@ -513,9 +513,16 @@ export const resumeLocalPlayback = async() => {
   if (!musicInfo) return
   const position = castLastPosition()
   await handlePlay().catch((err: unknown) => { log.error(err) })
-  if (position > 0 && musicInfo.id == playerState.playMusicInfo.musicInfo?.id) {
-    void setCurrentTime(position)
+  if (position <= 0) return
+  if (musicInfo.id != playerState.playMusicInfo.musicInfo?.id) return
+  // 本地播放器刚起播时 seek 会被丢掉（资源还没准备好），等时长回来再拖到电视那句话
+  for (let i = 0; i < 30; i++) {
+    if (playerState.progress.maxPlayTime > 0) break
+    await sleep(100)
   }
+  if (musicInfo.id != playerState.playMusicInfo.musicInfo?.id) return
+  setNowPlayTime(position)
+  void setCurrentTime(position)
 }
 
 const debouncePlay = debounceBackgroundTimer((musicInfo: LX.Player.PlayMusic) => {

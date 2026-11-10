@@ -2,8 +2,10 @@ package cn.emomusic.mobile;
 
 import android.os.Build;
 import android.os.Bundle;
+import android.view.KeyEvent;
 import android.view.View;
 import android.view.WindowManager;
+import android.widget.Toast;
 
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
@@ -12,6 +14,7 @@ import androidx.core.view.WindowInsetsCompat;
 
 import com.reactnativenavigation.NavigationActivity;
 
+import cn.emomusic.mobile.dlna.DlnaManager;
 import cn.emomusic.mobile.utils.UtilsModule;
 
 public class MainActivity extends NavigationActivity {
@@ -90,5 +93,27 @@ public class MainActivity extends NavigationActivity {
     });
 
     ViewCompat.requestApplyInsets(content);
+  }
+
+  /**
+   * 投屏中把音量键转给电视。
+   *
+   * 投屏时音频是电视在放，手机的媒体音量对它没有任何影响，所以这里直接吞掉
+   * VOLUME_UP / VOLUME_DOWN，走 RenderingControl.SetVolume 调电视音量，并 Toast 提示。
+   * 没投屏时原样交给系统，保持系统音量条的默认行为。
+   */
+  @Override
+  public boolean dispatchKeyEvent(KeyEvent event) {
+    if (event.getAction() == KeyEvent.ACTION_DOWN) {
+      int keyCode = event.getKeyCode();
+      if (keyCode == KeyEvent.KEYCODE_VOLUME_UP || keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
+        if (DlnaManager.isCastingNow()) {
+          int volume = DlnaManager.nudgeVolume(keyCode == KeyEvent.KEYCODE_VOLUME_UP ? 5 : -5);
+          if (volume >= 0) Toast.makeText(this, "电视音量 " + volume + "%", Toast.LENGTH_SHORT).show();
+          return true;
+        }
+      }
+    }
+    return super.dispatchKeyEvent(event);
   }
 }
